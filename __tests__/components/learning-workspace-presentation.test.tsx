@@ -23,7 +23,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Mặt sau thẻ: chọn bố cục căn giữa (giống thẻ ôn D6) khi vừa khung cố định, bố cục đọc cuộn khi tràn; đo lại khi đổi kích thước; mặt active và nội dung đọc được giống nhau ở cả hai.
 // - LF1 (AC3): bước "Từ vựng" theo kết quả server cả hai chiều; sau một lần Lại, lối tắt "Tới Bài tập" vẫn còn (điều hướng không đổi) và, khi rời giai đoạn mà server vẫn báo chưa xong, dòng các bước không còn ghi "đã xong".
 // - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật và không phải điều khiển; danh sách chương mở theo yêu cầu.
-// - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`).
+// - Kết quả verify gần nhất: 23/23 passed (2026-10-10) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`.
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
 vi.mock("@/app/actions/review", () => ({ submitCardReview: vi.fn() }));

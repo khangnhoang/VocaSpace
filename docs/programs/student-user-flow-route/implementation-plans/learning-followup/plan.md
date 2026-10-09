@@ -56,7 +56,7 @@ Outcome:
 - 2026-10-10: the correct-answer explanation is shown in exercises only; the memory-check UI is unchanged.
 - 2026-10-10: learner Data API writes stay as they are. L1 already derives correctness and limits writes to enrolled, published, active targets. A direct write therefore gains nothing over the UI, except writing exercise answers before the memory check passes. That bypass is recorded as a new open problem and is not part of this unit.
 - To record during CP1: Decision 25 in the master plan, which refines the flashcard part of Decision 14 to these rules.
-- Pending before merge (does not block implementation): the Owner accepts the fail-closed rollout window in section 5, or chooses another rollout. The window starts when the merged app serves traffic, so merge waits for this acceptance.
+- 2026-10-10: the Owner accepted the fail-closed rollout window in section 5 (merge, wait for the deployment to be READY, then push the migration at once). Merge and the hosted migration push are still separate Owner grants.
 
 ## 2. Repository facts
 
