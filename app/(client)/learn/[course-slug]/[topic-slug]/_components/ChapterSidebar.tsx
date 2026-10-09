@@ -28,20 +28,19 @@ export default function ChapterSidebar({
   completedTopicIds,
 }: ChapterSidebarProps) {
   return (
-    <div className="animate-in space-y-4 fade-in duration-300">
-      <h3 className="text-lg font-bold text-slate-900">Duyệt chương học</h3>
+    <div>
       <Accordion
         type="single"
         collapsible
         value={expandedChapter}
         onValueChange={setExpandedChapter}
-        className="mt-4 w-full space-y-3"
+        className="w-full space-y-3"
       >
         {syllabus.map((chapter) => (
           <AccordionItem
             key={chapter.id}
             value={chapter.id}
-            className="rounded-xl border border-slate-200 bg-white px-4 transition-colors hover:border-emerald-300 data-[state=open]:border-emerald-400"
+            className="rounded-lg border border-slate-200 bg-white px-4 transition-[border-color] duration-[120ms] hover:border-slate-300 data-[state=open]:border-route-line"
           >
             <AccordionTrigger className="py-4 hover:no-underline">
               <span className="text-sm font-bold text-slate-800">
@@ -58,32 +57,32 @@ export default function ChapterSidebar({
                       key={topic.id}
                       href={`/learn/${courseSlug}/${topic.slug}`}
                       aria-current={isActive ? "page" : undefined}
-                      className={`group flex w-full items-center justify-between rounded-lg border p-3 text-left transition-all ${
+                      className={`group flex min-h-11 w-full items-center justify-between rounded-lg border p-3 text-left transition-[background-color,border-color] duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route ${
                         isActive
-                          ? "border-emerald-200 bg-emerald-50 shadow-sm"
+                          ? "border-route-line bg-route-quiet"
                           : "border-transparent bg-transparent hover:bg-slate-50"
                       }`}
                     >
-                      <span className="flex items-center gap-3">
+                      <span className="flex min-w-0 items-center gap-3">
                         {isCompleted ? (
                           <CheckCircle2
                             aria-hidden="true"
-                            className="size-4 shrink-0 text-green-700"
+                            className="size-4 shrink-0 text-growth"
                           />
                         ) : (
                           <PlayCircle
                             aria-hidden="true"
-                            className={`size-4 shrink-0 transition-colors ${
+                            className={`size-4 shrink-0 transition-colors duration-[120ms] ${
                               isActive
-                                ? "text-emerald-500"
-                                : "text-slate-400 group-hover:text-emerald-500"
+                                ? "text-route"
+                                : "text-slate-500 group-hover:text-route"
                             }`}
                           />
                         )}
                         <span
                           className={`text-sm ${
                             isActive
-                              ? "font-bold text-emerald-700"
+                              ? "font-bold text-route"
                               : "font-medium text-slate-700"
                           }`}
                         >

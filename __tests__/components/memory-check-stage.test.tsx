@@ -253,7 +253,7 @@ describe("D3 memory check stage", () => {
       error: "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.",
       errorCode: "MEMORY_CHECK_REQUIRED",
     });
-    fireEvent.click(screen.getByRole("button", { name: /Lựa chọn/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Lựa chọn/ }));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
     });

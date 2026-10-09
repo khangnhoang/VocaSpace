@@ -1,20 +1,28 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  BookOpenText,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ListTodo,
   Lock,
+  RotateCcw,
 } from "lucide-react";
 import { Rating } from "ts-fsrs";
 import { toast } from "sonner";
 import { submitCardReview } from "@/app/actions/review";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
 import type {
   ExerciseDTO,
@@ -28,10 +36,12 @@ import ChapterSidebar from "./ChapterSidebar";
 import ExerciseContext from "./ExerciseContext";
 import FlashcardStage from "./FlashcardStage";
 import MemoryCheckStage from "./MemoryCheckStage";
-import QuizSidebar from "./QuizSidebar";
+import QuestionResponse from "./QuestionResponse";
+import { arrangeMaterial } from "./exercise-arrangement";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
 type LearningStage = "flashcard" | "memory" | "exercise";
+type StepState = "current" | "done" | "locked" | "upcoming";
 
 type ExerciseSegment = QuestionGroupDTO & { isStandalone: boolean };
 
@@ -60,6 +70,67 @@ function exerciseSegments(exercise: ExerciseDTO | undefined): ExerciseSegment[] 
     },
     ...groups,
   ];
+}
+
+const STEP_STATE_TEXT: Record<StepState, string> = {
+  current: "đang học",
+  done: "đã xong",
+  locked: "đang khóa",
+  upcoming: "chưa mở",
+};
+
+/**
+ * Progress thread of the stages this topic really has. It reports state with
+ * words and icons and is not a control, so it cannot bypass a server gate.
+ */
+function StageThread({
+  steps,
+}: {
+  steps: Array<{ key: LearningStage; label: string; state: StepState }>;
+}) {
+  return (
+    <ol aria-label="Các bước của bài học" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      {steps.map((step, index) => (
+        <li
+          key={step.key}
+          aria-current={step.state === "current" ? "step" : undefined}
+          className={`flex items-center gap-2 text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
+            step.state === "current"
+              ? "font-bold text-slate-900"
+              : step.state === "done"
+                ? "font-semibold text-slate-700"
+                : "font-medium text-slate-600"
+          }`}
+        >
+          {index > 0 && (
+            <span aria-hidden="true" className="h-px w-4 bg-slate-300 sm:w-6" />
+          )}
+          <span
+            aria-hidden="true"
+            className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors duration-[220ms] motion-reduce:transition-none ${
+              step.state === "current"
+                ? "border-route bg-route text-white"
+                : step.state === "done"
+                  ? "border-growth-line bg-growth-quiet text-growth"
+                  : "border-slate-300 bg-white text-slate-600"
+            }`}
+          >
+            {step.state === "done" ? (
+              <CheckCircle2 className="size-4" />
+            ) : step.state === "locked" ? (
+              <Lock className="size-3" />
+            ) : (
+              index + 1
+            )}
+          </span>
+          <span>
+            {step.label}
+            <span className="sr-only"> ({STEP_STATE_TEXT[step.state]})</span>
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 const MEMORY_LOCK_REASON =
@@ -92,9 +163,6 @@ export default function LearningWorkspace({
           ? "exercise"
           : "flashcard";
 
-  const [activeTab, setActiveTab] = useState<"quiz" | "chapters">(
-    initialStage === "exercise" ? "quiz" : "chapters",
-  );
   const [learningStage, setLearningStage] =
     useState<LearningStage>(initialStage);
   const [memoryPassed, setMemoryPassed] = useState(isMemoryCheckPassed);
@@ -118,8 +186,14 @@ export default function LearningWorkspace({
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isChainEnded, setIsChainEnded] = useState(false);
+  // How the learner reached the current question: drives the entrance direction
+  // and whether the new question heading takes focus.
+  const [entry, setEntry] = useState<{
+    direction: "next" | "previous" | "none";
+    focus: boolean;
+  }>({ direction: "none", focus: false });
+  const planeRef = useRef<HTMLElement>(null);
 
   const flatLessons = useMemo(
     () => syllabus.flatMap((chapter) => chapter.topics),
@@ -153,7 +227,6 @@ export default function LearningWorkspace({
 
   const goToStage = (stage: LearningStage) => {
     setLearningStage(stage);
-    setActiveTab(stage === "exercise" ? "quiz" : "chapters");
   };
 
   const skipToQuiz = () => goToStage("exercise");
@@ -164,6 +237,11 @@ export default function LearningWorkspace({
     setMemoryPassed(false);
     goToStage("memory");
     toast.error(MEMORY_LOCK_REASON);
+  };
+
+  const restartFlashcards = () => {
+    setLearningQueue(flashcards);
+    setIsFlipped(false);
   };
 
   const handleRateCard = (rating: Rating) => {
@@ -257,16 +335,16 @@ export default function LearningWorkspace({
   const goToFirstRemainingQuestion = () => {
     const [first] = remainingQuestions;
     if (!first) return;
-    setSelectedOption(null);
     setIsChainEnded(false);
+    setEntry({ direction: "next", focus: true });
     setCurrentExerciseIndex(first.exerciseIndex);
     setCurrentGroupIndex(first.groupIndex);
     setCurrentQuestionIndex(first.questionIndex);
   };
 
   const handleNextQuestion = () => {
-    setSelectedOption(null);
     setIsChainEnded(false);
+    setEntry({ direction: "next", focus: true });
     if (currentQuestionIndex < sortedQuestions.length - 1) {
       setCurrentQuestionIndex((current) => current + 1);
     } else if (currentGroupIndex < sortedGroups.length - 1) {
@@ -284,8 +362,8 @@ export default function LearningWorkspace({
   };
 
   const handlePrevQuestion = () => {
-    setSelectedOption(null);
     setIsChainEnded(false);
+    setEntry({ direction: "previous", focus: true });
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex((current) => current - 1);
     } else if (currentGroupIndex > 0) {
@@ -317,218 +395,299 @@ export default function LearningWorkspace({
       setLearningStage("flashcard");
       setLearningQueue(flashcards);
       setIsFlipped(false);
-      setActiveTab("chapters");
     }
   };
 
+  const groupKey =
+    learningStage === "exercise" && currentGroup
+      ? `${currentExercise?.id}:${currentGroup.id}`
+      : null;
+  const previousGroupKey = useRef(groupKey);
+  useEffect(() => {
+    if (previousGroupKey.current === groupKey) return;
+    previousGroupKey.current = groupKey;
+    if (!groupKey) return;
+    // Only a real group boundary re-orients the page, and only when the new
+    // material starts above the viewport. Selection and feedback never scroll it.
+    const plane = planeRef.current;
+    if (plane && plane.getBoundingClientRect().top < 0) {
+      plane.scrollIntoView?.({ block: "start" });
+    }
+  }, [groupKey]);
+
+  const exerciseQuestionCount = exerciseQuestionPositions.length;
+  const stageSteps: Array<{ key: LearningStage; label: string; state: StepState }> = [];
+  if (flashcards.length > 0) {
+    stageSteps.push({
+      key: "flashcard",
+      label: "Từ vựng",
+      state: learningStage === "flashcard" ? "current" : canSkipToQuiz ? "done" : "upcoming",
+    });
+  }
+  if (memoryCheck) {
+    stageSteps.push({
+      key: "memory",
+      label: "Memory check",
+      state: learningStage === "memory" ? "current" : memoryPassed ? "done" : "upcoming",
+    });
+  }
+  if (exercises.length > 0) {
+    stageSteps.push({
+      key: "exercise",
+      label: "Bài tập",
+      state: exercisesLocked
+        ? "locked"
+        : learningStage === "exercise"
+          ? "current"
+          : exerciseQuestionCount > 0 && remainingQuestions.length === 0
+            ? "done"
+            : "upcoming",
+    });
+  }
+
+  const arrangement =
+    currentExercise && currentGroup
+      ? arrangeMaterial(currentExercise.part_type, currentGroup, currentGroup.isStandalone)
+      : null;
+  const hasMaterial =
+    arrangement !== null && (arrangement.kinds.length > 0 || arrangement.missing.length > 0);
+  const isSplit = hasMaterial && arrangement.layout === "split";
+  const chapterTitle = syllabus.find((chapter) => chapter.id === currentTopic.chapterId)?.title;
+
+  const renderExercise = () => {
+    if (isChainEnded) {
+      const allAnswered = remainingQuestions.length === 0;
+      return (
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+          <div
+            role="status"
+            className={`flex flex-col gap-3 rounded-lg border p-5 text-slate-900 ${
+              allAnswered
+                ? "border-growth-line bg-growth-quiet"
+                : "border-attention-line bg-attention-quiet"
+            }`}
+          >
+            {allAnswered ? (
+              <p className="font-bold">Bạn đã trả lời đúng hết bài tập.</p>
+            ) : (
+              <p className="font-bold">
+                Còn {remainingQuestions.length} câu chưa trả lời đúng
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {!allAnswered && (
+              <Button size="lg" onClick={goToFirstRemainingQuestion}>
+                Làm câu còn thiếu
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsChainEnded(false);
+                setEntry({ direction: "previous", focus: true });
+              }}
+            >
+              <ChevronLeft aria-hidden="true" />
+              Xem lại câu cuối
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (!currentExercise || !currentGroup || !currentQuestion || !arrangement) {
+      return (
+        <p className="text-center text-slate-600">
+          Bài tập này chưa có câu hỏi để làm.
+        </p>
+      );
+    }
+
+    return (
+      <div className="flex min-w-0 flex-col gap-5">
+        <p className="text-sm font-semibold text-slate-600">{currentExercise.title}</p>
+        <div
+          className={
+            isSplit
+              ? `grid min-w-0 items-start gap-6 lg:gap-8 ${
+                  arrangement.dominant === "image"
+                    ? "lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]"
+                    : "lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]"
+                }`
+              : "mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-5"
+          }
+        >
+          {hasMaterial && (
+            <div
+              key={`${currentExercise.id}:${currentGroup.id}`}
+              className={`min-w-0 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[240ms] ${
+                isSplit ? "lg:sticky lg:top-4" : ""
+              }`}
+            >
+              <ExerciseContext
+                group={currentGroup}
+                arrangement={arrangement}
+                enlargeableImage={currentExercise.part_type === "part1"}
+              />
+            </div>
+          )}
+          <div className="min-w-0">
+            <QuestionResponse
+              key={currentQuestion.id}
+              question={currentQuestion}
+              options={sortedOptions}
+              questionNumber={currentQuestionIndex + 1}
+              totalQuestions={sortedQuestions.length}
+              groupPosition={groupPosition}
+              savedOptionId={userAnswers[currentQuestion.id]}
+              direction={entry.direction}
+              focusOnEntry={entry.focus}
+              onPrevious={handlePrevQuestion}
+              onNext={handleNextQuestion}
+              onCorrectAnswer={(questionId, optionId) =>
+                setUserAnswers((current) => ({
+                  ...current,
+                  [questionId]: optionId,
+                }))
+              }
+              onTopicCompleted={markTopicCompleted}
+              onMemoryCheckRequired={returnToMemoryCheck}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStage = () => {
+    if (flashcards.length === 0 && exercises.length === 0 && !memoryCheck) {
+      return (
+        <div className="text-center text-slate-600" role="status">
+          <h2 className="mb-2 text-2xl font-bold">Bài học này chưa có nội dung</h2>
+        </div>
+      );
+    }
+    if (learningStage === "memory" && memoryCheck) {
+      return (
+        <div className="mx-auto flex w-full justify-center">
+          <MemoryCheckStage
+            questions={memoryCheck.questions}
+            initiallyCorrectIds={memoryCheck.questions
+              .filter((question) => userAnswers[question.id])
+              .map((question) => question.id)}
+            isPassed={memoryPassed}
+            hasExercises={exercises.length > 0}
+            onCorrectAnswer={(questionId, optionId) =>
+              setUserAnswers((current) => ({
+                ...current,
+                [questionId]: optionId,
+              }))
+            }
+            onPassed={() => {
+              setMemoryPassed(true);
+              if (exercises.length > 0) goToStage("exercise");
+            }}
+            onGoToExercises={() => goToStage("exercise")}
+            onTopicCompleted={markTopicCompleted}
+          />
+        </div>
+      );
+    }
+    if (learningStage === "exercise" && exercisesLocked) {
+      return (
+        <section
+          role="status"
+          className="mx-auto flex max-w-md flex-col items-center gap-4 text-center"
+        >
+          <Lock aria-hidden="true" className="size-10 text-attention" />
+          <h2 className="text-xl font-bold text-slate-900">Bài tập đang khóa</h2>
+          <p className="text-slate-700">{MEMORY_LOCK_REASON}</p>
+          <Button onClick={() => goToStage("memory")} size="lg" className="px-8">
+            Làm memory check
+          </Button>
+        </section>
+      );
+    }
+    if (learningStage === "flashcard") {
+      if (learningQueue.length === 0) {
+        return (
+          <section
+            aria-labelledby="flashcards-done-title"
+            className="mx-auto flex max-w-md flex-col items-center gap-4 text-center"
+          >
+            <CheckCircle2 aria-hidden="true" className="size-10 text-growth" />
+            <h2 id="flashcards-done-title" className="text-xl font-bold text-slate-900">
+              Bạn đã ôn xong từ vựng
+            </h2>
+            <Button variant="outline" size="lg" onClick={restartFlashcards}>
+              <RotateCcw aria-hidden="true" />
+              Ôn lại từ vựng
+            </Button>
+          </section>
+        );
+      }
+      return (
+        <FlashcardStage
+          currentCard={learningQueue[0]}
+          cardsLeft={learningQueue.length}
+          totalCards={flashcards.length}
+          isFlipped={isFlipped}
+          setIsFlipped={setIsFlipped}
+          handleRateCard={handleRateCard}
+          isPending={isPending}
+        />
+      );
+    }
+    return renderExercise();
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 p-4 font-sans md:p-8">
-      <div className="max-w-8xl mx-auto flex flex-col gap-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
-          <main className="flex min-h-150 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:col-span-7">
-            <div className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-6 py-3">
-              <div className="flex min-w-0 items-center gap-4">
-                <Link
-                  href={`/learn/${courseSlug}`}
-                  aria-label={`Về tổng quan khóa học ${courseTitle}`}
-                  className="rounded-lg p-1 text-slate-400 transition-colors hover:text-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                >
-                  <ArrowLeft aria-hidden="true" className="size-5" />
-                </Link>
-                <div className="flex min-w-0 flex-col">
-                  <span
-                    title={courseTitle}
-                    className="max-w-50 truncate text-[10px] font-black uppercase tracking-widest text-emerald-600 md:max-w-md"
-                  >
-                    {courseTitle}
+    <div className="min-h-screen bg-slate-50 px-3 py-4 font-sans min-[400px]:px-4 md:px-6 md:py-8">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-5">
+        <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <Link
+              href={`/learn/${courseSlug}`}
+              aria-label={`Về tổng quan khóa học ${courseTitle}`}
+              className="-ml-1 mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors duration-[120ms] hover:bg-white hover:text-route focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:size-9"
+            >
+              <ArrowLeft aria-hidden="true" className="size-5" />
+            </Link>
+            <div className="flex min-w-0 flex-col gap-1">
+              <p title={courseTitle} className="truncate text-sm font-medium text-slate-600">
+                {courseTitle}
+                {chapterTitle ? ` · ${chapterTitle}` : ""}
+              </p>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                <h1 className="min-w-0 break-words text-xl font-bold leading-snug text-slate-900 [overflow-wrap:anywhere] md:text-2xl">
+                  {currentTopic.title}
+                </h1>
+                {isTopicCompleted && (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-growth-line bg-growth-quiet px-2 py-0.5 text-sm font-bold text-growth">
+                    <CheckCircle2 aria-hidden="true" className="size-4" />
+                    Đã hoàn thành
                   </span>
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-                    <h1 className="max-w-50 truncate text-sm font-bold text-slate-700 md:max-w-md">
-                      {currentTopic.title}
-                    </h1>
-                    {isTopicCompleted && (
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-sm font-bold text-green-800">
-                        <CheckCircle2 aria-hidden="true" className="size-4 text-green-700" />
-                        Đã hoàn thành
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {learningStage === "exercise" && memoryCheck ? (
-                  <Button
-                    onClick={() => goToStage("memory")}
-                    variant="outline"
-                    size="sm"
-                    className="min-h-11 rounded-xl border-slate-200 font-medium text-slate-600 shadow-sm hover:bg-white sm:min-h-9"
-                  >
-                    <ChevronLeft aria-hidden="true" className="size-4" />
-                    Về Memory check
-                  </Button>
-                ) : learningStage !== "flashcard" && flashcards.length > 0 ? (
-                  <Button
-                    onClick={backToFlashcard}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl border-slate-200 font-medium text-slate-600 shadow-sm hover:bg-white"
-                  >
-                    <ChevronLeft aria-hidden="true" className="size-4" />
-                    Về Từ vựng
-                  </Button>
-                ) : null}
-                {learningStage === "flashcard" &&
-                  canSkipToQuiz &&
-                  nextStageAfterFlashcards === "memory" && (
-                    <Button
-                      onClick={() => goToStage("memory")}
-                      variant="outline"
-                      size="sm"
-                      className="min-h-11 rounded-xl border-emerald-200 font-bold text-emerald-600 shadow-sm hover:bg-emerald-50 sm:min-h-9"
-                    >
-                      Tới Memory check
-                      <ChevronRight aria-hidden="true" className="size-4" />
-                    </Button>
-                  )}
-                {learningStage !== "exercise" &&
-                  exercises.length > 0 &&
-                  (learningStage === "memory" ||
-                    (canSkipToQuiz && !exercisesLocked)) && (
-                    <Button
-                      onClick={skipToQuiz}
-                      variant="outline"
-                      size="sm"
-                      className="animate-in rounded-xl border-emerald-200 font-bold text-emerald-600 shadow-sm fade-in hover:bg-emerald-50"
-                    >
-                      {exercisesLocked && (
-                        <Lock aria-hidden="true" className="size-4" />
-                      )}
-                      Tới Bài tập
-                      <ChevronRight aria-hidden="true" className="size-4" />
-                    </Button>
-                  )}
-              </div>
-            </div>
-
-            <div className="relative flex flex-1 flex-col items-center justify-center bg-slate-50/30 p-6 md:p-10">
-              {flashcards.length === 0 &&
-              exercises.length === 0 &&
-              !memoryCheck ? (
-                <div className="text-center text-slate-400" role="status">
-                  <h2 className="mb-2 text-2xl font-bold">
-                    Bài học này chưa có nội dung
-                  </h2>
-                </div>
-              ) : learningStage === "memory" && memoryCheck ? (
-                <MemoryCheckStage
-                  questions={memoryCheck.questions}
-                  initiallyCorrectIds={memoryCheck.questions
-                    .filter((question) => userAnswers[question.id])
-                    .map((question) => question.id)}
-                  isPassed={memoryPassed}
-                  hasExercises={exercises.length > 0}
-                  onCorrectAnswer={(questionId, optionId) =>
-                    setUserAnswers((current) => ({
-                      ...current,
-                      [questionId]: optionId,
-                    }))
-                  }
-                  onPassed={() => {
-                    setMemoryPassed(true);
-                    if (exercises.length > 0) goToStage("exercise");
-                  }}
-                  onGoToExercises={() => goToStage("exercise")}
-                  onTopicCompleted={markTopicCompleted}
-                />
-              ) : learningStage === "exercise" && exercisesLocked ? (
-                <section
-                  role="status"
-                  className="flex max-w-md flex-col items-center gap-4 text-center"
-                >
-                  <Lock aria-hidden="true" className="size-10 text-slate-400" />
-                  <h2 className="text-xl font-bold text-slate-800">
-                    Bài tập đang khóa
-                  </h2>
-                  <p className="text-slate-600">{MEMORY_LOCK_REASON}</p>
-                  <Button
-                    onClick={() => goToStage("memory")}
-                    className="min-h-11 rounded-xl bg-slate-800 px-8 font-bold text-white hover:bg-slate-900"
-                  >
-                    Làm memory check
-                  </Button>
-                </section>
-              ) : learningStage === "flashcard" ? (
-                <FlashcardStage
-                  currentCard={learningQueue[0]}
-                  cardsLeft={learningQueue.length}
-                  totalCards={flashcards.length}
-                  isFlipped={isFlipped}
-                  setIsFlipped={setIsFlipped}
-                  handleRateCard={handleRateCard}
-                  isPending={isPending}
-                />
-              ) : (
-                <ExerciseContext
-                  currentExercise={currentExercise}
-                  currentGroup={currentGroup}
-                  isStandalone={currentGroup?.isStandalone ?? false}
-                />
-              )}
-            </div>
-          </main>
-
-          <aside className="sticky top-4 flex h-fit max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:col-span-3">
-            <div className="flex shrink-0 items-center justify-center gap-4 border-b border-slate-100 bg-slate-50/50 p-4">
-              <Button
-                onClick={() => setActiveTab("quiz")}
-                variant={activeTab === "quiz" ? "default" : "outline"}
-                aria-label="Mở phần câu hỏi"
-                className={`rounded-xl px-8 transition-all ${activeTab === "quiz" ? "bg-emerald-500 text-white shadow-md" : "border-emerald-200 text-emerald-600"}`}
-              >
-                <BookOpenText aria-hidden="true" className="size-5" />
-              </Button>
-              <Button
-                onClick={() => setActiveTab("chapters")}
-                variant={activeTab === "chapters" ? "default" : "outline"}
-                aria-label="Mở danh sách chương và bài học"
-                className={`rounded-xl px-8 transition-all ${activeTab === "chapters" ? "bg-emerald-500 text-white shadow-md" : "border-emerald-200 text-emerald-600"}`}
-              >
-                <ListTodo aria-hidden="true" className="size-5" />
-              </Button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {activeTab === "quiz" &&
-                learningStage === "exercise" &&
-                !exercisesLocked &&
-                isChainEnded && (
-                  <div
-                    role="status"
-                    className={`mb-6 flex flex-col gap-3 rounded-xl border p-4 ${
-                      remainingQuestions.length > 0
-                        ? "border-amber-200 bg-amber-50 text-amber-900"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-900"
-                    }`}
-                  >
-                    {remainingQuestions.length > 0 ? (
-                      <>
-                        <p className="font-bold">
-                          Còn {remainingQuestions.length} câu chưa trả lời đúng
-                        </p>
-                        <Button
-                          size="lg"
-                          onClick={goToFirstRemainingQuestion}
-                        >
-                          Làm câu còn thiếu
-                        </Button>
-                      </>
-                    ) : (
-                      <p className="font-bold">Bạn đã trả lời đúng hết bài tập.</p>
-                    )}
-                  </div>
                 )}
-              {activeTab === "chapters" ? (
+              </div>
+            </div>
+          </div>
+
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" aria-label="Mở danh sách chương và bài học">
+                <ListTodo aria-hidden="true" />
+                <span className="hidden sm:inline">Danh sách bài học</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+              <SheetHeader>
+                <SheetTitle className="text-lg font-bold">Duyệt chương học</SheetTitle>
+                <SheetDescription className="sr-only">
+                  Chọn bài học khác trong khóa học này.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="px-4 pb-6">
                 <ChapterSidebar
                   courseSlug={courseSlug}
                   syllabus={syllabus}
@@ -537,64 +696,73 @@ export default function LearningWorkspace({
                   currentLessonSlug={currentTopic.slug}
                   completedTopicIds={completedTopicIds}
                 />
-              ) : (
-                <QuizSidebar
-                  learningStage={
-                    learningStage === "exercise" && !exercisesLocked ? 2 : 1
-                  }
-                  lockedMessage={
-                    learningStage === "flashcard"
-                      ? undefined
-                      : MEMORY_LOCK_REASON
-                  }
-                  onMemoryCheckRequired={returnToMemoryCheck}
-                  currentQuestion={currentQuestion}
-                  currentQuestionIndex={currentQuestionIndex}
-                  totalQuestions={sortedQuestions.length}
-                  groupPosition={groupPosition}
-                  sortedOptions={sortedOptions}
-                  selectedOption={selectedOption}
-                  setSelectedOption={setSelectedOption}
-                  handlePrevQuestion={handlePrevQuestion}
-                  handleNextQuestion={handleNextQuestion}
-                  userAnswers={userAnswers}
-                  onCorrectAnswer={(questionId, optionId) =>
-                    setUserAnswers((current) => ({
-                      ...current,
-                      [questionId]: optionId,
-                    }))
-                  }
-                  onTopicCompleted={markTopicCompleted}
-                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </header>
+
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          {stageSteps.length > 0 ? <StageThread steps={stageSteps} /> : <span />}
+
+          <div className="flex flex-wrap items-center gap-2">
+            {learningStage === "exercise" && memoryCheck ? (
+              <Button onClick={() => goToStage("memory")} variant="outline">
+                <ChevronLeft aria-hidden="true" />
+                Về Memory check
+              </Button>
+            ) : learningStage !== "flashcard" && flashcards.length > 0 ? (
+              <Button onClick={backToFlashcard} variant="outline">
+                <ChevronLeft aria-hidden="true" />
+                Về Từ vựng
+              </Button>
+            ) : null}
+            {learningStage === "flashcard" &&
+              canSkipToQuiz &&
+              nextStageAfterFlashcards === "memory" && (
+                <Button onClick={() => goToStage("memory")} variant="outline">
+                  Tới Memory check
+                  <ChevronRight aria-hidden="true" />
+                </Button>
               )}
-            </div>
-          </aside>
+            {learningStage !== "exercise" &&
+              exercises.length > 0 &&
+              (learningStage === "memory" ||
+                (canSkipToQuiz && !exercisesLocked)) && (
+                <Button onClick={skipToQuiz} variant="outline">
+                  {exercisesLocked && <Lock aria-hidden="true" />}
+                  Tới Bài tập
+                  <ChevronRight aria-hidden="true" />
+                </Button>
+              )}
+          </div>
         </div>
+
+        <main
+          ref={planeRef}
+          className="min-w-0 scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
+        >
+          <div
+            key={`${learningStage}:${exercisesLocked}`}
+            className="min-h-64 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-[240ms]"
+          >
+            {renderStage()}
+          </div>
+        </main>
 
         <nav
           aria-label="Điều hướng bài học"
-          className="mt-auto flex flex-wrap items-center justify-center gap-4 border-t border-slate-200/50 p-4 pt-8 sm:p-5"
+          className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-200 pt-5"
         >
           {lessonNeighbors.previous ? (
-            <Button
-              asChild
-              variant="ghost"
-              className="rounded-xl px-4 py-6 font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <Link
-                href={`/learn/${courseSlug}/${lessonNeighbors.previous.slug}`}
-              >
-                <ChevronLeft aria-hidden="true" className="size-5" />
+            <Button asChild variant="ghost" size="lg" className="text-slate-700">
+              <Link href={`/learn/${courseSlug}/${lessonNeighbors.previous.slug}`}>
+                <ChevronLeft aria-hidden="true" />
                 Bài trước
               </Link>
             </Button>
           ) : (
-            <Button
-              disabled
-              variant="ghost"
-              className="rounded-xl px-4 py-6 font-medium text-slate-600"
-            >
-              <ChevronLeft aria-hidden="true" className="size-5" />
+            <Button disabled variant="ghost" size="lg">
+              <ChevronLeft aria-hidden="true" />
               Bài trước
             </Button>
           )}
@@ -613,24 +781,16 @@ export default function LearningWorkspace({
               <Link href={`/learn/${courseSlug}`}>Về tổng quan khóa học</Link>
             </Button>
           ) : lessonNeighbors.next ? (
-            <Button
-              asChild
-              variant="ghost"
-              className="rounded-xl px-4 py-6 font-medium text-slate-600 hover:bg-slate-100"
-            >
+            <Button asChild variant="ghost" size="lg" className="text-slate-700">
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
                 Bài sau
-                <ChevronRight aria-hidden="true" className="size-5" />
+                <ChevronRight aria-hidden="true" />
               </Link>
             </Button>
           ) : (
-            <Button
-              disabled
-              variant="ghost"
-              className="rounded-xl px-4 py-6 font-medium text-slate-600"
-            >
+            <Button disabled variant="ghost" size="lg">
               Bài sau
-              <ChevronRight aria-hidden="true" className="size-5" />
+              <ChevronRight aria-hidden="true" />
             </Button>
           )}
         </nav>

@@ -427,10 +427,13 @@ describe("LearningWorkspace route ownership", () => {
 
     expect(html).toContain("Bài theo URL");
     expect(html).toContain('href="/learn/toeic-foundation"');
-    expect(html).toContain('aria-current="page"');
-    expect(html).toContain('href="/learn/toeic-foundation/topic-two"');
+    // The course outline opens on demand (D8-LUI), so only the neighbor
+    // navigation is in the first paint; the outline links are covered by the
+    // interaction test that opens it.
     expect(html).toContain('href="/learn/toeic-foundation/topic-one"');
     expect(html).toContain("Bài trước");
+    expect(html).toContain('aria-label="Mở danh sách chương và bài học"');
+    expect(html).not.toContain('href="/learn/toeic-foundation/topic-two"');
   });
 
   it("keeps an available topic with no content explicit and stable", () => {
