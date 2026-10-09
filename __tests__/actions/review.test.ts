@@ -8,11 +8,12 @@ import { createClient } from "@/utils/supabase/server";
 // - Loại test: Server Action với Supabase boundary mock.
 // - Đối tượng: submitCardReview.
 // - Case thành công: accessible active card có enrollment tạo/cập nhật FSRS, kể cả legacy metadata, rồi trả `topicProgress` từ RPC `d4_sync_topic_progress`.
+//   - LF1: lần chấm được lưu thành `last_rating` trong cùng một lần ghi với `fsrs_meta`, cho cả insert lẫn update (AC5).
 // - Case thất bại: malformed rating, inaccessible parent, missing enrollment, invalid metadata và mutation error trả safe failure, không sync.
 // - Bảo mật/phân quyền: missing auth, mismatched card/topic/chapter hoặc previewer-only không tạo mutation hay RPC.
 // - Ổn định/resilience: failed mutation không báo success; RPC lỗi sau khi ghi vẫn `success: true` + `progressError`; không ghi thẳng enrollment hoặc topic progress.
 // - Invariant cần giữ: caller chỉ gửi cardId + rating; FSRS scheduling semantics không đổi.
-// - Kết quả verify gần nhất: 7/7 passed (2026-10-02) bằng `npx vitest run __tests__/actions/review.test.ts`.
+// - Kết quả verify gần nhất: xem báo cáo checkpoint LF1 CP1 (`npx vitest run __tests__/actions/review.test.ts`).
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -147,7 +148,7 @@ describe("submitCardReview", () => {
     expect(from.rpc).toHaveBeenCalledTimes(1);
     expect(from.rpc).toHaveBeenCalledWith("d4_sync_topic_progress", { p_topic_id: ids.topic });
     expect(mutation.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: ids.user, card_id: ids.card }),
+      expect.objectContaining({ user_id: ids.user, card_id: ids.card, last_rating: Rating.Good }),
     );
     expect(enrollment.eq).toHaveBeenCalledWith("user_id", ids.user);
     expect(enrollment.eq).toHaveBeenCalledWith("course_id", ids.course);
@@ -216,9 +217,41 @@ describe("submitCardReview", () => {
     expect(mutation.update).toHaveBeenCalledWith(
       expect.objectContaining({
         fsrs_meta: expect.objectContaining({ learning_steps: expect.any(Number) }),
+        last_rating: Rating.Good,
       }),
     );
   });
+
+  it.each([Rating.Again, Rating.Hard, Rating.Good, Rating.Easy])(
+    "saves rating %i with the FSRS state on both the first review and a later one",
+    async (rating) => {
+      const inserted = mutationQuery();
+      mockSupabase({ cards: singleQuery(card), user_flashcards: inserted });
+      await submitCardReview(ids.card, rating);
+      expect(inserted.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          last_rating: rating,
+          fsrs_meta: expect.objectContaining({ reps: expect.any(Number) }),
+        }),
+      );
+
+      const updated = mutationQuery();
+      mockSupabase({
+        cards: singleQuery({
+          ...card,
+          user_flashcards: [{ id: "55555555-5555-4555-8555-555555555555", card_id: ids.card, fsrs_meta: null }],
+        }),
+        user_flashcards: updated,
+      });
+      await submitCardReview(ids.card, rating);
+      expect(updated.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          last_rating: rating,
+          fsrs_meta: expect.objectContaining({ reps: expect.any(Number) }),
+        }),
+      );
+    },
+  );
 
   it("returns a safe failure when the checked FSRS mutation fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);

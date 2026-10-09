@@ -360,6 +360,7 @@ export interface UserFlashcard {
   created_at: string;
   updated_at: string;
   fsrs_meta?: FSRSMeta | null; // Chuẩn hóa Type tường minh
+  last_rating: number; // 1–4 (ts-fsrs Rating); thẻ cũ được backfill 3
 }
 
 // Bảng user_topic_progress

@@ -263,6 +263,7 @@ export async function createD2PreviewBrowserFixture() {
         ease_factor: 2.8,
         interval_days: 7,
         next_review_date: "2026-09-27T12:00:00.000Z",
+        last_rating: 3,
         created_at: learnerStateTimestamp,
         updated_at: learnerStateTimestamp,
         fsrs_meta: {
@@ -284,6 +285,7 @@ export async function createD2PreviewBrowserFixture() {
         ease_factor: 2.4,
         interval_days: 3,
         next_review_date: "2026-09-23T12:00:00.000Z",
+        last_rating: 3,
         created_at: learnerStateTimestamp,
         updated_at: learnerStateTimestamp,
         fsrs_meta: {

@@ -1471,6 +1471,7 @@ insert into public.user_flashcards (
   interval_days,
   next_review_date,
   fsrs_meta,
+  last_rating,
   created_at,
   updated_at
 )
@@ -1483,6 +1484,7 @@ values
     1,
     '2026-07-01 01:00:00+00',
     '{"due":"2026-07-01T01:00:00.000Z","stability":1,"difficulty":5,"elapsed_days":1,"scheduled_days":1,"reps":1,"lapses":0,"state":1,"last_review":"2026-06-30T01:00:00.000Z"}'::jsonb,
+    3,
     '2026-06-30 01:00:00+00',
     '2026-07-01 01:00:00+00'
   ),
@@ -1494,6 +1496,7 @@ values
     7,
     '2026-07-02 02:00:00+00',
     '{"due":"2026-07-02T02:00:00.000Z","stability":4,"difficulty":4,"elapsed_days":7,"scheduled_days":7,"reps":3,"lapses":0,"state":2,"last_review":"2026-06-25T02:00:00.000Z"}'::jsonb,
+    3,
     '2026-06-25 02:00:00+00',
     '2026-07-02 02:00:00+00'
   ),
@@ -1505,6 +1508,7 @@ values
     30000,
     '2099-01-01 03:00:00+00',
     '{"due":"2099-01-01T03:00:00.000Z","stability":2,"difficulty":5,"elapsed_days":1,"scheduled_days":30000,"reps":2,"lapses":1,"state":3,"last_review":"2026-07-09T03:00:00.000Z"}'::jsonb,
+    3,
     '2026-07-09 03:00:00+00',
     '2026-07-09 03:00:00+00'
   )
@@ -1517,7 +1521,8 @@ set
   next_review_date = excluded.next_review_date,
   created_at = excluded.created_at,
   updated_at = excluded.updated_at,
-  fsrs_meta = excluded.fsrs_meta;
+  fsrs_meta = excluded.fsrs_meta,
+  last_rating = excluded.last_rating;
 
 -- B2 QA: bốn reminder active xếp mới nhất trước; payment paid phải bị loại.
 insert into public.payments (

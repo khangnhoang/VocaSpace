@@ -21,6 +21,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Bảo mật/phân quyền: lựa chọn chưa chấm không mang trạng thái đúng/sai; DOM không có đáp án đúng trước khi server trả kết quả.
 // - Ổn định/resilience: bàn phím mũi tên đổi lựa chọn trong radiogroup; Again/Hard xếp lại cuối hàng đợi, ba thẻ cùng chấm Lại/Khó vẫn còn đủ ba thẻ (không báo xong).
 // - Mặt sau thẻ: chọn bố cục căn giữa (giống thẻ ôn D6) khi vừa khung cố định, bố cục đọc cuộn khi tràn; đo lại khi đổi kích thước; mặt active và nội dung đọc được giống nhau ở cả hai.
+// - LF1 (AC3): bước "Từ vựng" theo kết quả server cả hai chiều; sau một lần Lại, lối tắt "Tới Bài tập" biến mất và, khi rời giai đoạn mà server vẫn báo chưa xong, dòng các bước không còn ghi "đã xong".
 // - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật và không phải điều khiển; danh sách chương mở theo yêu cầu.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`).
 
@@ -225,6 +226,63 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(screen.getByText("3 / 3")).not.toBeNull();
       expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
       expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
+    });
+
+    it("stops showing the flashcard step as done once the server reports a later Again", async () => {
+      const finished = { isFlashcardCompleted: true, isExerciseCompleted: false, isTopicCompleted: false };
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA],
+            exercises: [exercise("part5", {})],
+            progress: finished,
+          })}
+        />,
+      );
+      const flashcardStep = () =>
+        within(screen.getByRole("list", { name: "Các bước của bài học" }))
+          .getAllByRole("listitem")[0].textContent?.replace(/^\d/, "");
+
+      // Stored as done: the learner can skip ahead, and the thread shows it done once they have left.
+      fireEvent.click(screen.getByRole("button", { name: "Tới Bài tập" }));
+      expect(flashcardStep()).toBe("Từ vựng (đã xong)");
+
+      // Back to the flashcards and press Lại: the server says the stage is no longer done.
+      fireEvent.click(screen.getByRole("button", { name: "Về Từ vựng" }));
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      mockedReview.mockResolvedValueOnce({
+        success: true,
+        topicProgress: { ...finished, isMemoryCheckPassed: true, newlyCompleted: false, isFlashcardCompleted: false },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Lại" }));
+      });
+      expect(screen.queryByRole("button", { name: "Tới Bài tập" })).toBeNull();
+
+      // The queue empties while the server still reports the stage as not done (another card
+      // was rated Again elsewhere): the learner moves on, but the thread must not claim "done".
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      mockedReview.mockResolvedValueOnce({
+        success: true,
+        topicProgress: { ...finished, isMemoryCheckPassed: true, newlyCompleted: false, isFlashcardCompleted: false },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+      });
+      expect(flashcardStep()).toBe("Từ vựng (chưa mở)");
+
+      // A server result that says done turns it back on.
+      fireEvent.click(screen.getByRole("button", { name: "Về Từ vựng" }));
+      fireEvent.click(screen.getByRole("button", { name: "Ôn lại từ vựng" }));
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      mockedReview.mockResolvedValueOnce({
+        success: true,
+        topicProgress: { ...finished, isMemoryCheckPassed: true, newlyCompleted: false },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Dễ" }));
+      });
+      expect(flashcardStep()).toBe("Từ vựng (đã xong)");
     });
 
     describe("back face presentation", () => {

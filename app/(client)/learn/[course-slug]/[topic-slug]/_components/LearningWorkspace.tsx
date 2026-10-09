@@ -176,6 +176,8 @@ export default function LearningWorkspace({
   );
   const markTopicCompleted = () => setIsTopicCompleted(true);
   const [isPending, startTransition] = useTransition();
+  // Whether the flashcard stage counts as done. The server owns it: it follows the latest
+  // rating of every card, so a later Again/Hard turns it back off (LF1 AC3).
   const [canSkipToQuiz, setCanSkipToQuiz] = useState(
     progress?.isFlashcardCompleted ?? false,
   );
@@ -277,7 +279,9 @@ export default function LearningWorkspace({
         return;
       }
       announceTopicProgress(result, markTopicCompleted);
-      if (result.topicProgress?.isFlashcardCompleted) setCanSkipToQuiz(true);
+      // The server result wins in both directions. Without one (sync failed), an emptied
+      // queue below still lets the learner move on, as before.
+      if (result.topicProgress) setCanSkipToQuiz(result.topicProgress.isFlashcardCompleted);
 
       const newQueue = [...learningQueue.slice(1)];
       if (rating === Rating.Again || rating === Rating.Hard) {
@@ -287,7 +291,7 @@ export default function LearningWorkspace({
       setIsFlipped(false);
 
       if (newQueue.length === 0) {
-        setCanSkipToQuiz(true);
+        if (!result.topicProgress) setCanSkipToQuiz(true);
 
         if (nextStageAfterFlashcards === "memory") {
           goToStage("memory");
