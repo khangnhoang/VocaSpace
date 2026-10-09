@@ -143,9 +143,9 @@ test("Part 1 keeps the picture uncropped, explains inline and waits for Câu ti�
   // Correct answer: the result stays until the learner chooses to continue.
   await page.getByRole("radio", { name: /holding a document/ }).click();
   await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
-  await expect(page.getByText("Chính xác!")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
   await page.waitForTimeout(1500);
-  await expect(page.getByText("Chính xác!")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
   await expect(page.getByText("Part 1 - Mô tả tranh")).toBeVisible();
   await page.getByRole("button", { name: "Câu tiếp theo" }).click();
   await expect(page.getByText("Part 2 - Hỏi đáp")).toBeVisible();
@@ -163,6 +163,32 @@ test("Part 3 keeps the same audio player across questions of one group", async (
   await nextQuestion(page);
   await expect(page.getByText(/Câu 2 về cuộc hội thoại/)).toBeVisible();
   await expect(page.locator('audio[data-mark="same-player"]')).toHaveCount(1);
+});
+
+test("question navigator jumps across parts and keeps the player inside one group", async ({ page }) => {
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(topicPath("listening"));
+    await expect(page.getByText("Part 1 - Mô tả tranh")).toBeVisible();
+
+    // Wide screens open a popover and narrow ones a sheet; both are one dialog with the same list.
+    await page.getByRole("button", { name: "Xem lại câu hỏi" }).click();
+    const list = page.getByRole("dialog");
+    await expect(list).toBeVisible();
+    await expect(list.getByRole("heading", { name: "Part 3 - Hội thoại" })).toBeVisible();
+    await expect(list.getByRole("button", { name: /^Câu 1:.*Đang xem/ })).toHaveAttribute("aria-current", "true");
+    await list.getByRole("button", { name: /^Câu 3:/ }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByText("Part 3 - Hội thoại")).toBeVisible();
+    await expect(page.locator("main h2:focus")).toBeVisible();
+
+    const audio = page.getByLabel("Âm thanh của nhóm câu hỏi");
+    await audio.evaluate((element) => element.setAttribute("data-mark", "same-player"));
+    await page.getByRole("button", { name: "Xem lại câu hỏi" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /^Câu 4:/ }).click();
+    await expect(page.locator('audio[data-mark="same-player"]')).toHaveCount(1);
+    await expectNoHorizontalOverflow(page);
+  }
 });
 
 test("every content mode fits without page-wide horizontal scrolling", async ({ page }) => {
@@ -198,7 +224,7 @@ test("memory check keeps exercises locked until the server confirms the pass", a
 
   await page.getByRole("radio", { name: /đáng tin cậy/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-  await expect(page.getByText("Chính xác!")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
   await page.getByRole("button", { name: "Tiếp tục" }).click();
 
   await page.getByRole("radio", { name: /enhance/ }).click();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight, CheckCircle2, Loader2, TriangleAlert, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
@@ -16,7 +16,7 @@ import { announceTopicProgress } from "./topic-progress-feedback";
 type Phase =
   | { kind: "choosing" }
   | { kind: "pending" }
-  | { kind: "correct"; progressError?: string; alreadySaved?: boolean }
+  | { kind: "correct"; explanation?: string; progressError?: string; alreadySaved?: boolean }
   | { kind: "incorrect"; explanation: string; progressError?: string }
   | { kind: "error"; message: string };
 
@@ -38,9 +38,14 @@ interface QuestionResponseProps {
   direction: "next" | "previous" | "none";
   /** Moves focus to the question heading on entry; set only after the learner navigated. */
   focusOnEntry: boolean;
+  /** A later question exists; without it there is no "next" to offer and the end action takes its place. */
+  hasNext: boolean;
+  /** What follows a correct answer when no later question exists (finish, or go back to a missing one). */
+  endAction: { label: string; onClick: () => void };
   onPrevious: () => void;
   onNext: () => void;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
+  onIncorrectAnswer?: (questionId: string) => void;
   onTopicCompleted?: () => void;
   onMemoryCheckRequired?: () => void;
 }
@@ -60,9 +65,12 @@ export default function QuestionResponse({
   savedOptionId,
   direction,
   focusOnEntry,
+  hasNext,
+  endAction,
   onPrevious,
   onNext,
   onCorrectAnswer,
+  onIncorrectAnswer,
   onTopicCompleted,
   onMemoryCheckRequired,
 }: QuestionResponseProps) {
@@ -133,11 +141,16 @@ export default function QuestionResponse({
 
       announceTopicProgress(response, onTopicCompleted);
       if (response.isCorrect) onCorrectAnswer(question.id, chosenId);
+      else onIncorrectAnswer?.(question.id);
       if (!isCurrent) return;
 
       setPhase(
         response.isCorrect
-          ? { kind: "correct", progressError: response.progressError }
+          ? {
+              kind: "correct",
+              explanation: response.explanation,
+              progressError: response.progressError,
+            }
           : {
               kind: "incorrect",
               explanation: response.explanation || INCORRECT_FALLBACK,
@@ -155,7 +168,9 @@ export default function QuestionResponse({
 
   const primary =
     phase.kind === "correct"
-      ? { label: "Câu tiếp theo", onClick: onNext, icon: <ChevronRight aria-hidden="true" /> }
+      ? hasNext
+        ? { label: "Câu tiếp theo", onClick: onNext, icon: <ChevronRight aria-hidden="true" /> }
+        : { label: endAction.label, onClick: endAction.onClick, icon: null }
       : phase.kind === "incorrect"
         ? { label: "Thử lại", onClick: retry, icon: null }
         : {
@@ -222,13 +237,13 @@ export default function QuestionResponse({
         </Button>
 
         <div aria-live="polite" aria-atomic="true" ref={feedbackRef} className="empty:hidden">
-          {phase.kind === "correct" && (
-            <div className="flex flex-col gap-2 rounded-lg border border-growth-line bg-growth-quiet p-4 text-slate-900">
-              <p className="flex items-center gap-2 font-bold text-growth">
-                <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
-                {phase.alreadySaved ? "Bạn đã trả lời đúng câu này" : "Chính xác!"}
-              </p>
-            </div>
+          {/* The green option and its check already show a right answer; the live region
+              only announces it, and a saved answer was announced when it was given. */}
+          {phase.kind === "correct" && !phase.alreadySaved && (
+            <p className="sr-only">Chính xác!</p>
+          )}
+          {phase.kind === "correct" && phase.explanation && (
+            <p className="leading-relaxed text-slate-900">{phase.explanation}</p>
           )}
           {phase.kind === "incorrect" && (
             <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">
@@ -265,7 +280,7 @@ export default function QuestionResponse({
           <Button onClick={onPrevious} variant="ghost" className="px-2 text-slate-600">
             <ChevronLeft aria-hidden="true" /> Câu trước
           </Button>
-          {!isCorrect && (
+          {!isCorrect && hasNext && (
             <Button onClick={onNext} variant="ghost" className="px-2 text-slate-600">
               Câu sau <ChevronRight aria-hidden="true" />
             </Button>

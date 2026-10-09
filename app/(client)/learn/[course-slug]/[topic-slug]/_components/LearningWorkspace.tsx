@@ -36,6 +36,7 @@ import ChapterSidebar from "./ChapterSidebar";
 import ExerciseContext from "./ExerciseContext";
 import FlashcardStage from "./FlashcardStage";
 import MemoryCheckStage from "./MemoryCheckStage";
+import QuestionNavigator, { type QuestionNavigatorSection } from "./QuestionNavigator";
 import QuestionResponse from "./QuestionResponse";
 import { arrangeMaterial } from "./exercise-arrangement";
 import { announceTopicProgress } from "./topic-progress-feedback";
@@ -177,6 +178,9 @@ export default function LearningWorkspace({
   );
   const [userAnswers, setUserAnswers] =
     useState<Record<string, string>>(answers);
+  // Questions answered wrongly in this session and not yet answered right; only the
+  // review list reads it, the server never stores a wrong attempt.
+  const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
   const [expandedChapter, setExpandedChapter] = useState(
     currentTopic.chapterId,
   );
@@ -194,6 +198,7 @@ export default function LearningWorkspace({
     focus: boolean;
   }>({ direction: "none", focus: false });
   const planeRef = useRef<HTMLElement>(null);
+  const completionRef = useRef<HTMLParagraphElement>(null);
 
   const flatLessons = useMemo(
     () => syllabus.flatMap((chapter) => chapter.topics),
@@ -342,7 +347,38 @@ export default function LearningWorkspace({
     setCurrentQuestionIndex(first.questionIndex);
   };
 
+  const currentPositionIndex = exerciseQuestionPositions.findIndex(
+    (position) => position.questionId === currentQuestion?.id,
+  );
+  // "Next" is only offered while a later question exists.
+  const hasNextQuestion =
+    currentPositionIndex >= 0 && currentPositionIndex < exerciseQuestionPositions.length - 1;
+
+  const finishExercises = () => {
+    setEntry({ direction: "next", focus: true });
+    setIsChainEnded(true);
+  };
+
+  // The review list reports a pick; the memory-check gate is still enforced here.
+  const jumpToQuestion = (questionId: string) => {
+    if (exercisesLocked) return;
+    const targetIndex = exerciseQuestionPositions.findIndex(
+      (position) => position.questionId === questionId,
+    );
+    const target = exerciseQuestionPositions[targetIndex];
+    if (!target) return;
+    setEntry({
+      direction: isChainEnded || targetIndex <= currentPositionIndex ? "previous" : "next",
+      focus: true,
+    });
+    setIsChainEnded(false);
+    setCurrentExerciseIndex(target.exerciseIndex);
+    setCurrentGroupIndex(target.groupIndex);
+    setCurrentQuestionIndex(target.questionIndex);
+  };
+
   const handleNextQuestion = () => {
+    if (!hasNextQuestion) return;
     setIsChainEnded(false);
     setEntry({ direction: "next", focus: true });
     if (currentQuestionIndex < sortedQuestions.length - 1) {
@@ -354,10 +390,6 @@ export default function LearningWorkspace({
       setCurrentExerciseIndex((current) => current + 1);
       setCurrentGroupIndex(0);
       setCurrentQuestionIndex(0);
-    } else {
-      // The remaining count is rendered from the latest answers, not from this
-      // (possibly stale) closure.
-      setIsChainEnded(true);
     }
   };
 
@@ -416,6 +448,9 @@ export default function LearningWorkspace({
   }, [groupKey]);
 
   const exerciseQuestionCount = exerciseQuestionPositions.length;
+  useEffect(() => {
+    if (isChainEnded) completionRef.current?.focus();
+  }, [isChainEnded]);
   const stageSteps: Array<{ key: LearningStage; label: string; state: StepState }> = [];
   if (flashcards.length > 0) {
     stageSteps.push({
@@ -454,44 +489,59 @@ export default function LearningWorkspace({
   const isSplit = hasMaterial && arrangement.layout === "split";
   const chapterTitle = syllabus.find((chapter) => chapter.id === currentTopic.chapterId)?.title;
 
+  // Review list: every question in learning order, numbered across the whole topic.
+  const questionNumbers = new Map(
+    exerciseQuestionPositions.map((position, index) => [position.questionId, index + 1]),
+  );
+  const navigatorSections: QuestionNavigatorSection[] = exercises.map((exercise) => {
+    const segments = exerciseSegments(exercise);
+    const passageTotal = segments.filter((segment) => !segment.isStandalone).length;
+    let passageNumber = 0;
+    return {
+      id: exercise.id,
+      title: exercise.title,
+      groups: segments.map((segment) => {
+        if (!segment.isStandalone) passageNumber += 1;
+        return {
+          id: segment.id,
+          label: segment.isStandalone ? undefined : `Nhóm ${passageNumber}/${passageTotal}`,
+          items: segment.questions
+            .slice()
+            .sort(byOrderIndex)
+            .map((question) => ({
+              id: question.id,
+              number: questionNumbers.get(question.id) ?? 0,
+              text: question.content.trim() || "Chọn đáp án đúng",
+              status: userAnswers[question.id]
+                ? ("correct" as const)
+                : incorrectIds[question.id]
+                  ? ("incorrect" as const)
+                  : ("unanswered" as const),
+              current: !isChainEnded && question.id === currentQuestion?.id,
+              disabledReason: exercisesLocked ? MEMORY_LOCK_REASON : undefined,
+            })),
+        };
+      }),
+    };
+  });
+  const questionNavigator = (
+    <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} />
+  );
+
   const renderExercise = () => {
     if (isChainEnded) {
-      const allAnswered = remainingQuestions.length === 0;
       return (
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-          <div
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-start gap-4">
+          <p
+            ref={completionRef}
             role="status"
-            className={`flex flex-col gap-3 rounded-lg border p-5 text-slate-900 ${
-              allAnswered
-                ? "border-growth-line bg-growth-quiet"
-                : "border-attention-line bg-attention-quiet"
-            }`}
+            tabIndex={-1}
+            className="flex items-center gap-2 text-lg font-bold text-slate-900 outline-none"
           >
-            {allAnswered ? (
-              <p className="font-bold">Bạn đã trả lời đúng hết bài tập.</p>
-            ) : (
-              <p className="font-bold">
-                Còn {remainingQuestions.length} câu chưa trả lời đúng
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {!allAnswered && (
-              <Button size="lg" onClick={goToFirstRemainingQuestion}>
-                Làm câu còn thiếu
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setIsChainEnded(false);
-                setEntry({ direction: "previous", focus: true });
-              }}
-            >
-              <ChevronLeft aria-hidden="true" />
-              Xem lại câu cuối
-            </Button>
-          </div>
+            <CheckCircle2 aria-hidden="true" className="size-6 shrink-0 text-growth" />
+            Bạn đã trả lời đúng hết bài tập.
+          </p>
+          {questionNavigator}
         </div>
       );
     }
@@ -506,7 +556,12 @@ export default function LearningWorkspace({
 
     return (
       <div className="flex min-w-0 flex-col gap-5">
-        <p className="text-sm font-semibold text-slate-600">{currentExercise.title}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="min-w-0 break-words text-sm font-semibold text-slate-600 [overflow-wrap:anywhere]">
+            {currentExercise.title}
+          </p>
+          {questionNavigator}
+        </div>
         <div
           className={
             isSplit
@@ -537,12 +592,18 @@ export default function LearningWorkspace({
               key={currentQuestion.id}
               question={currentQuestion}
               options={sortedOptions}
-              questionNumber={currentQuestionIndex + 1}
-              totalQuestions={sortedQuestions.length}
+              questionNumber={currentPositionIndex + 1}
+              totalQuestions={exerciseQuestionCount}
               groupPosition={groupPosition}
               savedOptionId={userAnswers[currentQuestion.id]}
               direction={entry.direction}
               focusOnEntry={entry.focus}
+              hasNext={hasNextQuestion}
+              endAction={
+                remainingQuestions.length > 0
+                  ? { label: "Làm câu còn thiếu", onClick: goToFirstRemainingQuestion }
+                  : { label: "Hoàn thành bài tập", onClick: finishExercises }
+              }
               onPrevious={handlePrevQuestion}
               onNext={handleNextQuestion}
               onCorrectAnswer={(questionId, optionId) =>
@@ -550,6 +611,9 @@ export default function LearningWorkspace({
                   ...current,
                   [questionId]: optionId,
                 }))
+              }
+              onIncorrectAnswer={(questionId) =>
+                setIncorrectIds((current) => ({ ...current, [questionId]: true }))
               }
               onTopicCompleted={markTopicCompleted}
               onMemoryCheckRequired={returnToMemoryCheck}

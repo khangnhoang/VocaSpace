@@ -215,12 +215,8 @@ export default function MemoryCheckStage({
       </div>
 
       <div aria-live="polite" className="min-h-0">
-        {feedback?.kind === "correct" && (
-          <p className="flex items-center gap-2 rounded-lg border border-growth-line bg-growth-quiet p-4 font-bold text-growth">
-            <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
-            Chính xác!
-          </p>
-        )}
+        {/* The green option and its check already show a right answer; only announce it. */}
+        {feedback?.kind === "correct" && <p className="sr-only">Chính xác!</p>}
         {feedback?.kind === "incorrect" && (
           <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">
             <p className="flex items-center gap-2 font-bold text-correction">

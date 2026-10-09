@@ -17,10 +17,10 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - Mục tiêu: bảo vệ UI hoàn thành topic D4 (H6/G7) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
 // - Đối tượng: LearningWorkspace (thẻ, bài tập qua QuestionResponse) và MemoryCheckStage.
-// - AC7 (ứng viên chờ Owner duyệt): đúng thì hiện "Câu tiếp theo" và không tự chuyển câu; sai thì giải thích nằm tại chỗ với "Thử lại"; lỗi lưu giữ nguyên lựa chọn và không bị hiểu là đáp án sai; kết quả trễ của câu cũ không đánh dấu câu mới.
+// - AC7 (ứng viên chờ Owner duyệt): đúng thì hiện "Câu tiếp theo" (khi còn câu sau) và không tự chuyển câu; sai thì giải thích nằm tại chỗ với "Thử lại"; lỗi lưu giữ nguyên lựa chọn và không bị hiểu là đáp án sai; kết quả trễ của câu cũ không đánh dấu câu mới.
 // - Case thành công: câu standalone hiển thị trước group, không có passage và không có nhãn nhóm (group đánh số không tính phần standalone); toast hoàn thành khi server báo `newlyCompleted`.
 // - Case thất bại: `progressError` hiện toast nhưng không chặn việc học tiếp.
-// - Ổn định/resilience: hết chuỗi câu còn câu chưa đúng thì báo "Còn x câu" và CTA đưa tới câu đầu tiên còn thiếu.
+// - Ổn định/resilience: câu cuối không có "Câu tiếp theo"/"Câu sau"; trả lời đúng câu cuối khi còn câu thiếu thì CTA "Làm câu còn thiếu" đưa tới câu đầu tiên còn thiếu, khi đã đủ thì "Hoàn thành bài tập" mở màn hình hoàn thành có "Xem lại câu hỏi".
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
 // - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
 //   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính; không còn nút "Hoàn thành bài học".
@@ -278,7 +278,7 @@ describe("D4 topic completion UI", () => {
     ).toBe(true);
   });
 
-  it("reports the remaining questions at the end and jumps to the first one still missing", () => {
+  it("offers the first missing question after the last one is answered, instead of a next that leads nowhere", async () => {
     render(
       <LearningWorkspace
         data={workspaceData({
@@ -290,13 +290,16 @@ describe("D4 topic completion UI", () => {
     next();
     next();
     expect(screen.getByText("Câu nhóm B")).not.toBeNull();
-    next();
+    // There is no later question: no skip link, and nothing named "next".
+    expect(screen.queryByRole("button", { name: "Câu sau" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
 
-    expect(screen.getByRole("status").textContent).toContain("Còn 2 câu chưa trả lời đúng");
+    mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, topicProgress: progress() });
+    await submitExerciseAnswer("Đúng Câu nhóm B");
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Làm câu còn thiếu" }));
 
     expect(screen.getByText("Câu đơn")).not.toBeNull();
-    expect(screen.queryByText(/Còn \d+ câu chưa trả lời đúng/)).toBeNull();
     expect(successToasts()).not.toContain(TOPIC_COMPLETED_MESSAGE);
   });
 
@@ -321,10 +324,13 @@ describe("D4 topic completion UI", () => {
     expect(screen.getByRole("link", { name: "Về tổng quan khóa học" }).getAttribute("href")).toBe(
       "/learn/toeic-foundation",
     );
-    // Continuing past the last question reports the chain end (no auto-advance).
+    // Finishing is an explicit step on the last question (no auto-advance, no "next").
     expect(screen.queryByRole("status")).toBeNull();
-    next();
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành bài tập" }));
     expect(screen.getByRole("status").textContent).toBe("Bạn đã trả lời đúng hết bài tập.");
+    expect(screen.getByRole("button", { name: "Xem lại câu hỏi" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Xem lại câu cuối" })).toBeNull();
   });
 
   it("shows stored completion in the header and sidebar and promotes the next topic", () => {
