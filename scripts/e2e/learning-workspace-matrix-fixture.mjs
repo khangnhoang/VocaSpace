@@ -19,6 +19,8 @@ export const MATRIX_TOPICS = {
   reading: { slug: "d8-matrix-reading", title: "D8 Đọc Part 5-7" },
   memory: { slug: "d8-matrix-memory-check", title: "D8 Memory check rồi bài tập" },
   faults: { slug: "d8-matrix-media-faults", title: "D8 Media lỗi hoặc thiếu" },
+  // Appended last so the existing topic ids keep their values; ordered first in the chapter.
+  full: { slug: "d8-matrix-full-flow", title: "D8 Bài học trọn vẹn" },
 };
 
 const COURSE_ID = id(1);
@@ -181,12 +183,12 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
         title: topic.title,
         slug: topic.slug,
         status: "published",
-        order_index: index + 1,
+        order_index: key === "full" ? 0 : index + 1,
         original_creator_user_id: TEACHER_ID,
         responsible_author_user_id: TEACHER_ID,
         first_approved_at: "2026-01-10T12:00:00.000Z",
         removed_at: null,
-        is_preview: false,
+        is_preview: key === "full",
       })),
     ),
     "Create topics",
@@ -351,6 +353,48 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
   await addQuestion(memoryCheck, null, 1, "Chọn từ đồng nghĩa với \"improve\".", ["enhance", "ignore", "delay"], "enhance cùng nghĩa với improve.");
   const gated = await addExercise("memory", 1, "Part 5 sau memory check", "part5");
   await addQuestion(gated, null, 0, "Please ______ the form by Monday.", ["return", "returning", "returns"]);
+
+  // Full flow: vocabulary -> memory check on those words -> listening and reading exercises.
+  checked(
+    await supabase.from("cards").insert(
+      [
+        ["schedule", "noun", "/ˈʃedjuːl/", "lịch trình", "The schedule changed at the last minute.", "Lịch trình thay đổi vào phút chót."],
+        ["deadline", "noun", "/ˈdedlaɪn/", "hạn chót", "The deadline for the report is Friday.", "Hạn chót nộp báo cáo là thứ Sáu."],
+        ["approve", "verb", "/əˈpruːv/", "phê duyệt", "The manager approved the budget.", "Quản lý đã phê duyệt ngân sách."],
+        ["available", "adj", "/əˈveɪləbl/", "có sẵn, rảnh", "Is the meeting room available now?", "Phòng họp bây giờ có trống không?"],
+      ].map(([word, pos, phonetic, translation, example, exampleTranslation], index) => ({
+        id: next(),
+        topic_id: topicIds.full,
+        front_content: { word, pos, phonetic },
+        back_content: { translation, example, exampleTranslation },
+        order_index: index,
+        removed_at: null,
+      })),
+    ),
+    "Create full-flow cards",
+  );
+  const fullMemory = await addExercise("full", 0, "Memory check", null, "memory_check");
+  await addQuestion(fullMemory, null, 0, "Nghĩa của \"deadline\" là gì?", ["hạn chót", "lịch trình", "ngân sách"], "deadline nghĩa là hạn chót.");
+  await addQuestion(fullMemory, null, 1, "\"The manager ______ the budget.\" Chọn từ đúng.", ["approved", "available", "schedule"], "approve (phê duyệt) chia quá khứ là approved.");
+  await addQuestion(fullMemory, null, 2, "Nghĩa của \"available\" là gì?", ["có sẵn, rảnh", "đáng tin cậy", "hạn chót"], "available nghĩa là có sẵn hoặc rảnh.");
+  const fullPart1 = await addExercise("full", 1, "Part 1 - Mô tả tranh", "part1");
+  const fullPart1Group = await addGroup(fullPart1, 0, {
+    image: await upload(IMAGE_BUCKET, "full-part1.png", landscape, "image/png", "full"),
+    audio: await upload(AUDIO_BUCKET, "full-part1.wav", wav, "audio/wav", "full"),
+  });
+  await addQuestion(fullPart1, fullPart1Group, 0, "Chọn câu mô tả đúng bức tranh.", ["People are reviewing a schedule.", "A man is painting a wall.", "Chairs are stacked in a corner.", "A woman is opening a window."]);
+  const fullPart3 = await addExercise("full", 2, "Part 3 - Hội thoại", "part3");
+  const fullPart3Group = await addGroup(fullPart3, 0, { audio: await upload(AUDIO_BUCKET, "full-part3.wav", wav, "audio/wav", "full") });
+  await addQuestion(fullPart3, fullPart3Group, 0, "Người nói đang bàn về điều gì?", ["A project deadline", "A holiday trip", "A new printer"]);
+  await addQuestion(fullPart3, fullPart3Group, 1, "Người phụ nữ đề nghị làm gì?", ["Change the schedule", "Cancel the order", "Call a client"]);
+  const fullPart5 = await addExercise("full", 3, "Part 5 - Điền từ vào câu", "part5");
+  await addQuestion(fullPart5, null, 0, "The room is ______ for the meeting this afternoon.", ["available", "availability", "avail"]);
+  await addQuestion(fullPart5, null, 1, "All requests must be ______ by the director.", ["approved", "approving", "approval"]);
+  const fullPart6 = await addExercise("full", 4, "Part 6 - Hoàn thành đoạn văn", "part6");
+  const fullPart6Group = await addGroup(fullPart6, 0, {
+    passage: "To: Project team\nFrom: Operations\n\nThe [1] for the quarterly report has moved to next Monday.\nPlease update your schedule and share drafts by Friday.\n\nThanks,\nOperations",
+  });
+  await addQuestion(fullPart6, fullPart6Group, 0, "Chọn từ phù hợp cho chỗ trống [1].", ["deadline", "dead", "deadly", "deadlines are"]);
 
   // Media faults: a missing object behind a valid reference, and a group without required audio.
   const faultPart1 = await addExercise("faults", 1, "Part 1 - Ảnh không tải được", "part1");
