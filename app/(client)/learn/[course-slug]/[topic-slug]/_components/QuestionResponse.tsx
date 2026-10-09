@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
@@ -40,8 +41,11 @@ interface QuestionResponseProps {
   focusOnEntry: boolean;
   /** A later question exists; without it there is no "next" to offer and the end action takes its place. */
   hasNext: boolean;
-  /** What follows a correct answer when no later question exists (finish, or go back to a missing one). */
-  endAction: { label: string; onClick: () => void };
+  /**
+   * What follows a correct answer when no later question exists: go back to a
+   * missing question, or leave for the next topic (or the course overview).
+   */
+  endAction: { label: string; onClick: () => void } | { label: string; href: string };
   onPrevious: () => void;
   onNext: () => void;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
@@ -170,7 +174,9 @@ export default function QuestionResponse({
     phase.kind === "correct"
       ? hasNext
         ? { label: "Câu tiếp theo", onClick: onNext, icon: <ChevronRight aria-hidden="true" /> }
-        : { label: endAction.label, onClick: endAction.onClick, icon: null }
+        : "href" in endAction
+          ? null
+          : { label: endAction.label, onClick: endAction.onClick, icon: null }
       : phase.kind === "incorrect"
         ? { label: "Thử lại", onClick: retry, icon: null }
         : {
@@ -211,7 +217,8 @@ export default function QuestionResponse({
         id={headingId}
         ref={headingRef}
         tabIndex={-1}
-        className="break-words text-xl font-bold leading-snug text-slate-900 outline-none [overflow-wrap:anywhere] md:text-2xl"
+        data-question-heading=""
+        className="scroll-mt-4 break-words text-xl font-bold leading-snug text-slate-900 outline-none [overflow-wrap:anywhere] md:text-2xl"
       >
         {heading}
       </h2>
@@ -226,15 +233,40 @@ export default function QuestionResponse({
       />
 
       <div className="flex flex-col gap-3">
-        <Button
-          size="lg"
-          disabled={isPending || ((phase.kind === "choosing" || phase.kind === "error") && !selectedId)}
-          onClick={primary.onClick}
-          className="w-full sm:w-auto sm:min-w-48 sm:self-start"
-        >
-          {primary.icon}
-          {primary.label}
-        </Button>
+        {/* Two opposite actions share one row: back as a text link, forward as the primary. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <Button onClick={onPrevious} variant="link" size="lg" className="px-2">
+            <ChevronLeft aria-hidden="true" /> Câu trước
+          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+            {!isCorrect && hasNext && (
+              <Button onClick={onNext} variant="link" size="lg" className="px-2">
+                Câu sau <ChevronRight aria-hidden="true" />
+              </Button>
+            )}
+            {primary ? (
+              <Button
+                size="lg"
+                disabled={
+                  isPending || ((phase.kind === "choosing" || phase.kind === "error") && !selectedId)
+                }
+                onClick={primary.onClick}
+              >
+                {primary.icon}
+                {primary.label}
+              </Button>
+            ) : (
+              "href" in endAction && (
+                <Button asChild size="lg">
+                  <Link href={endAction.href}>
+                    {endAction.label}
+                    <ChevronRight aria-hidden="true" />
+                  </Link>
+                </Button>
+              )
+            )}
+          </div>
+        </div>
 
         <div aria-live="polite" aria-atomic="true" ref={feedbackRef} className="empty:hidden">
           {/* The green option and its check already show a right answer; the live region
@@ -273,17 +305,6 @@ export default function QuestionResponse({
               <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-attention" />
               {progressNotice}
             </p>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between border-t border-slate-200 pt-3">
-          <Button onClick={onPrevious} variant="ghost" className="px-2 text-slate-600">
-            <ChevronLeft aria-hidden="true" /> Câu trước
-          </Button>
-          {!isCorrect && hasNext && (
-            <Button onClick={onNext} variant="ghost" className="px-2 text-slate-600">
-              Câu sau <ChevronRight aria-hidden="true" />
-            </Button>
           )}
         </div>
       </div>

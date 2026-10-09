@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useRouter } from "next/navigation";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { submitQuestionAnswer } from "@/app/actions/progress";
@@ -14,13 +14,14 @@ import QuestionNavigator, {
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
 // Test plan:
-// - Mục tiêu: bảo vệ bộ điều hướng câu hỏi "Xem lại câu hỏi" và các thay đổi trạng thái phản hồi của vùng trả lời (D8-LUI follow-up 3).
+// - Mục tiêu: bảo vệ bộ điều hướng câu hỏi "Danh sách câu hỏi" và các thay đổi trạng thái phản hồi của vùng trả lời (D8-LUI follow-up 3).
 // - Loại test: component test trong jsdom; Server Action được mock ở ranh giới, không gọi server thật.
 // - Danh sách: nhóm theo bài tập/nhóm ngữ liệu; mỗi dòng có số, nội dung rút gọn và trạng thái bằng biểu tượng cùng chữ (đang xem, đã đúng, chưa đúng, chưa trả lời), không chỉ màu.
 // - Nhảy câu: chọn dòng đóng danh sách, đưa focus vào tiêu đề câu đó, giữ nguyên ngữ liệu khi cùng nhóm, đổi ngữ liệu khi sang nhóm khác; dòng bị khóa là nút vô hiệu kèm lý do và không gọi onSelect.
 // - Màn hình rộng dùng Popover, màn hình hẹp dùng Sheet; cả hai dùng chung một danh sách.
 // - Không còn hộp "Bạn đã trả lời đúng câu này"/"Chính xác!" hiển thị: trạng thái đúng nằm ở lựa chọn xanh, phần giải thích (nếu có) hiện tại chỗ, thông báo cho trình đọc màn hình vẫn có.
-// - "Câu tiếp theo"/"Câu sau" chỉ hiện khi còn câu sau; câu cuối đã đúng đưa tới "Làm câu còn thiếu" hoặc "Hoàn thành bài tập"; màn hình hoàn thành có "Xem lại câu hỏi" thay cho "Xem lại câu cuối".
+// - "Câu tiếp theo"/"Câu sau" chỉ hiện khi còn câu sau; câu cuối đã đúng đưa tới "Làm câu còn thiếu" hoặc, khi đã đủ, "Bài tiếp theo" (đúng đích của "Bài sau"; bài cuối thì "Về tổng quan khóa học"); không còn nút/màn hình "Hoàn thành bài tập" trung gian.
+// - Bố cục: "Câu trước" (variant link) và nút chính cùng một hàng, không có đường kẻ; cột câu hỏi cạnh ngữ liệu dài chỉ dính (`data-sticky`) khi vừa chiều cao viewport (đo bằng `offsetHeight` giả lập); ở bố cục xếp chồng có "Tới câu hỏi" cuộn (smooth, hoặc auto khi reduced motion) và đưa focus vào tiêu đề; đổi câu cùng nhóm giữ nguyên node ngữ liệu.
 // - Phân quyền: bài tập đang khóa sau memory check không có nút điều hướng; trong Preview chỉ dùng state cục bộ (xem public-course-preview.test.tsx).
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI follow-up 3 (chạy `npx vitest run __tests__/components/question-navigator.test.tsx`).
 
@@ -130,6 +131,31 @@ function workspaceData(overrides: Partial<LearningWorkspaceData> = {}): Learning
   };
 }
 
+// The same workspace with a following topic, so the last question can lead on to it.
+function withNextTopic(overrides: Partial<LearningWorkspaceData> = {}) {
+  const base = workspaceData();
+  const current = base.currentTopic;
+  return workspaceData({
+    syllabus: [
+      {
+        ...base.syllabus[0],
+        topics: [
+          { ...current, isCompleted: false },
+          {
+            ...current,
+            id: "22222222-2222-4222-8222-333333333333",
+            slug: "topic-two",
+            title: "Bài hai",
+            orderIndex: 2,
+            isCompleted: false,
+          },
+        ],
+      },
+    ],
+    ...overrides,
+  });
+}
+
 async function submitExerciseAnswer(optionContent: string) {
   fireEvent.click(screen.getByRole("radio", { name: new RegExp(optionContent) }));
   await act(async () => {
@@ -137,7 +163,7 @@ async function submitExerciseAnswer(optionContent: string) {
   });
 }
 
-const openNavigator = () => fireEvent.click(screen.getByRole("button", { name: "Xem lại câu hỏi" }));
+const openNavigator = () => fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
 const rowOf = (text: RegExp) => screen.getByRole("button", { name: text });
 
 describe("QuestionNavigator list", () => {
@@ -316,7 +342,7 @@ describe("question navigator in the learning workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tới Bài tập" }));
 
     expect(screen.getByText("Bài tập đang khóa")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Xem lại câu hỏi" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Danh sách câu hỏi" })).toBeNull();
     expect(screen.queryByText("Câu đơn")).toBeNull();
   });
 
@@ -361,10 +387,10 @@ describe("question navigator in the learning workspace", () => {
     ).toBe(true);
   });
 
-  it("offers a next question only while one exists and finishes from the last one", async () => {
+  it("offers a next question only while one exists and leaves for the next topic from the last one", async () => {
     render(
       <LearningWorkspace
-        data={workspaceData({
+        data={withNextTopic({
           answers: {
             [ids.standalone]: right(ids.standalone),
             [ids.groupedA]: right(ids.groupedA),
@@ -386,15 +412,123 @@ describe("question navigator in the learning workspace", () => {
     await submitExerciseAnswer("Đúng Câu B hai");
     expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành bài tập" }));
-    expect(screen.getByRole("status").textContent).toBe("Bạn đã trả lời đúng hết bài tập.");
-    expect(screen.queryByRole("button", { name: "Xem lại câu cuối" })).toBeNull();
-
-    // The completion view reviews through the same list and jumps back into a question.
-    openNavigator();
-    expect(screen.queryByRole("button", { name: /Đang xem/ })).toBeNull();
-    fireEvent.click(rowOf(/Câu 1: Câu đơn/));
+    // Everything is answered: the primary is the next topic, and the learner stays on this question.
+    expect(screen.queryByRole("button", { name: "Hoàn thành bài tập" })).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Câu B hai" })).not.toBeNull();
+    const nextTopic = screen.getAllByRole("link", { name: "Bài tiếp theo" });
+    expect(nextTopic).toHaveLength(1);
+    expect(nextTopic[0].getAttribute("href")).toBe("/learn/toeic-foundation/topic-two");
+
+    // The list stays available from the exercise header and jumps back into a question.
+    openNavigator();
+    fireEvent.click(rowOf(/Câu 1: Câu đơn/));
     expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Câu đơn" }));
+  });
+
+  it("primary on the last question is the first missing question while some are unanswered", async () => {
+    render(<LearningWorkspace data={workspaceData({ answers: { [ids.standalone]: right(ids.standalone) } })} />);
+    openNavigator();
+    fireEvent.click(rowOf(/Câu 4: Câu B hai/));
+    mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true });
+    await submitExerciseAnswer("Đúng Câu B hai");
+
+    expect(screen.queryByRole("link", { name: "Bài tiếp theo" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Làm câu còn thiếu" }));
+    expect(screen.getByRole("heading", { name: "Câu nhóm A" })).not.toBeNull();
+  });
+
+  it("puts Câu trước and the primary on one row, with Câu trước as the text link variant", () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    const back = screen.getByRole("button", { name: "Câu trước" });
+    const primary = screen.getByRole("button", { name: "Xác nhận đáp án" });
+
+    expect(back.getAttribute("data-variant")).toBe("link");
+    const row = back.parentElement as HTMLElement;
+    expect(row.contains(primary)).toBe(true);
+    expect(row.className).toContain("flex-wrap");
+    // No divider line separates the two actions any more.
+    expect(row.parentElement?.querySelector(".border-t")).toBeNull();
+  });
+});
+
+describe("grouped material layout", () => {
+  const originalHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+
+  function mockColumnHeight(height: number) {
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get: () => height,
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseRouter.mockReturnValue({ refresh: vi.fn() } as never);
+  });
+
+  afterEach(() => {
+    if (originalHeight) Object.defineProperty(HTMLElement.prototype, "offsetHeight", originalHeight);
+    delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+  });
+
+  const openGroupB = () => {
+    openNavigator();
+    fireEvent.click(rowOf(/Câu 3: Câu B một/));
+  };
+  const responseColumn = () =>
+    screen.getByRole("heading", { name: "Câu B một" }).closest("[data-sticky]") as HTMLElement | null;
+
+  it("pins the question column beside a long passage only while it fits the viewport", () => {
+    mockColumnHeight(400);
+    render(<LearningWorkspace data={workspaceData()} />);
+    openGroupB();
+    expect(responseColumn()?.getAttribute("data-sticky")).toBe("true");
+    expect(responseColumn()?.className).toContain("lg:data-[sticky=true]:sticky");
+
+    cleanup();
+    mockColumnHeight(5000);
+    render(<LearningWorkspace data={workspaceData()} />);
+    openGroupB();
+    // Taller than the viewport: it scrolls normally instead of hiding its lower part.
+    expect(responseColumn()?.getAttribute("data-sticky")).toBe("false");
+  });
+
+  it("offers a jump from the end of the passage to the question and focuses its heading", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    render(<LearningWorkspace data={workspaceData()} />);
+    expect(screen.queryByRole("button", { name: "Tới câu hỏi" })).toBeNull();
+    openGroupB();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tới câu hỏi" }));
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Câu B một" }));
+    expect(scrollIntoView).toHaveBeenCalledWith(
+      expect.objectContaining({ block: "start", behavior: "smooth" }),
+    );
+  });
+
+  it("jumps without smooth scrolling under reduced motion", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    render(<LearningWorkspace data={workspaceData()} />);
+    openGroupB();
+    fireEvent.click(screen.getByRole("button", { name: "Tới câu hỏi" }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ behavior: "auto" }));
+  });
+
+  it("keeps the passage in place when moving to another question of the same group", () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    openGroupB();
+    const passage = screen.getByText("Đoạn văn B");
+    fireEvent.click(screen.getByRole("button", { name: "Câu sau" }));
+    expect(screen.getByRole("heading", { name: "Câu B hai" })).not.toBeNull();
+    expect(screen.getByText("Đoạn văn B")).toBe(passage);
   });
 });

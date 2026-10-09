@@ -168,7 +168,7 @@ function QuestionList({
 }
 
 /**
- * "Xem lại câu hỏi": the topic's questions grouped by exercise and passage group,
+ * "Danh sách câu hỏi": the topic's questions grouped by exercise and passage group,
  * each with a short text and its state (icon plus words, never color alone).
  * It is a popover on wide screens and a bottom sheet on narrow ones, and only
  * reports which question was picked; the caller's own guards decide whether the
@@ -177,7 +177,7 @@ function QuestionList({
 export default function QuestionNavigator({
   sections,
   onSelect,
-  label = "Xem lại câu hỏi",
+  label = "Danh sách câu hỏi",
 }: QuestionNavigatorProps) {
   const [open, setOpen] = useState(false);
   const isWide = useSyncExternalStore(subscribeWide, wideSnapshot, () => false);

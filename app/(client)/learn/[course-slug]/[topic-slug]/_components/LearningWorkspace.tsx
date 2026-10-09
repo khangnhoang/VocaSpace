@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
+  ArrowDown,
   ArrowLeft,
   CheckCircle2,
   ChevronLeft,
@@ -38,6 +39,7 @@ import FlashcardStage from "./FlashcardStage";
 import MemoryCheckStage from "./MemoryCheckStage";
 import QuestionNavigator, { type QuestionNavigatorSection } from "./QuestionNavigator";
 import QuestionResponse from "./QuestionResponse";
+import StickyColumn from "./StickyColumn";
 import { arrangeMaterial } from "./exercise-arrangement";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -190,7 +192,6 @@ export default function LearningWorkspace({
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isChainEnded, setIsChainEnded] = useState(false);
   // How the learner reached the current question: drives the entrance direction
   // and whether the new question heading takes focus.
   const [entry, setEntry] = useState<{
@@ -198,7 +199,6 @@ export default function LearningWorkspace({
     focus: boolean;
   }>({ direction: "none", focus: false });
   const planeRef = useRef<HTMLElement>(null);
-  const completionRef = useRef<HTMLParagraphElement>(null);
 
   const flatLessons = useMemo(
     () => syllabus.flatMap((chapter) => chapter.topics),
@@ -340,7 +340,6 @@ export default function LearningWorkspace({
   const goToFirstRemainingQuestion = () => {
     const [first] = remainingQuestions;
     if (!first) return;
-    setIsChainEnded(false);
     setEntry({ direction: "next", focus: true });
     setCurrentExerciseIndex(first.exerciseIndex);
     setCurrentGroupIndex(first.groupIndex);
@@ -354,11 +353,6 @@ export default function LearningWorkspace({
   const hasNextQuestion =
     currentPositionIndex >= 0 && currentPositionIndex < exerciseQuestionPositions.length - 1;
 
-  const finishExercises = () => {
-    setEntry({ direction: "next", focus: true });
-    setIsChainEnded(true);
-  };
-
   // The review list reports a pick; the memory-check gate is still enforced here.
   const jumpToQuestion = (questionId: string) => {
     if (exercisesLocked) return;
@@ -368,10 +362,9 @@ export default function LearningWorkspace({
     const target = exerciseQuestionPositions[targetIndex];
     if (!target) return;
     setEntry({
-      direction: isChainEnded || targetIndex <= currentPositionIndex ? "previous" : "next",
+      direction: targetIndex <= currentPositionIndex ? "previous" : "next",
       focus: true,
     });
-    setIsChainEnded(false);
     setCurrentExerciseIndex(target.exerciseIndex);
     setCurrentGroupIndex(target.groupIndex);
     setCurrentQuestionIndex(target.questionIndex);
@@ -379,7 +372,6 @@ export default function LearningWorkspace({
 
   const handleNextQuestion = () => {
     if (!hasNextQuestion) return;
-    setIsChainEnded(false);
     setEntry({ direction: "next", focus: true });
     if (currentQuestionIndex < sortedQuestions.length - 1) {
       setCurrentQuestionIndex((current) => current + 1);
@@ -394,7 +386,6 @@ export default function LearningWorkspace({
   };
 
   const handlePrevQuestion = () => {
-    setIsChainEnded(false);
     setEntry({ direction: "previous", focus: true });
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex((current) => current - 1);
@@ -448,9 +439,6 @@ export default function LearningWorkspace({
   }, [groupKey]);
 
   const exerciseQuestionCount = exerciseQuestionPositions.length;
-  useEffect(() => {
-    if (isChainEnded) completionRef.current?.focus();
-  }, [isChainEnded]);
   const stageSteps: Array<{ key: LearningStage; label: string; state: StepState }> = [];
   if (flashcards.length > 0) {
     stageSteps.push({
@@ -517,7 +505,7 @@ export default function LearningWorkspace({
                 : incorrectIds[question.id]
                   ? ("incorrect" as const)
                   : ("unanswered" as const),
-              current: !isChainEnded && question.id === currentQuestion?.id,
+              current: question.id === currentQuestion?.id,
               disabledReason: exercisesLocked ? MEMORY_LOCK_REASON : undefined,
             })),
         };
@@ -528,24 +516,18 @@ export default function LearningWorkspace({
     <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} />
   );
 
-  const renderExercise = () => {
-    if (isChainEnded) {
-      return (
-        <div className="mx-auto flex w-full max-w-2xl flex-col items-start gap-4">
-          <p
-            ref={completionRef}
-            role="status"
-            tabIndex={-1}
-            className="flex items-center gap-2 text-lg font-bold text-slate-900 outline-none"
-          >
-            <CheckCircle2 aria-hidden="true" className="size-6 shrink-0 text-growth" />
-            Bạn đã trả lời đúng hết bài tập.
-          </p>
-          {questionNavigator}
-        </div>
-      );
-    }
+  // Moves the learner from the end of a stacked passage to the question; reduced motion jumps.
+  const scrollToQuestion = () => {
+    const heading = document.querySelector<HTMLElement>("[data-question-heading]");
+    if (!heading) return;
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView?.({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+  };
 
+  const renderExercise = () => {
     if (!currentExercise || !currentGroup || !currentQuestion || !arrangement) {
       return (
         <p className="text-center text-slate-600">
@@ -574,20 +556,28 @@ export default function LearningWorkspace({
           }
         >
           {hasMaterial && (
-            <div
+            <StickyColumn
               key={`${currentExercise.id}:${currentGroup.id}`}
-              className={`min-w-0 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[240ms] ${
-                isSplit ? "lg:sticky lg:top-4" : ""
-              }`}
+              enabled={isSplit}
+              className="min-w-0 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[240ms]"
             >
               <ExerciseContext
                 group={currentGroup}
                 arrangement={arrangement}
                 enlargeableImage={currentExercise.part_type === "part1"}
               />
-            </div>
+              {isSplit && (
+                // Stacked layouts put the question below a long passage; wide ones keep it beside.
+                <div className="mt-3 flex justify-end lg:hidden">
+                  <Button type="button" variant="link" size="lg" className="px-2" onClick={scrollToQuestion}>
+                    Tới câu hỏi
+                    <ArrowDown aria-hidden="true" />
+                  </Button>
+                </div>
+              )}
+            </StickyColumn>
           )}
-          <div className="min-w-0">
+          <StickyColumn enabled={isSplit} className="min-w-0">
             <QuestionResponse
               key={currentQuestion.id}
               question={currentQuestion}
@@ -602,7 +592,12 @@ export default function LearningWorkspace({
               endAction={
                 remainingQuestions.length > 0
                   ? { label: "Làm câu còn thiếu", onClick: goToFirstRemainingQuestion }
-                  : { label: "Hoàn thành bài tập", onClick: finishExercises }
+                  : lessonNeighbors.next
+                    ? {
+                        label: "Bài tiếp theo",
+                        href: `/learn/${courseSlug}/${lessonNeighbors.next.slug}`,
+                      }
+                    : { label: "Về tổng quan khóa học", href: `/learn/${courseSlug}` }
               }
               onPrevious={handlePrevQuestion}
               onNext={handleNextQuestion}
@@ -618,7 +613,7 @@ export default function LearningWorkspace({
               onTopicCompleted={markTopicCompleted}
               onMemoryCheckRequired={returnToMemoryCheck}
             />
-          </div>
+          </StickyColumn>
         </div>
       </div>
     );

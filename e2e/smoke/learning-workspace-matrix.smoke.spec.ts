@@ -172,7 +172,7 @@ test("question navigator jumps across parts and keeps the player inside one grou
     await expect(page.getByText("Part 1 - Mô tả tranh")).toBeVisible();
 
     // Wide screens open a popover and narrow ones a sheet; both are one dialog with the same list.
-    await page.getByRole("button", { name: "Xem lại câu hỏi" }).click();
+    await page.getByRole("button", { name: "Danh sách câu hỏi" }).click();
     const list = page.getByRole("dialog");
     await expect(list).toBeVisible();
     await expect(list.getByRole("heading", { name: "Part 3 - Hội thoại" })).toBeVisible();
@@ -184,11 +184,38 @@ test("question navigator jumps across parts and keeps the player inside one grou
 
     const audio = page.getByLabel("Âm thanh của nhóm câu hỏi");
     await audio.evaluate((element) => element.setAttribute("data-mark", "same-player"));
-    await page.getByRole("button", { name: "Xem lại câu hỏi" }).click();
+    await page.getByRole("button", { name: "Danh sách câu hỏi" }).click();
     await page.getByRole("dialog").getByRole("button", { name: /^Câu 4:/ }).click();
     await expect(page.locator('audio[data-mark="same-player"]')).toHaveCount(1);
     await expectNoHorizontalOverflow(page);
   }
+});
+
+test("a long Part 7 passage keeps the question reachable: pinned beside it when wide, a jump when stacked", async ({ page }) => {
+  const toPart7 = async () => {
+    await page.goto(topicPath("reading"));
+    for (let i = 0; i < 4; i += 1) {
+      await nextQuestion(page);
+    }
+    await expect(page.getByText("Part 7 - Đọc hiểu")).toBeVisible();
+  };
+  const heading = page.locator("main h2[data-question-heading]");
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toPart7();
+  await expect(heading.locator("xpath=ancestor::*[@data-sticky][1]")).toHaveAttribute("data-sticky", "true");
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(heading).toBeInViewport();
+
+  await page.setViewportSize({ width: 375, height: 800 });
+  await toPart7();
+  // Back and the primary action share one row.
+  const back = await page.getByRole("button", { name: "Câu trước" }).boundingBox();
+  const primary = await page.getByRole("button", { name: "Xác nhận đáp án" }).boundingBox();
+  expect(Math.abs((back?.y ?? 0) - (primary?.y ?? 100))).toBeLessThan(12);
+  await page.getByRole("button", { name: "Tới câu hỏi" }).click();
+  await expect(heading).toBeFocused();
+  await expect(heading).toBeInViewport();
 });
 
 test("every content mode fits without page-wide horizontal scrolling", async ({ page }) => {

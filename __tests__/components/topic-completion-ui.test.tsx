@@ -20,7 +20,7 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - AC7 (ứng viên chờ Owner duyệt): đúng thì hiện "Câu tiếp theo" (khi còn câu sau) và không tự chuyển câu; sai thì giải thích nằm tại chỗ với "Thử lại"; lỗi lưu giữ nguyên lựa chọn và không bị hiểu là đáp án sai; kết quả trễ của câu cũ không đánh dấu câu mới.
 // - Case thành công: câu standalone hiển thị trước group, không có passage và không có nhãn nhóm (group đánh số không tính phần standalone); toast hoàn thành khi server báo `newlyCompleted`.
 // - Case thất bại: `progressError` hiện toast nhưng không chặn việc học tiếp.
-// - Ổn định/resilience: câu cuối không có "Câu tiếp theo"/"Câu sau"; trả lời đúng câu cuối khi còn câu thiếu thì CTA "Làm câu còn thiếu" đưa tới câu đầu tiên còn thiếu, khi đã đủ thì "Hoàn thành bài tập" mở màn hình hoàn thành có "Xem lại câu hỏi".
+// - Ổn định/resilience: câu cuối không có "Câu tiếp theo"/"Câu sau"; trả lời đúng câu cuối khi còn câu thiếu thì CTA "Làm câu còn thiếu" đưa tới câu đầu tiên còn thiếu, khi đã đủ thì nút chính là "Bài tiếp theo" (hoặc "Về tổng quan khóa học" ở bài cuối) và không có màn hình/nút hoàn thành trung gian.
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
 // - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
 //   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính; không còn nút "Hoàn thành bài học".
@@ -321,16 +321,20 @@ describe("D4 topic completion UI", () => {
     expect(successToasts()).toContain(TOPIC_COMPLETED_MESSAGE);
     // The completed state shows immediately, without reloading the page.
     expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
-    expect(screen.getByRole("link", { name: "Về tổng quan khóa học" }).getAttribute("href")).toBe(
-      "/learn/toeic-foundation",
-    );
-    // Finishing is an explicit step on the last question (no auto-advance, no "next").
-    expect(screen.queryByRole("status")).toBeNull();
+    // This is the last topic: the last question's primary leads to the course overview, and
+    // the footer keeps its own link to the same place. The learner stays on the question.
+    const overviewLinks = screen.getAllByRole("link", { name: "Về tổng quan khóa học" });
+    expect(overviewLinks).toHaveLength(2);
+    overviewLinks.forEach((link) => expect(link.getAttribute("href")).toBe("/learn/toeic-foundation"));
     expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành bài tập" }));
-    expect(screen.getByRole("status").textContent).toBe("Bạn đã trả lời đúng hết bài tập.");
-    expect(screen.getByRole("button", { name: "Xem lại câu hỏi" })).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Xem lại câu cuối" })).toBeNull();
+    // No completion interstitial or extra completion step: the result stays on the question.
+    expect(screen.queryByRole("button", { name: "Hoàn thành bài tập" })).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Bạn đã trả lời đúng hết bài tập.")).toBeNull();
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Danh sách câu hỏi" })).not.toBeNull();
+    // The completion toast fired once, from the server result.
+    expect(successToasts().filter((message) => message === TOPIC_COMPLETED_MESSAGE)).toHaveLength(1);
   });
 
   it("shows stored completion in the header and sidebar and promotes the next topic", () => {
