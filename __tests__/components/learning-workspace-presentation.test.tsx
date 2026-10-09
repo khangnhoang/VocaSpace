@@ -16,10 +16,10 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Mục tiêu: bảo vệ presentation D8-LUI của learning workspace: lật thẻ, nhóm ngữ liệu theo Part, chọn đáp án và dòng các bước.
 // - Loại test: component interaction test qua action boundary mock.
 // - Đối tượng: LearningWorkspace với FlashcardStage, ExerciseContext, ChoiceGroup và danh sách chương.
-// - Case thành công: lật thẻ chỉ lộ mặt sau đang active; sau khi chấm thành công đáp án cũ chỉ còn là bản sao inert rồi biến mất; Part 1 có ảnh phóng to; audio giữ nguyên node khi đổi câu cùng nhóm.
+// - Case thành công: lật thẻ chỉ lộ mặt sau đang active; sau khi chấm thành công thẻ lật về với đáp án vừa xem cho tới lần hiện đáp án kế; Part 1 có ảnh phóng to; audio giữ nguyên node khi đổi câu cùng nhóm.
 // - Case thất bại: chấm thẻ lỗi thì giữ mặt sau và các nút chấm; media thiếu hiện thông báo thay vì ô trống; ảnh lỗi cho tải lại cục bộ.
 // - Bảo mật/phân quyền: lựa chọn chưa chấm không mang trạng thái đúng/sai; DOM không có đáp án đúng trước khi server trả kết quả.
-// - Ổn định/resilience: bàn phím mũi tên đổi lựa chọn trong radiogroup; Again/Hard xếp lại cuối hàng đợi.
+// - Ổn định/resilience: bàn phím mũi tên đổi lựa chọn trong radiogroup; Again/Hard xếp lại cuối hàng đợi, ba thẻ cùng chấm Lại/Khó vẫn còn đủ ba thẻ (không báo xong).
 // - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật và không phải điều khiển; danh sách chương mở theo yêu cầu.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`).
 
@@ -150,7 +150,7 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Lại" }));
     });
 
-    it("keeps the old answer only as an inert copy while it folds away, then drops it", async () => {
+    it("turns the same card back with the answer it just showed, then reveals the new answer", async () => {
       const { container } = render(
         <LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />,
       );
@@ -160,24 +160,20 @@ describe("D8-LUI learning workspace presentation", () => {
         fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
       });
 
-      // The next front is live immediately.
+      // The next front is live immediately; the hidden back still holds the old answer.
       expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
-      const ghost = container.querySelector(".learning-ghost-out");
-      expect(ghost).not.toBeNull();
-      expect(ghost?.getAttribute("aria-hidden")).toBe("true");
-      expect(ghost?.hasAttribute("inert")).toBe(true);
-      expect(ghost?.textContent).toContain("đáng tin cậy");
-      expect(ghost?.querySelector("button, a, input")).toBeNull();
-
-      await act(async () => {
-        vi.advanceTimersByTime(400);
-      });
-      expect(container.querySelector(".learning-ghost-out")).toBeNull();
       expect(screen.getByText("improve")).not.toBeNull();
+      const inertBack = container.querySelector("[inert]");
+      expect(inertBack?.textContent).toContain("đáng tin cậy");
+      expect(inertBack?.textContent).not.toContain("cải thiện");
+
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      expect(screen.getByText("Nghĩa: cải thiện")).not.toBeNull();
+      expect(container.querySelector("[inert]")?.textContent).toContain("improve");
     });
 
     it("keeps the revealed card and the ratings when saving the rating fails", async () => {
-      const { container } = render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
       fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
       mockedReview.mockResolvedValueOnce({ error: "fail" });
       await act(async () => {
@@ -187,7 +183,6 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(mockedToast.error).toHaveBeenCalledWith("Lỗi đồng bộ tiến độ học!");
       expect(screen.getByRole("button", { name: "Ổn" })).not.toBeNull();
       expect(screen.queryByRole("button", { name: "Hiện đáp án" })).toBeNull();
-      expect(container.querySelector(".learning-ghost-out")).toBeNull();
     });
 
     it("requeues Again at the end and reports the unique card total", async () => {
@@ -204,6 +199,31 @@ describe("D8-LUI learning workspace presentation", () => {
       const bar = screen.getByRole("progressbar", { name: "Tiến độ từ vựng" });
       expect(bar.getAttribute("aria-valuemax")).toBe("2");
       expect(bar.getAttribute("aria-valuenow")).toBe("0");
+    });
+
+    it.each([
+      ["Lại", Rating.Again],
+      ["Khó", Rating.Hard],
+    ])("keeps all three cards queued after %s on each of them", async (label, rating) => {
+      const cardC = { ...cardB, id: "e0000000-0000-4000-8000-00000000000c", front_content: { word: "retain" } };
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB, cardC] })} />);
+
+      for (const expected of ["reliable", "improve", "retain"]) {
+        expect(screen.getByText(expected, { exact: true })).not.toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+        mockedReview.mockResolvedValueOnce({ success: true });
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: label }));
+        });
+        expect(mockedReview).toHaveBeenLastCalledWith(expect.any(String), rating);
+      }
+
+      // Nothing was graduated: the stage keeps going and the first card is due again.
+      expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
+      expect(mockedToast.success).not.toHaveBeenCalled();
+      expect(screen.getByText("3 / 3")).not.toBeNull();
+      expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
     });
 
     it("offers a restart instead of an empty stage after the last card", async () => {

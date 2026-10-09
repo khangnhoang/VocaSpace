@@ -237,27 +237,3 @@ html:has(.dark), body:has(.dark) {
     min-height: 44px;
   }
 }
-
-/* Learning workspace: the outgoing flashcard answer folds away over the next
-   front. The ghost is decorative, so reduced motion simply drops it. */
-@keyframes learning-ghost-out {
-  from {
-    opacity: 1;
-    transform: perspective(1200px) rotateY(0deg);
-  }
-  to {
-    opacity: 0;
-    transform: perspective(1200px) rotateY(-70deg);
-  }
-}
-
-.learning-ghost-out {
-  transform-origin: left center;
-  animation: learning-ghost-out 240ms cubic-bezier(0.2, 0, 0, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .learning-ghost-out {
-    display: none;
-  }
-}

@@ -17,9 +17,6 @@ interface FlashcardStageProps {
 
 type CardBack = FlashcardDTO["back_content"];
 
-// Matches the 240ms ghost keyframes in globals.css, with a little slack.
-const GHOST_LIFETIME_MS = 280;
-
 // Recall difficulty only: Attention for the harder ratings, Recall for the easier
 // ones. It is not a correct/incorrect signal, so Growth and Correction stay unused.
 const RATINGS = [
@@ -93,29 +90,21 @@ export default function FlashcardStage({
   handleRateCard,
   isPending,
 }: FlashcardStageProps) {
-  // The previous answer, kept only as an inert visual while it folds away after a
-  // confirmed rating. The real back face always holds the *current* card.
+  // Like the D6 review card, one physical card turns over and turns back: after a
+  // confirmed rating it keeps showing the answer it just revealed while it comes
+  // back to the front, and only the next reveal shows the new card's answer.
   const [shown, setShown] = useState({ card: currentCard, isFlipped });
-  const [ghost, setGhost] = useState<{ back: CardBack; serial: number } | null>(null);
+  const [previousBack, setPreviousBack] = useState<CardBack | null>(null);
   const revealRef = useRef<HTMLButtonElement>(null);
   const firstRatingRef = useRef<HTMLButtonElement>(null);
   const hasInteracted = useRef(false);
 
   if (shown.card !== currentCard || shown.isFlipped !== isFlipped) {
-    // A flipped card turning back to its front only happens after a rating was
-    // confirmed, so that moment is when the old answer must fold away.
     if (shown.isFlipped && !isFlipped && shown.card) {
-      const back = shown.card.back_content;
-      setGhost((previous) => ({ back, serial: (previous?.serial ?? 0) + 1 }));
+      setPreviousBack(shown.card.back_content);
     }
     setShown({ card: currentCard, isFlipped });
   }
-
-  useEffect(() => {
-    if (!ghost) return;
-    const timer = window.setTimeout(() => setGhost(null), GHOST_LIFETIME_MS);
-    return () => window.clearTimeout(timer);
-  }, [ghost]);
 
   useEffect(() => {
     if (!hasInteracted.current) return;
@@ -126,69 +115,63 @@ export default function FlashcardStage({
   if (!currentCard) return null;
 
   const front = currentCard.front_content;
-  const back = currentCard.back_content;
+  const back = isFlipped ? currentCard.back_content : (previousBack ?? currentCard.back_content);
   const completedCards = Math.max(0, totalCards - cardsLeft);
   const progressPercentage =
     totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
 
   return (
     <div className="flex w-full min-w-0 flex-col items-center font-sans">
-      <div className="relative w-full max-w-3xl [perspective:1200px]">
-        {/* One card with two faces in the same grid cell, so the footprint is the
-            taller face and never changes on reveal. Only the active face is exposed. */}
+      <div className="w-full max-w-3xl [perspective:1100px]">
+        {/* Fixed height: long and short cards occupy the same box, so nothing below it
+            moves when the card changes. Content that does not fit scrolls inside its face. */}
         <div
-          className={`grid [transform-style:preserve-3d] motion-reduce:[transform:none] ${
-            isFlipped
-              ? "[transform:rotateY(180deg)] transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)]"
-              : "transition-none"
+          data-flashcard-box=""
+          className={`grid h-[19rem] grid-rows-[minmax(0,1fr)] [transform-style:preserve-3d] transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] sm:h-[21rem] lg:h-[23rem] motion-reduce:transition-none motion-reduce:[transform:none] ${
+            isFlipped ? "[transform:rotateY(180deg)]" : ""
           }`}
         >
           <div
             aria-hidden={isFlipped || undefined}
             inert={isFlipped}
-            className={`col-start-1 row-start-1 flex min-h-72 min-w-0 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center [backface-visibility:hidden] sm:min-h-80 md:p-10 motion-reduce:transition-opacity motion-reduce:duration-100 ${
+            tabIndex={isFlipped ? undefined : 0}
+            className={`col-start-1 row-start-1 flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route md:p-10 motion-reduce:transition-opacity motion-reduce:duration-100 ${
               isFlipped ? "motion-reduce:opacity-0" : ""
             }`}
           >
-            <p className="mb-4 max-w-full break-words text-3xl font-bold tracking-tight text-slate-900 [overflow-wrap:anywhere] md:text-5xl">
-              {front?.word}
-            </p>
-            {(front?.pos || front?.phonetic) && (
-              <p className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-600 md:text-base">
-                {front?.pos && <span className="font-bold text-recall">({front.pos})</span>}
-                {front?.pos && front?.phonetic && (
-                  <span aria-hidden="true" className="text-slate-400">|</span>
-                )}
-                {front?.phonetic && (
-                  <span className="max-w-full break-words [overflow-wrap:anywhere]">
-                    {front.phonetic}
-                  </span>
-                )}
+            <div className="m-auto flex w-full min-w-0 flex-col items-center">
+              <p className="mb-4 max-w-full break-words text-3xl font-bold tracking-tight text-slate-900 [overflow-wrap:anywhere] md:text-5xl">
+                {front?.word}
               </p>
-            )}
+              {(front?.pos || front?.phonetic) && (
+                <p className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-600 md:text-base">
+                  {front?.pos && <span className="font-bold text-recall">({front.pos})</span>}
+                  {front?.pos && front?.phonetic && (
+                    <span aria-hidden="true" className="text-slate-400">|</span>
+                  )}
+                  {front?.phonetic && (
+                    <span className="max-w-full break-words [overflow-wrap:anywhere]">
+                      {front.phonetic}
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
           </div>
 
           <div
             aria-hidden={!isFlipped || undefined}
             inert={!isFlipped}
-            className={`col-start-1 row-start-1 flex min-h-72 min-w-0 flex-col justify-center rounded-2xl border border-recall-line bg-white p-6 [backface-visibility:hidden] [transform:rotateY(180deg)] sm:min-h-80 md:p-10 motion-reduce:[transform:none] motion-reduce:transition-opacity motion-reduce:duration-100 ${
+            tabIndex={isFlipped ? 0 : undefined}
+            className={`col-start-1 row-start-1 flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-2xl border border-recall-line bg-white p-6 shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route md:p-10 motion-reduce:[transform:none] motion-reduce:transition-opacity motion-reduce:duration-100 ${
               isFlipped ? "" : "motion-reduce:opacity-0"
             }`}
           >
-            <BackContent back={back} />
+            <div className="m-auto flex w-full min-w-0 flex-col">
+              <BackContent back={back} />
+            </div>
           </div>
         </div>
-
-        {ghost && (
-          <div
-            key={ghost.serial}
-            aria-hidden="true"
-            inert
-            className="learning-ghost-out pointer-events-none absolute inset-0 flex min-w-0 flex-col justify-center overflow-hidden rounded-2xl border border-recall-line bg-white p-6 md:p-10"
-          >
-            <BackContent back={ghost.back} />
-          </div>
-        )}
       </div>
 
       <div className="mt-5 w-full max-w-3xl">

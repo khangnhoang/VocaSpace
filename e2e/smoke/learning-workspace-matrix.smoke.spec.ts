@@ -66,8 +66,6 @@ test("vocabulary card turns in place and continues to the next front", async ({ 
   await page.getByRole("button", { name: "Ổn" }).click();
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
   await expect(page.getByText("incomprehensibilities", { exact: true })).toBeVisible();
-  // The old answer is only a decorative copy, and it is gone once the fold settles.
-  await expect(page.locator(".learning-ghost-out")).toHaveCount(0);
   const after = await page.getByRole("button", { name: "Hiện đáp án" }).boundingBox();
   expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThan(160);
 
@@ -80,17 +78,33 @@ test("vocabulary card turns in place and continues to the next front", async ({ 
   await expectNoHorizontalOverflow(page);
 });
 
-test("reduced motion drops the folding copy of the previous answer", async ({ page }) => {
+test("reduced motion shows the next front without turning the card", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(topicPath("vocabulary"));
   await page.getByRole("button", { name: "Hiện đáp án" }).click();
   await page.getByRole("button", { name: "Ổn" }).click();
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
-  const ghost = page.locator(".learning-ghost-out");
-  if (await ghost.count()) {
-    await expect(ghost).toBeHidden();
-  }
   await expect(page.getByText("incomprehensibilities", { exact: true })).toBeVisible();
+});
+
+test("card box keeps one height for long and short cards", async ({ page }) => {
+  for (const [width, height] of [[320, 700], [1440, 900]] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto(topicPath("vocabulary"));
+    const box = page.locator("[data-flashcard-box]");
+    const longFront = await box.boundingBox();
+    await page.getByRole("button", { name: "Hiện đáp án" }).click();
+    const longBack = await box.boundingBox();
+    const rating = await page.getByRole("button", { name: "Lại" }).boundingBox();
+    await page.getByRole("button", { name: "Ổn" }).click();
+    await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
+    const next = await box.boundingBox();
+    expect(longBack?.height).toBe(longFront?.height);
+    expect(next?.height).toBe(longFront?.height);
+    const revealAgain = await page.getByRole("button", { name: "Hiện đáp án" }).boundingBox();
+    expect(Math.abs((revealAgain?.y ?? 0) - (rating?.y ?? 0))).toBeLessThan(2);
+    await expectNoHorizontalOverflow(page);
+  }
 });
 
 test("Part 1 keeps the picture uncropped, explains inline and waits for Câu tiếp theo", async ({ page }) => {
