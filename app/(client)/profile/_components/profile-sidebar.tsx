@@ -98,7 +98,7 @@ export default function ProfileSidebar() {
           type="button"
           disabled={isUploadingAvatar || isLoading}
           onClick={() => fileInputRef.current?.click()}
-          className="mb-4 h-24 w-24 overflow-hidden rounded-full border-4 border-white shadow-md bg-emerald-500 flex items-center justify-center text-white text-3xl font-bold relative group cursor-pointer active:scale-95 transition-all"
+          className="mb-4 h-24 w-24 overflow-hidden rounded-full border-4 border-white shadow-md bg-slate-600 flex items-center justify-center text-white text-3xl font-bold relative group cursor-pointer active:scale-95 transition-all"
         >
           {isLoading ? (
             <Loader2 className="animate-spin w-8 h-8 text-white" />
@@ -130,7 +130,7 @@ export default function ProfileSidebar() {
           {isLoading ? "Đang tải..." : profileData?.full_name || "Học viên"}
         </h2>
         
-        <p className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full mt-2 uppercase tracking-wider">
+        <p className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full mt-2 uppercase tracking-wider">
           {profileData?.role || "Student"}
         </p>
       </div>
@@ -140,7 +140,7 @@ export default function ProfileSidebar() {
           onClick={() => setActiveTab("profile")}
           className={`flex-1 py-3.5 text-sm font-bold transition-colors ${
             activeTab === "profile" 
-              ? "border-b-2 border-emerald-500 text-emerald-600 bg-white" 
+              ? "border-b-2 border-route text-route bg-white"
               : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -150,7 +150,7 @@ export default function ProfileSidebar() {
           onClick={() => setActiveTab("security")}
           className={`flex-1 py-3.5 text-sm font-bold transition-colors ${
             activeTab === "security" 
-              ? "border-b-2 border-emerald-500 text-emerald-600 bg-white" 
+              ? "border-b-2 border-route text-route bg-white"
               : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -161,7 +161,7 @@ export default function ProfileSidebar() {
       <div className="p-6">
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
-            <Loader2 className="animate-spin w-8 h-8 text-emerald-500" />
+            <Loader2 className="animate-spin w-8 h-8 text-route" />
           </div>
         ) : activeTab === "profile" ? (
           <EditProfileForm 

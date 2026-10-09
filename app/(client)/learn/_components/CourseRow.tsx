@@ -143,7 +143,7 @@ export default function CourseRow({
         >
           {course.status !== "no-content" && (
             <div
-              className="h-full rounded-full bg-cyan-500 transition-[width]"
+              className={`h-full rounded-full transition-[width] ${isCompleted ? "bg-growth" : "bg-recall"}`}
               style={{ width: `${progress}%` }}
             />
           )}

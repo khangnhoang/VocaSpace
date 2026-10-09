@@ -50,7 +50,7 @@ export function PaymentRow({
         surface === "preview" ? "bg-transparent" : "bg-white",
       )}
     >
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-extrabold text-amber-700">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-attention-quiet text-xs font-extrabold text-attention">
         <span aria-hidden="true">!</span>
         <span className="sr-only">Cần xử lý</span>
       </span>
@@ -58,7 +58,7 @@ export function PaymentRow({
         <h3 className="line-clamp-2 wrap-break-word text-sm font-bold leading-5 text-slate-950 sm:text-base sm:leading-6">
           {payment.courseTitle}
         </h3>
-        <p className="mt-1 text-xs leading-4.5 text-amber-700">
+        <p className="mt-1 text-xs leading-4.5 text-attention">
           {statusLabel}
         </p>
         {deadline && (
@@ -108,7 +108,7 @@ export function PendingPaymentPreview({
   return (
     <section aria-labelledby="pending-payments-title" className="min-w-0">
       <div className="mb-3 flex items-center gap-2">
-        <AlertCircle aria-hidden="true" className="size-5 text-amber-700" />
+        <AlertCircle aria-hidden="true" className="size-5 text-attention" />
         <div className="min-w-0">
           <h2
             id="pending-payments-title"
@@ -121,8 +121,8 @@ export function PendingPaymentPreview({
           </p>
         </div>
       </div>
-      <div className="overflow-hidden rounded-[20px] border border-amber-200 bg-amber-50/70 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
-        <div className="divide-y divide-amber-200">
+      <div className="overflow-hidden rounded-[20px] border border-attention-line bg-attention-quiet shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
+        <div className="divide-y divide-attention-line">
           {previewPayments.map((payment) => (
             <PaymentRow
               key={payment.paymentId}
@@ -133,7 +133,7 @@ export function PendingPaymentPreview({
           ))}
         </div>
         {hasMore && (
-          <div className="border-t border-amber-200 p-1">
+          <div className="border-t border-attention-line p-1">
             <SheetTrigger asChild>
               <Button
                 type="button"
@@ -163,11 +163,11 @@ export function PendingPaymentsPanel({
       showCloseButton={false}
       className="h-dvh! w-screen! max-w-none! gap-0 overflow-hidden border-0 bg-white p-0 shadow-[0_12px_30px_-12px_rgba(15,23,42,0.24)] md:w-105! md:max-w-105! lg:w-120! lg:max-w-120!"
     >
-      <SheetHeader className="relative min-h-26 shrink-0 justify-center border-b border-amber-200 bg-amber-50 px-5 py-5 pr-20 lg:min-h-30 lg:px-6">
-        <SheetTitle className="text-xl font-bold leading-7 text-amber-900 lg:text-2xl lg:leading-8">
+      <SheetHeader className="relative min-h-26 shrink-0 justify-center border-b border-attention-line bg-attention-quiet px-5 py-5 pr-20 lg:min-h-30 lg:px-6">
+        <SheetTitle className="text-xl font-bold leading-7 text-attention lg:text-2xl lg:leading-8">
           Thanh toán đang chờ
         </SheetTitle>
-        <SheetDescription className="text-xs leading-4.5 text-amber-900">
+        <SheetDescription className="text-xs leading-4.5 text-attention">
           {payments.length} khoản · Giữ nguyên thứ tự hiện tại
         </SheetDescription>
         <SheetClose asChild>

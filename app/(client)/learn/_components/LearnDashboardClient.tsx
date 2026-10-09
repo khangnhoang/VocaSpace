@@ -65,10 +65,10 @@ function DashboardError({ error }: { error: string }) {
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="max-w-lg rounded-3xl border border-rose-100 bg-white p-8 text-center shadow-sm">
+      <div className="max-w-lg rounded-3xl border border-correction-line bg-white p-8 text-center shadow-sm">
         <AlertTriangle
           aria-hidden="true"
-          className="mx-auto size-12 text-rose-600"
+          className="mx-auto size-12 text-correction"
         />
         <h1 className="mt-4 text-2xl font-extrabold text-slate-950">
           Chưa thể tải không gian học tập
@@ -77,7 +77,7 @@ function DashboardError({ error }: { error: string }) {
         <Button
           type="button"
           onClick={() => router.refresh()}
-          className="mt-6 min-h-11 bg-blue-600 px-5 text-white hover:bg-blue-700"
+          className="mt-6 min-h-11 bg-action px-5 text-action-foreground hover:bg-action/90"
         >
           <RotateCcw aria-hidden="true" className="size-4" />
           Thử lại
@@ -349,7 +349,7 @@ function ReviewCard({
       <Button
         type="button"
         onClick={onOpen}
-        className="mt-4 min-h-11 w-full bg-blue-600 font-bold text-white shadow-none hover:bg-blue-700 focus-visible:ring-blue-500"
+        className="mt-4 min-h-11 w-full bg-action font-bold text-action-foreground shadow-none hover:bg-action/90 focus-visible:ring-route"
       >
         Ôn ngay
         <span aria-hidden="true">→</span>

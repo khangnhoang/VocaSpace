@@ -368,7 +368,7 @@ describe("learning dashboard presentation helpers", () => {
     expect(withDeadline).toContain("Tiếp tục thanh toán");
     expect(withDeadline).toContain("bg-action");
     expect(withDeadline).not.toContain("bg-amber-700");
-    expect(withDeadline).toContain("text-amber-700");
+    expect(withDeadline).toContain("text-attention");
     expect(withDeadline).not.toContain("bg-blue-600");
   });
 });

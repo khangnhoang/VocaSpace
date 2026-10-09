@@ -164,7 +164,7 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
           </p>
         </div>
         {data.status === "completed" && (
-          <CheckCircle2 aria-hidden="true" className="size-10 text-cyan-600" />
+          <CheckCircle2 aria-hidden="true" className="size-10 text-growth" />
         )}
       </div>
       <div
@@ -177,7 +177,7 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
         className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100"
       >
         <div
-          className="h-full rounded-full bg-cyan-500"
+          className={`h-full rounded-full ${data.status === "completed" ? "bg-growth" : "bg-recall"}`}
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -199,7 +199,7 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
       {destination && (
         <Button
           asChild
-          className="mt-5 min-h-11 w-full rounded-xl bg-blue-600 px-5 font-bold text-white hover:bg-blue-700"
+          className="mt-5 min-h-11 w-full rounded-xl bg-action px-5 font-bold text-action-foreground hover:bg-action/90"
         >
           <Link href={destination}>
             {presentation.cta}
@@ -274,11 +274,11 @@ function LearningPath({ data }: { data: EnrolledCourseOverviewData }) {
                   <li key={topic.id}>
                     <Link
                       href={`/learn/${data.courseSlug}/${topic.slug}`}
-                      className={`group flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 py-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:px-4 ${
+                      className={`group flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 py-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 sm:px-4 ${
                         isCurrent
-                          ? "border-blue-200 bg-blue-50"
+                          ? "border-route-line bg-route-quiet"
                           : topic.isCompleted
-                            ? "border-cyan-100 bg-cyan-50/50 hover:border-cyan-200"
+                            ? "border-growth-line bg-growth-quiet hover:border-growth"
                             : "border-transparent bg-slate-50 hover:border-slate-200"
                       }`}
                     >
@@ -288,7 +288,7 @@ function LearningPath({ data }: { data: EnrolledCourseOverviewData }) {
                           isCurrent
                             ? "text-blue-600"
                             : topic.isCompleted
-                              ? "text-cyan-700"
+                              ? "text-growth"
                               : "text-slate-400"
                         }`}
                       />
@@ -300,7 +300,7 @@ function LearningPath({ data }: { data: EnrolledCourseOverviewData }) {
                           isCurrent
                             ? "text-blue-700"
                             : topic.isCompleted
-                              ? "text-cyan-800"
+                              ? "text-growth"
                               : "text-slate-500"
                         }`}
                       >
