@@ -23,6 +23,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - "Câu tiếp theo"/"Câu sau" chỉ hiện khi còn câu sau; câu cuối đã đúng đưa tới "Làm câu còn thiếu" hoặc, khi đã đủ, "Bài tiếp theo" (đúng đích của "Bài sau"; bài cuối thì "Về tổng quan khóa học"); không còn nút/màn hình "Hoàn thành bài tập" trung gian.
 // - Bố cục: "Câu trước" (variant link) và nút chính cùng một hàng, không có đường kẻ; cột câu hỏi cạnh ngữ liệu dài chỉ dính (`data-sticky`) khi vừa chiều cao viewport (đo bằng `offsetHeight` giả lập); ở bố cục xếp chồng có "Tới câu hỏi" cuộn (smooth, hoặc auto khi reduced motion) và đưa focus vào tiêu đề; đổi câu cùng nhóm giữ nguyên node ngữ liệu.
 // - Phân quyền: bài tập đang khóa sau memory check không có nút điều hướng; trong Preview chỉ dùng state cục bộ (xem public-course-preview.test.tsx).
+// - Câu đang chờ phản hồi khi người học rời câu: quay lại vẫn thấy lựa chọn và trạng thái chờ, không gửi lần hai; kết quả đến muộn (đúng, sai, lỗi lưu) xuất hiện đúng ở màn hình đang xem và danh sách câu hỏi khớp với kết quả server.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI follow-up 3 (chạy `npx vitest run __tests__/components/question-navigator.test.tsx`).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -530,5 +531,91 @@ describe("grouped material layout", () => {
     fireEvent.click(screen.getByRole("button", { name: "Câu sau" }));
     expect(screen.getByRole("heading", { name: "Câu B hai" })).not.toBeNull();
     expect(screen.getByText("Đoạn văn B")).toBe(passage);
+  });
+});
+
+describe("an answer in flight when the learner leaves its question", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseRouter.mockReturnValue({ refresh: vi.fn() } as never);
+  });
+
+  function deferSubmit() {
+    let settle: (value: unknown) => void = () => {};
+    mockedSubmit.mockReturnValueOnce(
+      new Promise((resolve) => {
+        settle = resolve;
+      }) as never,
+    );
+    return (value: unknown) => settle(value);
+  }
+
+  async function submitAndComeBack(optionContent: string) {
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(optionContent) }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Câu sau" }));
+    expect(screen.getByText("Câu hỏi 2/4")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Câu trước/ }));
+    expect(screen.getByText("Câu hỏi 1/4")).not.toBeNull();
+  }
+
+  it("returns to a pending question that cannot be submitted again, then shows the correct result when it lands", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    const settle = deferSubmit();
+    await submitAndComeBack("Đúng Câu đơn");
+
+    // The returning view waits on the same request: the chosen option stays, nothing else can be sent.
+    expect(screen.getByRole("radio", { name: /Đúng Câu đơn/ }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: /Sai Câu đơn/ }).matches(":disabled")).toBe(true);
+    expect((screen.getByRole("button", { name: "Đang kiểm tra…" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(mockedSubmit).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      settle({ success: true, isCorrect: true, explanation: "Vì sao đúng." });
+    });
+
+    // The late result reaches the view the learner is looking at, and the wrong option stays locked out.
+    expect(screen.getByText("Vì sao đúng.")).not.toBeNull();
+    expect(screen.getByRole("radio", { name: /Sai Câu đơn/ }).matches(":disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Câu tiếp theo" })).not.toBeNull();
+    expect(mockedSubmit).toHaveBeenCalledTimes(1);
+
+    openNavigator();
+    expect(rowOf(/Câu 1: Câu đơn\s*Đang xem · Đã trả lời đúng/)).not.toBeNull();
+  });
+
+  it("shows a wrong result with its explanation on the returning view and lets the learner retry", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    const settle = deferSubmit();
+    await submitAndComeBack("Sai Câu đơn");
+
+    await act(async () => {
+      settle({ success: true, isCorrect: false, explanation: "Đọc lại ngữ liệu." });
+    });
+
+    expect(screen.getByText("Chưa chính xác")).not.toBeNull();
+    expect(screen.getByText("Đọc lại ngữ liệu.")).not.toBeNull();
+    openNavigator();
+    expect(rowOf(/Câu 1: Câu đơn\s*Đang xem · Trả lời chưa đúng/)).not.toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(screen.getByRole("radio", { name: /Đúng Câu đơn/ }).matches(":disabled")).toBe(false);
+  });
+
+  it("shows a failed save on the returning view and keeps the choice for a retry", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    const settle = deferSubmit();
+    await submitAndComeBack("Đúng Câu đơn");
+
+    await act(async () => {
+      settle({ error: "Không lưu được." });
+    });
+
+    expect(screen.getByText(/Không lưu được\./)).not.toBeNull();
+    expect(screen.getByRole("radio", { name: /Đúng Câu đơn/ }).getAttribute("aria-checked")).toBe("true");
+    expect((screen.getByRole("button", { name: "Xác nhận đáp án" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

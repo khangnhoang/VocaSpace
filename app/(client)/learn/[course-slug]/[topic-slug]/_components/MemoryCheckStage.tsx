@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, RotateCcw, TriangleAlert, XCircle } from "lucide
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import type { QuestionDTO } from "@/lib/schemas/learn";
+import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -16,6 +17,10 @@ interface MemoryCheckStageProps {
   questions: QuestionDTO[];
   /** Question ids the server already counts as correct (H3 predicate). */
   initiallyCorrectIds: string[];
+  /** Submissions by question, owned by the workspace so they outlive this stage's view. */
+  attempts?: Record<string, AnswerAttempt>;
+  onAttemptStart?: (questionId: string, optionId: string) => void;
+  onAttemptSettled?: (questionId: string, optionId: string, outcome: AttemptOutcome) => void;
   isPassed: boolean;
   hasExercises: boolean;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
@@ -38,6 +43,9 @@ function sortOptions(question: QuestionDTO) {
 export default function MemoryCheckStage({
   questions,
   initiallyCorrectIds,
+  attempts,
+  onAttemptStart,
+  onAttemptSettled,
   isPassed,
   hasExercises,
   onCorrectAnswer,
@@ -56,7 +64,17 @@ export default function MemoryCheckStage({
       .filter((question) => !correct.has(question.id))
       .map((question) => question.id);
   });
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  // A request started before this view mounted (the learner went to the cards and came
+  // back) is still running: show it as pending and take its result when it lands.
+  const [inheritedId] = useState(() => {
+    const head = queue[0];
+    return head && attempts?.[head]?.status === "pending" ? head : null;
+  });
+  const [inheritedDone, setInheritedDone] = useState(inheritedId === null);
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(() => {
+    const inherited = inheritedId ? attempts?.[inheritedId] : undefined;
+    return inherited ? inherited.optionId : null;
+  });
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [error, setError] = useState<string | null>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -65,10 +83,34 @@ export default function MemoryCheckStage({
   const total = questions.length;
   const correctCount = total - queue.length + (feedback?.kind === "correct" ? 1 : 0);
   const currentQuestion = questions.find((question) => question.id === queue[0]);
+  const currentAttempt = currentQuestion ? attempts?.[currentQuestion.id] : undefined;
+  const isRequestPending = isPending || currentAttempt?.status === "pending";
 
   useEffect(() => {
     if (feedback) continueButtonRef.current?.focus();
   }, [feedback]);
+
+  // The request this view inherited has landed: show its result (state adjusted
+  // while rendering, so the first paint after the result already shows it).
+  const inheritedAttempt = inheritedId ? attempts?.[inheritedId] : undefined;
+  if (!inheritedDone && inheritedAttempt?.status === "settled") {
+    const { outcome } = inheritedAttempt;
+    setInheritedDone(true);
+    setSelectedOptionId(inheritedAttempt.optionId);
+    if (outcome.kind === "error") {
+      setError(outcome.message);
+    } else {
+      setFeedback(
+        outcome.kind === "correct"
+          ? { kind: "correct", passed: outcome.passed }
+          : {
+              kind: "incorrect",
+              explanation: outcome.explanation || "Đáp án chưa chính xác.",
+              passed: outcome.passed,
+            },
+      );
+    }
+  }
 
   if (isPassed) {
     return (
@@ -123,17 +165,27 @@ export default function MemoryCheckStage({
   const isAnswered = feedback !== null;
 
   const submit = () => {
-    if (!selectedOptionId || isPending || isAnswered) return;
+    if (!selectedOptionId || isRequestPending || isAnswered) return;
+    const questionId = currentQuestion.id;
+    const chosenId = selectedOptionId;
     setError(null);
+    onAttemptStart?.(questionId, chosenId);
     startTransition(async () => {
-      const result = await submitQuestionAnswer(currentQuestion.id, selectedOptionId);
+      const result = await submitQuestionAnswer(questionId, chosenId);
       if (result.error) {
+        onAttemptSettled?.(questionId, chosenId, { kind: "error", message: result.error });
         setError(result.error);
         return;
       }
       announceTopicProgress(result, onTopicCompleted);
       const passed = result.isMemoryCheckPassed === true;
-      if (result.isCorrect) onCorrectAnswer(currentQuestion.id, selectedOptionId);
+      if (result.isCorrect) onCorrectAnswer(questionId, chosenId);
+      onAttemptSettled?.(questionId, chosenId, {
+        kind: result.isCorrect ? "correct" : "incorrect",
+        explanation: result.explanation,
+        progressError: result.progressError,
+        passed,
+      });
       setFeedback(
         result.isCorrect
           ? { kind: "correct", passed }
@@ -208,7 +260,7 @@ export default function MemoryCheckStage({
           options={options}
           selectedId={selectedOptionId}
           result={feedback ? (feedback.kind === "correct" ? "correct" : "incorrect") : null}
-          disabled={isAnswered || isPending}
+          disabled={isAnswered || isRequestPending}
           onSelect={setSelectedOptionId}
           labelledBy="memory-check-question"
         />
@@ -258,12 +310,12 @@ export default function MemoryCheckStage({
       ) : (
         <Button
           onClick={submit}
-          disabled={!selectedOptionId || isPending}
+          disabled={!selectedOptionId || isRequestPending}
           size="lg"
           className="min-h-12 w-full"
         >
-          {isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-          {isPending ? "Đang kiểm tra..." : "Kiểm tra đáp án"}
+          {isRequestPending && <Loader2 aria-hidden="true" className="animate-spin" />}
+          {isRequestPending ? "Đang kiểm tra..." : "Kiểm tra đáp án"}
         </Button>
       )}
     </section>

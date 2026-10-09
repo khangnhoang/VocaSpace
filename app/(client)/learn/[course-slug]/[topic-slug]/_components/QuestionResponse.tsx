@@ -7,6 +7,7 @@ import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO, QuestionOptionDTO } from "@/lib/schemas/learn";
+import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -35,6 +36,10 @@ interface QuestionResponseProps {
   groupPosition: { current: number; total: number } | null;
   /** Option the server already counts as this question's correct answer, if any. */
   savedOptionId?: string;
+  /** This question's submission, owned by the workspace so it survives leaving and returning. */
+  attempt?: AnswerAttempt;
+  onAttemptStart: (questionId: string, optionId: string) => void;
+  onAttemptSettled: (questionId: string, optionId: string, outcome: AttemptOutcome) => void;
   /** Direction of the last question change, so the entrance matches where the learner came from. */
   direction: "next" | "previous" | "none";
   /** Moves focus to the question heading on entry; set only after the learner navigated. */
@@ -67,6 +72,9 @@ export default function QuestionResponse({
   totalQuestions,
   groupPosition,
   savedOptionId,
+  attempt,
+  onAttemptStart,
+  onAttemptSettled,
   direction,
   focusOnEntry,
   hasNext,
@@ -84,10 +92,37 @@ export default function QuestionResponse({
   const attemptRef = useRef(0);
   const aliveRef = useRef(true);
   const [, startTransition] = useTransition();
-  const [selectedId, setSelectedId] = useState<string | null>(savedOptionId ?? null);
-  const [phase, setPhase] = useState<Phase>(
-    savedOptionId ? { kind: "correct", alreadySaved: true } : { kind: "choosing" },
+  // A request started before this view mounted (the learner left and came back) is
+  // still running: show it as pending and take its result when it lands.
+  const inheritedPendingRef = useRef(!savedOptionId && attempt?.status === "pending");
+  const [selectedId, setSelectedId] = useState<string | null>(
+    savedOptionId ?? (attempt?.status === "pending" ? attempt.optionId : null),
   );
+  const [phase, setPhase] = useState<Phase>(
+    savedOptionId
+      ? { kind: "correct", alreadySaved: true }
+      : attempt?.status === "pending"
+        ? { kind: "pending" }
+        : { kind: "choosing" },
+  );
+
+  useEffect(() => {
+    if (!inheritedPendingRef.current || attempt?.status !== "settled") return;
+    inheritedPendingRef.current = false;
+    const { outcome, optionId } = attempt;
+    setSelectedId(optionId);
+    setPhase(
+      outcome.kind === "correct"
+        ? { kind: "correct", explanation: outcome.explanation, progressError: outcome.progressError }
+        : outcome.kind === "incorrect"
+          ? {
+              kind: "incorrect",
+              explanation: outcome.explanation || INCORRECT_FALLBACK,
+              progressError: outcome.progressError,
+            }
+          : { kind: "error", message: outcome.message },
+    );
+  }, [attempt]);
 
   useEffect(() => {
     aliveRef.current = true;
@@ -116,24 +151,30 @@ export default function QuestionResponse({
 
   const submit = () => {
     if (!selectedId || isPending || isCorrect) return;
-    const attempt = ++attemptRef.current;
+    const attemptNumber = ++attemptRef.current;
     const chosenId = selectedId;
+    inheritedPendingRef.current = false;
     setPhase({ kind: "pending" });
+    onAttemptStart(question.id, chosenId);
 
     startTransition(async () => {
       let response: Awaited<ReturnType<typeof submitQuestionAnswer>>;
       try {
         response = await submitQuestionAnswer(question.id, chosenId);
       } catch {
-        if (aliveRef.current && attemptRef.current === attempt) {
-          setPhase({ kind: "error", message: "Không thể gửi câu trả lời lúc này." });
+        const message = "Không thể gửi câu trả lời lúc này.";
+        onAttemptSettled(question.id, chosenId, { kind: "error", message });
+        if (aliveRef.current && attemptRef.current === attemptNumber) {
+          setPhase({ kind: "error", message });
         }
         return;
       }
-      // A newer attempt, or leaving this question, makes this result history only.
-      const isCurrent = aliveRef.current && attemptRef.current === attempt;
+      // Leaving this question makes this view history only; a view that replaced it
+      // takes the outcome from the workspace.
+      const isCurrent = aliveRef.current && attemptRef.current === attemptNumber;
 
       if (response.error) {
+        onAttemptSettled(question.id, chosenId, { kind: "error", message: response.error });
         if (!isCurrent) return;
         if (response.errorCode === MEMORY_CHECK_REQUIRED && onMemoryCheckRequired) {
           onMemoryCheckRequired();
@@ -146,6 +187,12 @@ export default function QuestionResponse({
       announceTopicProgress(response, onTopicCompleted);
       if (response.isCorrect) onCorrectAnswer(question.id, chosenId);
       else onIncorrectAnswer?.(question.id);
+      onAttemptSettled(question.id, chosenId, {
+        kind: response.isCorrect ? "correct" : "incorrect",
+        explanation: response.explanation,
+        progressError: response.progressError,
+        passed: response.isMemoryCheckPassed === true,
+      });
       if (!isCurrent) return;
 
       setPhase(

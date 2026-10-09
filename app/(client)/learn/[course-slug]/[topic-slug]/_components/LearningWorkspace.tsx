@@ -38,6 +38,7 @@ import ExerciseContext from "./ExerciseContext";
 import FlashcardStage from "./FlashcardStage";
 import MemoryCheckStage from "./MemoryCheckStage";
 import QuestionNavigator, { type QuestionNavigatorSection } from "./QuestionNavigator";
+import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import QuestionResponse from "./QuestionResponse";
 import StickyColumn from "./StickyColumn";
 import { arrangeMaterial } from "./exercise-arrangement";
@@ -183,6 +184,16 @@ export default function LearningWorkspace({
   // Questions answered wrongly in this session and not yet answered right; only the
   // review list reads it, the server never stores a wrong attempt.
   const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
+  // Submissions by question, kept here so leaving a question or stage while its answer
+  // is in flight neither allows a second submit nor loses the result that lands later.
+  const [attempts, setAttempts] = useState<Record<string, AnswerAttempt>>({});
+  const startAttempt = (questionId: string, optionId: string) =>
+    setAttempts((current) => ({ ...current, [questionId]: { status: "pending", optionId } }));
+  const settleAttempt = (questionId: string, optionId: string, outcome: AttemptOutcome) =>
+    setAttempts((current) => ({
+      ...current,
+      [questionId]: { status: "settled", optionId, outcome },
+    }));
   const [expandedChapter, setExpandedChapter] = useState(
     currentTopic.chapterId,
   );
@@ -586,6 +597,9 @@ export default function LearningWorkspace({
               totalQuestions={exerciseQuestionCount}
               groupPosition={groupPosition}
               savedOptionId={userAnswers[currentQuestion.id]}
+              attempt={attempts[currentQuestion.id]}
+              onAttemptStart={startAttempt}
+              onAttemptSettled={settleAttempt}
               direction={entry.direction}
               focusOnEntry={entry.focus}
               hasNext={hasNextQuestion}
@@ -635,6 +649,9 @@ export default function LearningWorkspace({
             initiallyCorrectIds={memoryCheck.questions
               .filter((question) => userAnswers[question.id])
               .map((question) => question.id)}
+            attempts={attempts}
+            onAttemptStart={startAttempt}
+            onAttemptSettled={settleAttempt}
             isPassed={memoryPassed}
             hasExercises={exercises.length > 0}
             onCorrectAnswer={(questionId, optionId) =>

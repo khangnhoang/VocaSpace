@@ -193,6 +193,40 @@ describe("D3 memory check stage", () => {
     expect(screen.getByRole("button", { name: /Về Memory check/ })).not.toBeNull();
   });
 
+  it("keeps an answer in flight pending when the learner leaves and returns, and shows its result when it lands", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+
+    let settle: (value: unknown) => void = () => {};
+    mockedSubmit.mockReturnValueOnce(
+      new Promise((resolve) => {
+        settle = resolve;
+      }) as never,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /Đúng 1/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Tới Bài tập/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Về Memory check/ }));
+
+    // The returning view is still waiting: same choice, nothing to submit again.
+    expect(questionHeading()).toBe("Câu nhớ 1");
+    expect(screen.getByRole("radio", { name: /Đúng 1/ }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: /Sai 1/ }).matches(":disabled")).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Đang kiểm tra..." }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    await act(async () => {
+      settle({ success: true, isCorrect: true, isMemoryCheckPassed: false });
+    });
+    expect(screen.getByText("Chính xác!")).not.toBeNull();
+    expect(screen.getByText("Đã đúng 1/2")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Tiếp tục" })).not.toBeNull();
+    expect(mockedSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the current question and choice on a server error and blocks double submit", async () => {
     render(<LearningWorkspace data={workspaceData()} />);
 

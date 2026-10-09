@@ -132,14 +132,23 @@ export function PublicCoursePreviewExperience({
   const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
   const [answerError, setAnswerError] = useState<string | null>(null);
   const [isUnavailable, setIsUnavailable] = useState(false);
-  const [isAnswerPending, startAnswerTransition] = useTransition();
+  // Requests in flight, by question: the option sent. Keyed by question so a result can
+  // only ever land on the question that was submitted, wherever the learner is now.
+  const [pendingAnswers, setPendingAnswers] = useState<Record<string, string>>({});
   const [isContinuePending, startContinueTransition] = useTransition();
   const [continueError, setContinueError] = useState<string | null>(null);
-  const answerInFlight = useRef(false);
+  const answerInFlight = useRef<Set<string>>(new Set());
+  const latestAttempt = useRef<Record<string, number>>({});
+  const attemptCounter = useRef(0);
   const continueInFlight = useRef(false);
   const mediaRevalidationInFlight = useRef(false);
   const currentCard = remainingCards[0];
   const currentQuestionItem = questions[questionIndex];
+  const isAnswerPending = currentQuestionItem
+    ? pendingAnswers[currentQuestionItem.question.id] !== undefined
+    : false;
+  const currentQuestionIdRef = useRef<string | undefined>(undefined);
+  currentQuestionIdRef.current = currentQuestionItem?.question.id;
   const questionHeadingId = useId();
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
   const focusQuestionHeading = useRef(false);
@@ -195,24 +204,29 @@ export function PublicCoursePreviewExperience({
   }
 
   function submitAnswer() {
-    if (
-      !currentQuestionItem ||
-      !selectedOptionId ||
-      isAnswerPending ||
-      answerInFlight.current
-    ) {
-      return;
-    }
+    if (!currentQuestionItem || !selectedOptionId || isAnswerPending) return;
+    const answeredId = currentQuestionItem.question.id;
+    const chosenId = selectedOptionId;
+    if (answerInFlight.current.has(answeredId)) return;
 
-    answerInFlight.current = true;
+    const attempt = ++attemptCounter.current;
+    latestAttempt.current[answeredId] = attempt;
+    answerInFlight.current.add(answeredId);
+    setPendingAnswers((pending) => ({ ...pending, [answeredId]: chosenId }));
     setAnswerError(null);
-    startAnswerTransition(async () => {
+
+    // The learner may have moved on by the time this settles: the result then only
+    // goes to the session history of the submitted question, never the open one.
+    const isShowing = () =>
+      currentQuestionIdRef.current === answeredId && latestAttempt.current[answeredId] === attempt;
+
+    void (async () => {
       try {
         const result = await answerPublicCoursePreviewQuestion({
           courseSlug: data.course.slug,
           topicSlug: data.topic.slug,
-          questionId: currentQuestionItem.question.id,
-          selectedOptionId,
+          questionId: answeredId,
+          selectedOptionId: chosenId,
         });
 
         if (result.status === "unavailable") {
@@ -220,26 +234,35 @@ export function PublicCoursePreviewExperience({
           return;
         }
         if (result.status === "error") {
-          setAnswerError(result.error);
+          if (isShowing()) setAnswerError(result.error);
           return;
         }
 
-        setAnswerResult(result.data);
-        const answeredId = currentQuestionItem.question.id;
         if (result.data.isCorrect) {
           setCorrectChoices((choices) => ({
             ...choices,
-            [answeredId]: { optionId: selectedOptionId, explanation: result.data.explanation },
+            [answeredId]: { optionId: chosenId, explanation: result.data.explanation },
           }));
         } else {
           setIncorrectIds((ids) => ({ ...ids, [answeredId]: true }));
         }
+        if (isShowing()) {
+          setSelectedOptionId(chosenId);
+          setAnswerResult(result.data);
+        }
       } catch {
-        setAnswerError("Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.");
+        if (isShowing()) {
+          setAnswerError("Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.");
+        }
       } finally {
-        answerInFlight.current = false;
+        answerInFlight.current.delete(answeredId);
+        setPendingAnswers((pending) => {
+          const rest = { ...pending };
+          delete rest[answeredId];
+          return rest;
+        });
       }
-    });
+    })();
   }
 
   function resetQuestionAttempt() {
@@ -251,10 +274,12 @@ export function PublicCoursePreviewExperience({
 
   // A question already answered right shows that answer again instead of a blank form.
   function openQuestion(index: number) {
-    const saved = questions[index] ? correctChoices[questions[index].question.id] : undefined;
+    const target = questions[index];
+    const saved = target ? correctChoices[target.question.id] : undefined;
+    const pendingOptionId = target ? pendingAnswers[target.question.id] : undefined;
     focusQuestionHeading.current = true;
     setQuestionIndex(index);
-    setSelectedOptionId(saved?.optionId ?? null);
+    setSelectedOptionId(saved?.optionId ?? pendingOptionId ?? null);
     setAnswerResult(saved ? { isCorrect: true, explanation: saved.explanation } : null);
     setAnswerError(null);
   }

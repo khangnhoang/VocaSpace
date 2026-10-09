@@ -364,6 +364,27 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(screen.getByRole("dialog", { name: "Hình ảnh của nhóm câu hỏi" })).not.toBeNull();
     });
 
+    it("shows a local failed state in the enlarged view and reports the failure, with a reload", () => {
+      render(
+        <LearningWorkspace
+          data={data({
+            exercises: [exercise("part1", { image_url: "/api/question-group-media/b/image" })],
+          })}
+        />,
+      );
+      fireEvent.load(screen.getByAltText("Hình ảnh của nhóm câu hỏi"));
+      fireEvent.click(screen.getByRole("button", { name: "Phóng to hình ảnh" }));
+      const dialog = screen.getByRole("dialog", { name: "Hình ảnh của nhóm câu hỏi" });
+
+      fireEvent.error(within(dialog).getByAltText("Hình ảnh của nhóm câu hỏi"));
+      expect(within(dialog).getByText("Không tải được hình ảnh.")).not.toBeNull();
+      // The inline picture is untouched.
+      expect(screen.getAllByAltText("Hình ảnh của nhóm câu hỏi")).toHaveLength(1);
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Tải lại hình ảnh" }));
+      expect(within(dialog).getByAltText("Hình ảnh của nhóm câu hỏi")).not.toBeNull();
+    });
+
     it("offers a local reload for a failed image without touching the answer", () => {
       render(
         <LearningWorkspace

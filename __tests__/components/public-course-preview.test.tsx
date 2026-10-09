@@ -36,6 +36,7 @@ vi.mock("next/navigation", () => ({
 // - Invariant cần giữ: không ghi user_flashcards, user_question_answers hoặc user_topic_progress.
 // - Trình bày dùng chung với learning workspace D8-LUI (candidate): ChoiceGroup radio, ExerciseContext, thông báo thiếu ngữ liệu bắt buộc, kết thúc nói đúng là đã xem mẫu.
 // - Điều hướng câu hỏi (D8-LUI follow-up 3, candidate): "Danh sách câu hỏi" dùng state cục bộ, không gọi thêm Server Action; hiện trạng thái đúng/chưa đúng/chưa trả lời, nhảy tới câu bất kỳ, câu đã đúng hiện lại lựa chọn đã chọn; không còn hộp "Chính xác!" hiển thị (giữ thông báo cho trình đọc màn hình và phần giải thích). Cột câu hỏi cạnh ngữ liệu chỉ dính khi vừa viewport; "Tới câu hỏi" đưa focus vào tiêu đề; câu cuối vào thẳng màn hình tóm tắt Preview bằng nút chính, không thêm bước phụ.
+// - Kết quả trả về muộn: phản hồi của một câu chỉ gắn vào đúng câu đã gửi (cùng nhóm và khác nhóm), vẫn ghi vào lịch sử phiên của câu đó; quay lại câu đang chờ thì vẫn bị khóa, không gửi lần hai; phản hồi unavailable luôn đóng nội dung bất kể đang ở câu nào. Ảnh phóng to bị từ chối sau khi ảnh nhỏ đã tải sẽ kiểm tra lại quyền xem thử.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP3/CP4 (chạy `npx vitest run __tests__/components/public-course-preview.test.tsx`).
 
 const courseSlug = "public-course";
@@ -249,6 +250,28 @@ describe("public course Preview experience", () => {
       }),
     ).toBeTruthy();
     expect(mocks.getPreview).toHaveBeenCalledWith({ courseSlug, topicSlug });
+    expect(screen.queryByText("Chọn đáp án đúng.")).toBeNull();
+  });
+
+  it("rechecks eligibility when the enlarged image is refused after the inline one loaded", async () => {
+    mocks.getPreview.mockResolvedValue({ status: "unavailable" });
+    const data = preview({ flashcards: [] });
+    data.exercises[0].part_type = "part1";
+    data.exercises[0].groups[0].image_url =
+      "/api/public-course-preview/media/44444444-4444-4444-8444-444444444444/image";
+    renderPreview(data);
+
+    fireEvent.load(screen.getByAltText("Hình ảnh của nhóm câu hỏi"));
+    fireEvent.click(screen.getByRole("button", { name: "Phóng to hình ảnh" }));
+    // Preview was withdrawn in between: only the new, enlarged request is denied.
+    const dialog = screen.getByRole("dialog");
+    expect(mocks.getPreview).not.toHaveBeenCalled();
+    fireEvent.error(within(dialog).getByAltText("Hình ảnh của nhóm câu hỏi"));
+
+    expect(mocks.getPreview).toHaveBeenCalledWith({ courseSlug, topicSlug });
+    expect(
+      await screen.findByRole("heading", { name: "Nội dung xem thử hiện không khả dụng" }),
+    ).toBeTruthy();
     expect(screen.queryByText("Chọn đáp án đúng.")).toBeNull();
   });
 
@@ -513,5 +536,113 @@ describe("public course Preview question navigator", () => {
     expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Hoàn thành bài học" }));
     expect(screen.getByText("Hoàn tất lượt xem thử")).toBeTruthy();
+  });
+  describe("a response that arrives after the learner moved to another question", () => {
+    const otherGroupId = "45454545-4545-4545-8545-454545454545";
+
+    function deferredAnswer() {
+      let resolve!: (value: unknown) => void;
+      mocks.answer.mockReturnValueOnce(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+      return (value: unknown) => resolve(value);
+    }
+
+    function inOtherGroup() {
+      const data = twoQuestionPreview();
+      data.exercises[0].groups[0].questions.pop();
+      data.exercises[0].groups.push({
+        id: otherGroupId,
+        passage_text: null,
+        audio_url: null,
+        image_url: null,
+        order_index: 1,
+        questions: [
+          {
+            id: secondQuestionId,
+            content: "Câu thứ hai.",
+            order_index: 0,
+            options: [
+              { id: secondOptionId, content: "Hai A", label: "A", order_index: 0 },
+              { id: "68686868-6868-4686-8686-686868686868", content: "Hai B", label: "B", order_index: 1 },
+            ],
+          },
+        ],
+      });
+      return data;
+    }
+
+    it.each([
+      ["the same group", () => twoQuestionPreview()],
+      ["a different group", () => inOtherGroup()],
+    ])("keeps question 1's result off question 2 (%s) but records it for question 1", async (_name, build) => {
+      renderPreview(build());
+      const settle = deferredAnswer();
+
+      fireEvent.click(screen.getByRole("radio", { name: "Lựa chọn A" }));
+      fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+      fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu 2: Câu thứ hai/ }));
+
+      // While question 1 is still pending, question 2 is a fresh, answerable question.
+      expect(screen.getByText("Câu thứ hai.")).toBeTruthy();
+      expect(screen.getByRole("radio", { name: "Hai A" }).matches(":disabled")).toBe(false);
+
+      await act(async () => {
+        settle({ status: "success", data: { isCorrect: true, explanation: "Giải thích của câu 1." } });
+      });
+
+      expect(screen.queryByText("Giải thích của câu 1.")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Hoàn thành bài học" })).toBeNull();
+      expect(screen.getByRole("radio", { name: "Hai A" }).matches(":disabled")).toBe(false);
+      expect(screen.getByRole("button", { name: "Xác nhận đáp án" })).toBeTruthy();
+
+      // The session history still has question 1 answered right, with its explanation.
+      fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu 1: Chọn đáp án đúng\.\s*Đã trả lời đúng/ }));
+      expect(screen.getByText("Giải thích của câu 1.")).toBeTruthy();
+      expect(mocks.answer).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps a revisited pending question locked, sends nothing twice and shows the result when it lands", async () => {
+      renderPreview(twoQuestionPreview());
+      const settle = deferredAnswer();
+
+      fireEvent.click(screen.getByRole("radio", { name: "Lựa chọn A" }));
+      fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+      fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu 2: Câu thứ hai/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu 1: Chọn đáp án đúng/ }));
+
+      expect(screen.getByRole("radio", { name: "Lựa chọn A" }).matches(":disabled")).toBe(true);
+      expect((screen.getByRole("button", { name: "Đang kiểm tra…" }) as HTMLButtonElement).disabled).toBe(true);
+
+      await act(async () => {
+        settle({ status: "success", data: { isCorrect: true, explanation: "Giải thích của câu 1." } });
+      });
+      expect(await screen.findByText("Giải thích của câu 1.")).toBeTruthy();
+      expect(mocks.answer).toHaveBeenCalledTimes(1);
+    });
+
+    it("still fails closed when access was revoked, whichever question is open", async () => {
+      renderPreview(twoQuestionPreview());
+      const settle = deferredAnswer();
+
+      fireEvent.click(screen.getByRole("radio", { name: "Lựa chọn A" }));
+      fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+      fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu 2: Câu thứ hai/ }));
+
+      await act(async () => {
+        settle({ status: "unavailable" });
+      });
+      expect(
+        await screen.findByRole("heading", { name: "Nội dung xem thử hiện không khả dụng" }),
+      ).toBeTruthy();
+      expect(screen.queryByText("Câu thứ hai.")).toBeNull();
+    });
   });
 });

@@ -29,6 +29,60 @@ interface ExerciseContextProps {
   onMediaError?: (src: string) => void;
 }
 
+/**
+ * The enlarged view requests the image again, so it can fail after the inline one
+ * loaded (for example when Preview was withdrawn in between) and reports it the
+ * same way.
+ */
+function ZoomedImage({
+  src,
+  alt,
+  onMediaError,
+}: {
+  src: string;
+  alt: string;
+  onMediaError?: (src: string) => void;
+}) {
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div
+        role="alert"
+        className="flex flex-col items-center gap-3 rounded-lg border border-attention-line bg-attention-quiet p-6 text-center"
+      >
+        <ImageOff aria-hidden="true" className="size-8 text-attention" />
+        <p className="text-sm font-medium text-slate-800">Không tải được hình ảnh.</p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setFailed(false);
+            setAttempt((current) => current + 1);
+          }}
+        >
+          <RotateCcw aria-hidden="true" />
+          Tải lại hình ảnh
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key={attempt}
+      src={src}
+      alt={alt}
+      onError={() => {
+        setFailed(true);
+        onMediaError?.(src);
+      }}
+      className="mx-auto block h-auto max-h-[78vh] w-auto max-w-full object-contain"
+    />
+  );
+}
+
 /** Local retry for one failed media element; it never resubmits an answer. */
 function MaterialImage({
   src,
@@ -115,12 +169,7 @@ function MaterialImage({
                 Bản phóng to của hình ảnh đi kèm câu hỏi.
               </DialogDescription>
             </DialogHeader>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={src}
-              alt={alt}
-              className="mx-auto block h-auto max-h-[78vh] w-auto max-w-full object-contain"
-            />
+            <ZoomedImage src={src} alt={alt} onMediaError={onMediaError} />
           </DialogContent>
         </Dialog>
       )}
