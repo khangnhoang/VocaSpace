@@ -50,7 +50,7 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   // 2. Dùng hàng đợi card, tải media riêng tư và trả lời quiz bằng bàn phím.
   await page.locator(`a[href="${previewPath}"]`).click();
   await expect(page).toHaveURL(`${APP_URL}${previewPath}`);
-  await expect(page.getByText("Tiến độ trong lượt xem thử này không được lưu.")).toBeVisible();
+  await expect(page.getByText("Xem thử · Tiến độ không được lưu")).toBeVisible();
   await expect(page.getByText("orbit", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Hiện đáp án" }).click();
   await page.getByRole("button", { name: "Lại" }).click();
@@ -66,26 +66,26 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await page.getByRole("button", { name: "Dễ" }).click();
   const mediaResponse = await mediaResponsePromise;
   expect(mediaResponse.status()).toBe(200);
-  const initialImage = page.getByRole("img", { name: "Hình ảnh ngữ liệu" });
+  const initialImage = page.getByRole("img", { name: "Hình ảnh của nhóm câu hỏi" });
   await expect(initialImage).toBeVisible();
   await expect.poll(() => initialImage.evaluate((image) =>
     (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0,
   )).toBe(true);
   // Verify wrong answer shows both "Thử lại" and "Bỏ qua và hoàn thành"
-  const wrongAnswer = page.getByRole("button", { name: "B. Đáp án khác" });
+  const wrongAnswer = page.getByRole("radio", { name: "Đáp án khác" });
   await wrongAnswer.click();
-  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-  await expect(page.getByText("Chưa chính xác.")).toBeVisible();
+  await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
+  await expect(page.getByText("Chưa chính xác")).toBeVisible();
   await expect(page.getByRole("button", { name: "Thử lại" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Bỏ qua và hoàn thành" })).toBeVisible();
   await page.getByRole("button", { name: "Thử lại" }).click();
 
-  const answer = page.getByRole("button", { name: "A. Đáp án đúng" });
+  const answer = page.getByRole("radio", { name: "Đáp án đúng" });
   await answer.focus();
   await expect(answer).toBeFocused();
   await page.keyboard.press("Space");
-  await expect(answer).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await expect(answer).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
   await expect(page.getByText("Chính xác!")).toBeVisible();
   await expect(page.getByText("D2 explanation for the correct preview answer.")).toBeVisible();
   await page.getByRole("button", { name: /Hoàn thành bài học|Xem kết quả/ }).click();
@@ -112,8 +112,8 @@ test("guest and enrolled Preview recovers automatically after denominator growth
     await page.getByRole("button", { name: "Hiện đáp án" }).click();
     await page.getByRole("button", { name: "Dễ" }).click();
   }
-  await page.getByRole("button", { name: "A. Đáp án đúng" }).click();
-  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await page.getByRole("radio", { name: "Đáp án đúng" }).click();
+  await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
   await expect(page.getByText("Chính xác!")).toBeVisible();
   await page.getByRole("button", { name: /Hoàn thành bài học|Xem kết quả/ }).click();
   await expect(page.getByRole("button", { name: "Tiếp tục học" })).toBeVisible();
@@ -227,7 +227,7 @@ test("guest and enrolled Preview recovers automatically after denominator growth
     await expectNoHorizontalOverflow(page, width);
   }
   await page.goto(previewPath);
-  await expect(page.getByText("Tiến độ trong lượt xem thử này không được lưu.")).toBeVisible();
+  await expect(page.getByText("Xem thử · Tiến độ không được lưu")).toBeVisible();
   const resumedMediaResponsePromise = page.waitForResponse((response) =>
     response.url().includes(`/api/public-course-preview/media/${fixture.groupId}/image`),
   );
@@ -235,16 +235,16 @@ test("guest and enrolled Preview recovers automatically after denominator growth
     await page.getByRole("button", { name: "Hiện đáp án" }).click();
     await page.getByRole("button", { name: "Dễ" }).click();
   }
-  await expect(page.getByRole("img", { name: "Hình ảnh ngữ liệu" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Hình ảnh của nhóm câu hỏi" })).toBeVisible();
   const resumedMediaResponse = await resumedMediaResponsePromise;
   expect(resumedMediaResponse.status()).toBe(200);
-  const resumedImage = page.getByRole("img", { name: "Hình ảnh ngữ liệu" });
+  const resumedImage = page.getByRole("img", { name: "Hình ảnh của nhóm câu hỏi" });
   await expect.poll(() => resumedImage.evaluate((image) =>
     (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0,
   )).toBe(true);
-  await expect(page.getByRole("button", { name: "A. Đáp án đúng" })).toBeVisible();
-  await page.getByRole("button", { name: "A. Đáp án đúng" }).click();
-  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await expect(page.getByRole("radio", { name: "Đáp án đúng" })).toBeVisible();
+  await page.getByRole("radio", { name: "Đáp án đúng" }).click();
+  await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
   await expect(page.getByText("Chính xác!")).toBeVisible();
 });
 
@@ -320,9 +320,9 @@ test("guest Preview allows finishing with 'Bỏ qua và hoàn thành' after inco
   }
 
   // Answer incorrectly
-  await page.getByRole("button", { name: "B. Đáp án khác" }).click();
-  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-  await expect(page.getByText("Chưa chính xác.")).toBeVisible();
+  await page.getByRole("radio", { name: "Đáp án khác" }).click();
+  await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
+  await expect(page.getByText("Chưa chính xác")).toBeVisible();
 
   // Click "Bỏ qua và hoàn thành"
   const skipFinishBtn = page.getByRole("button", { name: "Bỏ qua và hoàn thành" });

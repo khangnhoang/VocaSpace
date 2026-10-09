@@ -25,13 +25,27 @@ interface ExerciseContextProps {
   arrangement: MaterialArrangement;
   /** Whether the image may open in a larger dialog. Part 1 reads from the picture. */
   enlargeableImage: boolean;
+  /** Lets a consumer react to a failed media request, e.g. Preview rechecks its eligibility. */
+  onMediaError?: (src: string) => void;
 }
 
 /** Local retry for one failed media element; it never resubmits an answer. */
-function MaterialImage({ src, enlargeable }: { src: string; enlargeable: boolean }) {
+function MaterialImage({
+  src,
+  enlargeable,
+  onMediaError,
+}: {
+  src: string;
+  enlargeable: boolean;
+  onMediaError?: (src: string) => void;
+}) {
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const alt = "Hình ảnh của nhóm câu hỏi";
+  const markFailed = () => {
+    setStatus("failed");
+    onMediaError?.(src);
+  };
 
   if (status === "failed") {
     return (
@@ -64,11 +78,12 @@ function MaterialImage({ src, enlargeable }: { src: string; enlargeable: boolean
       // handlers below, so a settled element is read once when it mounts.
       ref={(element) => {
         if (element?.complete && status === "loading") {
-          setStatus(element.naturalWidth > 0 ? "ready" : "failed");
+          if (element.naturalWidth > 0) setStatus("ready");
+          else markFailed();
         }
       }}
       onLoad={() => setStatus("ready")}
-      onError={() => setStatus("failed")}
+      onError={markFailed}
       className={extraClassName}
     />
   );
@@ -113,7 +128,7 @@ function MaterialImage({ src, enlargeable }: { src: string; enlargeable: boolean
   );
 }
 
-function MaterialAudio({ src }: { src: string }) {
+function MaterialAudio({ src, onMediaError }: { src: string; onMediaError?: (src: string) => void }) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
 
@@ -131,7 +146,10 @@ function MaterialAudio({ src }: { src: string }) {
         preload="metadata"
         src={src}
         aria-label="Âm thanh của nhóm câu hỏi"
-        onError={() => setFailed(true)}
+        onError={() => {
+          setFailed(true);
+          onMediaError?.(src);
+        }}
         onLoadedMetadata={() => setFailed(false)}
         className="h-11 w-full"
       >
@@ -154,15 +172,27 @@ function MaterialAudio({ src }: { src: string }) {
  * Group material in the arrangement chosen for its TOEIC part. Only material
  * the group really carries is rendered: no placeholder for absent media.
  */
-export default function ExerciseContext({ group, arrangement, enlargeableImage }: ExerciseContextProps) {
+export default function ExerciseContext({
+  group,
+  arrangement,
+  enlargeableImage,
+  onMediaError,
+}: ExerciseContextProps) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {arrangement.kinds.map((kind) => {
         if (kind === "image" && group.image_url) {
-          return <MaterialImage key="image" src={group.image_url} enlargeable={enlargeableImage} />;
+          return (
+            <MaterialImage
+              key="image"
+              src={group.image_url}
+              enlargeable={enlargeableImage}
+              onMediaError={onMediaError}
+            />
+          );
         }
         if (kind === "audio" && group.audio_url) {
-          return <MaterialAudio key="audio" src={group.audio_url} />;
+          return <MaterialAudio key="audio" src={group.audio_url} onMediaError={onMediaError} />;
         }
         if (kind === "passage" && group.passage_text) {
           return (

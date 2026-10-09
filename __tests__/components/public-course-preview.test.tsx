@@ -34,7 +34,8 @@ vi.mock("next/navigation", () => ({
 // - Bảo mật/phân quyền: enrolled CTA chỉ điều hướng qua course-navigation; không import Persistent Learning Actions.
 // - Ổn định: pending chặn gửi lặp, option rỗng có thể bỏ qua, nội dung Preview không có đáp án trước khi submit.
 // - Invariant cần giữ: không ghi user_flashcards, user_question_answers hoặc user_topic_progress.
-// - Kết quả verify gần nhất: C5 focused Vitest bundle đạt 4 files / 35 tests; TypeScript và targeted ESLint đạt.
+// - Trình bày dùng chung với learning workspace D8-LUI (candidate): ChoiceGroup radio, ExerciseContext, thông báo thiếu ngữ liệu bắt buộc, kết thúc nói đúng là đã xem mẫu.
+// - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP3/CP4 (chạy `npx vitest run __tests__/components/public-course-preview.test.tsx`).
 
 const courseSlug = "public-course";
 const topicSlug = "public-topic";
@@ -141,7 +142,7 @@ describe("public course Preview experience", () => {
     });
     renderPreview();
 
-    expect(screen.getByText("Tiến độ trong lượt xem thử này không được lưu.")).toBeTruthy();
+    expect(screen.getByText("Xem thử · Tiến độ không được lưu")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
     fireEvent.click(screen.getByRole("button", { name: "Lại" }));
     expect(screen.getByText("beta")).toBeTruthy();
@@ -151,8 +152,8 @@ describe("public course Preview experience", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
     fireEvent.click(screen.getByRole("button", { name: "Dễ" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "A. Lựa chọn A" }));
-    fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Lựa chọn A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
 
     expect(await screen.findByText("Chính xác!")).toBeTruthy();
     expect(screen.getByText("Đây là lời giải.")).toBeTruthy();
@@ -174,8 +175,8 @@ describe("public course Preview experience", () => {
     mocks.answer.mockResolvedValue({ status: "unavailable" });
     renderPreview(preview({ flashcards: [] }));
 
-    fireEvent.click(screen.getByRole("button", { name: "A. Lựa chọn A" }));
-    fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Lựa chọn A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
 
     expect(
       await screen.findByRole("heading", {
@@ -194,12 +195,12 @@ describe("public course Preview experience", () => {
     });
     renderPreview(preview({ flashcards: [] }));
 
-    const option = screen.getByRole("button", { name: "A. Lựa chọn A" });
+    const option = screen.getByRole("radio", { name: "Lựa chọn A" });
     fireEvent.click(option);
-    fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
 
     expect(await screen.findByRole("alert")).toBeTruthy();
-    expect(option.getAttribute("aria-pressed")).toBe("true");
+    expect(option.getAttribute("aria-checked")).toBe("true");
   });
 
   it("disables answer controls while the stateless check is pending", async () => {
@@ -214,13 +215,13 @@ describe("public course Preview experience", () => {
     );
     renderPreview(preview({ flashcards: [] }));
 
-    const option = screen.getByRole("button", { name: "A. Lựa chọn A" });
+    const option = screen.getByRole("radio", { name: "Lựa chọn A" });
     fireEvent.click(option);
-    fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
 
     expect(await screen.findByText("Đang kiểm tra câu trả lời...")).toBeTruthy();
     expect(option.matches(":disabled")).toBe(true);
-    expect((screen.getByRole("button", { name: "Đang kiểm tra..." }) as HTMLButtonElement).disabled)
+    expect((screen.getByRole("button", { name: "Đang kiểm tra…" }) as HTMLButtonElement).disabled)
       .toBe(true);
 
     await act(async () => {
@@ -239,7 +240,7 @@ describe("public course Preview experience", () => {
       "/api/public-course-preview/media/44444444-4444-4444-8444-444444444444/audio";
     renderPreview(data);
 
-    fireEvent.error(screen.getByLabelText("Âm thanh ngữ liệu"));
+    fireEvent.error(screen.getByLabelText("Âm thanh của nhóm câu hỏi"));
 
     expect(
       await screen.findByRole("heading", {
@@ -275,10 +276,10 @@ describe("public course Preview experience", () => {
     });
     renderPreview(preview({ flashcards: [] }));
 
-    fireEvent.click(screen.getByRole("button", { name: "A. Lựa chọn A" }));
-    fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Lựa chọn A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
 
-    expect(await screen.findByText("Chưa chính xác.")).toBeTruthy();
+    expect(await screen.findByText("Chưa chính xác")).toBeTruthy();
     expect(screen.getByText("Đáp án chưa đúng.")).toBeTruthy();
 
     const finishButton = screen.getByRole("button", { name: /Bỏ qua và hoàn thành/i });
@@ -327,12 +328,12 @@ describe("public course Preview experience", () => {
     });
 
     expect(screen.getByText("Từ nào nghĩa là đáng tin cậy?")).toBeTruthy();
-    expect(screen.getByText("Câu 1/2")).toBeTruthy();
+    expect(screen.getByText("Câu hỏi 1/2")).toBeTruthy();
     expect(screen.getAllByText("Memory check").length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "A. trustworthy" }));
-    fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
-    expect(await screen.findByText("Chưa chính xác.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "trustworthy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+    expect(await screen.findByText("Chưa chính xác")).toBeTruthy();
     expect(mocks.answer).toHaveBeenCalledWith(
       expect.objectContaining({ questionId: memoryQuestionId }),
     );
@@ -341,5 +342,30 @@ describe("public course Preview experience", () => {
     fireEvent.click(screen.getByRole("button", { name: /Bỏ qua câu này/i }));
     expect(screen.getByText("Chọn đáp án đúng.")).toBeTruthy();
     expect(screen.getByText("part5")).toBeTruthy();
+  });
+  it("names required Part 1 material that the group lacks instead of leaving a blank area", () => {
+    const data = preview({ flashcards: [] });
+    data.exercises[0].part_type = "part1";
+    renderPreview(data);
+
+    expect(screen.getByText(/đang thiếu hình ảnh/)).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Lựa chọn A" })).toBeTruthy();
+  });
+
+  it("ends honestly: the sample was viewed and nothing was saved as learner progress", async () => {
+    mocks.answer.mockResolvedValue({
+      status: "success",
+      data: { isCorrect: true, explanation: null },
+    });
+    renderPreview(preview({ flashcards: [] }));
+
+    fireEvent.click(screen.getByRole("radio", { name: "Lựa chọn A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+    expect(await screen.findByText("Chính xác!")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành bài học" }));
+
+    expect(screen.getByText("Hoàn tất lượt xem thử")).toBeTruthy();
+    expect(screen.getByText("Thẻ từ vựng đã xem")).toBeTruthy();
+    expect(screen.queryByText(/Từ vựng đã học|Đã hoàn thành/)).toBeNull();
   });
 });
