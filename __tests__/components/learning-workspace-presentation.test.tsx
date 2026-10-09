@@ -20,6 +20,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Case thất bại: chấm thẻ lỗi thì giữ mặt sau và các nút chấm; media thiếu hiện thông báo thay vì ô trống; ảnh lỗi cho tải lại cục bộ.
 // - Bảo mật/phân quyền: lựa chọn chưa chấm không mang trạng thái đúng/sai; DOM không có đáp án đúng trước khi server trả kết quả.
 // - Ổn định/resilience: bàn phím mũi tên đổi lựa chọn trong radiogroup; Again/Hard xếp lại cuối hàng đợi, ba thẻ cùng chấm Lại/Khó vẫn còn đủ ba thẻ (không báo xong).
+// - Mặt sau thẻ: chọn bố cục căn giữa (giống thẻ ôn D6) khi vừa khung cố định, bố cục đọc cuộn khi tràn; đo lại khi đổi kích thước; mặt active và nội dung đọc được giống nhau ở cả hai.
 // - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật và không phải điều khiển; danh sách chương mở theo yêu cầu.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`).
 
@@ -168,7 +169,7 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(inertBack?.textContent).not.toContain("cải thiện");
 
       fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
-      expect(screen.getByText("Nghĩa: cải thiện")).not.toBeNull();
+      expect(screen.getByText("cải thiện")).not.toBeNull();
       expect(container.querySelector("[inert]")?.textContent).toContain("improve");
     });
 
@@ -224,6 +225,102 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(screen.getByText("3 / 3")).not.toBeNull();
       expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
       expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
+    });
+
+    describe("back face presentation", () => {
+      const proto = HTMLElement.prototype;
+      const scrollHeight = Object.getOwnPropertyDescriptor(proto, "scrollHeight");
+      const clientHeight = Object.getOwnPropertyDescriptor(proto, "clientHeight");
+      let overflowing = false;
+      let resizeCallback: (() => void) | null = null;
+
+      beforeEach(() => {
+        overflowing = false;
+        resizeCallback = null;
+        Object.defineProperty(proto, "scrollHeight", { configurable: true, get: () => (overflowing ? 500 : 120) });
+        Object.defineProperty(proto, "clientHeight", { configurable: true, get: () => 300 });
+        vi.stubGlobal(
+          "ResizeObserver",
+          class {
+            constructor(callback: () => void) {
+              resizeCallback = callback;
+            }
+            observe() {}
+            disconnect() {}
+          },
+        );
+      });
+
+      afterEach(() => {
+        vi.unstubAllGlobals();
+        if (scrollHeight) Object.defineProperty(proto, "scrollHeight", scrollHeight);
+        else delete (proto as unknown as Record<string, unknown>).scrollHeight;
+        if (clientHeight) Object.defineProperty(proto, "clientHeight", clientHeight);
+        else delete (proto as unknown as Record<string, unknown>).clientHeight;
+      });
+
+      const richCard = {
+        ...cardA,
+        back_content: {
+          translation: "đáng tin cậy",
+          example: "A reliable partner",
+          exampleTranslation: "Một đối tác đáng tin cậy",
+        },
+      };
+      const variantOf = (container: HTMLElement) =>
+        container.querySelector("[data-flashcard-back]")?.getAttribute("data-variant");
+
+      it("centers a back that fits the fixed face", () => {
+        const { container } = render(<LearningWorkspace data={data({ flashcards: [richCard] })} />);
+        expect(variantOf(container)).toBe("centered");
+      });
+
+      it("keeps the left-aligned scrolling layout when the centered back would overflow", () => {
+        overflowing = true;
+        const { container } = render(<LearningWorkspace data={data({ flashcards: [richCard] })} />);
+        expect(variantOf(container)).toBe("reading");
+      });
+
+      it("re-measures when the face is resized", () => {
+        const { container } = render(<LearningWorkspace data={data({ flashcards: [richCard] })} />);
+        expect(variantOf(container)).toBe("centered");
+        overflowing = true;
+        act(() => resizeCallback?.());
+        expect(variantOf(container)).toBe("reading");
+        overflowing = false;
+        act(() => resizeCallback?.());
+        expect(variantOf(container)).toBe("centered");
+      });
+
+      it("exposes the same active face and spoken content in both variants", () => {
+        const readOnce = (isOverflowing: boolean) => {
+          overflowing = isOverflowing;
+          const { container, unmount } = render(
+            <LearningWorkspace data={data({ flashcards: [richCard] })} />,
+          );
+          fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+          const inert = container.querySelectorAll("[inert]");
+          const back = container.querySelector("[data-flashcard-back]")?.parentElement;
+          const result = {
+            inertCount: inert.length,
+            inertIsFront: inert[0]?.textContent?.includes("reliable"),
+            backHidden: back?.hasAttribute("aria-hidden"),
+            backText: back?.textContent,
+          };
+          unmount();
+          return result;
+        };
+
+        const centered = readOnce(false);
+        const reading = readOnce(true);
+        expect(centered).toEqual(reading);
+        expect(centered.inertCount).toBe(1);
+        expect(centered.inertIsFront).toBe(true);
+        expect(centered.backHidden).toBe(false);
+        expect(centered.backText).toContain("Nghĩa: đáng tin cậy");
+        expect(centered.backText).toContain("A reliable partner");
+        expect(centered.backText).toContain("Một đối tác đáng tin cậy");
+      });
     });
 
     it("offers a restart instead of an empty stage after the last card", async () => {

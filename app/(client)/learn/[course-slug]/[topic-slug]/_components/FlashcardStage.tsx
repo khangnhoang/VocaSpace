@@ -1,6 +1,6 @@
 // app/(client)/learn/[course-slug]/[topic-slug]/_components/FlashcardStage.tsx
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { FlashcardDTO } from "@/lib/schemas/learn";
 import { Rating } from "ts-fsrs";
@@ -42,27 +42,52 @@ const RATINGS = [
   },
 ] as const;
 
-function BackContent({ back }: { back: CardBack }) {
+const CENTERED = "group-data-[variant=centered]/back";
+
+/**
+ * One structure with two presentations, chosen by `data-variant` on the root:
+ * `centered` is the D6 review-card composition for backs that fit the fixed box,
+ * the default `reading` layout is left-aligned and scrolls inside the face. The
+ * attribute is set by the stage after measuring, never by React, so a re-render
+ * cannot undo it. Labels switch to screen-reader-only in `centered`, so the spoken
+ * content is identical in both.
+ */
+function BackContent({ back, rootRef }: { back: CardBack; rootRef: Ref<HTMLDivElement> }) {
   return (
-    <div className="flex w-full min-w-0 flex-col gap-2 text-left">
-      <p className="break-words text-xl font-bold text-recall [overflow-wrap:anywhere] md:text-2xl">
-        Nghĩa: {back?.translation}
+    <div
+      ref={rootRef}
+      data-flashcard-back=""
+      className={`group/back m-auto flex w-full min-w-0 flex-col gap-2 text-left data-[variant=centered]:max-w-2xl data-[variant=centered]:items-center data-[variant=centered]:gap-4 data-[variant=centered]:text-center`}
+    >
+      <p
+        className={`break-words text-xl font-bold text-recall [overflow-wrap:anywhere] md:text-2xl ${CENTERED}:text-[clamp(1.5rem,3vw,2rem)] ${CENTERED}:font-semibold ${CENTERED}:leading-[1.35]`}
+      >
+        <span className={`${CENTERED}:sr-only`}>Nghĩa: </span>
+        {back?.translation}
       </p>
 
       {back?.example && (
-        <p className="break-words text-base font-medium italic leading-relaxed text-slate-800 [overflow-wrap:anywhere] md:text-lg">
-          VD: &quot;{back.example}&quot;
+        <p
+          className={`break-words text-base font-medium italic leading-relaxed text-slate-800 [overflow-wrap:anywhere] md:text-lg ${CENTERED}:font-normal ${CENTERED}:not-italic ${CENTERED}:leading-7 ${CENTERED}:text-slate-600`}
+        >
+          <span className={`${CENTERED}:sr-only`}>VD: </span>
+          <span className={`${CENTERED}:hidden`}>&quot;</span>
+          {back.example}
+          <span className={`${CENTERED}:hidden`}>&quot;</span>
         </p>
       )}
 
       {back?.exampleTranslation && (
-        <p className="break-words text-sm text-slate-600 [overflow-wrap:anywhere] md:text-base">
-          Dịch: {back.exampleTranslation}
+        <p
+          className={`break-words text-sm text-slate-600 [overflow-wrap:anywhere] md:text-base ${CENTERED}:leading-6 ${CENTERED}:text-slate-600 ${CENTERED}:md:text-sm`}
+        >
+          <span className={`${CENTERED}:sr-only`}>Dịch: </span>
+          {back.exampleTranslation}
         </p>
       )}
 
       {back?.explanation && (
-        <div className="mt-1 border-t border-slate-200 pt-3">
+        <div className={`mt-1 border-t border-slate-200 pt-3 ${CENTERED}:w-full ${CENTERED}:border-recall-line ${CENTERED}:pt-4`}>
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-600">
             Giải thích chi tiết
           </p>
@@ -98,6 +123,11 @@ export default function FlashcardStage({
   const revealRef = useRef<HTMLButtonElement>(null);
   const firstRatingRef = useRef<HTMLButtonElement>(null);
   const hasInteracted = useRef(false);
+  const backFaceRef = useRef<HTMLDivElement>(null);
+  const backContentRef = useRef<HTMLDivElement>(null);
+  const back = isFlipped
+    ? currentCard?.back_content
+    : (previousBack ?? currentCard?.back_content);
 
   if (shown.card !== currentCard || shown.isFlipped !== isFlipped) {
     if (shown.isFlipped && !isFlipped && shown.card) {
@@ -105,6 +135,28 @@ export default function FlashcardStage({
     }
     setShown({ card: currentCard, isFlipped });
   }
+
+  // Decide the back's presentation from the real overflow, not from text length:
+  // try the centered composition and keep it only when it fits the fixed face. All
+  // three steps run before paint (layout effect / resize callback), and the face is
+  // hidden until it turns, so the learner never sees the swap.
+  useLayoutEffect(() => {
+    const face = backFaceRef.current;
+    const content = backContentRef.current;
+    if (!face || !content) return;
+    const evaluate = () => {
+      content.dataset.variant = "centered";
+      const fits = face.scrollHeight <= face.clientHeight + 1;
+      content.dataset.variant = fits ? "centered" : "reading";
+    };
+    evaluate();
+    // Re-measure when the face changes size (viewport, breakpoint, zoom) or fonts settle.
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(evaluate);
+    observer?.observe(face);
+    void document.fonts?.ready.then(evaluate);
+    return () => observer?.disconnect();
+  }, [back]);
 
   useEffect(() => {
     if (!hasInteracted.current) return;
@@ -115,7 +167,6 @@ export default function FlashcardStage({
   if (!currentCard) return null;
 
   const front = currentCard.front_content;
-  const back = isFlipped ? currentCard.back_content : (previousBack ?? currentCard.back_content);
   const completedCards = Math.max(0, totalCards - cardsLeft);
   const progressPercentage =
     totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
@@ -135,16 +186,16 @@ export default function FlashcardStage({
             aria-hidden={isFlipped || undefined}
             inert={isFlipped}
             tabIndex={isFlipped ? undefined : 0}
-            className={`col-start-1 row-start-1 flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route md:p-10 motion-reduce:transition-opacity motion-reduce:duration-100 ${
+            className={`col-start-1 row-start-1 flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-3xl border border-slate-300 bg-white px-5 py-6 text-center shadow-[0_8px_24px_rgb(15_23_42/8%)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:p-8 motion-reduce:transition-opacity motion-reduce:duration-100 ${
               isFlipped ? "motion-reduce:opacity-0" : ""
             }`}
           >
-            <div className="m-auto flex w-full min-w-0 flex-col items-center">
-              <p className="mb-4 max-w-full break-words text-3xl font-bold tracking-tight text-slate-900 [overflow-wrap:anywhere] md:text-5xl">
+            <div className="m-auto flex w-full min-w-0 flex-col items-center gap-4">
+              <p className="max-w-full break-words text-[clamp(1.875rem,6vw,4rem)] font-semibold leading-[1.12] tracking-tight text-slate-900 [overflow-wrap:anywhere]">
                 {front?.word}
               </p>
               {(front?.pos || front?.phonetic) && (
-                <p className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-600 md:text-base">
+                <p className="flex max-w-full flex-wrap items-center justify-center gap-2 text-base font-medium text-slate-600">
                   {front?.pos && <span className="font-bold text-recall">({front.pos})</span>}
                   {front?.pos && front?.phonetic && (
                     <span aria-hidden="true" className="text-slate-400">|</span>
@@ -160,16 +211,15 @@ export default function FlashcardStage({
           </div>
 
           <div
+            ref={backFaceRef}
             aria-hidden={!isFlipped || undefined}
             inert={!isFlipped}
             tabIndex={isFlipped ? 0 : undefined}
-            className={`col-start-1 row-start-1 flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-2xl border border-recall-line bg-white p-6 shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route md:p-10 motion-reduce:[transform:none] motion-reduce:transition-opacity motion-reduce:duration-100 ${
+            className={`col-start-1 row-start-1 flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-3xl border border-slate-300 bg-[linear-gradient(140deg,#fff,#ecfeff)] px-5 py-6 shadow-[0_8px_24px_rgb(15_23_42/8%)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:p-8 motion-reduce:[transform:none] motion-reduce:transition-opacity motion-reduce:duration-100 ${
               isFlipped ? "" : "motion-reduce:opacity-0"
             }`}
           >
-            <div className="m-auto flex w-full min-w-0 flex-col">
-              <BackContent back={back} />
-            </div>
+            <BackContent back={back} rootRef={backContentRef} />
           </div>
         </div>
       </div>

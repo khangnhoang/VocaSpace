@@ -60,7 +60,7 @@ test("vocabulary card turns in place and continues to the next front", async ({ 
   const reveal = page.getByRole("button", { name: "Hiện đáp án" });
   const before = await reveal.boundingBox();
   await reveal.click();
-  await expect(page.getByText("Nghĩa: đáng tin cậy")).toBeVisible();
+  await expect(page.getByText("đáng tin cậy", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Lại" })).toBeFocused();
 
   await page.getByRole("button", { name: "Ổn" }).click();
