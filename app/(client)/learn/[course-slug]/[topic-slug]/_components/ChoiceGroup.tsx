@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import type { QuestionOptionDTO } from "@/lib/schemas/learn";
 
@@ -25,6 +25,12 @@ function optionLetter(option: QuestionOptionDTO, index: number) {
  * Neutral -> Route (selected) -> Growth/Correction (graded) keeps selection
  * distinct from correctness, and the result is also carried by an icon and
  * screen-reader text rather than color alone.
+ *
+ * A fresh validation (the result appearing while this group is mounted) plays
+ * one short motion on the chosen option: a corrective nudge for a wrong answer
+ * and a growing status bar for a right one. A group that mounts already graded,
+ * such as a revisited question, and later re-renders stay still, and reduced
+ * motion keeps the state change without any movement.
  */
 export default function ChoiceGroup({
   options,
@@ -35,6 +41,14 @@ export default function ChoiceGroup({
   labelledBy,
 }: ChoiceGroupProps) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  // Derived during render: true only once a result has appeared after mount, and
+  // cleared again when the result is cleared (retry), so the next validation replays.
+  const [previousResult, setPreviousResult] = useState(result);
+  const [validatedHere, setValidatedHere] = useState(false);
+  if (previousResult !== result) {
+    setPreviousResult(result);
+    setValidatedHere(result !== null);
+  }
   // Roving tabindex: the selected option, or the first one, is the single tab stop.
   const selectedIndex = options.findIndex((option) => option.id === selectedId);
   const tabStop = selectedIndex >= 0 ? selectedIndex : 0;
@@ -61,9 +75,9 @@ export default function ChoiceGroup({
         const graded = isSelected ? result : null;
         const tone =
           graded === "correct"
-            ? "border-growth bg-growth-quiet text-slate-900"
+            ? "border-growth-line bg-growth-quiet text-slate-900 shadow-[inset_5px_0_0_var(--growth)]"
             : graded === "incorrect"
-              ? "border-correction bg-correction-quiet text-slate-900"
+              ? "border-correction-line bg-correction-quiet text-correction shadow-[inset_5px_0_0_var(--correction)]"
               : isSelected
                 ? "border-route bg-route-quiet text-slate-900"
                 : "border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50";
@@ -76,6 +90,9 @@ export default function ChoiceGroup({
                 ? "bg-route text-white"
                 : "bg-slate-100 text-slate-600";
 
+        const motion =
+          graded && validatedHere ? (graded === "correct" ? "correct-in" : "corrective") : undefined;
+
         return (
           <button
             key={option.id}
@@ -85,11 +102,12 @@ export default function ChoiceGroup({
             type="button"
             role="radio"
             aria-checked={isSelected}
+            data-motion={motion}
             tabIndex={index === tabStop ? 0 : -1}
             disabled={disabled}
             onClick={() => onSelect(option.id)}
             onKeyDown={(event) => moveSelection(event, index)}
-            className={`flex min-h-12 w-full items-center gap-3 rounded-lg border-2 p-3.5 text-left font-medium transition-[background-color,border-color,color] duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 motion-reduce:transition-none disabled:cursor-default ${tone}`}
+            className={`flex min-h-12 w-full items-center gap-3 rounded-lg border-2 p-3.5 text-left font-medium transition-[background-color,border-color,color] duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 motion-reduce:transition-none motion-safe:data-[motion=corrective]:animate-corrective motion-safe:data-[motion=correct-in]:animate-correct-in disabled:cursor-default ${tone}`}
           >
             <span
               aria-hidden="true"
