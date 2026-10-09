@@ -17,10 +17,15 @@ interface MemoryCheckStageProps {
   questions: QuestionDTO[];
   /** Question ids the server already counts as correct (H3 predicate). */
   initiallyCorrectIds: string[];
-  /** Submissions by question, owned by the workspace so they outlive this stage's view. */
-  attempts?: Record<string, AnswerAttempt>;
-  onAttemptStart?: (questionId: string, optionId: string) => void;
-  onAttemptSettled?: (questionId: string, optionId: string, outcome: AttemptOutcome) => void;
+  /**
+   * Submissions by question, owned by the workspace so they outlive this view. A
+   * pending one locks its question, a settled one is the result the learner has not
+   * continued past yet; `onAttemptCleared` is that continuation.
+   */
+  attempts: Record<string, AnswerAttempt>;
+  onAttemptStart: (questionId: string, optionId: string) => void;
+  onAttemptSettled: (questionId: string, optionId: string, outcome: AttemptOutcome) => void;
+  onAttemptCleared: (questionId: string) => void;
   isPassed: boolean;
   hasExercises: boolean;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
@@ -46,6 +51,7 @@ export default function MemoryCheckStage({
   attempts,
   onAttemptStart,
   onAttemptSettled,
+  onAttemptCleared,
   isPassed,
   hasExercises,
   onCorrectAnswer,
@@ -55,62 +61,54 @@ export default function MemoryCheckStage({
 }: MemoryCheckStageProps) {
   const [isPending, startTransition] = useTransition();
   // Retry queue: unanswered/incorrect questions in authoring order; a wrong
-  // answer moves its question to the end until every question is correct.
+  // answer moves its question to the end until every question is correct. A question
+  // whose result the learner has not continued past yet stays in, even when correct
+  // (for example when the answer landed while the learner was on another stage).
   const [queue, setQueue] = useState<string[]>(() => {
     const correct = new Set(initiallyCorrectIds);
     return questions
       .slice()
       .sort((left, right) => left.order_index - right.order_index)
-      .filter((question) => !correct.has(question.id))
+      .filter((question) => !correct.has(question.id) || attempts[question.id] !== undefined)
       .map((question) => question.id);
   });
-  // A request started before this view mounted (the learner went to the cards and came
-  // back) is still running: show it as pending and take its result when it lands.
-  const [inheritedId] = useState(() => {
-    const head = queue[0];
-    return head && attempts?.[head]?.status === "pending" ? head : null;
-  });
-  const [inheritedDone, setInheritedDone] = useState(inheritedId === null);
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(() => {
-    const inherited = inheritedId ? attempts?.[inheritedId] : undefined;
-    return inherited ? inherited.optionId : null;
-  });
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const questionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const [chosenOptionId, setChosenOptionId] = useState<string | null>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const total = questions.length;
-  const correctCount = total - queue.length + (feedback?.kind === "correct" ? 1 : 0);
   const currentQuestion = questions.find((question) => question.id === queue[0]);
-  const currentAttempt = currentQuestion ? attempts?.[currentQuestion.id] : undefined;
-  const isRequestPending = isPending || currentAttempt?.status === "pending";
+  const isSettledCorrect = (questionId: string) => {
+    const attempt = attempts[questionId];
+    return attempt?.status === "settled" && attempt.outcome.kind === "correct";
+  };
+  const correctCount = total - queue.filter((id) => !isSettledCorrect(id)).length;
+
+  // The attempt, not local state, says what the question shows: pending locks it, a
+  // settled result is its feedback, and a failed save keeps the choice for a retry.
+  const attempt = currentQuestion ? attempts[currentQuestion.id] : undefined;
+  const settled = attempt?.status === "settled" ? attempt.outcome : undefined;
+  const feedback: Feedback | null =
+    settled && settled.kind !== "error"
+      ? settled.kind === "correct"
+        ? { kind: "correct", passed: settled.passed }
+        : {
+            kind: "incorrect",
+            explanation: settled.explanation || "Đáp án chưa chính xác.",
+            passed: settled.passed,
+          }
+      : null;
+  const error = settled?.kind === "error" ? settled.message : null;
+  const isRequestPending = isPending || attempt?.status === "pending";
+  const selectedOptionId =
+    attempt && (attempt.status === "pending" || feedback)
+      ? attempt.optionId
+      : (chosenOptionId ?? attempt?.optionId ?? null);
+  const feedbackKey = feedback && currentQuestion ? `${currentQuestion.id}:${feedback.kind}` : null;
 
   useEffect(() => {
-    if (feedback) continueButtonRef.current?.focus();
-  }, [feedback]);
-
-  // The request this view inherited has landed: show its result (state adjusted
-  // while rendering, so the first paint after the result already shows it).
-  const inheritedAttempt = inheritedId ? attempts?.[inheritedId] : undefined;
-  if (!inheritedDone && inheritedAttempt?.status === "settled") {
-    const { outcome } = inheritedAttempt;
-    setInheritedDone(true);
-    setSelectedOptionId(inheritedAttempt.optionId);
-    if (outcome.kind === "error") {
-      setError(outcome.message);
-    } else {
-      setFeedback(
-        outcome.kind === "correct"
-          ? { kind: "correct", passed: outcome.passed }
-          : {
-              kind: "incorrect",
-              explanation: outcome.explanation || "Đáp án chưa chính xác.",
-              passed: outcome.passed,
-            },
-      );
-    }
-  }
+    if (feedbackKey) continueButtonRef.current?.focus();
+  }, [feedbackKey]);
 
   if (isPassed) {
     return (
@@ -168,38 +166,28 @@ export default function MemoryCheckStage({
     if (!selectedOptionId || isRequestPending || isAnswered) return;
     const questionId = currentQuestion.id;
     const chosenId = selectedOptionId;
-    setError(null);
-    onAttemptStart?.(questionId, chosenId);
+    onAttemptStart(questionId, chosenId);
     startTransition(async () => {
       const result = await submitQuestionAnswer(questionId, chosenId);
       if (result.error) {
-        onAttemptSettled?.(questionId, chosenId, { kind: "error", message: result.error });
-        setError(result.error);
+        onAttemptSettled(questionId, chosenId, { kind: "error", message: result.error });
         return;
       }
       announceTopicProgress(result, onTopicCompleted);
-      const passed = result.isMemoryCheckPassed === true;
       if (result.isCorrect) onCorrectAnswer(questionId, chosenId);
-      onAttemptSettled?.(questionId, chosenId, {
+      onAttemptSettled(questionId, chosenId, {
         kind: result.isCorrect ? "correct" : "incorrect",
         explanation: result.explanation,
         progressError: result.progressError,
-        passed,
+        passed: result.isMemoryCheckPassed === true,
       });
-      setFeedback(
-        result.isCorrect
-          ? { kind: "correct", passed }
-          : {
-              kind: "incorrect",
-              explanation: result.explanation || "Đáp án chưa chính xác.",
-              passed,
-            },
-      );
     });
   };
 
   const advance = () => {
     if (!feedback) return;
+    const questionId = currentQuestion.id;
+    onAttemptCleared(questionId);
     if (feedback.passed) {
       onPassed();
       return;
@@ -208,8 +196,7 @@ export default function MemoryCheckStage({
       const [head, ...rest] = current;
       return feedback.kind === "correct" ? rest : [...rest, head];
     });
-    setFeedback(null);
-    setSelectedOptionId(null);
+    setChosenOptionId(null);
     requestAnimationFrame(() => questionHeadingRef.current?.focus());
   };
 
@@ -261,7 +248,7 @@ export default function MemoryCheckStage({
           selectedId={selectedOptionId}
           result={feedback ? (feedback.kind === "correct" ? "correct" : "incorrect") : null}
           disabled={isAnswered || isRequestPending}
-          onSelect={setSelectedOptionId}
+          onSelect={setChosenOptionId}
           labelledBy="memory-check-question"
         />
       </div>

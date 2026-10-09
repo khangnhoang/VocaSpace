@@ -194,6 +194,12 @@ export default function LearningWorkspace({
       ...current,
       [questionId]: { status: "settled", optionId, outcome },
     }));
+  const clearAttempt = (questionId: string) =>
+    setAttempts((current) => {
+      const next = { ...current };
+      delete next[questionId];
+      return next;
+    });
   const [expandedChapter, setExpandedChapter] = useState(
     currentTopic.chapterId,
   );
@@ -652,6 +658,7 @@ export default function LearningWorkspace({
             attempts={attempts}
             onAttemptStart={startAttempt}
             onAttemptSettled={settleAttempt}
+            onAttemptCleared={clearAttempt}
             isPassed={memoryPassed}
             hasExercises={exercises.length > 0}
             onCorrectAnswer={(questionId, optionId) =>

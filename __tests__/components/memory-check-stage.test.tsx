@@ -17,6 +17,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Case thất bại: lỗi server giữ câu và lựa chọn hiện tại; MEMORY_CHECK_REQUIRED đưa về memory check.
 // - Ổn định/resilience: hàng đợi sau khi tải lại dựng từ map `answers` server trả (option đổi/xóa thì câu quay lại hàng).
 // - Invariant cần giữ: bài tập khóa kèm lý do + CTA tới khi qua; topic không có memory check giữ flow cũ.
+// - Đổi giai đoạn khi đang chờ phản hồi: mỗi câu dựng lại từ lần gửi của nó (đang chờ thì khóa, đã có kết quả thì hiện phản hồi), kể cả câu bị xếp lại sau; kết quả đạt đến lúc vắng mặt được áp dụng khi quay lại và vẫn chờ người học bấm tiếp; không gửi lần hai.
 // - Kết quả verify gần nhất: xem plan D3 §10.
 
 vi.mock("@/app/actions/progress", () => ({
@@ -225,6 +226,94 @@ describe("D3 memory check stage", () => {
     expect(screen.getByText("Đã đúng 1/2")).not.toBeNull();
     expect(screen.getByRole("button", { name: "Tiếp tục" })).not.toBeNull();
     expect(mockedSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  describe("answers in flight across a stage change", () => {
+    function deferSubmit() {
+      let settle: (value: unknown) => void = () => {};
+      mockedSubmit.mockReturnValueOnce(
+        new Promise((resolve) => {
+          settle = resolve;
+        }) as never,
+      );
+      return (value: unknown) => settle(value);
+    }
+    const leave = () => fireEvent.click(screen.getByRole("button", { name: /Tới Bài tập/ }));
+    const comeBack = () => fireEvent.click(screen.getByRole("button", { name: /Về Memory check/ }));
+
+    it("keeps a requeued question's late result locked on its own question, never allowing a second submit", async () => {
+      render(<LearningWorkspace data={workspaceData()} />);
+
+      // Question 1 is wrong and goes behind question 2.
+      mockedSubmit.mockResolvedValueOnce({
+        success: true,
+        isCorrect: false,
+        explanation: "Giải thích 1",
+        isMemoryCheckPassed: false,
+      });
+      await answer("Sai 1");
+      fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+      expect(questionHeading()).toBe("Câu nhớ 2");
+
+      // Question 2 is sent, and the learner leaves before it answers.
+      const settleSecond = deferSubmit();
+      fireEvent.click(screen.getByRole("radio", { name: /Đúng 2/ }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+      });
+      leave();
+      comeBack();
+
+      // The new view starts with question 1; answer it right and continue.
+      expect(questionHeading()).toBe("Câu nhớ 1");
+      mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, isMemoryCheckPassed: false });
+      await answer("Đúng 1");
+      fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+
+      // Question 2 is still in flight: locked on its choice.
+      expect(questionHeading()).toBe("Câu nhớ 2");
+      expect(screen.getByRole("radio", { name: /Sai 2/ }).matches(":disabled")).toBe(true);
+      expect(
+        (screen.getByRole("button", { name: "Đang kiểm tra..." }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+
+      await act(async () => {
+        settleSecond({ success: true, isCorrect: true, isMemoryCheckPassed: true });
+      });
+      // Its result shows as feedback, the choices stay locked and the pass waits for the learner.
+      expect(screen.getByText("Chính xác!")).not.toBeNull();
+      expect(screen.getByRole("radio", { name: /Sai 2/ }).matches(":disabled")).toBe(true);
+      expect(mockedSubmit.mock.calls.filter(([id]) => id === ids.second)).toHaveLength(1);
+      expect(mockedSubmit).toHaveBeenCalledTimes(3);
+
+      fireEvent.click(screen.getByRole("button", { name: "Mở bài tập" }));
+      expect(screen.getByText("Câu bài tập")).not.toBeNull();
+    });
+
+    it("takes in a pass that arrived while away instead of asking for a reload", async () => {
+      render(
+        <LearningWorkspace data={workspaceData({ answers: { [ids.first]: rightOption(1) } })} />,
+      );
+      const settle = deferSubmit();
+      fireEvent.click(screen.getByRole("radio", { name: /Đúng 2/ }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+      });
+
+      leave();
+      await act(async () => {
+        settle({ success: true, isCorrect: true, isMemoryCheckPassed: true });
+      });
+      comeBack();
+
+      // The confirmed pass is shown with the learner's own continuation, not the stale message.
+      expect(screen.queryByText("Memory check vừa thay đổi")).toBeNull();
+      expect(screen.getByText("Chính xác!")).not.toBeNull();
+      expect(screen.getByText("Đã đúng 2/2")).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Mở bài tập" }));
+      expect(screen.getByText("Câu bài tập")).not.toBeNull();
+      expect(mockedSubmit).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("keeps the current question and choice on a server error and blocks double submit", async () => {
