@@ -25,6 +25,9 @@ import type { PublicCoursePreview } from "@/lib/schemas/public-course-preview";
 import ChoiceGroup from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ChoiceGroup";
 import ExerciseContext from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ExerciseContext";
 import FlashcardStage from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/FlashcardStage";
+import QuestionNavigator, {
+  type QuestionNavigatorSection,
+} from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/QuestionNavigator";
 import { arrangeMaterial } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/exercise-arrangement";
 import { PublicCoursePreviewUnavailable } from "./PublicCoursePreviewUnavailable";
 
@@ -119,8 +122,12 @@ export function PublicCoursePreviewExperience({
     isCorrect: boolean;
     explanation: string | null;
   } | null>(null);
-  const [correctCount, setCorrectCount] = useState(0);
-  const correctQuestionIds = useRef(new Set<string>());
+  // Local to this page view like everything else here: the right choice kept per
+  // question so a revisit shows it again, and the questions answered wrongly so far.
+  const [correctChoices, setCorrectChoices] = useState<
+    Record<string, { optionId: string; explanation: string | null }>
+  >({});
+  const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
   const [answerError, setAnswerError] = useState<string | null>(null);
   const [isUnavailable, setIsUnavailable] = useState(false);
   const [isAnswerPending, startAnswerTransition] = useTransition();
@@ -216,11 +223,14 @@ export function PublicCoursePreviewExperience({
         }
 
         setAnswerResult(result.data);
-        if (currentQuestionItem && result.data.isCorrect) {
-          if (!correctQuestionIds.current.has(currentQuestionItem.question.id)) {
-            correctQuestionIds.current.add(currentQuestionItem.question.id);
-            setCorrectCount((prev) => prev + 1);
-          }
+        const answeredId = currentQuestionItem.question.id;
+        if (result.data.isCorrect) {
+          setCorrectChoices((choices) => ({
+            ...choices,
+            [answeredId]: { optionId: selectedOptionId, explanation: result.data.explanation },
+          }));
+        } else {
+          setIncorrectIds((ids) => ({ ...ids, [answeredId]: true }));
         }
       } catch {
         setAnswerError("Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.");
@@ -237,9 +247,23 @@ export function PublicCoursePreviewExperience({
     setAnswerError(null);
   }
 
+  // A question already answered right shows that answer again instead of a blank form.
+  function openQuestion(index: number) {
+    const saved = questions[index] ? correctChoices[questions[index].question.id] : undefined;
+    focusQuestionHeading.current = true;
+    setQuestionIndex(index);
+    setSelectedOptionId(saved?.optionId ?? null);
+    setAnswerResult(saved ? { isCorrect: true, explanation: saved.explanation } : null);
+    setAnswerError(null);
+  }
+
   function advanceQuestion() {
-    setQuestionIndex((index) => index + 1);
-    resetQuestionAttempt();
+    openQuestion(questionIndex + 1);
+  }
+
+  function jumpToQuestion(questionId: string) {
+    const index = questions.findIndex((item) => item.question.id === questionId);
+    if (index >= 0) openQuestion(index);
   }
 
   function continueLearning() {
@@ -275,6 +299,7 @@ export function PublicCoursePreviewExperience({
     );
   }
 
+  const correctCount = Object.keys(correctChoices).length;
   const isEmpty = data.flashcards.length === 0 && questions.length === 0;
   const isComplete = !isEmpty && remainingCards.length === 0 && questionIndex >= questions.length;
   const isLastQuestion = questionIndex === questions.length - 1;
@@ -285,6 +310,42 @@ export function PublicCoursePreviewExperience({
   const hasMaterial =
     arrangement !== null && (arrangement.kinds.length > 0 || arrangement.missing.length > 0);
   const isSplit = hasMaterial && arrangement.layout === "split";
+  const navigatorSections: QuestionNavigatorSection[] = [];
+  questions.forEach((item, index) => {
+    let section = navigatorSections.find((candidate) => candidate.id === item.exerciseId);
+    if (!section) {
+      section = { id: item.exerciseId, title: item.exerciseTitle, badge: item.exerciseBadge, groups: [] };
+      navigatorSections.push(section);
+    }
+    const groupId = item.group?.id ?? `${item.exerciseId}:standalone`;
+    let group = section.groups.find((candidate) => candidate.id === groupId);
+    if (!group) {
+      const passageNumber = section.groups.filter((candidate) => candidate.label).length + 1;
+      const passageTotal = new Set(
+        questions
+          .filter((other) => other.exerciseId === item.exerciseId && other.group)
+          .map((other) => other.group!.id),
+      ).size;
+      group = {
+        id: groupId,
+        label: item.group ? `Nhóm ${passageNumber}/${passageTotal}` : undefined,
+        items: [],
+      };
+      section.groups.push(group);
+    }
+    group.items.push({
+      id: item.question.id,
+      number: index + 1,
+      text: item.question.content.trim() || "Chọn đáp án đúng",
+      status: correctChoices[item.question.id]
+        ? "correct"
+        : incorrectIds[item.question.id]
+          ? "incorrect"
+          : "unanswered",
+      current: index === questionIndex,
+    });
+  });
+  const questionNavigator = <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} />;
   const gradedResult = answerResult ? (answerResult.isCorrect ? "correct" : "incorrect") : null;
 
   return (
@@ -366,6 +427,7 @@ export function PublicCoursePreviewExperience({
               </div>
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+              {questions.length > 0 && questionNavigator}
               <Button asChild variant="outline" size="lg">
                 <Link href={returnToCourseHref}>Về khóa học</Link>
               </Button>
@@ -438,8 +500,9 @@ export function PublicCoursePreviewExperience({
                   {currentQuestionItem.exerciseBadge}
                 </span>
               </p>
-              <span>
+              <span className="flex items-center gap-3">
                 Câu hỏi {questionIndex + 1}/{questions.length}
+                {questionNavigator}
               </span>
             </div>
 
@@ -557,16 +620,11 @@ export function PublicCoursePreviewExperience({
                         {isAnswerPending && (
                           <p role="status" className="sr-only">Đang kiểm tra câu trả lời...</p>
                         )}
-                        {answerResult?.isCorrect && (
-                          <div className="flex flex-col gap-2 rounded-lg border border-growth-line bg-growth-quiet p-4 text-slate-900">
-                            <p className="flex items-center gap-2 font-bold text-growth">
-                              <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
-                              Chính xác!
-                            </p>
-                            {answerResult.explanation && (
-                              <p className="leading-relaxed">{answerResult.explanation}</p>
-                            )}
-                          </div>
+                        {/* The green option and its check already show a right answer; announce it
+                            for screen readers and keep only the explanation visible. */}
+                        {answerResult?.isCorrect && <p className="sr-only">Chính xác!</p>}
+                        {answerResult?.isCorrect && answerResult.explanation && (
+                          <p className="leading-relaxed text-slate-900">{answerResult.explanation}</p>
                         )}
                         {answerResult && !answerResult.isCorrect && (
                           <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">

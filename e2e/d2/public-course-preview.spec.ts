@@ -86,7 +86,7 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await page.keyboard.press("Space");
   await expect(answer).toHaveAttribute("aria-checked", "true");
   await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
-  await expect(page.getByText("Chính xác!")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
   await expect(page.getByText("D2 explanation for the correct preview answer.")).toBeVisible();
   await page.getByRole("button", { name: /Hoàn thành bài học|Xem kết quả/ }).click();
   await expect(page.getByText("Bạn đã xem hết nội dung mẫu.")).toBeVisible();
@@ -114,7 +114,7 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   }
   await page.getByRole("radio", { name: "Đáp án đúng" }).click();
   await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
-  await expect(page.getByText("Chính xác!")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
   await page.getByRole("button", { name: /Hoàn thành bài học|Xem kết quả/ }).click();
   await expect(page.getByRole("button", { name: "Tiếp tục học" })).toBeVisible();
   await expectNoHorizontalOverflow(page, 375);
@@ -245,7 +245,7 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await expect(page.getByRole("radio", { name: "Đáp án đúng" })).toBeVisible();
   await page.getByRole("radio", { name: "Đáp án đúng" }).click();
   await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
-  await expect(page.getByText("Chính xác!")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
 });
 
 test("exercises the three chapter-delete states across desktop and mobile viewports", async ({ page }) => {
