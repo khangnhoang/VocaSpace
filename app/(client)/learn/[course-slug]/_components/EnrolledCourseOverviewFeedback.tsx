@@ -23,14 +23,14 @@ export default function EnrolledCourseOverviewFeedback({
         role={isUnenrolled ? "status" : "alert"}
         aria-labelledby="course-overview-feedback-title"
         className={`w-full max-w-2xl rounded-[28px] border bg-white p-6 text-center shadow-[0_16px_48px_rgba(15,23,42,0.08)] sm:p-10 ${
-          isUnenrolled ? "border-blue-100" : "border-rose-100"
+          isUnenrolled ? "border-route-line" : "border-correction-line"
         }`}
       >
         <span
           className={`mx-auto flex size-14 items-center justify-center rounded-2xl ${
             isUnenrolled
-              ? "bg-blue-50 text-blue-700"
-              : "bg-rose-50 text-rose-600"
+              ? "bg-route-quiet text-route"
+              : "bg-correction-quiet text-correction"
           }`}
         >
           {isUnenrolled ? (
@@ -42,7 +42,7 @@ export default function EnrolledCourseOverviewFeedback({
 
         <p
           className={`mt-5 text-xs font-extrabold tracking-[0.15em] ${
-            isUnenrolled ? "text-blue-700" : "text-rose-700"
+            isUnenrolled ? "text-route" : "text-correction"
           }`}
         >
           {isUnenrolled ? "QUYỀN TRUY CẬP KHÓA HỌC" : "KHÔNG THỂ TẢI DỮ LIỆU"}

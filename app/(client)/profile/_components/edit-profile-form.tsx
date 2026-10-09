@@ -101,10 +101,10 @@ export default function EditProfileForm({
           type="text"
           {...form.register("full_name")}
           placeholder="Nhập họ và tên đầy đủ"
-          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-emerald-500 focus:outline-none text-sm font-medium transition-colors"
+          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
         />
         {form.formState.errors.full_name && (
-          <p className="mt-1 text-xs font-semibold text-rose-500">
+          <p className="mt-1 text-xs font-semibold text-correction">
             {form.formState.errors.full_name.message}
           </p>
         )}
@@ -126,13 +126,13 @@ export default function EditProfileForm({
               {...form.register("username")}
               aria-describedby="profile-username-help"
               placeholder="Nhập username (từ 3 ký tự)"
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-emerald-500 focus:outline-none text-sm font-medium transition-colors"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
             />
             <p id="profile-username-help" className="mt-1 text-xs text-slate-500">
               Bạn chỉ đặt được username một lần.
             </p>
             {usernameError && (
-              <p className="mt-1 text-xs font-semibold text-rose-500">
+              <p className="mt-1 text-xs font-semibold text-correction">
                 {usernameError.message}
               </p>
             )}
@@ -157,7 +157,7 @@ export default function EditProfileForm({
           <input
             type="date"
             {...form.register("dob")}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-emerald-500 focus:outline-none text-sm font-medium transition-colors"
+            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
           />
         </div>
 
@@ -167,7 +167,7 @@ export default function EditProfileForm({
           </label>
           <select
             {...form.register("gender")}
-            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-emerald-500 focus:outline-none text-sm font-medium bg-white transition-colors"
+            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium bg-white transition-colors"
           >
             <option value="">Chọn giới tính</option>
             <option value="male">Nam</option>
@@ -181,7 +181,7 @@ export default function EditProfileForm({
       <button
         type="submit"
         disabled={isPending}
-        className="mt-6 w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-600 active:scale-95 transition-all shadow-md shadow-emerald-100 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:shadow-none"
+        className="mt-6 w-full rounded-xl bg-action px-4 py-3 text-sm font-bold text-action-foreground hover:bg-action/90 active:scale-95 transition-all shadow-md shadow-route-line/40 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:shadow-none"
       >
         {isPending ? "Đang đồng bộ dữ liệu..." : "Lưu thay đổi"}
       </button>

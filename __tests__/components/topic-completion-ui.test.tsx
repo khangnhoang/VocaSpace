@@ -16,14 +16,15 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // Test plan:
 // - Mục tiêu: bảo vệ UI hoàn thành topic D4 (H6/G7) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
-// - Đối tượng: LearningWorkspace (thẻ, bài tập qua QuizSidebar) và MemoryCheckStage.
+// - Đối tượng: LearningWorkspace (thẻ, bài tập qua QuestionResponse) và MemoryCheckStage.
+// - AC7 (ứng viên chờ Owner duyệt): đúng thì hiện "Câu tiếp theo" (khi còn câu sau) và không tự chuyển câu; sai thì giải thích nằm tại chỗ với "Thử lại"; lỗi lưu giữ nguyên lựa chọn và không bị hiểu là đáp án sai; kết quả trễ của câu cũ không đánh dấu câu mới.
 // - Case thành công: câu standalone hiển thị trước group, không có passage và không có nhãn nhóm (group đánh số không tính phần standalone); toast hoàn thành khi server báo `newlyCompleted`.
 // - Case thất bại: `progressError` hiện toast nhưng không chặn việc học tiếp.
-// - Ổn định/resilience: hết chuỗi câu còn câu chưa đúng thì báo "Còn x câu" và CTA đưa tới câu đầu tiên còn thiếu.
+// - Ổn định/resilience: câu cuối không có "Câu tiếp theo"/"Câu sau"; trả lời đúng câu cuối khi còn câu thiếu thì CTA "Làm câu còn thiếu" đưa tới câu đầu tiên còn thiếu, khi đã đủ thì nút chính là "Bài tiếp theo" (hoặc "Về tổng quan khóa học" ở bài cuối) và không có màn hình/nút hoàn thành trung gian.
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
 // - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
 //   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính; không còn nút "Hoàn thành bài học".
-// - Kết quả verify gần nhất: 9/9 passed (2026-10-02) bằng `npx vitest run __tests__/components/topic-completion-ui.test.tsx`.
+// - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/topic-completion-ui.test.tsx`).
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
@@ -142,14 +143,15 @@ function workspaceData(overrides: Partial<LearningWorkspaceData> = {}): Learning
 }
 
 async function submitExerciseAnswer(optionContent: string) {
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(optionContent) }));
+  fireEvent.click(screen.getByRole("radio", { name: new RegExp(optionContent) }));
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
   });
 }
 
+// A saved-correct question offers "Câu tiếp theo" instead of the skip link "Câu sau".
 function next() {
-  fireEvent.click(screen.getByRole("button", { name: /Câu sau/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^(Câu sau|Câu tiếp theo)$/ }));
 }
 
 function successToasts() {
@@ -170,7 +172,7 @@ describe("D4 topic completion UI", () => {
   it("shows standalone questions first without a passage or group label, then the groups", () => {
     render(<LearningWorkspace data={workspaceData()} />);
 
-    expect(screen.getByText("Câu hỏi độc lập, không có ngữ liệu đi kèm.")).not.toBeNull();
+    expect(screen.queryByText(/Câu hỏi độc lập|ngữ liệu/)).toBeNull();
     expect(screen.getByText("Câu đơn")).not.toBeNull();
     expect(screen.queryByText("Đoạn văn A")).toBeNull();
     expect(screen.queryByText(/^Nhóm \d/)).toBeNull();
@@ -195,15 +197,88 @@ describe("D4 topic completion UI", () => {
     mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, topicProgress: progress() });
     await submitExerciseAnswer("Đúng Câu nhóm A");
 
-    expect(successToasts()).toEqual(["Chính xác!"]);
+    // The result stays inline and nothing advances on its own (AC7 candidate).
+    expect(successToasts()).toEqual([]);
+    expect(screen.getByText("Chính xác!")).not.toBeNull();
     await act(async () => {
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(2000);
     });
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    expect(screen.queryByText("Câu nhóm B")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Câu tiếp theo" }));
     expect(screen.getByText("Câu nhóm B")).not.toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("reports the remaining questions at the end and jumps to the first one still missing", () => {
+  it("keeps an incorrect answer inline with a retry that clears the choice", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    mockedSubmit.mockResolvedValueOnce({
+      success: true,
+      isCorrect: false,
+      explanation: "Xem lại thì của động từ.",
+    });
+    await submitExerciseAnswer("Sai Câu đơn");
+
+    expect(screen.getByText("Chưa chính xác")).not.toBeNull();
+    expect(screen.getByText("Xem lại thì của động từ.")).not.toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+    expect(screen.queryByText("Chưa chính xác")).toBeNull();
+    expect(
+      screen.getByRole("radio", { name: /Sai Câu đơn/ }).getAttribute("aria-checked"),
+    ).toBe("false");
+    expect(screen.getByRole("button", { name: "Xác nhận đáp án" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("keeps the choice and offers a resend when saving the answer fails", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    mockedSubmit.mockResolvedValueOnce({ error: "Không thể lưu đáp án lúc này." });
+    await submitExerciseAnswer("Đúng Câu đơn");
+
+    // A failed save is not an incorrect answer.
+    expect(screen.getByRole("alert").textContent).toContain("Không thể lưu đáp án lúc này.");
+    expect(screen.queryByText("Chưa chính xác")).toBeNull();
+    expect(
+      screen.getByRole("radio", { name: /Đúng Câu đơn/ }).getAttribute("aria-checked"),
+    ).toBe("true");
+
+    mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, topicProgress: progress() });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+    });
+    expect(screen.getByText("Chính xác!")).not.toBeNull();
+    expect(mockedSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores a late result after the learner moved to another question", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    let resolveSubmit: (value: { success: true; isCorrect: true }) => void = () => {};
+    mockedSubmit.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSubmit = resolve;
+      }) as never,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /Đúng Câu đơn/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+    });
+    next();
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+
+    await act(async () => {
+      resolveSubmit({ success: true, isCorrect: true });
+    });
+    // The result belongs to the previous question and must not mark this one.
+    expect(screen.queryByText("Chính xác!")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Xác nhận đáp án" }).hasAttribute("disabled"),
+    ).toBe(true);
+  });
+
+  it("offers the first missing question after the last one is answered, instead of a next that leads nowhere", async () => {
     render(
       <LearningWorkspace
         data={workspaceData({
@@ -215,13 +290,16 @@ describe("D4 topic completion UI", () => {
     next();
     next();
     expect(screen.getByText("Câu nhóm B")).not.toBeNull();
-    next();
+    // There is no later question: no skip link, and nothing named "next".
+    expect(screen.queryByRole("button", { name: "Câu sau" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
 
-    expect(screen.getByRole("status").textContent).toContain("Còn 2 câu chưa trả lời đúng");
+    mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, topicProgress: progress() });
+    await submitExerciseAnswer("Đúng Câu nhóm B");
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Làm câu còn thiếu" }));
 
     expect(screen.getByText("Câu đơn")).not.toBeNull();
-    expect(screen.queryByText(/Còn \d+ câu chưa trả lời đúng/)).toBeNull();
     expect(successToasts()).not.toContain(TOPIC_COMPLETED_MESSAGE);
   });
 
@@ -243,13 +321,20 @@ describe("D4 topic completion UI", () => {
     expect(successToasts()).toContain(TOPIC_COMPLETED_MESSAGE);
     // The completed state shows immediately, without reloading the page.
     expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
-    expect(screen.getByRole("link", { name: "Về tổng quan khóa học" }).getAttribute("href")).toBe(
-      "/learn/toeic-foundation",
-    );
-    await act(async () => {
-      vi.advanceTimersByTime(500);
-    });
-    expect(screen.getByRole("status").textContent).toBe("Bạn đã trả lời đúng hết bài tập.");
+    // This is the last topic: the last question's primary leads to the course overview, and
+    // the footer keeps its own link to the same place. The learner stays on the question.
+    const overviewLinks = screen.getAllByRole("link", { name: "Về tổng quan khóa học" });
+    expect(overviewLinks).toHaveLength(2);
+    overviewLinks.forEach((link) => expect(link.getAttribute("href")).toBe("/learn/toeic-foundation"));
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    // No completion interstitial or extra completion step: the result stays on the question.
+    expect(screen.queryByRole("button", { name: "Hoàn thành bài tập" })).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Bạn đã trả lời đúng hết bài tập.")).toBeNull();
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Danh sách câu hỏi" })).not.toBeNull();
+    // The completion toast fired once, from the server result.
+    expect(successToasts().filter((message) => message === TOPIC_COMPLETED_MESSAGE)).toHaveLength(1);
   });
 
   it("shows stored completion in the header and sidebar and promotes the next topic", () => {
@@ -304,7 +389,9 @@ describe("D4 topic completion UI", () => {
     expect(nextLinks[0].getAttribute("data-variant")).toBe("default");
 
     fireEvent.click(screen.getByRole("button", { name: "Mở danh sách chương và bài học" }));
-    expect(screen.getByRole("link", { name: /^Bài một\s*\(Đã hoàn thành\)$/ })).not.toBeNull();
+    expect(
+      screen.getByRole("link", { name: /^Bài một\s*\(Đã hoàn thành\)$/ }).getAttribute("aria-current"),
+    ).toBe("page");
     expect(screen.getByRole("link", { name: /^Bài hai\s*\(Đã hoàn thành\)$/ })).not.toBeNull();
     expect(screen.getByRole("link", { name: "Bài ba" })).not.toBeNull();
   });

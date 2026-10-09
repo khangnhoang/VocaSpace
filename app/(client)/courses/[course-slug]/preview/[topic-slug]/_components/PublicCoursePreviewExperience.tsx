@@ -3,15 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { Rating } from "ts-fsrs";
 import {
   ArrowLeft,
+  ArrowDown,
   ArrowRight,
   BookOpenText,
   CheckCircle2,
   ChevronRight,
   Headphones,
+  Loader2,
   XCircle,
 } from "lucide-react";
 import {
@@ -21,7 +23,14 @@ import {
 import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
 import { Button } from "@/components/ui/button";
 import type { PublicCoursePreview } from "@/lib/schemas/public-course-preview";
+import ChoiceGroup from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ChoiceGroup";
+import ExerciseContext from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ExerciseContext";
 import FlashcardStage from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/FlashcardStage";
+import QuestionNavigator, {
+  type QuestionNavigatorSection,
+} from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/QuestionNavigator";
+import StickyColumn from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/StickyColumn";
+import { arrangeMaterial } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/exercise-arrangement";
 import { PublicCoursePreviewUnavailable } from "./PublicCoursePreviewUnavailable";
 
 type PreviewExercise = PublicCoursePreview["exercises"][number];
@@ -29,8 +38,10 @@ type PreviewQuestion = PreviewExercise["questions"][number];
 type PreviewGroup = PreviewExercise["groups"][number];
 
 type PreviewQuestionItem = {
+  exerciseId: string;
   exerciseTitle: string;
   exerciseBadge: string;
+  partType: string | null;
   question: PreviewQuestion;
   group: PreviewGroup | null;
 };
@@ -53,15 +64,19 @@ function flattenQuestions(exercises: PublicCoursePreview["exercises"]) {
       exercise.activity_stage === "memory_check" ? "Memory check" : exercise.part_type;
     return [
       ...exercise.questions.map((question) => ({
+        exerciseId: exercise.id,
         exerciseTitle: exercise.title,
         exerciseBadge,
+        partType: exercise.part_type,
         question,
         group: null,
       })),
       ...exercise.groups.flatMap((group) =>
         group.questions.map((question) => ({
+          exerciseId: exercise.id,
           exerciseTitle: exercise.title,
           exerciseBadge,
+          partType: exercise.part_type,
           question,
           group,
         })),
@@ -109,18 +124,41 @@ export function PublicCoursePreviewExperience({
     isCorrect: boolean;
     explanation: string | null;
   } | null>(null);
-  const [correctCount, setCorrectCount] = useState(0);
-  const correctQuestionIds = useRef(new Set<string>());
+  // Local to this page view like everything else here: the right choice kept per
+  // question so a revisit shows it again, and the questions answered wrongly so far.
+  const [correctChoices, setCorrectChoices] = useState<
+    Record<string, { optionId: string; explanation: string | null }>
+  >({});
+  const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
   const [answerError, setAnswerError] = useState<string | null>(null);
   const [isUnavailable, setIsUnavailable] = useState(false);
-  const [isAnswerPending, startAnswerTransition] = useTransition();
+  // Requests in flight, by question: the option sent. Keyed by question so a result can
+  // only ever land on the question that was submitted, wherever the learner is now.
+  const [pendingAnswers, setPendingAnswers] = useState<Record<string, string>>({});
   const [isContinuePending, startContinueTransition] = useTransition();
   const [continueError, setContinueError] = useState<string | null>(null);
-  const answerInFlight = useRef(false);
+  const answerInFlight = useRef<Set<string>>(new Set());
+  const latestAttempt = useRef<Record<string, number>>({});
+  const attemptCounter = useRef(0);
   const continueInFlight = useRef(false);
   const mediaRevalidationInFlight = useRef(false);
   const currentCard = remainingCards[0];
   const currentQuestionItem = questions[questionIndex];
+  const isAnswerPending = currentQuestionItem
+    ? pendingAnswers[currentQuestionItem.question.id] !== undefined
+    : false;
+  const currentQuestionIdRef = useRef<string | undefined>(undefined);
+  currentQuestionIdRef.current = currentQuestionItem?.question.id;
+  const questionHeadingId = useId();
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const focusQuestionHeading = useRef(false);
+
+  useEffect(() => {
+    // After the learner moves on or retries, focus returns to the question.
+    if (!focusQuestionHeading.current) return;
+    focusQuestionHeading.current = false;
+    questionHeadingRef.current?.focus();
+  }, [questionIndex, answerResult]);
 
   async function handlePrivateMediaError(src: string) {
     if (
@@ -166,24 +204,29 @@ export function PublicCoursePreviewExperience({
   }
 
   function submitAnswer() {
-    if (
-      !currentQuestionItem ||
-      !selectedOptionId ||
-      isAnswerPending ||
-      answerInFlight.current
-    ) {
-      return;
-    }
+    if (!currentQuestionItem || !selectedOptionId || isAnswerPending) return;
+    const answeredId = currentQuestionItem.question.id;
+    const chosenId = selectedOptionId;
+    if (answerInFlight.current.has(answeredId)) return;
 
-    answerInFlight.current = true;
+    const attempt = ++attemptCounter.current;
+    latestAttempt.current[answeredId] = attempt;
+    answerInFlight.current.add(answeredId);
+    setPendingAnswers((pending) => ({ ...pending, [answeredId]: chosenId }));
     setAnswerError(null);
-    startAnswerTransition(async () => {
+
+    // The learner may have moved on by the time this settles: the result then only
+    // goes to the session history of the submitted question, never the open one.
+    const isShowing = () =>
+      currentQuestionIdRef.current === answeredId && latestAttempt.current[answeredId] === attempt;
+
+    void (async () => {
       try {
         const result = await answerPublicCoursePreviewQuestion({
           courseSlug: data.course.slug,
           topicSlug: data.topic.slug,
-          questionId: currentQuestionItem.question.id,
-          selectedOptionId,
+          questionId: answeredId,
+          selectedOptionId: chosenId,
         });
 
         if (result.status === "unavailable") {
@@ -191,34 +234,74 @@ export function PublicCoursePreviewExperience({
           return;
         }
         if (result.status === "error") {
-          setAnswerError(result.error);
+          if (isShowing()) setAnswerError(result.error);
           return;
         }
 
-        setAnswerResult(result.data);
-        if (currentQuestionItem && result.data.isCorrect) {
-          if (!correctQuestionIds.current.has(currentQuestionItem.question.id)) {
-            correctQuestionIds.current.add(currentQuestionItem.question.id);
-            setCorrectCount((prev) => prev + 1);
-          }
+        if (result.data.isCorrect) {
+          setCorrectChoices((choices) => ({
+            ...choices,
+            [answeredId]: { optionId: chosenId, explanation: result.data.explanation },
+          }));
+        } else {
+          setIncorrectIds((ids) => ({ ...ids, [answeredId]: true }));
+        }
+        if (isShowing()) {
+          setSelectedOptionId(chosenId);
+          setAnswerResult(result.data);
         }
       } catch {
-        setAnswerError("Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.");
+        if (isShowing()) {
+          setAnswerError("Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.");
+        }
       } finally {
-        answerInFlight.current = false;
+        answerInFlight.current.delete(answeredId);
+        setPendingAnswers((pending) => {
+          const rest = { ...pending };
+          delete rest[answeredId];
+          return rest;
+        });
       }
-    });
+    })();
   }
 
   function resetQuestionAttempt() {
+    focusQuestionHeading.current = true;
     setSelectedOptionId(null);
     setAnswerResult(null);
     setAnswerError(null);
   }
 
+  // A question already answered right shows that answer again instead of a blank form.
+  function openQuestion(index: number) {
+    const target = questions[index];
+    const saved = target ? correctChoices[target.question.id] : undefined;
+    const pendingOptionId = target ? pendingAnswers[target.question.id] : undefined;
+    focusQuestionHeading.current = true;
+    setQuestionIndex(index);
+    setSelectedOptionId(saved?.optionId ?? pendingOptionId ?? null);
+    setAnswerResult(saved ? { isCorrect: true, explanation: saved.explanation } : null);
+    setAnswerError(null);
+  }
+
   function advanceQuestion() {
-    setQuestionIndex((index) => index + 1);
-    resetQuestionAttempt();
+    openQuestion(questionIndex + 1);
+  }
+
+  // Moves the learner from the end of a stacked passage to the question; reduced motion jumps.
+  function scrollToQuestion() {
+    const heading = questionHeadingRef.current;
+    if (!heading) return;
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView?.({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+  }
+
+  function jumpToQuestion(questionId: string) {
+    const index = questions.findIndex((item) => item.question.id === questionId);
+    if (index >= 0) openQuestion(index);
   }
 
   function continueLearning() {
@@ -254,17 +337,66 @@ export function PublicCoursePreviewExperience({
     );
   }
 
+  const correctCount = Object.keys(correctChoices).length;
   const isEmpty = data.flashcards.length === 0 && questions.length === 0;
   const isComplete = !isEmpty && remainingCards.length === 0 && questionIndex >= questions.length;
+  const isLastQuestion = questionIndex === questions.length - 1;
+
+  const arrangement = currentQuestionItem?.group
+    ? arrangeMaterial(currentQuestionItem.partType, currentQuestionItem.group, false)
+    : null;
+  const hasMaterial =
+    arrangement !== null && (arrangement.kinds.length > 0 || arrangement.missing.length > 0);
+  const isSplit = hasMaterial && arrangement.layout === "split";
+  const navigatorSections: QuestionNavigatorSection[] = [];
+  questions.forEach((item, index) => {
+    let section = navigatorSections.find((candidate) => candidate.id === item.exerciseId);
+    if (!section) {
+      section = { id: item.exerciseId, title: item.exerciseTitle, badge: item.exerciseBadge, groups: [] };
+      navigatorSections.push(section);
+    }
+    const groupId = item.group?.id ?? `${item.exerciseId}:standalone`;
+    let group = section.groups.find((candidate) => candidate.id === groupId);
+    if (!group) {
+      const passageNumber = section.groups.filter((candidate) => candidate.label).length + 1;
+      const passageTotal = new Set(
+        questions
+          .filter((other) => other.exerciseId === item.exerciseId && other.group)
+          .map((other) => other.group!.id),
+      ).size;
+      group = {
+        id: groupId,
+        label: item.group ? `Nhóm ${passageNumber}/${passageTotal}` : undefined,
+        items: [],
+      };
+      section.groups.push(group);
+    }
+    group.items.push({
+      id: item.question.id,
+      number: index + 1,
+      text: item.question.content.trim() || "Chọn đáp án đúng",
+      status: correctChoices[item.question.id]
+        ? "correct"
+        : incorrectIds[item.question.id]
+          ? "incorrect"
+          : "unanswered",
+      current: index === questionIndex,
+    });
+  });
+  const questionNavigator = <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} />;
+  const gradedResult = answerResult ? (answerResult.isCorrect ? "correct" : "incorrect") : null;
 
   return (
-    <section aria-labelledby="public-course-preview-title" className="mx-auto max-w-4xl">
-      <nav aria-label="Điều hướng xem thử" className="mb-6">
-        <ol className="flex min-w-0 items-center gap-1.5 text-sm text-slate-500">
+    <section
+      aria-labelledby="public-course-preview-title"
+      className="mx-auto flex w-full max-w-[1280px] flex-col gap-5 font-sans"
+    >
+      <nav aria-label="Điều hướng xem thử">
+        <ol className="flex min-w-0 items-center gap-1.5 text-sm text-slate-600">
           <li className="min-w-0">
             <Link
               href={returnToCourseHref}
-              className="block max-w-[45vw] truncate rounded-sm transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-400/50 sm:max-w-xs"
+              className="block max-w-[45vw] truncate rounded-sm transition-colors duration-[120ms] hover:text-route focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:max-w-xs"
             >
               {data.course.title}
             </Link>
@@ -276,32 +408,27 @@ export function PublicCoursePreviewExperience({
         </ol>
       </nav>
 
-      <header className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">
-              <BookOpenText aria-hidden="true" className="size-4" />
-              Đang xem thử
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <h1
+            id="public-course-preview-title"
+            className="break-words text-xl font-bold leading-snug text-slate-900 [overflow-wrap:anywhere] md:text-2xl"
+          >
+            {data.topic.title}
+          </h1>
+          {data.topic.description && (
+            <p className="mt-1 max-w-3xl whitespace-pre-wrap text-sm leading-6 text-slate-600">
+              {data.topic.description}
             </p>
-            <h1
-              id="public-course-preview-title"
-              className="mt-2 break-words text-2xl font-extrabold leading-tight tracking-tight text-slate-950 sm:text-3xl"
-            >
-              {data.topic.title}
-            </h1>
-            {data.topic.description && (
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                {data.topic.description}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 rounded-xl bg-cyan-50/80 border border-cyan-200/60 px-3.5 py-2 text-xs font-medium text-cyan-950 text-left">
-            <span>Tiến độ trong lượt xem thử này không được lưu.</span>
-          </div>
+          )}
         </div>
+        <p className="inline-flex shrink-0 items-center gap-2 rounded-md border border-route-line bg-route-quiet px-3 py-1.5 text-sm font-semibold text-slate-900">
+          <BookOpenText aria-hidden="true" className="size-4 text-route" />
+          Xem thử · Tiến độ không được lưu
+        </p>
       </header>
 
-      <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 md:p-8">
+      <main className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
         {isEmpty ? (
           <div role="status" className="py-12 text-center">
             <BookOpenText aria-hidden="true" className="mx-auto size-10 text-slate-400" />
@@ -309,88 +436,77 @@ export function PublicCoursePreviewExperience({
             <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">
               Chủ đề này chưa có nội dung để xem trong phiên này.
             </p>
-            <Button asChild variant="outline" className="mt-6 min-h-11 px-5">
+            <Button asChild variant="outline" size="lg" className="mt-6">
               <Link href={returnToCourseHref}><ArrowLeft aria-hidden="true" />Về khóa học</Link>
             </Button>
           </div>
         ) : isComplete ? (
-          <div role="status" className="py-10 text-center">
-            <CheckCircle2 aria-hidden="true" className="mx-auto size-12 text-emerald-600" />
-            <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
-              Hoàn tất lượt xem thử
-            </p>
-            <h2 className="mt-2 text-2xl font-extrabold text-slate-950">
+          <div
+            role="status"
+            className="mx-auto flex max-w-xl flex-col items-center gap-4 py-6 text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[240ms]"
+          >
+            <CheckCircle2 aria-hidden="true" className="size-12 text-growth" />
+            <p className="text-sm font-bold text-growth">Hoàn tất lượt xem thử</p>
+            <h2 className="text-2xl font-bold text-slate-900">
               Bạn đã xem hết nội dung mẫu.
             </h2>
-            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-600">
+            <p className="text-sm leading-6 text-slate-600">
               Lượt xem thử kết thúc tại đây. Nội dung trong phiên này không được lưu thành tiến độ học.
             </p>
 
-            {/* Khối tóm tắt kết quả lượt xem thử */}
-            <div className="my-6 mx-auto max-w-sm rounded-2xl border border-slate-200/90 bg-slate-50/80 p-4">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3 text-center">
-                Kết quả lượt xem thử
-              </p>
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-                  <p className="text-2xl font-black text-blue-600">{data.flashcards.length}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Từ vựng đã học</p>
-                </div>
-                <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-                  <p className="text-2xl font-black text-emerald-600">{correctCount}/{questions.length}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Câu trả lời đúng</p>
-                </div>
+            <div className="grid w-full max-w-sm grid-cols-2 gap-3 text-center">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-2xl font-bold text-slate-900">{data.flashcards.length}</p>
+                <p className="mt-0.5 text-xs text-slate-600">Thẻ từ vựng đã xem</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-2xl font-bold text-slate-900">{correctCount}/{questions.length}</p>
+                <p className="mt-0.5 text-xs text-slate-600">Câu trả lời đúng trong lượt này</p>
               </div>
             </div>
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <Button asChild variant="outline" className="min-h-11 px-5">
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+              {questions.length > 0 && questionNavigator}
+              <Button asChild variant="outline" size="lg">
                 <Link href={returnToCourseHref}>Về khóa học</Link>
               </Button>
               {!isEnrolled ? (
-                <Button asChild className="min-h-11 bg-blue-600 px-6 font-semibold text-white shadow-sm hover:bg-blue-700">
+                <Button asChild size="lg">
                   <Link href={returnToCourseHref}>
                     Đăng ký khóa học ngay
-                    <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
+                    <ArrowRight aria-hidden="true" />
                   </Link>
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  className="min-h-11 bg-blue-600 px-6 font-semibold text-white shadow-sm hover:bg-blue-700"
-                  onClick={continueLearning}
-                  disabled={isContinuePending}
-                >
+                <Button type="button" size="lg" onClick={continueLearning} disabled={isContinuePending}>
                   {isContinuePending ? "Đang mở bài học..." : "Tiếp tục học"}
-                  <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
+                  <ArrowRight aria-hidden="true" />
                 </Button>
               )}
             </div>
-            {continueError && <p role="alert" className="mt-4 text-sm text-rose-700">{continueError}</p>}
+            {continueError && <p role="alert" className="text-sm text-correction">{continueError}</p>}
           </div>
         ) : currentCard ? (
-          <div>
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-bold text-slate-700">Từ vựng · còn {remainingCards.length} thẻ trong lượt</p>
               <Link
                 href={returnToCourseHref}
-                className="inline-flex min-h-10 items-center gap-1 rounded-md px-2 text-sm font-semibold text-slate-600 underline-offset-4 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-400/50"
+                className="inline-flex min-h-10 items-center gap-1 rounded-md px-2 text-sm font-semibold text-slate-600 underline-offset-4 transition-colors duration-[120ms] hover:text-route hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
               >
                 <ArrowLeft aria-hidden="true" className="size-4" />
                 Về khóa học
               </Link>
             </div>
             {currentCard.image_url && (
-              <div className="mb-4">
-                <PreviewImage
-                  src={currentCard.image_url}
-                  alt={`Hình minh họa cho ${currentCard.front_content.word}`}
-                  onPrivateMediaError={handlePrivateMediaError}
-                />
-              </div>
+              <PreviewImage
+                src={currentCard.image_url}
+                alt={`Hình minh họa cho ${currentCard.front_content.word}`}
+                onPrivateMediaError={handlePrivateMediaError}
+              />
             )}
             {currentCard.audio_url && (
-              <div className="mx-auto mb-5 flex max-w-2xl items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 sm:p-4">
-                <Headphones aria-hidden="true" className="size-5 shrink-0 text-blue-700" />
+              <div className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-lg border border-recall-line bg-recall-quiet p-3 sm:p-4">
+                <Headphones aria-hidden="true" className="size-5 shrink-0 text-recall" />
                 <audio
                   aria-label="Âm thanh từ vựng"
                   controls
@@ -411,186 +527,182 @@ export function PublicCoursePreviewExperience({
               setIsFlipped={setIsFlipped}
               handleRateCard={handleRateCard}
               isPending={false}
-              presentation="review"
             />
           </div>
         ) : currentQuestionItem ? (
-          <div className="mx-auto max-w-3xl">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="font-bold text-slate-900">{currentQuestionItem.exerciseTitle}</h2>
-                <span className="mt-1 inline-block rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold uppercase text-slate-600">
+          <div className="flex min-w-0 flex-col gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-600">
+              <p className="flex flex-wrap items-center gap-2">
+                <span>{currentQuestionItem.exerciseTitle}</span>
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold uppercase text-slate-600">
                   {currentQuestionItem.exerciseBadge}
                 </span>
-              </div>
-              <p className="text-sm font-bold text-slate-500">
-                Câu {questionIndex + 1}/{questions.length}
               </p>
+              <span className="flex items-center gap-3">
+                Câu hỏi {questionIndex + 1}/{questions.length}
+                {questionNavigator}
+              </span>
             </div>
 
-            {currentQuestionItem.group &&
-              Boolean(
-                currentQuestionItem.group.image_url ||
-                  currentQuestionItem.group.audio_url ||
-                  currentQuestionItem.group.passage_text,
-              ) && (
-              <div className="mb-6 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-                {currentQuestionItem.group.image_url && (
-                  <PreviewImage
-                    src={currentQuestionItem.group.image_url}
-                    alt="Hình ảnh ngữ liệu"
-                    onPrivateMediaError={handlePrivateMediaError}
-                  />
-                )}
-                {currentQuestionItem.group.audio_url && (
-                  <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 sm:p-4">
-                    <Headphones aria-hidden="true" className="size-5 shrink-0 text-blue-700" />
-                    <audio
-                      aria-label="Âm thanh ngữ liệu"
-                      controls
-                      preload="none"
-                      className="h-10 min-w-0 flex-1"
-                      src={currentQuestionItem.group.audio_url}
-                      onError={() => handlePrivateMediaError(currentQuestionItem.group!.audio_url!)}
-                    >
-                      Trình duyệt của bạn không hỗ trợ thẻ âm thanh.
-                    </audio>
-                  </div>
-                )}
-                {currentQuestionItem.group.passage_text && (
-                  <p className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700 sm:p-5">
-                    {currentQuestionItem.group.passage_text}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {currentQuestionItem.question.options.length === 0 ? (
-              <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm leading-6 text-amber-950">
-                  Câu hỏi này hiện chưa có lựa chọn để trả lời.
-                </p>
-                <Button
-                  type="button"
-                  onClick={advanceQuestion}
-                  className="mt-4 min-h-10 bg-blue-700 px-4 text-white hover:bg-blue-800"
+            <div
+              className={
+                isSplit
+                  ? `grid min-w-0 items-start gap-6 lg:gap-8 ${
+                      arrangement.dominant === "image"
+                        ? "lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]"
+                        : "lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]"
+                    }`
+                  : "mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-5"
+              }
+            >
+              {hasMaterial && currentQuestionItem.group && arrangement && (
+                <StickyColumn
+                  key={`${currentQuestionItem.exerciseId}:${currentQuestionItem.group.id}`}
+                  enabled={isSplit}
+                  className="min-w-0 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[240ms]"
                 >
-                  {questionIndex === questions.length - 1 ? "Hoàn thành bài học" : "Bỏ qua câu này"}
-                  <ArrowRight aria-hidden="true" />
-                </Button>
-              </div>
-            ) : (
-              <fieldset disabled={isAnswerPending || answerResult !== null}>
-                <legend className="mb-5 text-lg font-bold leading-7 text-slate-900 sm:text-xl">
-                  {currentQuestionItem.question.content}
-                </legend>
-                <div className="space-y-3">
-                  {currentQuestionItem.question.options.map((option, index) => {
-                    const isSelected = selectedOptionId === option.id;
-                    const optionLabel = option.label || String.fromCharCode(65 + index);
-
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        aria-pressed={isSelected}
-                        aria-label={`${optionLabel}. ${option.content}`}
-                        onClick={() => selectOption(option.id)}
-                        className={`flex min-h-14 w-full items-start gap-3 rounded-xl border-2 p-4 text-left text-sm font-medium leading-6 transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-400/50 disabled:cursor-default ${
-                          isSelected
-                            ? "border-blue-600 bg-blue-50 text-blue-950"
-                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isSelected ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-600"}`}>
-                          {optionLabel}
-                        </span>
-                        <span className="min-w-0 flex-1 break-words">{option.content}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </fieldset>
-            )}
-
-            {answerError && <p role="alert" className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800">{answerError}</p>}
-
-            {answerResult ? (
-              <div
-                role="status"
-                aria-live="polite"
-                className={`mt-5 rounded-2xl border p-4 sm:p-5 ${answerResult.isCorrect ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}
-              >
-                <div className={`flex items-center gap-2 font-bold ${answerResult.isCorrect ? "text-emerald-900" : "text-rose-900"}`}>
-                  {answerResult.isCorrect ? (
-                    <CheckCircle2 aria-hidden="true" className="size-5" />
-                  ) : (
-                    <XCircle aria-hidden="true" className="size-5" />
-                  )}
-                  {answerResult.isCorrect ? "Chính xác!" : "Chưa chính xác."}
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {answerResult.explanation ||
-                    (answerResult.isCorrect
-                      ? "Lựa chọn của bạn đúng."
-                      : "Hãy xem lại ngữ liệu rồi bấm Thử lại để chọn lại đáp án.")}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {!answerResult.isCorrect ? (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button
-                        type="button"
-                        onClick={resetQuestionAttempt}
-                        className="min-h-10 bg-blue-600 px-5 font-semibold text-white shadow-xs hover:bg-blue-700"
-                      >
-                        Thử lại
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={advanceQuestion}
-                        className="min-h-10 text-slate-600 hover:text-slate-900"
-                      >
-                        {questionIndex === questions.length - 1
-                          ? "Bỏ qua và hoàn thành"
-                          : "Bỏ qua câu này"}
-                        <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
+                  <ExerciseContext
+                    group={currentQuestionItem.group}
+                    arrangement={arrangement}
+                    enlargeableImage={currentQuestionItem.partType === "part1"}
+                    onMediaError={handlePrivateMediaError}
+                  />
+                  {isSplit && (
+                    <div className="mt-3 flex justify-end lg:hidden">
+                      <Button type="button" variant="link" size="lg" className="px-2" onClick={scrollToQuestion}>
+                        Tới câu hỏi
+                        <ArrowDown aria-hidden="true" />
                       </Button>
                     </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      onClick={advanceQuestion}
-                      className="min-h-10 bg-blue-700 px-4 text-white hover:bg-blue-800"
-                    >
-                      {questionIndex === questions.length - 1 ? "Hoàn thành bài học" : "Câu tiếp theo"}
+                  )}
+                </StickyColumn>
+              )}
+
+              <StickyColumn
+                key={currentQuestionItem.question.id}
+                enabled={isSplit}
+                className="flex min-w-0 flex-col gap-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[220ms]"
+              >
+                <h2
+                  id={questionHeadingId}
+                  ref={questionHeadingRef}
+                  tabIndex={-1}
+                  data-question-heading=""
+                  className="scroll-mt-4 break-words text-xl font-bold leading-snug text-slate-900 outline-none [overflow-wrap:anywhere] md:text-2xl"
+                >
+                  {currentQuestionItem.question.content}
+                </h2>
+
+                {currentQuestionItem.question.options.length === 0 ? (
+                  <div
+                    role="status"
+                    className="flex flex-col items-start gap-3 rounded-lg border border-attention-line bg-attention-quiet p-4"
+                  >
+                    <p className="text-sm leading-6 text-slate-900">
+                      Câu hỏi này hiện chưa có lựa chọn để trả lời.
+                    </p>
+                    <Button type="button" onClick={advanceQuestion}>
+                      {isLastQuestion ? "Hoàn thành bài học" : "Bỏ qua câu này"}
                       <ArrowRight aria-hidden="true" />
                     </Button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <Button
-                  type="button"
-                  disabled={!selectedOptionId || isAnswerPending}
-                  onClick={submitAnswer}
-                  className="min-h-11 bg-blue-600 px-6 font-semibold text-white shadow-xs hover:bg-blue-700"
-                >
-                  {isAnswerPending ? "Đang kiểm tra..." : "Kiểm tra đáp án"}
-                </Button>
-                {isAnswerPending && <span role="status" className="text-sm text-slate-500">Đang kiểm tra câu trả lời...</span>}
-              </div>
-            )}
+                  </div>
+                ) : (
+                  <>
+                    <ChoiceGroup
+                      options={currentQuestionItem.question.options}
+                      selectedId={selectedOptionId}
+                      result={gradedResult}
+                      disabled={isAnswerPending || answerResult !== null}
+                      onSelect={selectOption}
+                      labelledBy={questionHeadingId}
+                    />
+
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        {!answerResult ? (
+                          <Button
+                            type="button"
+                            size="lg"
+                            disabled={!selectedOptionId || isAnswerPending}
+                            onClick={submitAnswer}
+                            className="w-full sm:w-auto sm:min-w-48"
+                          >
+                            {isAnswerPending && <Loader2 aria-hidden="true" className="animate-spin" />}
+                            {isAnswerPending ? "Đang kiểm tra…" : "Xác nhận đáp án"}
+                          </Button>
+                        ) : answerResult.isCorrect ? (
+                          <Button
+                            type="button"
+                            size="lg"
+                            onClick={advanceQuestion}
+                            className="w-full sm:w-auto sm:min-w-48"
+                          >
+                            {isLastQuestion ? "Hoàn thành bài học" : "Câu tiếp theo"}
+                            <ArrowRight aria-hidden="true" />
+                          </Button>
+                        ) : (
+                          <>
+                            <Button
+                              type="button"
+                              size="lg"
+                              onClick={resetQuestionAttempt}
+                              className="w-full sm:w-auto sm:min-w-48"
+                            >
+                              Thử lại
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={advanceQuestion}
+                              className="text-slate-600"
+                            >
+                              {isLastQuestion ? "Bỏ qua và hoàn thành" : "Bỏ qua câu này"}
+                              <ArrowRight aria-hidden="true" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+
+                      <div aria-live="polite" aria-atomic="true" className="empty:hidden">
+                        {isAnswerPending && (
+                          <p role="status" className="sr-only">Đang kiểm tra câu trả lời...</p>
+                        )}
+                        {/* The green option and its check already show a right answer; announce it
+                            for screen readers and keep only the explanation visible. */}
+                        {answerResult?.isCorrect && <p className="sr-only">Chính xác!</p>}
+                        {answerResult?.isCorrect && answerResult.explanation && (
+                          <p className="leading-relaxed text-slate-900">{answerResult.explanation}</p>
+                        )}
+                        {answerResult && !answerResult.isCorrect && (
+                          <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">
+                            <p className="flex items-center gap-2 font-bold text-correction">
+                              <XCircle aria-hidden="true" className="size-5 shrink-0" />
+                              Chưa chính xác
+                            </p>
+                            <p className="leading-relaxed">
+                              {answerResult.explanation ||
+                                "Hãy xem lại ngữ liệu rồi bấm Thử lại để chọn lại đáp án."}
+                            </p>
+                          </div>
+                        )}
+                        {answerError && (
+                          <div
+                            role="alert"
+                            className="flex flex-col gap-1 rounded-lg border border-attention-line bg-attention-quiet p-4 text-slate-900"
+                          >
+                            <p className="font-bold text-attention">Chưa kiểm tra được câu trả lời</p>
+                            <p className="leading-relaxed">{answerError}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </StickyColumn>
+            </div>
           </div>
         ) : null}
-      </div>
-
-      {!isEmpty && !isComplete && (
-        <p aria-live="polite" className="mt-4 text-center text-xs font-medium text-slate-500">
-          Phiên xem thử chỉ giữ lựa chọn hiện tại trên trang này.
-        </p>
-      )}
+      </main>
     </section>
   );
 }

@@ -62,6 +62,17 @@
   --color-route-quiet: var(--route-quiet);
   --color-correction: var(--correction);
   --color-correction-quiet: var(--correction-quiet);
+  --color-route-line: var(--route-line);
+  --color-correction-line: var(--correction-line);
+  --color-recall: var(--recall);
+  --color-recall-quiet: var(--recall-quiet);
+  --color-recall-line: var(--recall-line);
+  --color-growth: var(--growth);
+  --color-growth-quiet: var(--growth-quiet);
+  --color-growth-line: var(--growth-line);
+  --color-attention: var(--attention);
+  --color-attention-quiet: var(--attention-quiet);
+  --color-attention-line: var(--attention-line);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -82,6 +93,17 @@
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(250px); }
   }
+
+  /* Graded answer feedback (UI-2 LE aid): a short corrective nudge for a wrong
+     option. Applied with motion-safe only, so reduced motion keeps the state
+     change without any movement. */
+  --animate-corrective: corrective 220ms cubic-bezier(0.2, 0, 0, 1);
+
+  @keyframes corrective {
+    0%, 100% { transform: translateX(0); }
+    35% { transform: translateX(-4px); }
+    70% { transform: translateX(3px); }
+  }
 }
 
 :root {
@@ -99,6 +121,17 @@
   --route-quiet: #EFF6FF;
   --correction: #B91C1C;
   --correction-quiet: #FEF2F2;
+  --route-line: #93C5FD;
+  --correction-line: #FCA5A5;
+  --recall: #0E7490;
+  --recall-quiet: #ECFEFF;
+  --recall-line: #A5F3FC;
+  --growth: #15803D;
+  --growth-quiet: #F0FDF4;
+  --growth-line: #86EFAC;
+  --attention: #A16207;
+  --attention-quiet: #FFFBEB;
+  --attention-line: #FCD34D;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);

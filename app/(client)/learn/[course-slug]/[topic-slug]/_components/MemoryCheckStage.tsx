@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, RotateCcw, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import type { QuestionDTO } from "@/lib/schemas/learn";
+import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
+import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
 type Feedback =
@@ -15,6 +17,15 @@ interface MemoryCheckStageProps {
   questions: QuestionDTO[];
   /** Question ids the server already counts as correct (H3 predicate). */
   initiallyCorrectIds: string[];
+  /**
+   * Submissions by question, owned by the workspace so they outlive this view. A
+   * pending one locks its question, a settled one is the result the learner has not
+   * continued past yet; `onAttemptCleared` is that continuation.
+   */
+  attempts: Record<string, AnswerAttempt>;
+  onAttemptStart: (questionId: string, optionId: string) => void;
+  onAttemptSettled: (questionId: string, optionId: string, outcome: AttemptOutcome) => void;
+  onAttemptCleared: (questionId: string) => void;
   isPassed: boolean;
   hasExercises: boolean;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
@@ -37,6 +48,10 @@ function sortOptions(question: QuestionDTO) {
 export default function MemoryCheckStage({
   questions,
   initiallyCorrectIds,
+  attempts,
+  onAttemptStart,
+  onAttemptSettled,
+  onAttemptCleared,
   isPassed,
   hasExercises,
   onCorrectAnswer,
@@ -46,36 +61,62 @@ export default function MemoryCheckStage({
 }: MemoryCheckStageProps) {
   const [isPending, startTransition] = useTransition();
   // Retry queue: unanswered/incorrect questions in authoring order; a wrong
-  // answer moves its question to the end until every question is correct.
+  // answer moves its question to the end until every question is correct. A question
+  // whose result the learner has not continued past yet stays in, even when correct
+  // (for example when the answer landed while the learner was on another stage).
   const [queue, setQueue] = useState<string[]>(() => {
     const correct = new Set(initiallyCorrectIds);
     return questions
       .slice()
       .sort((left, right) => left.order_index - right.order_index)
-      .filter((question) => !correct.has(question.id))
+      .filter((question) => !correct.has(question.id) || attempts[question.id] !== undefined)
       .map((question) => question.id);
   });
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const questionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const [chosenOptionId, setChosenOptionId] = useState<string | null>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const total = questions.length;
-  const correctCount = total - queue.length + (feedback?.kind === "correct" ? 1 : 0);
   const currentQuestion = questions.find((question) => question.id === queue[0]);
+  const isSettledCorrect = (questionId: string) => {
+    const attempt = attempts[questionId];
+    return attempt?.status === "settled" && attempt.outcome.kind === "correct";
+  };
+  const correctCount = total - queue.filter((id) => !isSettledCorrect(id)).length;
+
+  // The attempt, not local state, says what the question shows: pending locks it, a
+  // settled result is its feedback, and a failed save keeps the choice for a retry.
+  const attempt = currentQuestion ? attempts[currentQuestion.id] : undefined;
+  const settled = attempt?.status === "settled" ? attempt.outcome : undefined;
+  const feedback: Feedback | null =
+    settled && settled.kind !== "error"
+      ? settled.kind === "correct"
+        ? { kind: "correct", passed: settled.passed }
+        : {
+            kind: "incorrect",
+            explanation: settled.explanation || "Đáp án chưa chính xác.",
+            passed: settled.passed,
+          }
+      : null;
+  const error = settled?.kind === "error" ? settled.message : null;
+  const isRequestPending = isPending || attempt?.status === "pending";
+  const selectedOptionId =
+    attempt && (attempt.status === "pending" || feedback)
+      ? attempt.optionId
+      : (chosenOptionId ?? attempt?.optionId ?? null);
+  const feedbackKey = feedback && currentQuestion ? `${currentQuestion.id}:${feedback.kind}` : null;
 
   useEffect(() => {
-    if (feedback) continueButtonRef.current?.focus();
-  }, [feedback]);
+    if (feedbackKey) continueButtonRef.current?.focus();
+  }, [feedbackKey]);
 
   if (isPassed) {
     return (
       <section
         aria-labelledby="memory-check-done-title"
-        className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-3xl border border-emerald-100 bg-white p-8 text-center shadow-sm"
+        className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-growth-line bg-growth-quiet p-6 text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[220ms] md:p-8"
       >
-        <CheckCircle2 aria-hidden="true" className="size-10 text-emerald-600" />
+        <CheckCircle2 aria-hidden="true" className="size-10 text-growth" />
         <h2 id="memory-check-done-title" className="text-xl font-bold text-slate-800">
           Bạn đã trả lời đúng hết memory check
         </h2>
@@ -87,7 +128,8 @@ export default function MemoryCheckStage({
         {hasExercises && (
           <Button
             onClick={onGoToExercises}
-            className="min-h-11 rounded-xl bg-emerald-600 px-8 font-bold text-white hover:bg-emerald-700"
+            size="lg"
+            className="px-8"
           >
             Làm bài tập
           </Button>
@@ -107,7 +149,8 @@ export default function MemoryCheckStage({
         <Button
           onClick={() => window.location.reload()}
           variant="outline"
-          className="min-h-11 rounded-xl px-6 font-bold"
+          size="lg"
+          className="px-6"
         >
           <RotateCcw aria-hidden="true" className="size-4" />
           Tải lại
@@ -120,31 +163,31 @@ export default function MemoryCheckStage({
   const isAnswered = feedback !== null;
 
   const submit = () => {
-    if (!selectedOptionId || isPending || isAnswered) return;
-    setError(null);
+    if (!selectedOptionId || isRequestPending || isAnswered) return;
+    const questionId = currentQuestion.id;
+    const chosenId = selectedOptionId;
+    onAttemptStart(questionId, chosenId);
     startTransition(async () => {
-      const result = await submitQuestionAnswer(currentQuestion.id, selectedOptionId);
+      const result = await submitQuestionAnswer(questionId, chosenId);
       if (result.error) {
-        setError(result.error);
+        onAttemptSettled(questionId, chosenId, { kind: "error", message: result.error });
         return;
       }
       announceTopicProgress(result, onTopicCompleted);
-      const passed = result.isMemoryCheckPassed === true;
-      if (result.isCorrect) onCorrectAnswer(currentQuestion.id, selectedOptionId);
-      setFeedback(
-        result.isCorrect
-          ? { kind: "correct", passed }
-          : {
-              kind: "incorrect",
-              explanation: result.explanation || "Đáp án chưa chính xác.",
-              passed,
-            },
-      );
+      if (result.isCorrect) onCorrectAnswer(questionId, chosenId);
+      onAttemptSettled(questionId, chosenId, {
+        kind: result.isCorrect ? "correct" : "incorrect",
+        explanation: result.explanation,
+        progressError: result.progressError,
+        passed: result.isMemoryCheckPassed === true,
+      });
     });
   };
 
   const advance = () => {
     if (!feedback) return;
+    const questionId = currentQuestion.id;
+    onAttemptCleared(questionId);
     if (feedback.passed) {
       onPassed();
       return;
@@ -153,8 +196,7 @@ export default function MemoryCheckStage({
       const [head, ...rest] = current;
       return feedback.kind === "correct" ? rest : [...rest, head];
     });
-    setFeedback(null);
-    setSelectedOptionId(null);
+    setChosenOptionId(null);
     requestAnimationFrame(() => questionHeadingRef.current?.focus());
   };
 
@@ -166,7 +208,7 @@ export default function MemoryCheckStage({
       className="flex w-full max-w-2xl flex-col gap-6"
     >
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-3 text-sm font-bold text-slate-500">
+        <div className="flex items-center justify-between gap-3 text-sm font-bold text-slate-600">
           <span>Memory check</span>
           <span>
             Đã đúng {correctCount}/{total}
@@ -182,66 +224,41 @@ export default function MemoryCheckStage({
           className="h-2 overflow-hidden rounded-full bg-slate-200"
         >
           <div
-            className="h-full rounded-full bg-emerald-500 motion-safe:transition-[width] motion-safe:duration-300"
+            className="h-full rounded-full bg-recall motion-safe:transition-[width] motion-safe:duration-[220ms]"
             style={{ width: `${total > 0 ? Math.round((correctCount / total) * 100) : 0}%` }}
           />
         </div>
       </div>
 
-      <h2
-        id="memory-check-question"
-        ref={questionHeadingRef}
-        tabIndex={-1}
-        className="break-words text-2xl font-bold leading-snug text-slate-800 outline-none [overflow-wrap:anywhere] md:text-3xl"
+      <div
+        key={currentQuestion.id}
+        className="flex flex-col gap-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[220ms]"
       >
-        {currentQuestion.content}
-      </h2>
+        <h2
+          id="memory-check-question"
+          ref={questionHeadingRef}
+          tabIndex={-1}
+          className="break-words text-xl font-bold leading-snug text-slate-900 outline-none [overflow-wrap:anywhere] md:text-2xl"
+        >
+          {currentQuestion.content}
+        </h2>
 
-      <div role="radiogroup" aria-labelledby="memory-check-question" className="flex flex-col gap-3">
-        {options.map((option, index) => {
-          const isSelected = selectedOptionId === option.id;
-          const resolved = isSelected && feedback;
-          const tone = resolved
-            ? feedback.kind === "correct"
-              ? "border-emerald-600 bg-emerald-50 text-emerald-900"
-              : "border-rose-600 bg-rose-50 text-rose-900"
-            : isSelected
-              ? "border-slate-800 bg-slate-50 text-slate-900"
-              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50";
-          return (
-            <button
-              key={option.id}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              disabled={isAnswered || isPending}
-              onClick={() => setSelectedOptionId(option.id)}
-              className={`flex min-h-12 w-full items-center gap-3 rounded-xl border-2 p-4 text-left font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-800 focus-visible:ring-offset-2 disabled:cursor-default ${tone}`}
-            >
-              <span
-                aria-hidden="true"
-                className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  isSelected ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500"
-                }`}
-              >
-                {option.label || String.fromCharCode(65 + index)}
-              </span>
-              <span className="min-w-0 break-words [overflow-wrap:anywhere]">{option.content}</span>
-            </button>
-          );
-        })}
+        <ChoiceGroup
+          options={options}
+          selectedId={selectedOptionId}
+          result={feedback ? (feedback.kind === "correct" ? "correct" : "incorrect") : null}
+          disabled={isAnswered || isRequestPending}
+          onSelect={setChosenOptionId}
+          labelledBy="memory-check-question"
+        />
       </div>
 
       <div aria-live="polite" className="min-h-0">
-        {feedback?.kind === "correct" && (
-          <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-4 font-bold text-emerald-800">
-            <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
-            Chính xác!
-          </p>
-        )}
+        {/* The green option and its check already show a right answer; only announce it. */}
+        {feedback?.kind === "correct" && <p className="sr-only">Chính xác!</p>}
         {feedback?.kind === "incorrect" && (
-          <div className="flex flex-col gap-2 rounded-xl bg-rose-50 p-4 text-rose-900">
-            <p className="flex items-center gap-2 font-bold">
+          <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">
+            <p className="flex items-center gap-2 font-bold text-correction">
               <XCircle aria-hidden="true" className="size-5 shrink-0" />
               Chưa chính xác
             </p>
@@ -254,7 +271,11 @@ export default function MemoryCheckStage({
           </div>
         )}
         {error && (
-          <p role="alert" className="rounded-xl bg-rose-50 p-4 font-medium text-rose-800">
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-attention-line bg-attention-quiet p-4 font-medium text-slate-900"
+          >
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-attention" />
             {error}
           </p>
         )}
@@ -264,7 +285,8 @@ export default function MemoryCheckStage({
         <Button
           ref={continueButtonRef}
           onClick={advance}
-          className="min-h-12 w-full rounded-xl bg-slate-800 font-bold text-white hover:bg-slate-900"
+          size="lg"
+          className="min-h-12 w-full"
         >
           {feedback.passed
             ? hasExercises
@@ -275,10 +297,12 @@ export default function MemoryCheckStage({
       ) : (
         <Button
           onClick={submit}
-          disabled={!selectedOptionId || isPending}
-          className="min-h-12 w-full rounded-xl bg-slate-800 font-bold text-white hover:bg-slate-900"
+          disabled={!selectedOptionId || isRequestPending}
+          size="lg"
+          className="min-h-12 w-full"
         >
-          {isPending ? "Đang kiểm tra..." : "Kiểm tra đáp án"}
+          {isRequestPending && <Loader2 aria-hidden="true" className="animate-spin" />}
+          {isRequestPending ? "Đang kiểm tra..." : "Kiểm tra đáp án"}
         </Button>
       )}
     </section>

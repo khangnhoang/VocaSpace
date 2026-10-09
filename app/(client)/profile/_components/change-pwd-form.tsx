@@ -47,10 +47,10 @@ export default function ChangePasswordForm() {
           type="password"
           {...form.register("currentPassword")}
           placeholder="Nhập mật khẩu đang sử dụng"
-          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-emerald-500 focus:outline-none text-sm font-medium transition-colors"
+          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
         />
         {form.formState.errors.currentPassword && (
-          <p className="mt-1 text-xs font-semibold text-rose-500">
+          <p className="mt-1 text-xs font-semibold text-correction">
             {form.formState.errors.currentPassword.message}
           </p>
         )}
@@ -64,10 +64,10 @@ export default function ChangePasswordForm() {
           type="password"
           {...form.register("newPassword")}
           placeholder="Mật khẩu từ 6 ký tự trở lên"
-          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-emerald-500 focus:outline-none text-sm font-medium transition-colors"
+          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
         />
         {form.formState.errors.newPassword && (
-          <p className="mt-1 text-xs font-semibold text-rose-500">
+          <p className="mt-1 text-xs font-semibold text-correction">
             {form.formState.errors.newPassword.message}
           </p>
         )}
@@ -81,10 +81,10 @@ export default function ChangePasswordForm() {
           type="password"
           {...form.register("confirmPassword")}
           placeholder="Gõ lại chính xác mật khẩu mới"
-          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-emerald-500 focus:outline-none text-sm font-medium transition-colors"
+          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
         />
         {form.formState.errors.confirmPassword && (
-          <p className="mt-1 text-xs font-semibold text-rose-500">
+          <p className="mt-1 text-xs font-semibold text-correction">
             {form.formState.errors.confirmPassword.message}
           </p>
         )}
@@ -93,7 +93,7 @@ export default function ChangePasswordForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="mt-6 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 active:scale-95 transition-all shadow-md disabled:bg-slate-300 disabled:cursor-not-allowed"
+        className="mt-6 w-full rounded-xl bg-action px-4 py-3 text-sm font-bold text-action-foreground hover:bg-action/90 active:scale-95 transition-all shadow-md disabled:bg-slate-300 disabled:cursor-not-allowed"
       >
         {isPending ? "Đang xác thực hệ thống..." : "Cập nhật mật khẩu"}
       </button>

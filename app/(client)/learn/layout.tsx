@@ -44,7 +44,10 @@ export default function LearnLayout({ children }: LearnLayoutProps) {
         MAIN CONTENT AREA
         Sử dụng flex-1 để đảm bảo footer luôn ở dưới cùng nếu nội dung ngắn.
       */}
-      <main className="flex-1 flex flex-col w-full overflow-hidden">
+      {/* `overflow-clip`, not `overflow-hidden`: hidden makes this a scroll container, and a
+          `position: sticky` descendant (the pinned exercise columns) then pins against it
+          instead of the viewport, so it never moves. Clip hides overflow without that. */}
+      <main className="flex-1 flex flex-col w-full overflow-clip">
         {children}
       </main>
 

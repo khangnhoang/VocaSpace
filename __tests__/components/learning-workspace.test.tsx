@@ -233,11 +233,11 @@ describe("C2 learning workspace route", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
-    expect(screen.getByText("Nghĩa: đáng tin cậy")).not.toBeNull();
+    expect(screen.getByText("đáng tin cậy")).not.toBeNull();
 
     rerender(<LearningWorkspace key="topic-two" data={second} />);
 
-    expect(screen.queryByText("Nghĩa: đáng tin cậy")).toBeNull();
+    expect(screen.queryByText("đáng tin cậy")).toBeNull();
     expect(screen.getByText("history")).not.toBeNull();
     expect(
       screen.getByRole("button", { name: "Hiện đáp án" }),

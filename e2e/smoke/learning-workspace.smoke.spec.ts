@@ -10,7 +10,8 @@ import { expect, test, type Page, type Request } from "@playwright/test";
 // - Ổn định/resilience: assert pathname thay timing, collect post-login Server Action requests và kiểm tra no overflow 375px.
 // - Invariant cần giữ: mỗi topic change là canonical RSC navigation; không legacy client content/history action waterfall.
 // - Hồi quy dashboard: bố cục desktop/mobile đúng trước khi bundle JavaScript được tải, không đổi cột sau hydration.
-// - Kết quả verify gần nhất: 3 workspace scenarios passed; dashboard smoke passed sau khi tính cả scrollY (2026-10-08).
+// - D8-LUI: danh sách chương mở theo yêu cầu (Sheet) thay cho sidebar luôn hiện; helper mở và đóng nó để kiểm tra topic hiện tại.
+// - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy qua `npm run test:e2e`).
 
 test("guest is sent to login before protected workspace content", async ({
   page,
@@ -52,6 +53,8 @@ test("student navigation keeps URL, topic state, and browser history aligned", a
   await expect(parentLink).toBeFocused();
   await expectNoHorizontalOverflow(page);
 
+  // The course outline opens on demand instead of sitting beside the task.
+  await page.getByRole("button", { name: "Mở danh sách chương và bài học" }).click();
   await page
     .getByRole("button", { name: "Chặng 3 - Tiếp tục sau chapter trống" })
     .click();
@@ -223,10 +226,13 @@ async function expectWorkspaceTopic(
   await expect(
     page.getByRole("heading", { level: 1, name: expected.title }),
   ).toBeVisible();
+  await expect(page.getByText(expected.cardWord, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Mở danh sách chương và bài học" }).click();
   await expect(
     page.getByRole("link", { name: expected.title }),
   ).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText(expected.cardWord, { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
 async function expectPathname(page: Page, expectedPath: string) {
