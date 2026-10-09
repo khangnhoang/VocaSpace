@@ -13,7 +13,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Bảo mật/phân quyền: missing auth, mismatched card/topic/chapter hoặc previewer-only không tạo mutation hay RPC.
 // - Ổn định/resilience: failed mutation không báo success; RPC lỗi sau khi ghi vẫn `success: true` + `progressError`; không ghi thẳng enrollment hoặc topic progress.
 // - Invariant cần giữ: caller chỉ gửi cardId + rating; FSRS scheduling semantics không đổi.
-// - Kết quả verify gần nhất: xem báo cáo checkpoint LF1 CP1 (`npx vitest run __tests__/actions/review.test.ts`).
+// - Kết quả verify gần nhất: 11/11 passed (2026-10-10) bằng `npx vitest run __tests__/actions/review.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 

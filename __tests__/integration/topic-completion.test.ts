@@ -33,7 +33,7 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 // - Invariant cần giữ:
 //   - Hoàn thành không bị hạ (G4) nhưng cờ stage luôn là snapshot; `is_memory_check_passed` khớp cổng TS (parity H3).
 //   - LF1: một lần Lại sau khi xong hạ cờ flashcard nhưng giữ `is_topic_completed`, `completed_at` và cổng memory check (AC3).
-// - Kết quả verify gần nhất: xem báo cáo checkpoint LF1 CP1 (runtime E2E tách biệt, cổng 45441).
+// - Kết quả verify gần nhất: 22/22 passed trên runtime E2E tách biệt, cổng 45441 (2026-10-10).
 // - Ghi chú: chỉ chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const clientHolder = vi.hoisted(() => ({ current: null as unknown }));

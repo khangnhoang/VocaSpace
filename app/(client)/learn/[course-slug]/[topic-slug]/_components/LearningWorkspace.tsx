@@ -176,9 +176,13 @@ export default function LearningWorkspace({
   );
   const markTopicCompleted = () => setIsTopicCompleted(true);
   const [isPending, startTransition] = useTransition();
-  // Whether the flashcard stage counts as done. The server owns it: it follows the latest
-  // rating of every card, so a later Again/Hard turns it back off (LF1 AC3).
+  // Quyền đi tiếp (nút "Tới ..."): chỉ bật lên, không bao giờ tắt, như trước LF1.
   const [canSkipToQuiz, setCanSkipToQuiz] = useState(
+    progress?.isFlashcardCompleted ?? false,
+  );
+  // Chỉ để hiển thị bước "Từ vựng" đã xong trên StageThread. Server quyết định theo lần chấm
+  // gần nhất của mọi thẻ nên một lần Lại/Khó sau đó tắt nó đi (LF1 AC3); không điều khiển điều hướng.
+  const [flashcardStageDone, setFlashcardStageDone] = useState(
     progress?.isFlashcardCompleted ?? false,
   );
   const [userAnswers, setUserAnswers] =
@@ -279,9 +283,9 @@ export default function LearningWorkspace({
         return;
       }
       announceTopicProgress(result, markTopicCompleted);
-      // The server result wins in both directions. Without one (sync failed), an emptied
-      // queue below still lets the learner move on, as before.
-      if (result.topicProgress) setCanSkipToQuiz(result.topicProgress.isFlashcardCompleted);
+      if (result.topicProgress?.isFlashcardCompleted) setCanSkipToQuiz(true);
+      // Kết quả server thắng theo cả hai chiều chỉ với dấu "đã xong" của StageThread.
+      if (result.topicProgress) setFlashcardStageDone(result.topicProgress.isFlashcardCompleted);
 
       const newQueue = [...learningQueue.slice(1)];
       if (rating === Rating.Again || rating === Rating.Hard) {
@@ -291,7 +295,9 @@ export default function LearningWorkspace({
       setIsFlipped(false);
 
       if (newQueue.length === 0) {
-        if (!result.topicProgress) setCanSkipToQuiz(true);
+        setCanSkipToQuiz(true);
+        // Không có kết quả server (đồng bộ lỗi) thì hết hàng đợi vẫn coi như đã xong, như trước.
+        if (!result.topicProgress) setFlashcardStageDone(true);
 
         if (nextStageAfterFlashcards === "memory") {
           goToStage("memory");
@@ -465,7 +471,7 @@ export default function LearningWorkspace({
     stageSteps.push({
       key: "flashcard",
       label: "Từ vựng",
-      state: learningStage === "flashcard" ? "current" : canSkipToQuiz ? "done" : "upcoming",
+      state: learningStage === "flashcard" ? "current" : flashcardStageDone ? "done" : "upcoming",
     });
   }
   if (memoryCheck) {

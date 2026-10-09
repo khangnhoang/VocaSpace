@@ -13,7 +13,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Invariant cần giữ: mỗi valid write kiểm tra enrollment cùng user/course trước checked mutation; tiến độ chỉ do RPC suy ra.
 // - D3 G3/G7: chưa qua memory check thì không ghi đáp án exercise; is_correct learner tự ghi không mở cổng.
 // - LF1 (AC6): câu đúng trả `explanation` của tác giả khi có và không có khóa `explanation` khi để trống; câu sai giữ nguyên lời giải thích và lời nhắc mặc định.
-// - Kết quả verify gần nhất: xem báo cáo checkpoint LF1 CP2 (`npx vitest run __tests__/actions/progress.test.ts`).
+// - Kết quả verify gần nhất: 18/18 passed (2026-10-10) bằng `npx vitest run __tests__/actions/progress.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
