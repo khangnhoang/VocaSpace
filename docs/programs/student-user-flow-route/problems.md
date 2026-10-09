@@ -40,6 +40,14 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: keep targeted lint green for each workstream's files and do not fix or mask baseline errors inside unrelated units; a separate follow-up PR fixes the existing errors and warnings and restores `npm run lint` as a green gate without weakening the ESLint configuration.
 - Exit condition: full lint on an updated base reports 0 errors and the warning policy is reconciled.
 
+### LEARNING-FOLLOWUP-001: Learning follow-ups found during D8 acceptance, for one PR after D8 merges
+
+- Status: Deferred (Owner decision 2026-10-09: one follow-up PR after D8-LUI merges; not part of D8).
+- Problem: (a) D4 marks `flashcards_done` when every active card has a `user_flashcards` row, so a topic whose cards were only rated `Lại` or `Khó` still completes the flashcard stage; the Owner wants Again/Hard-only ratings not to complete a topic, which needs a new migration of `public.d4_sync_topic_progress`. (b) `submitQuestionAnswer` returns `explanation` only for incorrect answers, so a correct answer in the enrolled workspace shows no explanation while Preview does.
+- Evidence: bug analysis during the D8 acceptance rounds on the running UI, 2026-10-09; the server contract is PROGRESS-001 (PR 118, `ab92e21`). The D8 UI renders an explanation inline whenever the server supplies one, so (b) needs no UI change.
+- Direction: one combined PR after D8 merges, loading `supabase-safe-migration` for (a): redefine the completion rule, add a populated-upgrade and allowed/denied integration test, and decide how already-completed topics are treated. Hosted migration needs its own authority.
+- Exit condition: the migration and the answer-contract change are delivered with tests; `PROGRESS-001` wording is reconciled to the new rule.
+
 ### FUTURE-OWNERSHIP-001: Ownership transfer is not available
 
 - Status: Deferred (the singular-owner invariant was closed in D1; only ownership transfer remains).

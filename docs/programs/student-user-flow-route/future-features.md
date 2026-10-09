@@ -96,5 +96,5 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Trạng thái: Deferred.
 - Mô tả: Owner review UI D3 (2026-10-02) chấp nhận chức năng nhưng ghi nhận hai điểm polish: (1) animation chuyển stage/câu trong trang học `/learn/[course-slug]/[topic-slug]` chưa mượt; (2) UI Preview công khai `/courses/[course-slug]/preview/[topic-slug]` chưa đồng nhất với trang học, phối màu feedback lạ (nút xanh đậm trong box xanh lá nhạt).
 - Lý do hoãn: Ngoài phạm vi D3 (memory check); Owner chọn tối ưu sau.
-- Định tuyến: Chưa gán phase; xử lý cùng đợt UI/UX polish của trang học và Preview.
+- Định tuyến: D8-LUI xử lý (2026-10-09): Owner đã chấp nhận UI trang học và Preview trên bản chạy local; mục này đóng khi D8-LUI được merge.
 - Liên kết: [D3 detail plan](./implementation-plans/d3/plan.md).
