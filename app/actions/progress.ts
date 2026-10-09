@@ -208,8 +208,11 @@ export async function submitQuestionAnswer(
     return {
       success: true,
       isCorrect,
+      // LF1: câu đúng chỉ trả lời giải thích khi tác giả có viết; câu sai giữ nguyên lời nhắc mặc định.
       ...(isCorrect
-        ? {}
+        ? question.explanation
+          ? { explanation: question.explanation }
+          : {}
         : { explanation: question.explanation || "Đáp án chưa chính xác. Bạn hãy thử lại nhé!" }),
       ...(memoryCheckPassed === undefined ? {} : { isMemoryCheckPassed: memoryCheckPassed }),
       ...(topicProgress ? { topicProgress } : {}),

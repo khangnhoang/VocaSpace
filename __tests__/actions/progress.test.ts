@@ -12,7 +12,8 @@ import { createClient } from "@/utils/supabase/server";
 // - Ổn định/resilience: RPC lỗi, kết quả RPC sai shape hoặc tải lại memory check lỗi sau khi ghi vẫn trả `success: true` + kết quả chấm + `progressError`; giá trị chưa xác minh để trống.
 // - Invariant cần giữ: mỗi valid write kiểm tra enrollment cùng user/course trước checked mutation; tiến độ chỉ do RPC suy ra.
 // - D3 G3/G7: chưa qua memory check thì không ghi đáp án exercise; is_correct learner tự ghi không mở cổng.
-// - Kết quả verify gần nhất: 14/14 passed (2026-10-02) bằng `npx vitest run __tests__/actions/progress.test.ts`.
+// - LF1 (AC6): câu đúng trả `explanation` của tác giả khi có và không có khóa `explanation` khi để trống; câu sai giữ nguyên lời giải thích và lời nhắc mặc định.
+// - Kết quả verify gần nhất: xem báo cáo checkpoint LF1 CP2 (`npx vitest run __tests__/actions/progress.test.ts`).
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -227,7 +228,7 @@ describe("submitQuestionAnswer", () => {
 
     await expect(
       submitQuestionAnswer(ids.question, ids.optionTwo),
-    ).resolves.toEqual({ success: true, isCorrect: true, topicProgress });
+    ).resolves.toEqual({ success: true, isCorrect: true, explanation: question.explanation, topicProgress });
     expect(from.mock.calls.map(([table]) => table)).toEqual([
       "questions",
       "enrollments",
@@ -263,6 +264,42 @@ describe("submitQuestionAnswer", () => {
     });
   });
 
+  it.each([null, ""])("returns no explanation key for a correct answer whose explanation is %j", async (explanation) => {
+    mockSupabase({ questions: singleQuery({ ...question, explanation }), user_question_answers: mutationQuery() });
+
+    const result = await submitQuestionAnswer(ids.question, ids.optionOne);
+
+    expect(result).toEqual({ success: true, isCorrect: true, topicProgress });
+    expect(result).not.toHaveProperty("explanation");
+  });
+
+  it("returns the authored explanation for a correct answer", async () => {
+    mockSupabase({ questions: singleQuery(question), user_question_answers: mutationQuery() });
+
+    await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+      success: true,
+      isCorrect: true,
+      explanation: "Hãy đọc lại ngữ liệu.",
+      topicProgress,
+    });
+  });
+
+  it("keeps the default hint for a wrong answer whose explanation is empty", async () => {
+    const singleCorrect = {
+      ...question,
+      explanation: null,
+      options: [question.options[0], { ...question.options[1], is_correct: false }],
+    };
+    mockSupabase({ questions: singleQuery(singleCorrect), user_question_answers: mutationQuery() });
+
+    await expect(submitQuestionAnswer(ids.question, ids.optionTwo)).resolves.toEqual({
+      success: true,
+      isCorrect: false,
+      explanation: "Đáp án chưa chính xác. Bạn hãy thử lại nhé!",
+      topicProgress,
+    });
+  });
+
   it("keeps a saved answer successful when the progress sync fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const mutation = mutationQuery();
@@ -272,6 +309,7 @@ describe("submitQuestionAnswer", () => {
     await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
       success: true,
       isCorrect: true,
+      explanation: question.explanation,
       progressError: PROGRESS_SYNC_ERROR,
     });
     expect(mutation.upsert).toHaveBeenCalledTimes(1);
@@ -285,6 +323,7 @@ describe("submitQuestionAnswer", () => {
     await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
       success: true,
       isCorrect: true,
+      explanation: question.explanation,
       progressError: PROGRESS_SYNC_ERROR,
     });
   });
