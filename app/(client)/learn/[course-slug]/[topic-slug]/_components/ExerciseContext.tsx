@@ -60,6 +60,13 @@ function MaterialImage({ src, enlargeable }: { src: string; enlargeable: boolean
       key={attempt}
       src={src}
       alt={alt}
+      // The server-rendered image can finish or fail before hydration attaches the
+      // handlers below, so a settled element is read once when it mounts.
+      ref={(element) => {
+        if (element?.complete && status === "loading") {
+          setStatus(element.naturalWidth > 0 ? "ready" : "failed");
+        }
+      }}
       onLoad={() => setStatus("ready")}
       onError={() => setStatus("failed")}
       className={extraClassName}
