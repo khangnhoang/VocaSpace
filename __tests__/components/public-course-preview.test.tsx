@@ -35,7 +35,7 @@ vi.mock("next/navigation", () => ({
 // - Ổn định: pending chặn gửi lặp, option rỗng có thể bỏ qua, nội dung Preview không có đáp án trước khi submit.
 // - Invariant cần giữ: không ghi user_flashcards, user_question_answers hoặc user_topic_progress.
 // - Trình bày dùng chung với learning workspace D8-LUI (candidate): ChoiceGroup radio, ExerciseContext, thông báo thiếu ngữ liệu bắt buộc, kết thúc nói đúng là đã xem mẫu.
-// - Điều hướng câu hỏi (D8-LUI follow-up 3, candidate): "Xem lại câu hỏi" dùng state cục bộ, không gọi thêm Server Action; hiện trạng thái đúng/chưa đúng/chưa trả lời, nhảy tới câu bất kỳ, câu đã đúng hiện lại lựa chọn đã chọn; không còn hộp "Chính xác!" hiển thị (giữ thông báo cho trình đọc màn hình và phần giải thích).
+// - Điều hướng câu hỏi (D8-LUI follow-up 3, candidate): "Danh sách câu hỏi" dùng state cục bộ, không gọi thêm Server Action; hiện trạng thái đúng/chưa đúng/chưa trả lời, nhảy tới câu bất kỳ, câu đã đúng hiện lại lựa chọn đã chọn; không còn hộp "Chính xác!" hiển thị (giữ thông báo cho trình đọc màn hình và phần giải thích). Cột câu hỏi cạnh ngữ liệu chỉ dính khi vừa viewport; "Tới câu hỏi" đưa focus vào tiêu đề; câu cuối vào thẳng màn hình tóm tắt Preview bằng nút chính, không thêm bước phụ.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP3/CP4 (chạy `npx vitest run __tests__/components/public-course-preview.test.tsx`).
 
 const courseSlug = "public-course";
@@ -390,7 +390,7 @@ describe("public course Preview question navigator", () => {
   }
 
   const openNavigator = () =>
-    fireEvent.click(screen.getByRole("button", { name: "Xem lại câu hỏi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -438,9 +438,7 @@ describe("public course Preview question navigator", () => {
     fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
     expect(await screen.findByText("Vì sao câu này đúng.")).toBeTruthy();
     expect(screen.getByText("Chính xác!").className).toContain("sr-only");
-    expect(screen.getByRole("radio", { name: /bạn chọn đúng/ }).getAttribute("data-motion")).toBe(
-      "correct-in",
-    );
+    expect(screen.getByRole("radio", { name: /bạn chọn đúng/ }).getAttribute("data-motion")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Câu tiếp theo" }));
     expect(screen.getByText("Câu thứ hai.")).toBeTruthy();
@@ -474,5 +472,46 @@ describe("public course Preview question navigator", () => {
     fireEvent.click(screen.getByRole("button", { name: /Câu 1: Chọn đáp án đúng/ }));
     expect(screen.queryByText("Hoàn tất lượt xem thử")).toBeNull();
     expect(screen.getByText("Câu hỏi 1/1")).toBeTruthy();
+  });
+
+  it("pins the question column beside a passage only while it fits, and jumps to the question from the passage end", () => {
+    const originalHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const withPassage = () => {
+      const data = twoQuestionPreview();
+      data.exercises[0].groups[0].passage_text = "Đoạn văn dài của nhóm.";
+      return data;
+    };
+    try {
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 300 });
+      const { unmount } = renderPreview(withPassage());
+      const column = screen.getByRole("heading", { name: "Chọn đáp án đúng." }).closest("[data-sticky]");
+      expect(column?.getAttribute("data-sticky")).toBe("true");
+      fireEvent.click(screen.getByRole("button", { name: "Tới câu hỏi" }));
+      expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Chọn đáp án đúng." }));
+      expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
+      unmount();
+
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 4000 });
+      renderPreview(withPassage());
+      expect(
+        screen.getByRole("heading", { name: "Chọn đáp án đúng." }).closest("[data-sticky]")?.getAttribute("data-sticky"),
+      ).toBe("false");
+    } finally {
+      if (originalHeight) Object.defineProperty(HTMLElement.prototype, "offsetHeight", originalHeight);
+    }
+  });
+
+  it("reaches the preview summary from the primary on the last answered question, with no extra step", async () => {
+    mocks.answer.mockResolvedValue({ status: "success", data: { isCorrect: true, explanation: null } });
+    renderPreview(preview({ flashcards: [] }));
+    fireEvent.click(screen.getByRole("radio", { name: "Lựa chọn A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+    await screen.findByText("Chính xác!");
+
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành bài học" }));
+    expect(screen.getByText("Hoàn tất lượt xem thử")).toBeTruthy();
   });
 });

@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { Rating } from "ts-fsrs";
 import {
   ArrowLeft,
+  ArrowDown,
   ArrowRight,
   BookOpenText,
   CheckCircle2,
@@ -28,6 +29,7 @@ import FlashcardStage from "@/app/(client)/learn/[course-slug]/[topic-slug]/_com
 import QuestionNavigator, {
   type QuestionNavigatorSection,
 } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/QuestionNavigator";
+import StickyColumn from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/StickyColumn";
 import { arrangeMaterial } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/exercise-arrangement";
 import { PublicCoursePreviewUnavailable } from "./PublicCoursePreviewUnavailable";
 
@@ -259,6 +261,17 @@ export function PublicCoursePreviewExperience({
 
   function advanceQuestion() {
     openQuestion(questionIndex + 1);
+  }
+
+  // Moves the learner from the end of a stacked passage to the question; reduced motion jumps.
+  function scrollToQuestion() {
+    const heading = questionHeadingRef.current;
+    if (!heading) return;
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView?.({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
   }
 
   function jumpToQuestion(questionId: string) {
@@ -518,11 +531,10 @@ export function PublicCoursePreviewExperience({
               }
             >
               {hasMaterial && currentQuestionItem.group && arrangement && (
-                <div
+                <StickyColumn
                   key={`${currentQuestionItem.exerciseId}:${currentQuestionItem.group.id}`}
-                  className={`min-w-0 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[240ms] ${
-                    isSplit ? "lg:sticky lg:top-4" : ""
-                  }`}
+                  enabled={isSplit}
+                  className="min-w-0 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[240ms]"
                 >
                   <ExerciseContext
                     group={currentQuestionItem.group}
@@ -530,18 +542,28 @@ export function PublicCoursePreviewExperience({
                     enlargeableImage={currentQuestionItem.partType === "part1"}
                     onMediaError={handlePrivateMediaError}
                   />
-                </div>
+                  {isSplit && (
+                    <div className="mt-3 flex justify-end lg:hidden">
+                      <Button type="button" variant="link" size="lg" className="px-2" onClick={scrollToQuestion}>
+                        Tới câu hỏi
+                        <ArrowDown aria-hidden="true" />
+                      </Button>
+                    </div>
+                  )}
+                </StickyColumn>
               )}
 
-              <div
+              <StickyColumn
                 key={currentQuestionItem.question.id}
+                enabled={isSplit}
                 className="flex min-w-0 flex-col gap-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[220ms]"
               >
                 <h2
                   id={questionHeadingId}
                   ref={questionHeadingRef}
                   tabIndex={-1}
-                  className="break-words text-xl font-bold leading-snug text-slate-900 outline-none [overflow-wrap:anywhere] md:text-2xl"
+                  data-question-heading=""
+                  className="scroll-mt-4 break-words text-xl font-bold leading-snug text-slate-900 outline-none [overflow-wrap:anywhere] md:text-2xl"
                 >
                   {currentQuestionItem.question.content}
                 </h2>
@@ -651,7 +673,7 @@ export function PublicCoursePreviewExperience({
                     </div>
                   </>
                 )}
-              </div>
+              </StickyColumn>
             </div>
           </div>
         ) : null}
