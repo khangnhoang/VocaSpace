@@ -60,7 +60,7 @@ test("vocabulary card turns in place and continues to the next front", async ({ 
   const reveal = page.getByRole("button", { name: "Hiện đáp án" });
   const before = await reveal.boundingBox();
   await reveal.click();
-  await expect(page.getByText("đáng tin cậy", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Nghĩa:\s*đáng tin cậy$/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Lại" })).toBeFocused();
 
   await page.getByRole("button", { name: "Ổn" }).click();
@@ -92,15 +92,18 @@ test("card box keeps one height for long and short cards", async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto(topicPath("vocabulary"));
     const box = page.locator("[data-flashcard-box]");
-    const longFront = await box.boundingBox();
+    // Layout height, not the painted box: a card that is mid-turn is perspective-projected,
+    // so its bounding box changes size without the layout moving at all.
+    const layoutHeight = () => box.evaluate((element) => (element as HTMLElement).offsetHeight);
+    const longFront = await layoutHeight();
     await page.getByRole("button", { name: "Hiện đáp án" }).click();
-    const longBack = await box.boundingBox();
+    const longBack = await layoutHeight();
     const rating = await page.getByRole("button", { name: "Lại" }).boundingBox();
     await page.getByRole("button", { name: "Ổn" }).click();
     await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
-    const next = await box.boundingBox();
-    expect(longBack?.height).toBe(longFront?.height);
-    expect(next?.height).toBe(longFront?.height);
+    const next = await layoutHeight();
+    expect(longBack).toBe(longFront);
+    expect(next).toBe(longFront);
     const revealAgain = await page.getByRole("button", { name: "Hiện đáp án" }).boundingBox();
     expect(Math.abs((revealAgain?.y ?? 0) - (rating?.y ?? 0))).toBeLessThan(2);
     await expectNoHorizontalOverflow(page);
@@ -206,13 +209,23 @@ test("a long Part 7 passage keeps the question reachable: pinned beside it when 
   await expect(heading.locator("xpath=ancestor::*[@data-sticky][1]")).toHaveAttribute("data-sticky", "true");
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expect(heading).toBeInViewport();
+  // Pinned near the top of the viewport while the long passage scrolls past, not left behind it.
+  expect((await heading.boundingBox())?.y ?? Infinity).toBeLessThan(200);
 
+  // Stacked but roomy: back, forward and the primary action all share one row.
+  await page.setViewportSize({ width: 768, height: 900 });
+  await toPart7();
+  const rowOf = async (name: string | RegExp) =>
+    (await page.getByRole("button", { name }).boundingBox())?.y ?? Number.NaN;
+  expect(Math.abs((await rowOf("Câu trước")) - (await rowOf("Xác nhận đáp án")))).toBeLessThan(12);
+  expect(Math.abs((await rowOf("Câu sau")) - (await rowOf("Xác nhận đáp án")))).toBeLessThan(12);
+
+  // Narrow: the three do not fit one line, so the forward link stays with the primary
+  // action (wrapping as a pair) and nothing spills sideways.
   await page.setViewportSize({ width: 375, height: 800 });
   await toPart7();
-  // Back and the primary action share one row.
-  const back = await page.getByRole("button", { name: "Câu trước" }).boundingBox();
-  const primary = await page.getByRole("button", { name: "Xác nhận đáp án" }).boundingBox();
-  expect(Math.abs((back?.y ?? 0) - (primary?.y ?? 100))).toBeLessThan(12);
+  expect(Math.abs((await rowOf("Câu sau")) - (await rowOf("Xác nhận đáp án")))).toBeLessThan(12);
+  await expectNoHorizontalOverflow(page);
   await page.getByRole("button", { name: "Tới câu hỏi" }).click();
   await expect(heading).toBeFocused();
   await expect(heading).toBeInViewport();
