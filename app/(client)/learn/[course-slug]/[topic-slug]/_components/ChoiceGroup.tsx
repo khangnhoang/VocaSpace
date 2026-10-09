@@ -27,10 +27,10 @@ function optionLetter(option: QuestionOptionDTO, index: number) {
  * screen-reader text rather than color alone.
  *
  * A fresh validation (the result appearing while this group is mounted) plays
- * one short motion on the chosen option: a corrective nudge for a wrong answer
- * and a growing status bar for a right one. A group that mounts already graded,
- * such as a revisited question, and later re-renders stay still, and reduced
- * motion keeps the state change without any movement.
+ * one short corrective nudge on the chosen option when it is graded wrong. A
+ * group that mounts already graded, such as a revisited question, and later
+ * re-renders stay still, and reduced motion keeps the state change without
+ * any movement.
  */
 export default function ChoiceGroup({
   options,
@@ -75,9 +75,9 @@ export default function ChoiceGroup({
         const graded = isSelected ? result : null;
         const tone =
           graded === "correct"
-            ? "border-growth-line bg-growth-quiet text-slate-900 shadow-[inset_5px_0_0_var(--growth)]"
+            ? "border-growth bg-growth-quiet text-slate-900"
             : graded === "incorrect"
-              ? "border-correction-line bg-correction-quiet text-correction shadow-[inset_5px_0_0_var(--correction)]"
+              ? "border-correction bg-correction-quiet text-slate-900"
               : isSelected
                 ? "border-route bg-route-quiet text-slate-900"
                 : "border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50";
@@ -90,8 +90,7 @@ export default function ChoiceGroup({
                 ? "bg-route text-white"
                 : "bg-slate-100 text-slate-600";
 
-        const motion =
-          graded && validatedHere ? (graded === "correct" ? "correct-in" : "corrective") : undefined;
+        const motion = graded === "incorrect" && validatedHere ? "corrective" : undefined;
 
         return (
           <button
@@ -107,7 +106,7 @@ export default function ChoiceGroup({
             disabled={disabled}
             onClick={() => onSelect(option.id)}
             onKeyDown={(event) => moveSelection(event, index)}
-            className={`flex min-h-12 w-full items-center gap-3 rounded-lg border-2 p-3.5 text-left font-medium transition-[background-color,border-color,color] duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 motion-reduce:transition-none motion-safe:data-[motion=corrective]:animate-corrective motion-safe:data-[motion=correct-in]:animate-correct-in disabled:cursor-default ${tone}`}
+            className={`flex min-h-12 w-full items-center gap-3 rounded-lg border-2 p-3.5 text-left font-medium transition-[background-color,border-color,color] duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 motion-reduce:transition-none motion-safe:data-[motion=corrective]:animate-corrective disabled:cursor-default ${tone}`}
           >
             <span
               aria-hidden="true"

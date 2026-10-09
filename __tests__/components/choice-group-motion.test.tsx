@@ -4,16 +4,16 @@
 
 import React from "react";
 import { readFileSync } from "node:fs";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import ChoiceGroup, {
   type ChoiceResult,
 } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ChoiceGroup";
 
 // Test plan:
-// - Mục tiêu: bảo vệ chuyển động phản hồi đáp án (corrective / correct-in) của ChoiceGroup, dùng chung cho bài tập, memory check và Preview.
+// - Mục tiêu: bảo vệ chuyển động phản hồi đáp án sai (corrective) của ChoiceGroup, dùng chung cho bài tập, memory check và Preview; đáp án đúng chỉ đổi trạng thái, không có chuyển động hay thanh viền trái.
 // - Loại test: component test trong jsdom; jsdom không chạy CSS animation nên kiểm tra dấu hiệu kích hoạt `data-motion` và hợp đồng CSS.
-// - Case thành công: đáp án sai gắn `corrective`, đáp án đúng gắn `correct-in`, chỉ trên lựa chọn đã chấm; trạng thái vẫn có biểu tượng và chữ cho trình đọc màn hình.
+// - Case thành công: đáp án sai gắn `corrective` chỉ trên lựa chọn đã chấm, đáp án đúng không gắn gì; trạng thái vẫn có biểu tượng và chữ cho trình đọc màn hình.
 // - Một lần mỗi lượt chấm: mount sẵn ở trạng thái đã chấm (xem lại câu) không chạy; render lại không đổi; "Thử lại" gỡ dấu hiệu rồi lượt chấm mới chạy lại.
 // - Reduced motion: hoạt ảnh chỉ áp qua `motion-safe:`; keyframes `corrective` là chuyển ngang duy nhất và nằm trong globals.css.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI follow-up 3 (chạy `npx vitest run __tests__/components/choice-group-motion.test.tsx`).
@@ -42,7 +42,7 @@ function group(selectedId: string | null, result: ChoiceResult | null) {
 const motionOf = (name: RegExp) => screen.getByRole("radio", { name }).getAttribute("data-motion");
 
 describe("ChoiceGroup answer motion", () => {
-  it("nudges the chosen option when it is graded wrong and grows the bar when right", () => {
+  it("nudges the chosen option when it is graded wrong and leaves a right one still", () => {
     const { rerender } = render(group("o1", null));
     expect(motionOf(/Đáp án một/)).toBeNull();
 
@@ -54,7 +54,7 @@ describe("ChoiceGroup answer motion", () => {
 
     rerender(group("o1", null));
     rerender(group("o1", "correct"));
-    expect(motionOf(/Đáp án một/)).toBe("correct-in");
+    expect(motionOf(/Đáp án một/)).toBeNull();
     expect(screen.getByRole("radio", { name: /bạn chọn đúng/ })).not.toBeNull();
   });
 
@@ -88,18 +88,24 @@ describe("ChoiceGroup answer motion", () => {
     render(group("o1", "incorrect"));
     const classes = screen.getByRole("radio", { name: /Đáp án một/ }).className;
     expect(classes).toContain("motion-safe:data-[motion=corrective]:animate-corrective");
-    expect(classes).toContain("motion-safe:data-[motion=correct-in]:animate-correct-in");
     // No unconditional animation utility, so reduced motion keeps only the state change.
     expect(classes.split(/\s+/)).not.toContain("animate-corrective");
-    expect(classes.split(/\s+/)).not.toContain("animate-correct-in");
-    // The wrong state reads from the Correction role, not raw colors.
-    expect(classes).toContain("border-correction-line");
+    // The wrong state reads from the Correction role, with no inset status bar.
+    expect(classes).toContain("border-correction");
     expect(classes).toContain("bg-correction-quiet");
-    expect(classes).toContain("shadow-[inset_5px_0_0_var(--correction)]");
+    expect(classes).not.toContain("shadow-[inset");
+
+    // A right answer keeps the plain Growth tint and border, with no status bar or motion.
+    cleanup();
+    render(group("o1", "correct"));
+    const correctClasses = screen.getByRole("radio", { name: /Đáp án một/ }).className;
+    expect(correctClasses).toContain("border-growth");
+    expect(correctClasses).toContain("bg-growth-quiet");
+    expect(correctClasses).not.toContain("shadow-[inset");
 
     const css = readFileSync("app/globals.css", "utf8");
     expect(css).toMatch(/--animate-corrective:\s*corrective 220ms cubic-bezier\(0\.2, 0, 0, 1\)/);
     expect(css).toMatch(/@keyframes corrective[\s\S]*translateX\(-4px\)[\s\S]*translateX\(3px\)/);
-    expect(css).toMatch(/@keyframes correct-in[\s\S]*inset 5px 0 0 var\(--growth\)/);
+    expect(css).not.toContain("correct-in");
   });
 });
