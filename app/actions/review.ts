@@ -2,13 +2,17 @@
 
 import { type Card as FSRSCard, Rating, createEmptyCard, fsrs } from "ts-fsrs";
 import { cardReviewInputSchema, fsrsMetaSchema } from "@/lib/schemas/fsrs";
+import {
+  cardReviewRpcResultSchema,
+  topicProgressRpcResultSchema,
+  type TopicProgress,
+} from "@/lib/schemas/learning-workspace";
 import { createClient } from "@/utils/supabase/server";
 import { hasLearningEnrollment } from "@/lib/learning-enrollment";
 import { createActionTimer, type ActionTimer } from "@/lib/learning-action-timing";
-import type { TopicProgress } from "@/lib/schemas/learning-workspace";
-import { syncTopicProgress } from "@/lib/topic-progress";
 
 const PROGRESS_SYNC_ERROR = "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.";
+const MUTATION_ERROR = "Chưa thể đồng bộ tiến độ ôn tập.";
 
 type RawUserFlashcard = {
   id: string;
@@ -31,6 +35,8 @@ type RawReviewCard = {
       course_id: string;
       removed_at: string | null;
     } | null;
+    // LF2: enrollment của chính người học đọc cùng lượt với context (embed không inner, đã lọc theo user).
+    course?: { id: string; enrollments?: { id: string; user_id: string }[] | null } | null;
   } | null;
   user_flashcards?: RawUserFlashcard[] | null;
 };
@@ -79,12 +85,14 @@ async function reviewCard(
         id, topic_id, removed_at,
         topic:topics!inner (
           id, chapter_id, course_id, status, removed_at,
-          chapter:chapters!inner (id, course_id, removed_at)
+          chapter:chapters!inner (id, course_id, removed_at),
+          course:courses (id, enrollments (id, user_id))
         ),
         user_flashcards (id, card_id, fsrs_meta)
       `,
       )
       .eq("id", parsed.data.cardId)
+      .eq("topic.course.enrollments.user_id", user.id)
       .is("removed_at", null)
       .maybeSingle());
 
@@ -110,7 +118,14 @@ async function reviewCard(
       return { error: "Thẻ ôn tập không khả dụng." };
     }
 
-    if (!await timer.step("enrollment", () => hasLearningEnrollment(supabase, user.id, topic.course_id))) {
+    // LF2: đường nhanh dùng enrollment đã đọc cùng context (course_id lấy từ topic tin cậy, không từ client).
+    // Không thấy enrollment trong embed (khóa học ẩn với RLS hoặc chưa ghi danh) thì đọc lại như trước để giữ nguyên kết quả.
+    const enrolledByContext = topic.course?.id === topic.course_id &&
+      (topic.course.enrollments ?? []).some((enrollment) => enrollment.user_id === user.id);
+    if (
+      !enrolledByContext &&
+      !await timer.step("enrollment", () => hasLearningEnrollment(supabase, user.id, topic.course_id))
+    ) {
       return { error: "Bạn cần ghi danh khóa học để lưu ôn tập." };
     }
 
@@ -143,37 +158,42 @@ async function reviewCard(
     };
 
     timer.label(userFlashcard ? "card-review:update" : "card-review:create");
-    const mutation = userFlashcard
-      ? supabase
-          .from("user_flashcards")
-          .update(nextValues)
-          .eq("id", userFlashcard.id)
-      : supabase.from("user_flashcards").insert({
-          user_id: user.id,
-          card_id: card.id,
-          ...nextValues,
-        });
-    const { error: mutationError } = await timer.step("mutation", () => mutation.select("id").single());
-
+    // LF2: một RPC SECURITY INVOKER ghi (RLS L1 vẫn quyết định), xác nhận đúng một dòng rồi đồng bộ D4.
+    const { data, error: mutationError } = await timer.step("rpc", () => supabase.rpc("lf2_submit_card_review", {
+      p_card_id: card.id,
+      p_user_flashcard_id: userFlashcard?.id ?? null,
+      p_next_review_date: nextValues.next_review_date,
+      p_fsrs_meta: nextValues.fsrs_meta,
+      p_last_rating: nextValues.last_rating,
+      p_updated_at: nextValues.updated_at,
+    }));
     if (mutationError) {
       console.error("Card review FSRS mutation failed", mutationError);
-      return { error: "Chưa thể đồng bộ tiến độ ôn tập." };
+      return { error: MUTATION_ERROR };
     }
 
-    // D4 H4: the review is already saved; a failed sync must not turn it into an error.
-    let topicProgress: TopicProgress | null = null;
-    try {
-      topicProgress = await timer.step("sync.rpc", () => syncTopicProgress(supabase, card.topic_id));
-    } catch (error) {
-      console.error("Card review progress sync failed", error);
+    const result = cardReviewRpcResultSchema.safeParse(data);
+    if (!result.success) {
+      console.error("Card review RPC returned invalid data", result.error.issues);
+      return { error: MUTATION_ERROR };
+    }
+    if (result.data.status !== "ok") {
+      console.error("Card review FSRS mutation wrote no row");
+      return { error: MUTATION_ERROR };
+    }
+
+    // D4 H4: the review is already saved; missing or malformed progress must not turn it into an error.
+    const progress = topicProgressRpcResultSchema.safeParse(result.data.progress);
+    if (!progress.success && result.data.progress != null) {
+      console.error("Card review progress is invalid", progress.error.issues);
     }
 
     return {
       success: true,
-      ...(topicProgress ? { topicProgress } : { progressError: PROGRESS_SYNC_ERROR }),
+      ...(progress.success ? { topicProgress: progress.data } : { progressError: PROGRESS_SYNC_ERROR }),
     };
   } catch (error) {
     console.error("Card review unexpected failure", error);
-    return { error: "Chưa thể đồng bộ tiến độ ôn tập." };
+    return { error: MUTATION_ERROR };
   }
 }

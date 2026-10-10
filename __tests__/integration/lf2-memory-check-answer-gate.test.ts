@@ -13,7 +13,7 @@ import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination
 // - Thất bại: cùng các đường ghi bị từ chối (42501) và không để lại dòng mới/đổi dòng cũ khi memory check chưa qua.
 // - Phân quyền: anon bị từ chối; policy L1 giữ nguyên USING, không có policy permissive mới; helper chỉ authenticated.
 // - Resilience: sai lại một câu memory khóa lại việc ghi nhưng đáp án exercise cũ vẫn đọc được; đổi đáp án hoặc thêm
-//   câu memory mới khóa lại; cổng đóng sau pre-check của action cho `MEMORY_CHECK_REQUIRED` và không lộ lỗi DB.
+//   câu memory mới khóa lại; action trả `MEMORY_CHECK_REQUIRED` khi cổng khóa và không lộ lỗi DB.
 // - Invariant: cổng SQL, cổng TS (`loadMemoryCheck`/`isMemoryCheckPassed`) và `is_memory_check_passed` của D4 luôn cùng đáp án.
 // - Verify: xem số pass gần nhất trong progress.md (LF2 CP4).
 // - Ghi chú: chạy bằng `npm run test:integration -- __tests__/integration/lf2-memory-check-answer-gate.test.ts`;
@@ -45,10 +45,6 @@ type Fixture = {
 };
 
 let learner: SupabaseClient;
-let racingLearner: SupabaseClient;
-// Hook chạy ngay trước khi POST ghi đáp án rời đi: dùng để đóng cổng sau pre-check của action (AC5).
-let beforeAnswerWrite: (() => Promise<void>) | null = null;
-const writeRequests: string[] = [];
 const fixtures: Fixture[] = [];
 
 async function insert(table: string, rows: Record<string, unknown> | Record<string, unknown>[]) {
@@ -164,27 +160,15 @@ async function cleanup() {
 describe.sequential("LF2 memory-check answer gate", () => {
   beforeAll(async () => {
     learner = await signIn("student@gmail.com");
-    racingLearner = await signIn("student@gmail.com", async (input, init) => {
-      const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      if ((init?.method ?? "GET") === "POST" && new URL(href).pathname === "/rest/v1/user_question_answers") {
-        writeRequests.push("POST user_question_answers");
-        const hook = beforeAnswerWrite;
-        beforeAnswerWrite = null;
-        if (hook) await hook();
-      }
-      return fetch(input, init);
-    });
     authenticated.client = learner;
   });
   afterEach(async () => {
-    beforeAnswerWrite = null;
-    writeRequests.length = 0;
     authenticated.client = learner;
     await cleanup();
   });
   afterAll(async () => {
     await cleanup();
-    await Promise.all([learner, racingLearner].map((c) => c?.auth.signOut()));
+    await learner?.auth.signOut();
   });
 
   it("refuses direct INSERT, UPDATE and upsert of an exercise answer while the memory check is not passed, then allows them", async () => {
@@ -334,14 +318,15 @@ describe.sequential("LF2 memory-check answer gate", () => {
     ].join(";"));
   });
 
+  // LF2 CP3: đường ghi của action đi qua RPC (xem lf2-learning-action-rpcs.test.ts cho race và thứ tự trạng thái);
+  // ở đây chỉ khóa kết quả quan sát được của action với cổng MEMORY-002.
   describe("submitQuestionAnswer (AC5)", () => {
-    it("answers an unlocked exercise question and returns MEMORY_CHECK_REQUIRED without writing when its pre-check sees the lock", async () => {
+    it("returns MEMORY_CHECK_REQUIRED without writing while locked, and saves once the memory check is passed", async () => {
       const f = await build();
-      authenticated.client = racingLearner;
 
       const locked = await submitQuestionAnswer(f.exercise.id, f.exercise.right);
       expect(locked).toEqual({ error: "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.", errorCode: "MEMORY_CHECK_REQUIRED" });
-      expect(writeRequests).toEqual([]);
+      expect(JSON.stringify(locked)).not.toMatch(/row-level security|42501/);
       expect(await storedAnswer(f.exercise)).toBeNull();
 
       await passMemory(f);
@@ -349,45 +334,8 @@ describe.sequential("LF2 memory-check answer gate", () => {
       expect(await storedAnswer(f.exercise)).toBe(f.exercise.right);
     });
 
-    it("returns MEMORY_CHECK_REQUIRED when the gate closes after the pre-check and the database refuses the write", async () => {
-      const f = await build();
-      await passMemory(f);
-      authenticated.client = racingLearner;
-      vi.spyOn(console, "error").mockImplementation(() => undefined);
-      beforeAnswerWrite = async () => {
-        const r = await service.from("user_question_answers").update({ selected_option_id: f.memory[0].wrong })
-          .eq("user_id", studentId).eq("question_id", f.memory[0].id);
-        if (r.error) throw r.error;
-      };
-
-      const result = await submitQuestionAnswer(f.exercise.id, f.exercise.right);
-
-      expect(result).toEqual({ error: "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.", errorCode: "MEMORY_CHECK_REQUIRED" });
-      expect(JSON.stringify(result)).not.toMatch(/row-level security|42501/);
-      expect(writeRequests).toEqual(["POST user_question_answers"]);
-      expect(await storedAnswer(f.exercise)).toBeNull();
-    });
-
-    it("keeps the generic save error when the write is refused for a reason other than the memory gate", async () => {
-      const f = await build();
-      await passMemory(f);
-      authenticated.client = racingLearner;
-      vi.spyOn(console, "error").mockImplementation(() => undefined);
-      // Enrollment bị thu hồi sau pre-check: L1 từ chối, nhưng memory check vẫn đang qua.
-      beforeAnswerWrite = async () => {
-        const r = await service.from("enrollments").delete().eq("course_id", f.courseId).eq("user_id", studentId);
-        if (r.error) throw r.error;
-      };
-
-      const result = await submitQuestionAnswer(f.exercise.id, f.exercise.right);
-
-      expect(result).toEqual({ error: "Không thể lưu câu trả lời lúc này." });
-      expect(await storedAnswer(f.exercise)).toBeNull();
-    });
-
     it("lets a memory-check answer through while the topic is locked", async () => {
       const f = await build();
-      authenticated.client = racingLearner;
 
       const result = await submitQuestionAnswer(f.memory[0].id, f.memory[0].right);
 
