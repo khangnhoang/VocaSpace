@@ -452,7 +452,8 @@ describe.sequential("LF2 learning action RPCs", { timeout: 30_000 }, () => {
       const result = await raceAnswer(f.exercise, f.exercise.right, async () => {
         expect((await service.from("enrollments").delete().eq("course_id", f.courseId).eq("user_id", studentId)).error).toBeNull();
       });
-      expect(["not_enrolled", "unavailable"]).toContain(result.status);
+      // Học viên không phải collaborator/preview: khi mất enrollment, read boundary đóng nên phải là unavailable.
+      expect(result).toEqual({ status: "unavailable" });
       expect(await storedAnswer(f.exercise)).toBeNull();
     });
 
@@ -629,12 +630,13 @@ describe.sequential("LF2 learning action RPCs", { timeout: 30_000 }, () => {
       `select pg_get_userbyid(p.proowner) || '|' || p.prosecdef::text || '|' || p.provolatile::text || '|' || coalesce(array_to_string(p.proconfig, ','), '')
               || '|' || has_function_privilege('anon', p.oid, 'execute')::text || '|' || has_function_privilege('authenticated', p.oid, 'execute')::text
               || '|' || has_function_privilege('public', p.oid, 'execute')::text
+              || '|' || has_function_privilege('service_role', p.oid, 'execute')::text
          from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = '${schema}' and p.proname = '${name}'`,
       `${schema}.${name} catalog row`,
     );
-    expect(await row("lf2_submit_question_answer", "public")).toBe('postgres|true|v|search_path=""|false|true|false');
-    expect(await row("lf2_submit_card_review", "public")).toBe('postgres|false|v|search_path=""|false|true|false');
-    expect(await row("lf2_answer_precheck", "private")).toBe('postgres|true|v|search_path=""|false|false|false');
+    expect(await row("lf2_submit_question_answer", "public")).toBe('postgres|true|v|search_path=""|false|true|false|false');
+    expect(await row("lf2_submit_card_review", "public")).toBe('postgres|false|v|search_path=""|false|true|false|false');
+    expect(await row("lf2_answer_precheck", "private")).toBe('postgres|true|v|search_path=""|false|false|false|false');
   });
 });
 

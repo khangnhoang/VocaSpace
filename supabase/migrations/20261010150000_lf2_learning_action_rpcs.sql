@@ -61,7 +61,7 @@ begin
 end
 $$;
 
-revoke all on function private.lf2_answer_precheck(uuid, uuid) from public, anon, authenticated;
+revoke all on function private.lf2_answer_precheck(uuid, uuid) from public, anon, authenticated, service_role;
 
 -- 2. RPC trả lời câu hỏi. SECURITY DEFINER nên điều kiện của policy L1/MEMORY-002 được lặp lại NGUYÊN VĂN
 --    trong chính câu ghi (cả nhánh insert lẫn `on conflict do update where`) và dùng cùng helper với policy.
@@ -142,7 +142,8 @@ begin
 end
 $$;
 
-revoke all on function public.lf2_submit_question_answer(uuid, uuid) from public, anon;
+-- Default privileges của schema public cấp EXECUTE cho service_role; chỉ authenticated được gọi (G9).
+revoke all on function public.lf2_submit_question_answer(uuid, uuid) from public, anon, service_role;
 grant execute on function public.lf2_submit_question_answer(uuid, uuid) to authenticated;
 
 -- 3. RPC ôn thẻ. SECURITY INVOKER: policy L1 của user_flashcards vẫn quyết định quyền ghi. FSRS tính ở TypeScript.
@@ -201,5 +202,5 @@ begin
 end
 $$;
 
-revoke all on function public.lf2_submit_card_review(uuid, uuid, timestamptz, jsonb, smallint, timestamptz) from public, anon;
+revoke all on function public.lf2_submit_card_review(uuid, uuid, timestamptz, jsonb, smallint, timestamptz) from public, anon, service_role;
 grant execute on function public.lf2_submit_card_review(uuid, uuid, timestamptz, jsonb, smallint, timestamptz) to authenticated;
