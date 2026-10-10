@@ -19,12 +19,12 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Danh sách: nhóm theo bài tập/nhóm ngữ liệu; mỗi dòng có số, nội dung rút gọn và trạng thái bằng biểu tượng cùng chữ (đang xem, đã đúng, chưa đúng, chưa trả lời), không chỉ màu.
 // - Nhảy câu: chọn dòng đóng danh sách, đưa focus vào tiêu đề câu đó, giữ nguyên ngữ liệu khi cùng nhóm, đổi ngữ liệu khi sang nhóm khác; dòng bị khóa là nút vô hiệu kèm lý do và không gọi onSelect.
 // - Màn hình rộng dùng Popover, màn hình hẹp dùng Sheet; cả hai dùng chung một danh sách.
-// - Không còn hộp "Bạn đã trả lời đúng câu này"/"Chính xác!" hiển thị: trạng thái đúng nằm ở lựa chọn xanh, phần giải thích (nếu có) hiện tại chỗ, thông báo cho trình đọc màn hình vẫn có.
+// - Không còn hộp "Bạn đã trả lời đúng câu này"/"Chính xác!" hiển thị: trạng thái đúng nằm ở lựa chọn xanh và thông báo cho trình đọc màn hình vẫn có. Riêng câu đúng có giải thích hiện hộp cùng cấu trúc với hộp sai (tiêu đề "Chính xác" + giải thích, token growth) và tiêu đề đó thay cho thông báo ẩn; câu đúng không có giải thích không hiện hộp (LF1).
 // - "Câu tiếp theo"/"Câu sau" chỉ hiện khi còn câu sau; câu cuối đã đúng đưa tới "Làm câu còn thiếu" hoặc, khi đã đủ, "Bài tiếp theo" (đúng đích của "Bài sau"; bài cuối thì "Về tổng quan khóa học"); không còn nút/màn hình "Hoàn thành bài tập" trung gian.
 // - Bố cục: "Câu trước" (variant link) và nút chính cùng một hàng, không có đường kẻ; cột câu hỏi cạnh ngữ liệu dài chỉ dính (`data-sticky`) khi vừa chiều cao viewport (đo bằng `offsetHeight` giả lập); ở bố cục xếp chồng có "Tới câu hỏi" cuộn (smooth, hoặc auto khi reduced motion) và đưa focus vào tiêu đề; đổi câu cùng nhóm giữ nguyên node ngữ liệu.
 // - Phân quyền: bài tập đang khóa sau memory check không có nút điều hướng; trong Preview chỉ dùng state cục bộ (xem public-course-preview.test.tsx).
 // - Câu đang chờ phản hồi khi người học rời câu: quay lại vẫn thấy lựa chọn và trạng thái chờ, không gửi lần hai; kết quả đến muộn (đúng, sai, lỗi lưu) xuất hiện đúng ở màn hình đang xem và danh sách câu hỏi khớp với kết quả server.
-// - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI follow-up 3 (chạy `npx vitest run __tests__/components/question-navigator.test.tsx`).
+// - Kết quả verify gần nhất: 21/21 passed (2026-10-10) bằng `npx vitest run __tests__/components/question-navigator.test.tsx`.
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
@@ -347,7 +347,7 @@ describe("question navigator in the learning workspace", () => {
     expect(screen.queryByText("Câu đơn")).toBeNull();
   });
 
-  it("drops the redundant correct box but keeps the green option, a live announcement and any explanation", async () => {
+  it("shows a correct answer's explanation in the same titled box shape as a wrong one, without a second announcement", async () => {
     render(<LearningWorkspace data={workspaceData()} />);
     mockedSubmit.mockResolvedValueOnce({
       success: true,
@@ -357,10 +357,25 @@ describe("question navigator in the learning workspace", () => {
     await submitExerciseAnswer("Đúng Câu đơn");
 
     expect(screen.getByRole("radio", { name: /bạn chọn đúng/ })).not.toBeNull();
-    const announcement = screen.getByText("Chính xác!");
-    expect(announcement.className).toContain("sr-only");
-    expect(screen.getByText("Vì sao câu này đúng.")).not.toBeNull();
+    const heading = screen.getByText("Chính xác");
+    expect(heading.className).toContain("text-growth");
+    const box = heading.parentElement!;
+    expect(box.className).toContain("border-growth-line");
+    expect(box.className).toContain("bg-growth-quiet");
+    expect(within(box).getByText("Vì sao câu này đúng.")).not.toBeNull();
+    // The heading is the announcement: the sr-only "Chính xác!" is not rendered a second time.
+    expect(screen.queryByText("Chính xác!")).toBeNull();
     expect(screen.queryByText("Bạn đã trả lời đúng câu này")).toBeNull();
+  });
+
+  it("keeps only the screen-reader announcement and no visible box for a correct answer without an explanation", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true });
+    await submitExerciseAnswer("Đúng Câu đơn");
+
+    expect(screen.getByRole("radio", { name: /bạn chọn đúng/ })).not.toBeNull();
+    expect(screen.getByText("Chính xác!").className).toContain("sr-only");
+    expect(screen.queryByText("Chính xác")).toBeNull();
   });
 
   it("shows a revisited right answer with no state box or announcement at all", () => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
@@ -316,13 +316,20 @@ export default function QuestionResponse({
         </div>
 
         <div aria-live="polite" aria-atomic="true" ref={feedbackRef} className="empty:hidden">
-          {/* The green option and its check already show a right answer; the live region
-              only announces it, and a saved answer was announced when it was given. */}
-          {phase.kind === "correct" && !phase.alreadySaved && (
+          {/* The green option and its check already show a right answer. Without an explanation the
+              live region only announces it (a saved answer was announced when it was given); with one,
+              the box below has the same shape as the incorrect box and its heading is the announcement. */}
+          {phase.kind === "correct" && !phase.alreadySaved && !phase.explanation && (
             <p className="sr-only">Chính xác!</p>
           )}
           {phase.kind === "correct" && phase.explanation && (
-            <p className="leading-relaxed text-slate-900">{phase.explanation}</p>
+            <div className="flex flex-col gap-2 rounded-lg border border-growth-line bg-growth-quiet p-4 text-slate-900">
+              <p className="flex items-center gap-2 font-bold text-growth">
+                <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
+                Chính xác
+              </p>
+              <p className="leading-relaxed">{phase.explanation}</p>
+            </div>
           )}
           {phase.kind === "incorrect" && (
             <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">
