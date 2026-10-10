@@ -14,6 +14,7 @@ import {
   loadMemoryCheck,
 } from "@/lib/memory-check";
 import { syncTopicProgress } from "@/lib/topic-progress";
+import { createActionTimer, type ActionTimer } from "@/lib/learning-action-timing";
 
 const AUTH_ERROR = "Vui lòng đăng nhập";
 const ANSWER_INPUT_ERROR = "Dữ liệu câu trả lời không hợp lệ.";
@@ -82,21 +83,35 @@ export async function submitQuestionAnswer(
   rawQuestionId: string,
   rawSelectedOptionId: string,
 ): Promise<SubmitQuestionAnswerResult> {
+  // LF2: đo thời gian server khi LEARNING_ACTION_TIMING=1; mặc định tắt, không đổi hành vi action.
+  const timer = createActionTimer("submitQuestionAnswer");
+  try {
+    return await answerQuestion(rawQuestionId, rawSelectedOptionId, timer);
+  } finally {
+    timer.end();
+  }
+}
+
+async function answerQuestion(
+  rawQuestionId: string,
+  rawSelectedOptionId: string,
+  timer: ActionTimer,
+): Promise<SubmitQuestionAnswerResult> {
   const parsed = questionAnswerInputSchema.safeParse({
     questionId: rawQuestionId,
     selectedOptionId: rawSelectedOptionId,
   });
   if (!parsed.success) return { error: ANSWER_INPUT_ERROR };
 
-  const supabase = await createClient();
+  const supabase = await timer.step("createClient", () => createClient());
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await timer.step("auth.getUser", () => supabase.auth.getUser());
   if (authError || !user) return { error: AUTH_ERROR };
 
   try {
-    const { data: rawQuestion, error: questionError } = await supabase
+    const { data: rawQuestion, error: questionError } = await timer.step("context.query", () => supabase
       .from("questions")
       .select(
         `
@@ -113,7 +128,7 @@ export async function submitQuestionAnswer(
       )
       .eq("id", parsed.data.questionId)
       .is("removed_at", null)
-      .maybeSingle();
+      .maybeSingle());
 
     if (questionError) {
       console.error("Question answer context query failed", questionError);
@@ -139,7 +154,7 @@ export async function submitQuestionAnswer(
       chapter.course_id === question.course_id;
     if (!hasTrustedParentChain) return { error: QUESTION_UNAVAILABLE_ERROR };
 
-    if (!await hasLearningEnrollment(supabase, user.id, question.course_id)) {
+    if (!await timer.step("enrollment", () => hasLearningEnrollment(supabase, user.id, question.course_id))) {
       return { error: "Bạn cần ghi danh khóa học để lưu câu trả lời." };
     }
 
@@ -153,16 +168,19 @@ export async function submitQuestionAnswer(
     if (!selectedOption) return { error: "Đáp án không khả dụng." };
 
     const isMemoryCheckQuestion = exercise.activity_stage === "memory_check";
+    timer.label(isMemoryCheckQuestion ? "question-answer:memory_check" : "question-answer:exercise");
     if (
       !isMemoryCheckQuestion &&
-      !isMemoryCheckPassed(await loadMemoryCheck(supabase, user.id, exercise.topic_id))
+      !isMemoryCheckPassed(
+        await timer.step("memoryCheck.read", () => loadMemoryCheck(supabase, user.id, exercise.topic_id)),
+      )
     ) {
       return { error: MEMORY_CHECK_REQUIRED_ERROR, errorCode: MEMORY_CHECK_REQUIRED };
     }
 
     // D4 G3: both stages grade the selected option against the current answer key.
     const isCorrect = isOptionCurrentlyCorrect(question.id, options, selectedOption.id);
-    const { error: upsertError } = await supabase
+    const { error: upsertError } = await timer.step("upsert", () => supabase
       .from("user_question_answers")
       .upsert(
         {
@@ -175,7 +193,7 @@ export async function submitQuestionAnswer(
         { onConflict: "user_id,question_id" },
       )
       .select("id")
-      .single();
+      .single());
 
     if (upsertError) {
       console.error("Question answer upsert failed", upsertError);
@@ -190,7 +208,7 @@ export async function submitQuestionAnswer(
       try {
         // Unlocks exercises in the workspace without a reload; derived after the write.
         memoryCheckPassed = isMemoryCheckPassed(
-          await loadMemoryCheck(supabase, user.id, exercise.topic_id),
+          await timer.step("memoryCheck.reload", () => loadMemoryCheck(supabase, user.id, exercise.topic_id)),
         );
       } catch (error) {
         console.error("Question answer memory check reload failed", error);
@@ -200,7 +218,7 @@ export async function submitQuestionAnswer(
 
     let topicProgress: TopicProgress | null = null;
     try {
-      topicProgress = await syncTopicProgress(supabase, exercise.topic_id);
+      topicProgress = await timer.step("sync.rpc", () => syncTopicProgress(supabase, exercise.topic_id));
     } catch (error) {
       console.error("Question answer progress sync failed", error);
     }

@@ -8,14 +8,14 @@ This file was migrated to the repository template and translated to English on 2
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [implementation-plans/lf2/plan.md](./implementation-plans/lf2/plan.md) r3 (this commit), Owner approval pending; Master Decision 26 records scope. |
-| Current unit / checkpoint | LF2 planning on `feat/lf2-learning-latency-closeout`; no checkpoint started. |
-| Status | LF1 and the free TOEIC course are merged (PR 144 `7bb92ce`, PR 145 `86b5c8e`); LF2 plan written, awaiting review and Owner approval. |
-| Completed evidence | None for LF2. Read-only: production deployment `dpl_AZVNR3uEnPVWQh4ioqmjUT1S9d94` READY at `86b5c8e` in region `sin1`; Supabase project in `ap-southeast-1`. |
-| Accepted deviations | None. |
-| Blockers / Owner decisions | Owner accepted the Q1–Q4 defaults on 2026-10-10; plan approval pending after review. |
-| Next action | Plan review, then Owner approval before CP1. |
-| Current authority | Owner-authorized branch from pulled `main` and plan authoring. No implementation, commit beyond the plan, push, PR, merge, migration push or hosted step is granted. |
+| Spec revision | [implementation-plans/lf2/plan.md](./implementation-plans/lf2/plan.md) r3 (Codex plan review PASS round 3; Owner approved 2026-10-10 together with the Decision 26 Q1–Q4 defaults). |
+| Current unit / checkpoint | LF2 on `feat/lf2-learning-latency-closeout`: CP1 done; CP2 local half done (this commit); next CP4 (before CP3, see deviations). CP3, CP5 and CP6 not started. |
+| Status | In progress. CP2 is not closed: the production baseline and the Owner-accepted target per path (Q4) are still open, so CP3 stays blocked. |
+| Completed evidence | `npm run docs:check` passes. CP2 local baseline (baseline action code plus the env-flagged timer `LEARNING_ACTION_TIMING=1`; isolated runtime 45441; real actions with a real learner client; fixture of 4 topics x 10 cards, 5 memory and 8 exercise questions with 4 options; `npx vitest run --config scripts/perf/vitest.config.ts`; 3 independent runs, n = 40/40/40/32 each). Warm = each path excluding its first call, reported as the median of the 3 run medians (range): rating-create 5 round trips, 66 ms (64–69); rating-update 5, 72 ms (68–91); memory answer 6, 213 ms (200–269); exercise answer 6, 218 ms (208–242). First call in a fresh process 82–141 ms. Typical warm step medians: `auth.getUser` ≈ 40 ms on every path; question context query ≈ 55–60 ms; memory read ≈ 52–57 ms (exercise) and reload ≈ 54–59 ms (memory); answer upsert ≈ 40–89 ms; card context ≈ 8–12 ms, card write ≈ 6–10 ms, enrollment ≈ 3–5 ms, RPC sync ≈ 8–12 ms. Loopback, so this shows server and database work and round-trip count, not network. |
+| Accepted deviations | CP4 runs before CP3: order only. CP4 does not depend on CP3, CP3 is blocked on the Owner gate, and the local baseline is already captured. |
+| Blockers / Owner decisions | Production baseline per path (Owner learning on the current deployment) and the Owner-accepted target per path before CP3. |
+| Next action | CP4 (MEMORY-002 migration, action race handling, integration matrix); then stop and report at the CP2 gate. |
+| Current authority | Implement CP1, CP2 local half and CP4 with local commits on this branch and isolated-runtime tests only. No CP3, CP5, CP6, push, PR, merge, migration push or hosted step is granted. |
 | Hosted state | Unchanged by LF2. Latest hosted migration is LF1 `20261010090000`. |
 
 ## Milestones
@@ -73,4 +73,5 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-10 LF1 correction: step navigation stays independent of the flashcard stage flag (only the stage thread follows the server), root 45321 was repaired by the Owner (3 stale questions) and migrated through LF1 with the root integration suite green, and the Owner accepted the fail-closed rollout window (`e0947f0`).
 - 2026-10-10 LF1 manual QA: the Owner confirmed on root that Again-only ratings do not complete a topic and Good or Easy does, that a correct exercise answer shows its explanation in the unified `Chính xác` box (`7e110e6`), and that step navigation is kept after `Lại`; the learner brief records the correct-answer box decision (`7bb92ce`).
 - 2026-10-10 LF1 merged in PR 144 at `7bb92ce` and rolled out to production with migration `20261010090000`; read-only checks confirmed NOT NULL/CHECK 1–4 with no default, zero NULL ratings and the latest-rating function predicate. Five learner-written ratings (1–4) persisted with unfinished stage/topic flags; the Owner subsequently accepted the learning flow. Hosted observations do not repeat every local integration case, and action performance is reserved for a separate PR (`86b5c8e`).
-- 2026-10-10 LF2 planned: Decision 26 groups learning-action latency, `MEMORY-002`, hosted L1 verification, `PREVIEW-001` evidence and D4 production QA into one PR; plan only, no implementation (this commit).
+- 2026-10-10 LF2 planned: Decision 26 groups learning-action latency, `MEMORY-002`, hosted L1 verification, `PREVIEW-001` evidence and D4 production QA into one PR; plan only, no implementation (`4c4bc81`).
+- 2026-10-10 LF2 CP1/CP2 local half: plan approved by the Owner, env-flagged off-by-default action timer, repeatable isolated-runtime measurement script, and the four-path local baseline recorded in State; no action behavior changed (this commit).

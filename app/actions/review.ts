@@ -4,6 +4,7 @@ import { type Card as FSRSCard, Rating, createEmptyCard, fsrs } from "ts-fsrs";
 import { cardReviewInputSchema, fsrsMetaSchema } from "@/lib/schemas/fsrs";
 import { createClient } from "@/utils/supabase/server";
 import { hasLearningEnrollment } from "@/lib/learning-enrollment";
+import { createActionTimer, type ActionTimer } from "@/lib/learning-action-timing";
 import type { TopicProgress } from "@/lib/schemas/learning-workspace";
 import { syncTopicProgress } from "@/lib/topic-progress";
 
@@ -43,21 +44,35 @@ export async function submitCardReview(
   rawCardId: string,
   rawRating: Rating,
 ): Promise<SubmitCardReviewResult> {
+  // LF2: đo thời gian server khi LEARNING_ACTION_TIMING=1; mặc định tắt, không đổi hành vi action.
+  const timer = createActionTimer("submitCardReview");
+  try {
+    return await reviewCard(rawCardId, rawRating, timer);
+  } finally {
+    timer.end();
+  }
+}
+
+async function reviewCard(
+  rawCardId: string,
+  rawRating: Rating,
+  timer: ActionTimer,
+): Promise<SubmitCardReviewResult> {
   const parsed = cardReviewInputSchema.safeParse({
     cardId: rawCardId,
     rating: rawRating,
   });
   if (!parsed.success) return { error: "Dữ liệu đánh giá thẻ không hợp lệ." };
 
-  const supabase = await createClient();
+  const supabase = await timer.step("createClient", () => createClient());
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await timer.step("auth.getUser", () => supabase.auth.getUser());
   if (authError || !user) return { error: "Vui lòng đăng nhập" };
 
   try {
-    const { data: rawCard, error: cardError } = await supabase
+    const { data: rawCard, error: cardError } = await timer.step("context.query", () => supabase
       .from("cards")
       .select(
         `
@@ -71,7 +86,7 @@ export async function submitCardReview(
       )
       .eq("id", parsed.data.cardId)
       .is("removed_at", null)
-      .maybeSingle();
+      .maybeSingle());
 
     if (cardError) {
       console.error("Card review context query failed", cardError);
@@ -95,7 +110,7 @@ export async function submitCardReview(
       return { error: "Thẻ ôn tập không khả dụng." };
     }
 
-    if (!await hasLearningEnrollment(supabase, user.id, topic.course_id)) {
+    if (!await timer.step("enrollment", () => hasLearningEnrollment(supabase, user.id, topic.course_id))) {
       return { error: "Bạn cần ghi danh khóa học để lưu ôn tập." };
     }
 
@@ -127,6 +142,7 @@ export async function submitCardReview(
       updated_at: new Date().toISOString(),
     };
 
+    timer.label(userFlashcard ? "card-review:update" : "card-review:create");
     const mutation = userFlashcard
       ? supabase
           .from("user_flashcards")
@@ -137,7 +153,7 @@ export async function submitCardReview(
           card_id: card.id,
           ...nextValues,
         });
-    const { error: mutationError } = await mutation.select("id").single();
+    const { error: mutationError } = await timer.step("mutation", () => mutation.select("id").single());
 
     if (mutationError) {
       console.error("Card review FSRS mutation failed", mutationError);
@@ -147,7 +163,7 @@ export async function submitCardReview(
     // D4 H4: the review is already saved; a failed sync must not turn it into an error.
     let topicProgress: TopicProgress | null = null;
     try {
-      topicProgress = await syncTopicProgress(supabase, card.topic_id);
+      topicProgress = await timer.step("sync.rpc", () => syncTopicProgress(supabase, card.topic_id));
     } catch (error) {
       console.error("Card review progress sync failed", error);
     }
