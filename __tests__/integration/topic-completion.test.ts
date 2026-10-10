@@ -14,7 +14,7 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 //   chuỗi Server Action `submitCardReview` + `submitQuestionAnswer` và `getLearningWorkspace` chạy với client learner thật.
 // - Case thành công:
 //   - Chỉ hoàn thành khi lần chấm gần nhất của mọi thẻ active là Ổn/Dễ, memory check đã qua và mọi câu bắt buộc đúng
-//     (nhiều exercise, câu standalone, sai rồi sửa, câu có hai option đúng).
+//     (nhiều exercise, câu standalone, sai rồi sửa, câu có hai option đúng); LF2: đáp án exercise chỉ được ghi sau khi memory check qua.
 //   - LF1: chỉ Lại/Khó thì chưa xong; Ổn/Dễ thì xong; thẻ đã gỡ không chặn; ràng buộc `last_rating` 1–4 NOT NULL (AC1, AC2, AC7).
 //   - Câu trong group đã xóa và thẻ đã xóa không bắt buộc; topic không có memory check bỏ qua stage đó.
 //   - L1 từ chối câu lệch course ở FK thay vì tạo fixture hỏng rồi bỏ qua câu đó.
@@ -33,7 +33,7 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 // - Invariant cần giữ:
 //   - Hoàn thành không bị hạ (G4) nhưng cờ stage luôn là snapshot; `is_memory_check_passed` khớp cổng TS (parity H3).
 //   - LF1: một lần Lại sau khi xong hạ cờ flashcard nhưng giữ `is_topic_completed`, `completed_at` và cổng memory check (AC3).
-// - Kết quả verify gần nhất: 22/22 passed trên runtime E2E tách biệt, cổng 45441 (2026-10-10).
+// - Kết quả verify gần nhất: 22/22 passed (sau khi viết lại setup theo cổng LF2) trên runtime E2E tách biệt, cổng 45441 (2026-10-10).
 // - Ghi chú: chỉ chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const clientHolder = vi.hoisted(() => ({ current: null as unknown }));
@@ -294,17 +294,24 @@ describe.sequential("D4 topic completion server truth", { timeout: 30_000 }, () 
 
     await review(fixture.cardIds[0]);
     await answer(fixture.memoryQuestions[0], fixture.memoryQuestions[0].wrong);
-    await answer(first, first.right);
-    await answer(second, second.wrong);
     progress = await syncOk(fixture.topicId);
     expect(progress).toMatchObject({
       is_flashcard_completed: false, is_memory_check_passed: false, is_exercise_completed: false, is_topic_completed: false,
     });
     await expectMemoryParity(fixture, progress);
 
-    // Exercise 1 xong hết nhưng câu standalone của exercise 2 chưa làm.
+    // LF2: bài tập chỉ ghi được sau khi memory check qua, nên thẻ cuối và câu memory đúng phải có trước đáp án exercise.
     await review(fixture.cardIds[1]);
     await answer(fixture.memoryQuestions[0], fixture.memoryQuestions[0].right);
+    await answer(first, first.right);
+    await answer(second, second.wrong);
+    progress = await syncOk(fixture.topicId);
+    expect(progress).toMatchObject({
+      is_flashcard_completed: true, is_memory_check_passed: true, is_exercise_completed: false, is_topic_completed: false,
+    });
+    await expectMemoryParity(fixture, progress);
+
+    // Exercise 1 xong hết (sai rồi sửa) nhưng câu standalone của exercise 2 chưa làm.
     await answer(second, second.right);
     progress = await syncOk(fixture.topicId);
     expect(progress).toMatchObject({

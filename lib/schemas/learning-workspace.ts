@@ -60,6 +60,35 @@ export const topicProgressRpcResultSchema = z
     newlyCompleted: row.newly_completed,
   }));
 
+// LF2: kết quả thô của RPC `lf2_submit_question_answer`. Trạng thái thất bại không mang dữ liệu nào khác;
+// `progress` được parse riêng bằng `topicProgressRpcResultSchema` để progress hỏng không làm mất đáp án đã lưu (D4 H4).
+export const questionAnswerRpcFailureStatusSchema = z.enum([
+  "auth_required",
+  "unavailable",
+  "not_enrolled",
+  "option_unavailable",
+  "memory_locked",
+  "save_failed",
+]);
+
+export const questionAnswerRpcResultSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("ok"),
+    is_correct: z.boolean(),
+    explanation: z.string().nullable(),
+    is_memory_check: z.boolean(),
+    progress: z.unknown(),
+    memory_check_passed: z.boolean().nullable().catch(null),
+  }),
+  z.object({ status: questionAnswerRpcFailureStatusSchema }),
+]);
+
+// LF2: kết quả thô của RPC `lf2_submit_card_review`.
+export const cardReviewRpcResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("ok"), progress: z.unknown() }),
+  z.object({ status: z.literal("mutation_failed") }),
+]);
+
 // D3: optional per-topic memory check; no answer key or explanation before answering.
 export const learningWorkspaceMemoryCheckSchema = z.strictObject({
   id: z.uuid(),

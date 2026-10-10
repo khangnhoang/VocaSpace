@@ -4,16 +4,16 @@ import { submitCardReview } from "@/app/actions/review";
 import { createClient } from "@/utils/supabase/server";
 
 // Test plan:
-// - Mục tiêu: bảo vệ trusted card context, bounded FSRS write path và đồng bộ tiến độ D4 sau khi ghi.
-// - Loại test: Server Action với Supabase boundary mock.
+// - Mục tiêu: bảo vệ trusted card context (kèm enrollment đọc cùng lượt), bounded FSRS write path và việc ghi + đồng bộ D4 qua một RPC `lf2_submit_card_review`.
+// - Loại test: Server Action với Supabase boundary mock; quy tắc ghi, RLS, hàng của người khác và lỗi sync thật được kiểm bằng DB thật ở `__tests__/integration/lf2-learning-action-rpcs.test.ts`.
 // - Đối tượng: submitCardReview.
-// - Case thành công: accessible active card có enrollment tạo/cập nhật FSRS, kể cả legacy metadata, rồi trả `topicProgress` từ RPC `d4_sync_topic_progress`.
-//   - LF1: lần chấm được lưu thành `last_rating` trong cùng một lần ghi với `fsrs_meta`, cho cả insert lẫn update (AC5).
-// - Case thất bại: malformed rating, inaccessible parent, missing enrollment, invalid metadata và mutation error trả safe failure, không sync.
-// - Bảo mật/phân quyền: missing auth, mismatched card/topic/chapter hoặc previewer-only không tạo mutation hay RPC.
-// - Ổn định/resilience: failed mutation không báo success; RPC lỗi sau khi ghi vẫn `success: true` + `progressError`; không ghi thẳng enrollment hoặc topic progress.
-// - Invariant cần giữ: caller chỉ gửi cardId + rating; FSRS scheduling semantics không đổi.
-// - Kết quả verify gần nhất: 11/11 passed (2026-10-10) bằng `npx vitest run __tests__/actions/review.test.ts`.
+// - Case thành công: accessible active card có enrollment (embed trong context) tạo/cập nhật FSRS, kể cả legacy metadata, qua đúng một RPC rồi trả `topicProgress` từ kết quả RPC.
+//   - LF1: lần chấm được gửi thành `p_last_rating` cùng `p_fsrs_meta` trong một lần ghi, cho cả tạo mới (`p_user_flashcard_id` null) lẫn cập nhật (AC5).
+// - Case thất bại: malformed rating, inaccessible parent, missing enrollment, invalid metadata, RPC lỗi, kết quả sai shape và `mutation_failed` (0 dòng được ghi) trả safe failure.
+// - Bảo mật/phân quyền: missing auth, mismatched card/topic/chapter không tạo RPC; course id lấy từ topic tin cậy, không từ client; không có enrollment trong embed thì đọc lại enrollments như trước.
+// - Ổn định/resilience: RPC không xác nhận dòng được ghi không báo success và không có progress; progress null hoặc sai shape sau khi đã ghi vẫn `success: true` + `progressError`.
+// - Invariant cần giữ: caller chỉ gửi cardId + rating; FSRS scheduling semantics không đổi; không ghi trực tiếp bảng nào bằng Data API.
+// - Kết quả verify gần nhất: 18/18 passed (2026-10-11) bằng `npx vitest run __tests__/actions/review.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -24,6 +24,7 @@ const ids = {
   chapter: "22222222-2222-4222-8222-222222222222",
   topic: "33333333-3333-4333-8333-333333333333",
   card: "44444444-4444-4444-8444-444444444444",
+  userFlashcard: "55555555-5555-4555-8555-555555555555",
 };
 
 function singleQuery(data: unknown, error: unknown = null) {
@@ -35,15 +36,13 @@ function singleQuery(data: unknown, error: unknown = null) {
   return query;
 }
 
-function mutationQuery(error: unknown = null) {
-  const query: Record<string, unknown> = {};
-  for (const method of ["insert", "update", "eq", "select"]) {
-    query[method] = vi.fn(() => query);
-  }
-  query.single = vi.fn().mockResolvedValue({ data: error ? null : { id: "row" }, error });
-  return query;
-}
-
+const syncedProgress = {
+  is_flashcard_completed: true,
+  is_memory_check_passed: true,
+  is_exercise_completed: true,
+  is_topic_completed: true,
+  newly_completed: true,
+};
 const topicProgress = {
   isFlashcardCompleted: true,
   isMemoryCheckPassed: true,
@@ -51,23 +50,16 @@ const topicProgress = {
   isTopicCompleted: true,
   newlyCompleted: true,
 };
+const PROGRESS_SYNC_ERROR = "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.";
+const MUTATION_ERROR = "Chưa thể đồng bộ tiến độ ôn tập.";
 
 function mockSupabase(
   queries: Record<string, Record<string, unknown>> = {},
   currentUser: { id: string } | null = { id: ids.user },
-  rpc = vi.fn().mockResolvedValue({
-    data: {
-      is_flashcard_completed: true,
-      is_memory_check_passed: true,
-      is_exercise_completed: true,
-      is_topic_completed: true,
-      newly_completed: true,
-    },
-    error: null,
-  }),
+  rpc = vi.fn().mockResolvedValue({ data: { status: "ok", progress: syncedProgress }, error: null }),
 ) {
   const from = vi.fn((table: string) => {
-    const query = queries[table] ?? (table === "enrollments" ? singleQuery({ id: "enrollment" }) : undefined);
+    const query = queries[table];
     if (!query) throw new Error(`Unexpected table query: ${table}`);
     return query;
   });
@@ -84,6 +76,7 @@ function mockSupabase(
   return Object.assign(from, { rpc });
 }
 
+const enrolledCourse = { id: ids.course, enrollments: [{ id: "enrollment", user_id: ids.user }] };
 const card = {
   id: ids.card,
   topic_id: ids.topic,
@@ -95,18 +88,30 @@ const card = {
     status: "published",
     removed_at: null,
     chapter: { id: ids.chapter, course_id: ids.course, removed_at: null },
+    course: enrolledCourse,
   },
   user_flashcards: [],
 };
 
 describe("submitCardReview", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
 
   it("rejects malformed input before creating a database client", async () => {
     await expect(
       submitCardReview("bad-id", Rating.Manual),
     ).resolves.toEqual({ error: "Dữ liệu đánh giá thẻ không hợp lệ." });
     expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("does not call the RPC without an authenticated user", async () => {
+    const from = mockSupabase({}, null);
+
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({ error: "Vui lòng đăng nhập" });
+    expect(from).not.toHaveBeenCalled();
+    expect(from.rpc).not.toHaveBeenCalled();
   });
 
   it("does not mutate an inaccessible or mismatched card", async () => {
@@ -127,66 +132,104 @@ describe("submitCardReview", () => {
     expect(from.rpc).not.toHaveBeenCalled();
   });
 
-  it("creates FSRS state after enrollment read and syncs topic progress through the RPC", async () => {
-    const mutation = mutationQuery();
-    const enrollment = singleQuery({ id: "enrollment" });
-    const from = mockSupabase({
-      cards: singleQuery(card),
-      enrollments: enrollment,
-      user_flashcards: mutation,
-    });
+  it("reads the card and the learner's own enrollment in one query, then creates FSRS state and syncs progress in one RPC", async () => {
+    const cards = singleQuery(card);
+    const from = mockSupabase({ cards });
 
     await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
       success: true,
       topicProgress,
     });
-    expect(from.mock.calls.map(([table]) => table)).toEqual([
-      "cards",
-      "enrollments",
-      "user_flashcards",
-    ]);
+    expect(from.mock.calls.map(([table]) => table)).toEqual(["cards"]);
+    expect(cards.eq).toHaveBeenCalledWith("id", ids.card);
+    expect(cards.eq).toHaveBeenCalledWith("topic.course.enrollments.user_id", ids.user);
     expect(from.rpc).toHaveBeenCalledTimes(1);
-    expect(from.rpc).toHaveBeenCalledWith("d4_sync_topic_progress", { p_topic_id: ids.topic });
-    expect(mutation.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: ids.user, card_id: ids.card, last_rating: Rating.Good }),
+    expect(from.rpc).toHaveBeenCalledWith(
+      "lf2_submit_card_review",
+      expect.objectContaining({
+        p_card_id: ids.card,
+        p_user_flashcard_id: null,
+        p_last_rating: Rating.Good,
+        p_fsrs_meta: expect.objectContaining({ reps: expect.any(Number) }),
+        p_next_review_date: expect.any(String),
+        p_updated_at: expect.any(String),
+      }),
     );
-    expect(enrollment.eq).toHaveBeenCalledWith("user_id", ids.user);
-    expect(enrollment.eq).toHaveBeenCalledWith("course_id", ids.course);
   });
 
-  it("denies a card review when the actor has no course enrollment", async () => {
+  it("falls back to the enrollment read when the context shows no enrollment, and denies when there is none", async () => {
+    const enrollments = singleQuery(null);
     const from = mockSupabase({
-      cards: singleQuery(card),
-      enrollments: singleQuery(null),
+      cards: singleQuery({ ...card, topic: { ...card.topic, course: { id: ids.course, enrollments: [] } } }),
+      enrollments,
     });
+
     await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
       error: "Bạn cần ghi danh khóa học để lưu ôn tập.",
     });
     expect(from.mock.calls.map(([table]) => table)).toEqual(["cards", "enrollments"]);
+    expect(enrollments.eq).toHaveBeenCalledWith("user_id", ids.user);
+    expect(enrollments.eq).toHaveBeenCalledWith("course_id", ids.course);
     expect(from.rpc).not.toHaveBeenCalled();
   });
 
-  it("keeps a saved review successful when the progress sync fails", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const mutation = mutationQuery();
-    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "sensitive sql" } });
-    mockSupabase({ cards: singleQuery(card), user_flashcards: mutation }, { id: ids.user }, rpc);
+  it("keeps today's result for an enrolled learner whose course row is hidden from the embed", async () => {
+    const from = mockSupabase({
+      cards: singleQuery({ ...card, topic: { ...card.topic, course: null } }),
+      enrollments: singleQuery({ id: "enrollment" }),
+    });
+
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({ success: true, topicProgress });
+    expect(from.mock.calls.map(([table]) => table)).toEqual(["cards", "enrollments"]);
+    expect(from.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores an embedded enrollment of another user or another course", async () => {
+    const from = mockSupabase({
+      cards: singleQuery({
+        ...card,
+        topic: {
+          ...card.topic,
+          course: { id: ids.course, enrollments: [{ id: "other", user_id: ids.topic }] },
+        },
+      }),
+      enrollments: singleQuery(null),
+    });
+
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
+      error: "Bạn cần ghi danh khóa học để lưu ôn tập.",
+    });
+    expect(from.rpc).not.toHaveBeenCalled();
+  });
+
+  it("keeps a saved review successful, with a progress error, when the RPC returns no progress", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { status: "ok", progress: null }, error: null });
+    mockSupabase({ cards: singleQuery(card) }, { id: ids.user }, rpc);
 
     await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
       success: true,
-      progressError: "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
+      progressError: PROGRESS_SYNC_ERROR,
     });
-    expect(mutation.insert).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("updates legacy seeded FSRS metadata without learning_steps", async () => {
-    const mutation = mutationQuery();
+  it("keeps a saved review successful when the RPC progress is malformed", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { status: "ok", progress: { unexpected: true } }, error: null });
+    mockSupabase({ cards: singleQuery(card) }, { id: ids.user }, rpc);
+
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
+      success: true,
+      progressError: PROGRESS_SYNC_ERROR,
+    });
+  });
+
+  it("updates legacy seeded FSRS metadata without learning_steps through the update branch", async () => {
     const from = mockSupabase({
       cards: singleQuery({
         ...card,
         user_flashcards: [
           {
-            id: "55555555-5555-4555-8555-555555555555",
+            id: ids.userFlashcard,
             card_id: ids.card,
             fsrs_meta: {
               due: "2026-07-01T01:00:00.000Z",
@@ -202,67 +245,90 @@ describe("submitCardReview", () => {
           },
         ],
       }),
-      user_flashcards: mutation,
     });
 
     await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
       success: true,
       topicProgress,
     });
-    expect(from.mock.calls.map(([table]) => table)).toEqual([
-      "cards",
-      "enrollments",
-      "user_flashcards",
-    ]);
-    expect(mutation.update).toHaveBeenCalledWith(
+    expect(from.mock.calls.map(([table]) => table)).toEqual(["cards"]);
+    expect(from.rpc).toHaveBeenCalledWith(
+      "lf2_submit_card_review",
       expect.objectContaining({
-        fsrs_meta: expect.objectContaining({ learning_steps: expect.any(Number) }),
-        last_rating: Rating.Good,
+        p_user_flashcard_id: ids.userFlashcard,
+        p_fsrs_meta: expect.objectContaining({ learning_steps: expect.any(Number) }),
+        p_last_rating: Rating.Good,
       }),
     );
   });
 
+  it("does not schedule from invalid stored FSRS metadata", async () => {
+    const from = mockSupabase({
+      cards: singleQuery({
+        ...card,
+        user_flashcards: [{ id: ids.userFlashcard, card_id: ids.card, fsrs_meta: { stability: "bad" } }],
+      }),
+    });
+
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({
+      error: "Dữ liệu ôn tập hiện tại không hợp lệ.",
+    });
+    expect(from.rpc).not.toHaveBeenCalled();
+  });
+
   it.each([Rating.Again, Rating.Hard, Rating.Good, Rating.Easy])(
-    "saves rating %i with the FSRS state on both the first review and a later one",
+    "sends rating %i with the FSRS state on both the first review and a later one",
     async (rating) => {
-      const inserted = mutationQuery();
-      mockSupabase({ cards: singleQuery(card), user_flashcards: inserted });
+      const first = mockSupabase({ cards: singleQuery(card) });
       await submitCardReview(ids.card, rating);
-      expect(inserted.insert).toHaveBeenCalledWith(
+      expect(first.rpc).toHaveBeenCalledWith(
+        "lf2_submit_card_review",
         expect.objectContaining({
-          last_rating: rating,
-          fsrs_meta: expect.objectContaining({ reps: expect.any(Number) }),
+          p_user_flashcard_id: null,
+          p_last_rating: rating,
+          p_fsrs_meta: expect.objectContaining({ reps: expect.any(Number) }),
         }),
       );
 
-      const updated = mutationQuery();
-      mockSupabase({
+      const later = mockSupabase({
         cards: singleQuery({
           ...card,
-          user_flashcards: [{ id: "55555555-5555-4555-8555-555555555555", card_id: ids.card, fsrs_meta: null }],
+          user_flashcards: [{ id: ids.userFlashcard, card_id: ids.card, fsrs_meta: null }],
         }),
-        user_flashcards: updated,
       });
       await submitCardReview(ids.card, rating);
-      expect(updated.update).toHaveBeenCalledWith(
+      expect(later.rpc).toHaveBeenCalledWith(
+        "lf2_submit_card_review",
         expect.objectContaining({
-          last_rating: rating,
-          fsrs_meta: expect.objectContaining({ reps: expect.any(Number) }),
+          p_user_flashcard_id: ids.userFlashcard,
+          p_last_rating: rating,
+          p_fsrs_meta: expect.objectContaining({ reps: expect.any(Number) }),
         }),
       );
     },
   );
 
-  it("returns a safe failure when the checked FSRS mutation fails", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const from = mockSupabase({
-      cards: singleQuery(card),
-      user_flashcards: mutationQuery({ message: "sensitive error" }),
-    });
+  it("returns a safe failure, without leaking the database error, when the RPC fails", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "sensitive error" } });
+    mockSupabase({ cards: singleQuery(card) }, { id: ids.user }, rpc);
 
-    await expect(submitCardReview(ids.card, Rating.Easy)).resolves.toEqual({
-      error: "Chưa thể đồng bộ tiến độ ôn tập.",
-    });
-    expect(from.rpc).not.toHaveBeenCalled();
+    const result = await submitCardReview(ids.card, Rating.Easy);
+
+    expect(result).toEqual({ error: MUTATION_ERROR });
+    expect(JSON.stringify(result)).not.toContain("sensitive");
+  });
+
+  it("reports the mutation error, with no progress, when the RPC confirms no written row", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { status: "mutation_failed" }, error: null });
+    mockSupabase({ cards: singleQuery(card) }, { id: ids.user }, rpc);
+
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({ error: MUTATION_ERROR });
+  });
+
+  it("reports the mutation error for an unrecognised RPC result", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { status: "surprise" }, error: null });
+    mockSupabase({ cards: singleQuery(card) }, { id: ids.user }, rpc);
+
+    await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({ error: MUTATION_ERROR });
   });
 });

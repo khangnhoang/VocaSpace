@@ -48,6 +48,14 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: when this is worth fixing, add the gate to the answer write path (an RLS predicate or a server-only write) in its own unit with allow/deny integration tests; a server-only write path would also let learner writes of `user_flashcards` move off the Data API.
 - Exit condition: an authenticated direct insert or upsert of an exercise answer is refused until the memory check is passed, with a regression test, while the memory-check questions themselves stay answerable.
 
+### PERF-RLS-001: Content read policies scan all readable content per query
+
+- Status: Open (found 2026-10-10 during LF2; LF2 only routes its two learner actions around it).
+- Problem: the hosted plan of the memory-check read evaluates the `question_options` SELECT policy over every readable topic instead of only the requested question. Questions, exercises and topics also call `private.q7_can_read_topic` per row. Hypothesis, to be measured: this cost grows with content and slows question reads in the workspace and Data API answer writes.
+- Evidence: hosted `EXPLAIN` (no `ANALYZE`, `authenticated` role, 2026-10-10) plans the `question_options` SELECT policy as a hashed subplan with `Seq Scan on topics` filtered by `private.q7_can_read_topic`. Preview timing: question context query about 400 ms on hosted versus about 55 ms on the small local fixture. LF2 plan r4 section 2.
+- Direction: in its own unit, make the content read policies check only the requested parent (for example a per-row `SECURITY DEFINER` helper keyed by the parent id). Measure page loads before and after, and run read-boundary tests for learner, previewer, collaborator and admin. Also optimize `private.q7_can_read_topic` itself: one call runs several helper queries (`has_course_content_read_access`, `is_admin`, `d1_topic_group_member`, `has_topic_review_access`), and every table on the parent path repeats it for the same topic, so the same answer is computed many times per request. Candidates: fold the helpers into one SQL query, and evaluate the check once per topic per statement. Count calls with `EXPLAIN ANALYZE` or function statistics before choosing.
+- Exit condition: the `question_options` read for one question no longer scans unrelated topics in the hosted plan, the read-boundary suites pass, and the measured page and action reads improve.
+
 ### FUTURE-OWNERSHIP-001: Ownership transfer is not available
 
 - Status: Deferred (the singular-owner invariant was closed in D1; only ownership transfer remains).
