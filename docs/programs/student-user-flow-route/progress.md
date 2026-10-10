@@ -8,15 +8,15 @@ This file was migrated to the repository template and translated to English on 2
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [implementation-plans/learning-followup/plan.md](./implementation-plans/learning-followup/plan.md) r4 (committed `b0b7cdc`), Codex plan review PASS in round 4 and Owner-approved; Master Decision 25 records scope. |
-| Current unit / checkpoint | None active. LF1 CP1–CP3 and the Owner manual QA are complete; merged in PR 144 at `7bb92ce`. |
-| Status | LF1 merged and rolled out to production. The Owner confirmed the learning flow on the new free TOEIC course on 2026-10-10; action latency is a separate follow-up and does not reopen LF1. |
-| Completed evidence | LF1 delivery and hosted verification are recorded in the final LF1 milestone and [PR 144](https://github.com/khangnhoang/VocaSpace/pull/144); no implementation checkpoint is active. |
+| Spec revision | [implementation-plans/lf2/plan.md](./implementation-plans/lf2/plan.md) r3 (this commit), Owner approval pending; Master Decision 26 records scope. |
+| Current unit / checkpoint | LF2 planning on `feat/lf2-learning-latency-closeout`; no checkpoint started. |
+| Status | LF1 and the free TOEIC course are merged (PR 144 `7bb92ce`, PR 145 `86b5c8e`); LF2 plan written, awaiting review and Owner approval. |
+| Completed evidence | None for LF2. Read-only: production deployment `dpl_AZVNR3uEnPVWQh4ioqmjUT1S9d94` READY at `86b5c8e` in region `sin1`; Supabase project in `ap-southeast-1`. |
 | Accepted deviations | None. |
-| Blockers / Owner decisions | No LF1 blocker. MEMORY-002 remains open and outside LF1. Learning-action performance will be handled in a separate PR, as directed by the Owner. |
-| Next action | Finish the free-course PR with this documentation reconciliation; define the separate performance follow-up before implementing it. |
-| Current authority | Owner-authorized documentation reconciliation, commit, push and PR creation on `feat/free-toeic-vocab-course`. No new LF1 implementation, merge, hosted mutation or performance implementation is granted by this documentation update. |
-| Hosted state | Production deployment `dpl_AgDT5854PP1h1uP17c7nTPdxHVv8` was READY at `7bb92ce` when inspected on 2026-10-10. Hosted migration `20261010090000` is present and its column/constraint/function contract is verified read-only; learner rating persistence is observed. No migration was reapplied during reconciliation. |
+| Blockers / Owner decisions | Owner accepted the Q1–Q4 defaults on 2026-10-10; plan approval pending after review. |
+| Next action | Plan review, then Owner approval before CP1. |
+| Current authority | Owner-authorized branch from pulled `main` and plan authoring. No implementation, commit beyond the plan, push, PR, merge, migration push or hosted step is granted. |
+| Hosted state | Unchanged by LF2. Latest hosted migration is LF1 `20261010090000`. |
 
 ## Milestones
 
@@ -72,4 +72,5 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-10 LF1 implemented locally: `user_flashcards.last_rating` (backfilled to 3, NOT NULL, CHECK 1 to 4) drives the D4 flashcard stage so only Good or Easy as the latest rating counts, a later Again clears the stage flag but keeps topic completion, the workspace follows the server flag in both directions, and a correct exercise answer returns its authored explanation; `LEARNING-FOLLOWUP-001` is resolved and the memory-check bypass is opened as `MEMORY-002`; nothing is pushed, merged or applied to hosted (`a3d16ea`).
 - 2026-10-10 LF1 correction: step navigation stays independent of the flashcard stage flag (only the stage thread follows the server), root 45321 was repaired by the Owner (3 stale questions) and migrated through LF1 with the root integration suite green, and the Owner accepted the fail-closed rollout window (`e0947f0`).
 - 2026-10-10 LF1 manual QA: the Owner confirmed on root that Again-only ratings do not complete a topic and Good or Easy does, that a correct exercise answer shows its explanation in the unified `Chính xác` box (`7e110e6`), and that step navigation is kept after `Lại`; the learner brief records the correct-answer box decision (`7bb92ce`).
-- 2026-10-10 LF1 merged in PR 144 at `7bb92ce` and rolled out to production with migration `20261010090000`; read-only checks confirmed NOT NULL/CHECK 1–4 with no default, zero NULL ratings and the latest-rating function predicate. Five learner-written ratings (1–4) persisted with unfinished stage/topic flags; the Owner subsequently accepted the learning flow. Hosted observations do not repeat every local integration case, and action performance is reserved for a separate PR (this commit).
+- 2026-10-10 LF1 merged in PR 144 at `7bb92ce` and rolled out to production with migration `20261010090000`; read-only checks confirmed NOT NULL/CHECK 1–4 with no default, zero NULL ratings and the latest-rating function predicate. Five learner-written ratings (1–4) persisted with unfinished stage/topic flags; the Owner subsequently accepted the learning flow. Hosted observations do not repeat every local integration case, and action performance is reserved for a separate PR (`86b5c8e`).
+- 2026-10-10 LF2 planned: Decision 26 groups learning-action latency, `MEMORY-002`, hosted L1 verification, `PREVIEW-001` evidence and D4 production QA into one PR; plan only, no implementation (this commit).
