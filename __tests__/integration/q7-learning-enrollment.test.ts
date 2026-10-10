@@ -189,7 +189,7 @@ describe.sequential("Q7 learning enrollment RLS", () => {
       selected_option_id: preview.optionId, is_correct: true,
     })).error).not.toBeNull();
     expect((await student.from("user_flashcards").insert({
-      user_id: STUDENT_ID, card_id: preview.cardId,
+      user_id: STUDENT_ID, card_id: preview.cardId, last_rating: 3,
     })).error).not.toBeNull();
 
     await enroll(preview.courseId);
@@ -202,7 +202,7 @@ describe.sequential("Q7 learning enrollment RLS", () => {
       selected_option_id: preview.optionId, is_correct: true,
     })).error).toBeNull();
     expect((await student.from("user_flashcards").insert({
-      user_id: STUDENT_ID, card_id: preview.cardId,
+      user_id: STUDENT_ID, card_id: preview.cardId, last_rating: 3,
     })).error).toBeNull();
 
     expect((await student.from("user_topic_progress").insert({
@@ -213,7 +213,7 @@ describe.sequential("Q7 learning enrollment RLS", () => {
       selected_option_id: enrolled.optionId, is_correct: true,
     })).error).not.toBeNull();
     expect((await student.from("user_flashcards").insert({
-      user_id: STUDENT_ID, card_id: enrolled.cardId,
+      user_id: STUDENT_ID, card_id: enrolled.cardId, last_rating: 3,
     })).error).not.toBeNull();
     expect((await student.from("user_topic_progress").insert({
       user_id: TEACHER_ID, topic_id: enrolled.topicId,
@@ -223,7 +223,7 @@ describe.sequential("Q7 learning enrollment RLS", () => {
       selected_option_id: enrolled.optionId, is_correct: true,
     })).error).not.toBeNull();
     expect((await student.from("user_flashcards").insert({
-      user_id: TEACHER_ID, card_id: enrolled.cardId,
+      user_id: TEACHER_ID, card_id: enrolled.cardId, last_rating: 3,
     })).error).not.toBeNull();
   });
 
@@ -240,7 +240,7 @@ describe.sequential("Q7 learning enrollment RLS", () => {
       selected_option_id: target.optionId, is_correct: true,
     }).select("id").single();
     const flashcard = await student.from("user_flashcards").insert({
-      user_id: STUDENT_ID, card_id: target.cardId,
+      user_id: STUDENT_ID, card_id: target.cardId, last_rating: 3,
     }).select("id").single();
     expect(progress.error).toBeNull();
     expect(answer.error).toBeNull();
@@ -290,7 +290,7 @@ describe.sequential("Q7 learning enrollment RLS", () => {
       selected_option_id: target.optionId, is_correct: false,
     }, { onConflict: "user_id,question_id" })).error).not.toBeNull();
     expect((await student.from("user_flashcards").upsert({
-      user_id: STUDENT_ID, card_id: target.cardId, interval_days: 1,
+      user_id: STUDENT_ID, card_id: target.cardId, last_rating: 3, interval_days: 1,
     }, { onConflict: "user_id,card_id" })).error).not.toBeNull();
   });
 

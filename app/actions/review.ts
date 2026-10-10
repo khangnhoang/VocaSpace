@@ -122,6 +122,8 @@ export async function submitCardReview(
     const nextValues = {
       next_review_date: nextRecord.due.toISOString(),
       fsrs_meta: nextRecord,
+      // Cùng một lần ghi với fsrs_meta: quy tắc hoàn thành flashcard đọc đúng lần chấm gần nhất.
+      last_rating: parsed.data.rating,
       updated_at: new Date().toISOString(),
     };
 

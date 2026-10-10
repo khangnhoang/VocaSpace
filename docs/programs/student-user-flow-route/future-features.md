@@ -98,3 +98,13 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Lý do hoãn: Ngoài phạm vi D3 (memory check); Owner chọn tối ưu sau.
 - Định tuyến: D8-LUI xử lý (2026-10-09): Owner đã chấp nhận UI trang học và Preview trên bản chạy local; mục này đóng khi D8-LUI được merge.
 - Liên kết: [D3 detail plan](./implementation-plans/d3/plan.md).
+
+---
+
+## FEAT-009: Chuỗi giai đoạn trong trang học bấm được để nhảy tới giai đoạn đã mở khóa
+
+- Trạng thái: Deferred.
+- Mô tả: Trong workspace `/learn/[course-slug]/[topic-slug]`, chuỗi giai đoạn (Từ vựng / Memory check / Bài tập) cho phép bấm để nhảy thẳng tới một giai đoạn đã mở khóa, thay vì bấm lặp lại các nút bước. Giai đoạn đang khóa vẫn không bấm được và hiện lý do khóa; cổng memory check và `exercisesLocked` vẫn là nơi sở hữu quyền truy cập. Bàn phím và focus phải được xử lý (thứ tự Tab, kích hoạt bằng Enter/Space, focus đặt vào nội dung giai đoạn sau khi nhảy, trạng thái hiện tại và trạng thái khóa đọc được bằng trình đọc màn hình).
+- Lý do hoãn: Owner đề xuất khi QA thủ công LF1 (2026-10-10); ngoài phạm vi LF1 (luật hoàn thành flashcard và giải thích khi trả lời đúng).
+- Wave/phạm vi dự kiến: Kế hoạch nhỏ riêng và PR riêng, theo `frontend-design` và `frontend-workflow`.
+- Liên kết: [LF1 plan](./implementation-plans/learning-followup/plan.md).

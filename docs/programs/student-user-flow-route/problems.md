@@ -40,13 +40,13 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: keep targeted lint green for each workstream's files and do not fix or mask baseline errors inside unrelated units; a separate follow-up PR fixes the existing errors and warnings and restores `npm run lint` as a green gate without weakening the ESLint configuration.
 - Exit condition: full lint on an updated base reports 0 errors and the warning policy is reconciled.
 
-### LEARNING-FOLLOWUP-001: Learning follow-ups found during D8 acceptance, for one PR after D8 merges
+### MEMORY-002: A direct Data API write can answer exercise questions before the memory check is passed
 
-- Status: Deferred (Owner decision 2026-10-09: one follow-up PR after D8-LUI merges; not part of D8).
-- Problem: (a) D4 marks `flashcards_done` when every active card has a `user_flashcards` row, so a topic whose cards were only rated `Lại` or `Khó` still completes the flashcard stage; the Owner wants Again/Hard-only ratings not to complete a topic, which needs a new migration of `public.d4_sync_topic_progress`. (b) `submitQuestionAnswer` returns `explanation` only for incorrect answers, so a correct answer in the enrolled workspace shows no explanation while Preview does.
-- Evidence: bug analysis during the D8 acceptance rounds on the running UI, 2026-10-09; the server contract is PROGRESS-001 (PR 118, `ab92e21`). The D8 UI renders an explanation inline whenever the server supplies one, so (b) needs no UI change.
-- Direction: one combined PR after D8 merges, loading `supabase-safe-migration` for (a): redefine the completion rule, add a populated-upgrade and allowed/denied integration test, and decide how already-completed topics are treated. Hosted migration needs its own authority.
-- Exit condition: the migration and the answer-contract change are delivered with tests; `PROGRESS-001` wording is reconciled to the new rule.
+- Status: Open (Owner decision 2026-10-10: not part of LF1; learner Data API writes stay as they are).
+- Problem: the memory-check lock for exercise answers is enforced in the `submitQuestionAnswer` action and the workspace, not in the database. A learner who calls the Data API directly can insert `user_question_answers` for an exercise question of an enrolled, published topic before the memory check is passed. L1 already derives correctness and limits writes to enrolled, published, active targets, so the bypass gains nothing else over the UI.
+- Evidence: `private.l1_can_write_learning_target` and the L1 policies (migration `20261008130544`) check enrollment, publication and active state only; no policy reads the memory-check gate. Design note: LF1 plan section 1.4, 2026-10-10.
+- Direction: when this is worth fixing, add the gate to the answer write path (an RLS predicate or a server-only write) in its own unit with allow/deny integration tests; a server-only write path would also let learner writes of `user_flashcards` move off the Data API.
+- Exit condition: an authenticated direct insert or upsert of an exercise answer is refused until the memory check is passed, with a regression test, while the memory-check questions themselves stay answerable.
 
 ### FUTURE-OWNERSHIP-001: Ownership transfer is not available
 
@@ -97,7 +97,8 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - WORKSPACE-001 — Resolved 2026-09-14: the URL is the workspace source of truth with parent-before-child access, no fallback, and trusted relation checks before progress, question and review writes; the B2 initial-topic seam and the old syllabus, content and history paths were retired (PR 96, `3a95c310`).
 - MEMORY-001 — Resolved 2026-10-02: `exercises.activity_stage` (`exercise` or `memory_check`) is separate from `part_type`, and a memory check has a null `part_type` (PR 117, `fb8030f`).
 - PROFILE-001 — Resolved 2026-07-13: `/profile` renders only the account surface, `CoursesPlaceholder` is gone and navigation has a `/learn` entry (PR 48, `00bdadab`).
-- PROGRESS-001 — Resolved 2026-10-02: RPC `public.d4_sync_topic_progress` derives completion on the server (all active cards reviewed at least once, memory check passed when present, all active exercise questions answered correctly) and clients no longer write `user_topic_progress`; migration `20261002130000` applied to hosted (PR 118, `ab92e21`).
+- PROGRESS-001 — Resolved 2026-10-02: RPC `public.d4_sync_topic_progress` derives completion on the server (every active card has latest rating Good or Easy since LF1, previously reviewed at least once; memory check passed when present; all active exercise questions answered correctly) and clients no longer write `user_topic_progress`; migration `20261002130000` applied to hosted (PR 118, `ab92e21`).
+- LEARNING-FOLLOWUP-001 — Resolved 2026-10-10 on branch `fix/learning-followup-flashcard-rule`, not merged: `user_flashcards.last_rating` plus the latest-rating flashcard rule (migration `20261010090000`, not applied to hosted) and the explanation on correct exercise answers; the memory-check bypass is tracked as MEMORY-002 (`057aece`, `6ceb871`).
 - STUDENT-007 — Resolved 2026-10-02: the do-nothing "Hoàn thành bài học" button was removed; once a topic is complete, "Bài sau" or "Về tổng quan khóa học" is the primary button and completion shows in the header and chapter list (PR 118, `ab92e21`).
 - D1-AUTHORSHIP-001 — Resolved 2026-09-22: topic-level authorship and responsibility (P0-A to P4-A and corrections) are implemented and merged; the browser smoke does not extend to the full M17 to M28 matrix or production deployment (PR 98, `861e7c7`).
 - D1-NAV-001 — Resolved 2026-09-16: create-topic navigation uses the authoritative new topic id with 0, 1 or many existing drafts, proven by a current-route smoke and by ordering side effects after the navigation push (PR 98, `861e7c7`).

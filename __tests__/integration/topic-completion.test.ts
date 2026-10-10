@@ -13,8 +13,9 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 // - Đối tượng: `public.d4_sync_topic_progress`, `private.d4_topic_completion_state`, policy progress;
 //   chuỗi Server Action `submitCardReview` + `submitQuestionAnswer` và `getLearningWorkspace` chạy với client learner thật.
 // - Case thành công:
-//   - Chỉ hoàn thành khi mọi thẻ active đã ôn, memory check đã qua và mọi câu bắt buộc đúng
+//   - Chỉ hoàn thành khi lần chấm gần nhất của mọi thẻ active là Ổn/Dễ, memory check đã qua và mọi câu bắt buộc đúng
 //     (nhiều exercise, câu standalone, sai rồi sửa, câu có hai option đúng).
+//   - LF1: chỉ Lại/Khó thì chưa xong; Ổn/Dễ thì xong; thẻ đã gỡ không chặn; ràng buộc `last_rating` 1–4 NOT NULL (AC1, AC2, AC7).
 //   - Câu trong group đã xóa và thẻ đã xóa không bắt buộc; topic không có memory check bỏ qua stage đó.
 //   - L1 từ chối câu lệch course ở FK thay vì tạo fixture hỏng rồi bỏ qua câu đó.
 // - Case thất bại:
@@ -31,7 +32,8 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 //     (teacher xóa câu còn thiếu) được ghi nhận hoàn thành khi mở topic.
 // - Invariant cần giữ:
 //   - Hoàn thành không bị hạ (G4) nhưng cờ stage luôn là snapshot; `is_memory_check_passed` khớp cổng TS (parity H3).
-// - Kết quả verify gần nhất: 13/13 passed trên E2E tách biệt (2026-10-08), bộ compatibility L1 86/86.
+//   - LF1: một lần Lại sau khi xong hạ cờ flashcard nhưng giữ `is_topic_completed`, `completed_at` và cổng memory check (AC3).
+// - Kết quả verify gần nhất: 22/22 passed trên runtime E2E tách biệt, cổng 45441 (2026-10-10).
 // - Ghi chú: chỉ chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const clientHolder = vi.hoisted(() => ({ current: null as unknown }));
@@ -207,9 +209,20 @@ async function answer(question: Question, optionId: string, forgedIsCorrect?: bo
   if (error) throw new Error(`answer failed: ${error.message}`);
 }
 
-async function review(cardId: string) {
-  const { error } = await learner.from("user_flashcards").insert({ user_id: learnerId, card_id: cardId });
+// Mặc định chấm Ổn (3) để các luồng cũ vẫn hoàn thành như trước; LF1 chỉ đếm lần chấm gần nhất là Ổn/Dễ.
+async function review(cardId: string, rating = 3) {
+  const { error } = await learner.from("user_flashcards").upsert(
+    { user_id: learnerId, card_id: cardId, last_rating: rating },
+    { onConflict: "user_id,card_id" },
+  );
   if (error) throw new Error(`review failed: ${error.message}`);
+}
+
+async function storedRating(cardId: string) {
+  const { data, error } = await admin.from("user_flashcards").select("last_rating")
+    .eq("user_id", learnerId).eq("card_id", cardId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => row.last_rating);
 }
 
 async function sync(client: SupabaseClient, topicId: string) {
@@ -508,6 +521,104 @@ describe.sequential("D4 topic completion server truth", { timeout: 30_000 }, () 
 
     const again = await submitQuestionAnswer(fixture.standaloneQuestion.id, fixture.standaloneQuestion.wrong);
     expect(again).toMatchObject({ isCorrect: false, topicProgress: { isTopicCompleted: true, newlyCompleted: false } });
+  });
+
+  it("counts the flashcard stage only when the latest rating of every active card is Good or Easy", async () => {
+    const fixture = await createFixture({ memory: false });
+    for (const question of fixture.groupedQuestions) await answer(question, question.right);
+    await answer(fixture.standaloneQuestion, fixture.standaloneQuestion.right);
+    const [first, second] = fixture.cardIds;
+
+    // Mọi thẻ chỉ có Lại/Khó: giai đoạn flashcard chưa xong dù exercise đã đủ, topic không hoàn thành.
+    const again = await submitCardReview(first, Rating.Again);
+    expect(again).toMatchObject({ success: true, topicProgress: { isFlashcardCompleted: false, isTopicCompleted: false } });
+    const hard = await submitCardReview(second, Rating.Hard);
+    expect(hard).toMatchObject({ success: true, topicProgress: { isFlashcardCompleted: false, isTopicCompleted: false, newlyCompleted: false } });
+    expect(await storedRating(first)).toEqual([Rating.Again]);
+    expect(await storedRating(second)).toEqual([Rating.Hard]);
+    expect(await storedProgress(fixture.topicId)).toMatchObject([{ is_flashcard_completed: false, is_topic_completed: false }]);
+
+    // Một thẻ Ổn nhưng thẻ còn lại vẫn Khó: chưa xong.
+    expect(await submitCardReview(first, Rating.Good)).toMatchObject({ topicProgress: { isFlashcardCompleted: false } });
+    expect(await storedRating(first)).toEqual([Rating.Good]);
+
+    // Cả hai thẻ Ổn/Dễ (mọi thẻ active): giai đoạn xong và topic hoàn thành đúng như D4.
+    const done = await submitCardReview(second, Rating.Easy);
+    expect(done).toMatchObject({ topicProgress: { isFlashcardCompleted: true, isTopicCompleted: true, newlyCompleted: true } });
+    expect(await storedRating(second)).toEqual([Rating.Easy]);
+  });
+
+  it("clears the flashcard flag after a later Again while keeping topic completion and its timestamp", async () => {
+    const fixture = await createFixture();
+    await finishEverything(fixture);
+    expect(await syncOk(fixture.topicId)).toMatchObject({ is_topic_completed: true, newly_completed: true });
+    const [completed] = await storedProgress(fixture.topicId);
+
+    const result = await submitCardReview(fixture.cardIds[0], Rating.Again);
+    expect(result).toMatchObject({
+      success: true,
+      topicProgress: { isFlashcardCompleted: false, isTopicCompleted: true, newlyCompleted: false },
+    });
+    expect(await storedRating(fixture.cardIds[0])).toEqual([Rating.Again]);
+    const [after] = await storedProgress(fixture.topicId);
+    expect(after).toMatchObject({ is_flashcard_completed: false, is_topic_completed: true });
+    expect(after.completed_at).toBe(completed.completed_at);
+
+    // Cổng memory check không đổi: vẫn đạt, và thẻ chấm Ổn lại thì cờ stage bật lại.
+    expect(await syncOk(fixture.topicId)).toMatchObject({ is_memory_check_passed: true, is_flashcard_completed: false });
+    await submitCardReview(fixture.cardIds[0], Rating.Good);
+    expect(await syncOk(fixture.topicId)).toMatchObject({ is_flashcard_completed: true, is_topic_completed: true });
+  });
+
+  it("does not let a card that is no longer active block the flashcard stage", async () => {
+    const fixture = await createFixture({ memory: false });
+    await review(fixture.cardIds[0], 4);
+    await review(fixture.cardIds[1], 1);
+    expect(await syncOk(fixture.topicId)).toMatchObject({ is_flashcard_completed: false });
+
+    // Thẻ chấm Lại bị gỡ không còn là thẻ active nên không chặn giai đoạn.
+    await updateOrThrow("cards", { removed_at: new Date().toISOString() }, fixture.cardIds[1]);
+    expect(await syncOk(fixture.topicId)).toMatchObject({ is_flashcard_completed: true });
+  });
+
+  describe("user_flashcards.last_rating constraint (AC7)", () => {
+    it.each([1, 2, 3, 4])("accepts rating %i on insert and keeps it when an update leaves the rating alone", async (rating) => {
+      const fixture = await createFixture({ memory: false });
+      const [cardId] = fixture.cardIds;
+      await review(cardId, rating);
+      expect(await storedRating(cardId)).toEqual([rating]);
+
+      const touch = await learner.from("user_flashcards").update({ interval_days: 5 })
+        .eq("user_id", learnerId).eq("card_id", cardId);
+      expect(touch.error).toBeNull();
+      expect(await storedRating(cardId)).toEqual([rating]);
+    });
+
+    it("rejects an insert or upsert without a rating, an explicit NULL, 0 and 5 without creating a row", async () => {
+      const fixture = await createFixture({ memory: false });
+      const [cardId] = fixture.cardIds;
+      const base = { user_id: learnerId, card_id: cardId };
+
+      expect((await learner.from("user_flashcards").insert(base)).error?.code).toBe("23502");
+      expect((await learner.from("user_flashcards").upsert(base, { onConflict: "user_id,card_id" })).error?.code).toBe("23502");
+      expect((await learner.from("user_flashcards").insert({ ...base, last_rating: null })).error?.code).toBe("23502");
+      expect((await learner.from("user_flashcards").insert({ ...base, last_rating: 0 })).error?.code).toBe("23514");
+      expect((await learner.from("user_flashcards").insert({ ...base, last_rating: 5 })).error?.code).toBe("23514");
+      expect(await storedRating(cardId)).toEqual([]);
+    });
+
+    it("rejects an update to NULL, 0 or 5 and leaves the stored rating unchanged", async () => {
+      const fixture = await createFixture({ memory: false });
+      const [cardId] = fixture.cardIds;
+      await review(cardId, 2);
+
+      for (const [value, code] of [[null, "23502"], [0, "23514"], [5, "23514"]] as const) {
+        const result = await learner.from("user_flashcards").update({ last_rating: value })
+          .eq("user_id", learnerId).eq("card_id", cardId);
+        expect(result.error?.code, String(value)).toBe(code);
+        expect(await storedRating(cardId), String(value)).toEqual([2]);
+      }
+    });
   });
 
   it("returns standalone questions in the workspace and records completion when the learner opens the topic", async () => {

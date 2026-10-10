@@ -61,7 +61,7 @@ export async function prepareReviewSessionFixture(count = 2, longContent = false
       checked(await supabase.from("cards").upsert(extraIds.map((id, index) => ({ id, topic_id: topicId, front_content: { word: `review-${index + 3}` }, back_content: { translation: `thẻ ôn ${index + 3}` }, order_index: index + 2, removed_at: null }))), "Create D6 cards");
       checked(await supabase.from("user_flashcards").upsert(extraIds.map((id, index) => ({
         id: `d6610000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, user_id: studentId, card_id: id,
-        next_review_date: `2026-07-01T01:00:${String(index + 1).padStart(2, "0")}.000Z`, fsrs_meta: metadata, ease_factor: 2.5, interval_days: 7,
+        next_review_date: `2026-07-01T01:00:${String(index + 1).padStart(2, "0")}.000Z`, fsrs_meta: metadata, ease_factor: 2.5, interval_days: 7, last_rating: 3,
       }))), "Create D6 reviews");
     }
     const dueRows = checked(await supabase.from("user_flashcards").select("card_id").eq("user_id", studentId).lte("next_review_date", new Date().toISOString()), "Inspect due cardinality");

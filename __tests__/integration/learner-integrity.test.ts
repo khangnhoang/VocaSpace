@@ -70,7 +70,7 @@ async function tree(enrolled = true): Promise<Tree> {
 const payload = (t: Tree, option = t.right, user = uid, correct = false) => ({
   user_id: user, question_id: t.question, selected_option_id: option, is_correct: correct,
 });
-const card = (t: Tree, user = uid) => ({ user_id: user, card_id: t.card });
+const card = (t: Tree, user = uid) => ({ user_id: user, card_id: t.card, last_rating: 3 });
 async function signIn(email: string) {
   const client = createClient(api, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, opts);
   const r = await client.auth.signInWithPassword({ email, password: "123123" });
@@ -120,7 +120,7 @@ describe.sequential("L1 learner integrity", () => {
           const position = offset + index;
           return { id: reviewIds[position], user_id: uid, card_id: id,
             next_review_date: position === 1000 ? "2026-01-01T00:00:00.000Z" : "2099-01-01T00:00:00.000Z",
-            fsrs_meta: { state: position === 1000 ? 1 : 2 } };
+            fsrs_meta: { state: position === 1000 ? 1 : 2 }, last_rating: 3 };
         });
         expect((await service.from("user_flashcards").insert(reviews)).error).toBeNull();
       }
