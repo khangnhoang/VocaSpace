@@ -13,7 +13,8 @@ import { createClient } from "@/utils/supabase/server";
 // - Invariant cần giữ: mỗi valid write kiểm tra enrollment cùng user/course trước checked mutation; tiến độ chỉ do RPC suy ra.
 // - D3 G3/G7: chưa qua memory check thì không ghi đáp án exercise; is_correct learner tự ghi không mở cổng.
 // - LF1 (AC6): câu đúng trả `explanation` của tác giả khi có và không có khóa `explanation` khi để trống; câu sai giữ nguyên lời giải thích và lời nhắc mặc định.
-// - Kết quả verify gần nhất: 18/18 passed (2026-10-10) bằng `npx vitest run __tests__/actions/progress.test.ts`.
+// - LF2 (AC5): database từ chối ghi đáp án exercise (42501) thì chỉ trả `MEMORY_CHECK_REQUIRED` khi đọc lại xác nhận khóa; lỗi ghi khác, đọc lại lỗi hoặc không khóa giữ lỗi lưu chung, không lộ lỗi DB; câu memory không bao giờ trả mã này.
+// - Kết quả verify gần nhất: 23/23 passed (2026-10-10) bằng `npx vitest run __tests__/actions/progress.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -427,5 +428,89 @@ describe("submitQuestionAnswer", () => {
       submitQuestionAnswer(ids.question, ids.optionOne),
     ).resolves.toEqual({ error: "Không thể lưu câu trả lời lúc này." });
     expect(from.rpc).not.toHaveBeenCalled();
+  });
+
+  describe("when the database refuses an exercise write after the pre-check", () => {
+    const passed = memoryCheckRow({ [memoryIds.first]: rightOption(1), [memoryIds.second]: rightOption(2) });
+    const locked = memoryCheckRow({ [memoryIds.first]: rightOption(1), [memoryIds.second]: wrongOption(2) });
+    const rlsRefusal = { code: "42501", message: 'new row violates row-level security policy for table "user_question_answers"' };
+
+    // Lần đọc đầu là pre-check của action, lần sau là lần đọc lại sau khi ghi bị từ chối.
+    function gateReads(...reads: Array<{ data: unknown; error?: unknown }>) {
+      const gate = singleQuery(null);
+      const maybeSingle = gate.maybeSingle as ReturnType<typeof vi.fn>;
+      for (const read of reads) maybeSingle.mockResolvedValueOnce({ data: read.data, error: read.error ?? null });
+      return gate;
+    }
+
+    it("returns MEMORY_CHECK_REQUIRED only when the re-read confirms the lock, without leaking the database error", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const gate = gateReads({ data: passed }, { data: locked });
+      const from = mockSupabase({ questions: singleQuery(question), exercises: gate, user_question_answers: mutationQuery(rlsRefusal) });
+
+      const result = await submitQuestionAnswer(ids.question, ids.optionOne);
+
+      expect(result).toEqual({
+        error: "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.",
+        errorCode: "MEMORY_CHECK_REQUIRED",
+      });
+      expect(JSON.stringify(result)).not.toContain("row-level security");
+      expect(gate.maybeSingle).toHaveBeenCalledTimes(2);
+      expect(from.rpc).not.toHaveBeenCalled();
+    });
+
+    it("keeps the generic save error when the re-read shows the gate is still open", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      mockSupabase({
+        questions: singleQuery(question),
+        exercises: gateReads({ data: passed }, { data: passed }),
+        user_question_answers: mutationQuery(rlsRefusal),
+      });
+
+      await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+        error: "Không thể lưu câu trả lời lúc này.",
+      });
+    });
+
+    it("keeps the generic save error when the re-read itself fails", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      mockSupabase({
+        questions: singleQuery(question),
+        exercises: gateReads({ data: passed }, { data: null, error: { message: "sensitive error" } }),
+        user_question_answers: mutationQuery(rlsRefusal),
+      });
+
+      await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+        error: "Không thể lưu câu trả lời lúc này.",
+      });
+    });
+
+    it("does not re-read the memory check for a write failure that is not an RLS refusal", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const gate = gateReads({ data: passed });
+      mockSupabase({
+        questions: singleQuery(question),
+        exercises: gate,
+        user_question_answers: mutationQuery({ code: "08006", message: "connection failure" }),
+      });
+
+      await expect(submitQuestionAnswer(ids.question, ids.optionOne)).resolves.toEqual({
+        error: "Không thể lưu câu trả lời lúc này.",
+      });
+      expect(gate.maybeSingle).toHaveBeenCalledTimes(1);
+    });
+
+    it("never reports MEMORY_CHECK_REQUIRED for a refused memory-check answer", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const from = mockSupabase({
+        questions: singleQuery(memoryQuestion),
+        user_question_answers: mutationQuery(rlsRefusal),
+      });
+
+      await expect(submitQuestionAnswer(memoryIds.first, ids.optionTwo)).resolves.toEqual({
+        error: "Không thể lưu câu trả lời lúc này.",
+      });
+      expect(from.mock.calls.map(([table]) => table)).toEqual(["questions", "enrollments", "user_question_answers"]);
+    });
   });
 });

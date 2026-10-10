@@ -20,6 +20,8 @@ const AUTH_ERROR = "Vui lòng đăng nhập";
 const ANSWER_INPUT_ERROR = "Dữ liệu câu trả lời không hợp lệ.";
 const QUESTION_UNAVAILABLE_ERROR = "Câu hỏi không khả dụng.";
 const PROGRESS_SYNC_ERROR = "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.";
+// Mã PostgREST khi RLS từ chối ghi; policy đáp án cũng dùng mã này khi cổng memory check đóng.
+const RLS_VIOLATION_CODE = "42501";
 
 type RawQuestionOption = {
   id: string;
@@ -197,6 +199,17 @@ async function answerQuestion(
 
     if (upsertError) {
       console.error("Question answer upsert failed", upsertError);
+      // LF2 AC5: cổng có thể đóng sau lần kiểm tra trước đó (đổi đáp án, câu memory mới, tab khác làm sai).
+      // Chỉ trả MEMORY_CHECK_REQUIRED khi đọc lại xác nhận khóa; mọi lỗi ghi khác giữ lỗi chung, không lộ lỗi DB.
+      if (
+        !isMemoryCheckQuestion &&
+        upsertError.code === RLS_VIOLATION_CODE &&
+        (await timer.step("memoryCheck.recheck", () =>
+          isMemoryCheckStillLocked(supabase, user.id, exercise.topic_id),
+        ))
+      ) {
+        return { error: MEMORY_CHECK_REQUIRED_ERROR, errorCode: MEMORY_CHECK_REQUIRED };
+      }
       return { error: "Không thể lưu câu trả lời lúc này." };
     }
 
@@ -239,5 +252,18 @@ async function answerQuestion(
   } catch (error) {
     console.error("Question answer unexpected failure", error);
     return { error: "Không thể lưu câu trả lời lúc này." };
+  }
+}
+
+async function isMemoryCheckStillLocked(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  topicId: string,
+) {
+  try {
+    return !isMemoryCheckPassed(await loadMemoryCheck(supabase, userId, topicId));
+  } catch (error) {
+    console.error("Question answer memory check recheck failed", error);
+    return false;
   }
 }
