@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
-
-const DATABASE_PORT = "45322";
+import { resolveLocalDatabasePort } from "./local-database-port";
 
 // Chạy SQL một lần trên PostgreSQL local (quyền postgres) và trả stdout; lỗi SQL ném ra ngay.
+// Cổng đi theo runtime của NEXT_PUBLIC_SUPABASE_URL; đích lạ ném lỗi trước khi psql được spawn.
 export function runLocalPsql(sql: string): string {
+  const databasePort = resolveLocalDatabasePort();
   const result = spawnSync(
     "psql",
-    ["-h", "127.0.0.1", "-p", DATABASE_PORT, "-w", "-U", "postgres", "-d", "postgres", "-X", "-qAt", "-v", "ON_ERROR_STOP=1"],
+    ["-h", "127.0.0.1", "-p", databasePort, "-w", "-U", "postgres", "-d", "postgres", "-X", "-qAt", "-v", "ON_ERROR_STOP=1"],
     {
       input: sql,
       encoding: "utf8",
