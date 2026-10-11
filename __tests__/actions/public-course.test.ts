@@ -5,6 +5,17 @@ import {
 } from "@/app/actions/public-course";
 import { createClient } from "@/utils/supabase/server";
 
+// Test plan:
+// - Mục tiêu: bảo vệ Server Action catalog/detail công khai và lớp phủ ghi danh/tiến độ của học viên (LF3 AC10).
+// - Loại test: unit Server Action với Supabase client mock (RPC, enrollment và user_topic_progress là các chain riêng).
+// - Đối tượng: `getPublicCourseCatalog`, `getPublicCourseDetail` và `learner_progress` suy ra từ `buildLearnCourseProgressProjection`.
+// - Case thành công: catalog chuẩn hóa; detail cho khách, chưa ghi danh, ghi danh chưa có tiến độ, một phần, xong hết và syllabus rỗng.
+// - Case thất bại: slug sai, RPC lỗi/null/lệch contract, lỗi đọc enrollment và lỗi đọc tiến độ đều trả lỗi hoặc not_found, không ra dữ liệu giả.
+// - Bảo mật/phân quyền: chỉ đọc hàng `user_topic_progress` của chính người dùng (kể cả admin), không lộ user id trong DTO; khách không đọc bảng nào.
+// - Ổn định/resilience: tiến độ đọc theo chunk 100 id; syllabus rỗng bỏ qua lần đọc.
+// - Invariant cần giữ: topic tiếp theo chỉ do projection quyết định; khớp với tổng quan khóa học (parity ở integration test riêng).
+// - Kết quả verify gần nhất: `npx vitest run __tests__/actions/public-course.test.ts` đạt 20 tests (2026-10-11, sau LF3 CP7); targeted ESLint đạt.
+
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));

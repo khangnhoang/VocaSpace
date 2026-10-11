@@ -74,11 +74,12 @@ vi.mock("react", async (importOriginal) => {
 // - Đối tượng: canonical detail page, metadata, public syllabus Preview link/suspension, enrollment và payment modal.
 // - Case thành công: public detail mở đúng Preview topic đã đánh dấu và enrollment/payment giữ contract cũ.
 // - Case thất bại: suspension chặn mọi Preview link với copy chung; navigation lỗi sau free enrollment không đảo success.
-// - Bảo mật/phân quyền: không render protected counts/content/contact/internal role, quota/audit detail hay workspace link.
+// - Bảo mật/phân quyền: không render protected counts/content/contact/internal role, quota/audit detail; khách và học viên chưa ghi danh không thấy link `/learn` nào (học viên đã ghi danh thì có, xem LF3 AC10).
 // - Ổn định/resilience: nullable/empty DTO vẫn render và free submit chống lặp.
 // - Invariant cần giữ: public detail chỉ thuộc canonical `/courses/[slug]`; payment contract không đổi.
+// - LF3 AC10: học viên đã ghi danh thấy mọi chủ đề (kể cả Preview và khi Preview bị tạm ngưng) là link `/learn` với Đã hoàn thành / Học tiếp / Sắp tới; "Tiếp tục học" mở chủ đề Học tiếp hoặc `/learn/<course>`; khách và chưa ghi danh render như cũ.
 // - LF3 AC7: đăng ký xong (miễn phí và trả phí) ở lại trang, không tự điều hướng; nút chính thành "Bắt đầu học" và chỉ mở chủ đề đầu khi bấm.
-// - Kết quả verify gần nhất: `npx vitest run __tests__/components/public-course-detail.test.tsx` đạt 20 tests (2026-10-11); targeted ESLint đạt.
+// - Kết quả verify gần nhất: `npx vitest run __tests__/components/public-course-detail.test.tsx` đạt 27 tests (2026-10-11, sau LF3 CP7); targeted ESLint đạt.
 
 const mockedGetPublicCourseDetail = vi.mocked(getPublicCourseDetail);
 const mockedNotFound = vi.mocked(notFound);
