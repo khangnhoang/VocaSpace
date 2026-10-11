@@ -14,9 +14,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 // - Bảo mật/phân quyền: 10 actor x 11 cây nội dung x 6 bảng; policy staff-deleted giữ nguyên kết quả (owner/co_owner/editor
 //   thấy hàng đã xóa của topics/cards/exercises/questions, không ai thấy option/group đã xóa).
 // - Ổn định/resilience: mỗi cây có course riêng; dọn bằng service-role; user phụ được tạo và xóa trong test.
+// - Khối thứ hai (Q5): ma trận KIỂM TRA ĐỌC TOPIC qua từng nơi gọi `private.q7_can_read_topic` (policy topics/cards/question_options,
+//   object media private, `d4_sync_topic_progress`, `lf2_submit_question_answer`) cho 14 actor x 5 cây, kỳ vọng từ một mô tả
+//   độc lập của hàm. Khối này phải xanh trên hàm gốc TRƯỚC khi gộp các helper của hàm, và giữ nguyên sau khi gộp.
 // - Invariant cần giữ: kết quả ma trận KHÔNG ĐỔI giữa policy Q7 gốc và policy per-parent của LF3.
 //   Bộ kỳ vọng bên dưới được viết và chạy xanh trên policy gốc trước khi đổi policy (guardrail G1).
-// - Kết quả verify gần nhất: 11/11 xanh trên runtime tách biệt 45441 ở chính sách LF2 (CP1); xem progress.md để biết các lần chạy sau.
+// - Kết quả verify gần nhất: 39/39 xanh trên runtime tách biệt 45441 (11 ở khối 1 trên policy LF2 trước khi đổi, giữ nguyên sau khi đổi policy và gộp helper; 28 ở khối Q5); xem progress.md.
 // - Ghi chú: cần ALLOW_DB_INTEGRATION_TESTS=true, API 45441, E2E_SUPABASE_WORKDIR=.e2e-runtime;
 //   chạy bằng `npm run test:integration -- __tests__/integration/lf3-content-read-boundary.test.ts`.
 
@@ -267,5 +270,221 @@ describe.sequential("LF3 content read boundary matrix (AC3)", () => {
     expect(cells).toHaveLength(trees.length * actors.length * tables.length);
     expect(cells.filter(Boolean).length).toBeGreaterThan(100);
     expect(cells.filter((visible) => !visible).length).toBeGreaterThan(100);
+  });
+});
+
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Khối Q5: ma trận kiểm tra đọc topic qua mọi nơi gọi q7_can_read_topic (điều kiện bắt buộc trước khi gộp helper của hàm).
+// ---------------------------------------------------------------------------------------------------------------------
+
+type Rel = {
+  admin?: boolean; enrolled?: boolean; role?: "owner" | "co_owner" | "editor" | "previewer"; canReview?: boolean;
+  contributor?: "active" | "revoked"; excluded?: boolean; profileRemoved?: boolean; anon?: boolean;
+};
+type CheckTree = {
+  name: string; topicStatus: "draft" | "pending" | "published"; removed: "chapter" | "course" | null;
+  courseId: string; chapterId: string; topicId: string; cardId: string; exerciseId: string; questionId: string; optionId: string;
+  mediaPath: string;
+};
+
+const IMAGE_BUCKET = "question_group_images";
+const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00]);
+
+const rels: Record<string, Rel> = {
+  admin: { admin: true },
+  owner: { role: "owner" },
+  coOwner: { role: "co_owner" },
+  editor: { role: "editor" },
+  previewerOnly: { role: "previewer" },
+  prevGroup: { role: "previewer", contributor: "active" },
+  prevGroupRevoked: { role: "previewer", contributor: "revoked" },
+  prevReviewer: { role: "previewer", canReview: true },
+  prevReviewerExcluded: { role: "previewer", canReview: true, excluded: true },
+  learner: { enrolled: true },
+  learnerContributor: { enrolled: true, contributor: "active" },
+  exCollaborator: {},
+  removedProfileEditor: { role: "editor", profileRemoved: true },
+  anon: { anon: true },
+};
+const relKeys = Object.keys(rels);
+
+// Mô tả độc lập của private.q7_can_read_topic (20260923143029) cùng các helper nó gọi: has_course_content_read_access,
+// is_admin, d1_topic_group_member, has_topic_review_access, d1_is_topic_reviewer_excluded.
+function q7Oracle(rel: Rel, tree: CheckTree, isTopicCreator: boolean): boolean {
+  if (rel.anon || rel.profileRemoved) return false;
+  if (tree.removed) return !!rel.admin;
+  const contentAccess = !!rel.admin || rel.role !== undefined || !!rel.enrolled;
+  const staff = rel.role === "owner" || rel.role === "co_owner" || rel.role === "editor";
+  const group = rel.contributor === "active" && rel.role !== undefined;
+  const excluded = isTopicCreator || rel.contributor === "active"
+    || (!!rel.excluded && tree.topicStatus !== "published");
+  const review = (rel.role === "owner" || rel.role === "co_owner"
+    || ((rel.role === "editor" || rel.role === "previewer") && !!rel.canReview)) && !excluded;
+  const statusOk = tree.topicStatus === "published" || !!rel.admin || staff || group || review;
+  return contentAccess && statusOk;
+}
+
+const checkTrees: CheckTree[] = [];
+const checkUsers: Record<string, Extra> = {};
+const checkClients: Record<string, SupabaseClient> = {};
+
+const fixedUserId = (key: string) => (key === "admin" ? ADMIN.id : key === "owner" ? TEACHER.id : key === "editor" ? EDITOR.id
+  : key === "previewerOnly" ? PREVIEWER.id : checkUsers[key]?.id);
+
+async function buildCheckTree(name: string, topicStatus: CheckTree["topicStatus"], removed: CheckTree["removed"] = null) {
+  const t: CheckTree = {
+    name, topicStatus, removed, courseId: randomUUID(), chapterId: randomUUID(), topicId: randomUUID(), cardId: randomUUID(),
+    exerciseId: randomUUID(), questionId: randomUUID(), optionId: randomUUID(), mediaPath: "",
+  };
+  t.mediaPath = `${t.courseId}/${t.topicId}/${randomUUID()}/lf3.png`;
+  checkTrees.push(t);
+  await insert("courses", { id: t.courseId, title: `LF3 q7 ${name}`, slug: `lf3-q7-${t.courseId}`, price: 0, status: "published" });
+  const members: Record<string, unknown>[] = [];
+  for (const key of relKeys) {
+    const rel = rels[key];
+    const id = fixedUserId(key);
+    if (!id || rel.anon || !rel.role) continue;
+    members.push({ course_id: t.courseId, user_id: id, role: rel.role, added_by: TEACHER.id, can_review_topics: !!rel.canReview });
+  }
+  await insert("course_collaborators", members);
+  await insert("enrollments", relKeys.filter((k) => rels[k].enrolled && fixedUserId(k)).map((k) => ({ course_id: t.courseId, user_id: fixedUserId(k)! })));
+  await insert("chapters", { id: t.chapterId, course_id: t.courseId, title: "LF3", created_by_user_id: TEACHER.id, order_index: 0 });
+  await insert("topics", {
+    id: t.topicId, course_id: t.courseId, chapter_id: t.chapterId, title: "LF3", slug: `lf3-q7-${t.topicId}`,
+    status: topicStatus, first_approved_at: topicStatus === "published" ? new Date().toISOString() : null, order_index: 0,
+    original_creator_user_id: TEACHER.id, responsible_author_user_id: TEACHER.id,
+  });
+  await insert("topic_contributors", relKeys.filter((k) => rels[k].contributor && fixedUserId(k)).map((k) => ({
+    topic_id: t.topicId, user_id: fixedUserId(k)!, added_by_user_id: TEACHER.id,
+    ...(rels[k].contributor === "revoked" ? { removed_at: new Date().toISOString(), removed_by_user_id: TEACHER.id } : {}),
+  })));
+  if (topicStatus !== "published") {
+    await insert("topic_author_review_exclusions", relKeys.filter((k) => rels[k].excluded && fixedUserId(k)).map((k) => ({
+      topic_id: t.topicId, user_id: fixedUserId(k)!, exclusion_type: "original_creator",
+    })));
+  }
+  await insert("cards", { id: t.cardId, topic_id: t.topicId, front_content: { word: "lf3" }, back_content: { translation: "lf3" } });
+  await insert("exercises", {
+    id: t.exerciseId, topic_id: t.topicId, course_id: t.courseId, title: "LF3", part_type: "part5", activity_stage: "exercise", order_index: 0,
+  });
+  await insert("questions", { id: t.questionId, exercise_id: t.exerciseId, course_id: t.courseId, content: "LF3 q", order_index: 0 });
+  await insert("question_options", { id: t.optionId, question_id: t.questionId, content: "A", label: "A", is_correct: true, order_index: 0 });
+  const upload = await service.storage.from(IMAGE_BUCKET).upload(t.mediaPath, new Blob([pngBytes], { type: "image/png" }), { contentType: "image/png" });
+  if (upload.error) throw new Error(`media upload: ${upload.error.message}`);
+  if (removed) {
+    const [tbl, id] = removed === "chapter" ? ["chapters", t.chapterId] : ["courses", t.courseId];
+    const r = await service.from(tbl).update({ removed_at: new Date().toISOString() }).eq("id", id);
+    if (r.error) throw new Error(`remove ${removed}: ${r.error.message}`);
+  }
+  return t;
+}
+
+async function cleanupCheck() {
+  for (const t of checkTrees.splice(0)) {
+    await service.storage.from(IMAGE_BUCKET).remove([t.mediaPath]);
+    await service.from("user_question_answers").delete().eq("question_id", t.questionId);
+    await service.from("user_topic_progress").delete().eq("topic_id", t.topicId);
+    await service.from("question_options").delete().eq("question_id", t.questionId);
+    await service.from("questions").delete().eq("id", t.questionId);
+    await service.from("exercises").delete().eq("id", t.exerciseId);
+    await service.from("cards").delete().eq("id", t.cardId);
+    await service.from("topic_author_review_exclusions").delete().eq("topic_id", t.topicId);
+    await service.from("topic_contributors").delete().eq("topic_id", t.topicId);
+    await service.from("topics").delete().eq("id", t.topicId);
+    await service.from("chapters").delete().eq("id", t.chapterId);
+    await service.from("enrollments").delete().eq("course_id", t.courseId);
+    await service.from("course_collaborators").delete().eq("course_id", t.courseId);
+    await service.from("courses").delete().eq("id", t.courseId);
+  }
+  for (const id of createdUsers.splice(0)) await service.auth.admin.deleteUser(id);
+}
+
+const oracleFor = (key: string, tree: CheckTree) => q7Oracle(rels[key], tree, key === "owner");
+
+async function visibleRow(client: SupabaseClient, table: string, id: string): Promise<boolean> {
+  const r = await client.from(table).select("id").eq("id", id);
+  if (r.error) throw new Error(`${table} read failed: ${r.error.message}`);
+  return (r.data ?? []).length > 0;
+}
+
+describe.sequential("LF3 topic read check across every caller (Q5 precondition)", () => {
+  beforeAll(async () => {
+    for (const key of relKeys) {
+      if (["admin", "owner", "editor", "previewerOnly", "anon"].includes(key)) continue;
+      checkUsers[key] = await createExtraUser(key);
+    }
+    checkClients.anon = createClient(api, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, opts);
+    checkClients.admin = await signIn(ADMIN.email);
+    checkClients.owner = await signIn(TEACHER.email);
+    checkClients.editor = await signIn(EDITOR.email);
+    checkClients.previewerOnly = await signIn(PREVIEWER.email);
+    for (const key of Object.keys(checkUsers)) checkClients[key] = await signIn(checkUsers[key].email);
+    await buildCheckTree("published", "published");
+    await buildCheckTree("draft", "draft");
+    await buildCheckTree("pending review", "pending");
+    await buildCheckTree("published, chapter removed", "published", "chapter");
+    await buildCheckTree("published, course removed", "published", "course");
+    // Hồ sơ bị xóa mềm chỉ đặt sau khi đăng nhập xong.
+    const removed = await service.from("profiles").update({ removed_at: new Date().toISOString() }).eq("id", checkUsers.removedProfileEditor.id);
+    if (removed.error) throw new Error(`remove profile: ${removed.error.message}`);
+  }, 180_000);
+  afterAll(cleanupCheck, 120_000);
+
+  for (const key of relKeys) {
+    it(`${key}: topics, cards, question_options and media object reads follow the topic read check`, async () => {
+      const mismatches: string[] = [];
+      for (const tree of checkTrees) {
+        const expected = oracleFor(key, tree);
+        const client = checkClients[key];
+        const reads: Array<[string, () => Promise<boolean>]> = [
+          ["topics", () => visibleRow(client, "topics", tree.topicId)],
+          ["cards", () => visibleRow(client, "cards", tree.cardId)],
+          ["question_options", () => visibleRow(client, "question_options", tree.optionId)],
+          ["media object", async () => !(await client.storage.from(IMAGE_BUCKET).download(tree.mediaPath)).error],
+        ];
+        for (const [surface, read] of reads) {
+          const actual = await read();
+          if (actual !== expected) mismatches.push(`${tree.name} / ${surface}: expected ${expected}, got ${actual}`);
+        }
+      }
+      expect(mismatches).toEqual([]);
+    }, 120_000);
+
+    if (key !== "anon") {
+      it(`${key}: d4_sync_topic_progress and lf2_submit_question_answer treat an unreadable or unpublished topic as unavailable`, async () => {
+        const mismatches: string[] = [];
+        for (const tree of checkTrees) {
+          const readable = oracleFor(key, tree);
+          // d4 đòi cả chapter và course còn hiệu lực; lf2 chỉ đòi topic published và chapter còn hiệu lực (không đọc course).
+          const expectedUnavailable = !(readable && tree.topicStatus === "published" && !tree.removed);
+          const expectedLf2Unavailable = !(readable && tree.topicStatus === "published" && tree.removed !== "chapter");
+          const d4 = await checkClients[key].rpc("d4_sync_topic_progress", { p_topic_id: tree.topicId });
+          const d4Unavailable = /TOPIC_UNAVAILABLE/.test(d4.error?.message ?? "");
+          if (d4Unavailable !== expectedUnavailable) {
+            mismatches.push(`${tree.name} / d4: expected unavailable ${expectedUnavailable}, got ${d4Unavailable} (${d4.error?.message ?? "ok"})`);
+          }
+          const lf2 = await checkClients[key].rpc("lf2_submit_question_answer", { p_question_id: tree.questionId, p_selected_option_id: tree.optionId });
+          if (lf2.error) throw new Error(`lf2 rpc error: ${lf2.error.message}`);
+          const lf2Unavailable = (lf2.data as { status: string }).status === "unavailable";
+          if (lf2Unavailable !== expectedLf2Unavailable) {
+            mismatches.push(`${tree.name} / lf2: expected unavailable ${expectedLf2Unavailable}, got ${lf2Unavailable}`);
+          }
+        }
+        expect(mismatches).toEqual([]);
+      }, 120_000);
+    }
+  }
+
+  it("covers allowed and denied cells for the extra actors so the block cannot pass vacuously", () => {
+    const cells = checkTrees.flatMap((tree) => relKeys.map((key) => oracleFor(key, tree)));
+    expect(cells.filter(Boolean).length).toBeGreaterThan(20);
+    expect(cells.filter((v) => !v).length).toBeGreaterThan(20);
+    const draft = checkTrees.find((t) => t.name === "draft")!;
+    expect(oracleFor("prevReviewer", draft)).toBe(true);
+    expect(oracleFor("prevReviewerExcluded", draft)).toBe(false);
+    expect(oracleFor("prevGroupRevoked", draft)).toBe(false);
+    expect(oracleFor("previewerOnly", draft)).toBe(false);
+    expect(oracleFor("learnerContributor", draft)).toBe(false);
   });
 });
