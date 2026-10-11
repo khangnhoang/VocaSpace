@@ -11,15 +11,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 //   đọc đúng tập hàng mà định nghĩa `private.q7_can_read_topic` cho phép (xem hàm `readsTopic`).
 // - Case thất bại: học viên chưa enroll, anonymous, học viên ở topic draft, khóa học draft, và hàng bị xóa mềm ở từng mức
 //   (option, question, group, exercise, card, topic, chapter, course) không lộ cho người không có quyền.
-// - Bảo mật/phân quyền: 10 actor x 11 cây nội dung x 6 bảng; policy staff-deleted giữ nguyên kết quả (owner/co_owner/editor
+// - Bảo mật/phân quyền: 10 actor x 13 cây nội dung x 6 bảng (gồm cây courses.status NULL và topics.status NULL); policy staff-deleted giữ nguyên kết quả (owner/co_owner/editor
 //   thấy hàng đã xóa của topics/cards/exercises/questions, không ai thấy option/group đã xóa).
 // - Ổn định/resilience: mỗi cây có course riêng; dọn bằng service-role; user phụ được tạo và xóa trong test.
 // - Khối thứ hai (Q5): ma trận KIỂM TRA ĐỌC TOPIC qua từng nơi gọi `private.q7_can_read_topic` (policy topics/cards/question_options,
-//   object media private, `d4_sync_topic_progress`, `lf2_submit_question_answer`) cho 14 actor x 5 cây, kỳ vọng từ một mô tả
+//   object media private, `d4_sync_topic_progress`, `lf2_submit_question_answer`) cho 14 actor x 7 cây (gồm cây courses.status NULL và topics.status NULL), kỳ vọng từ một mô tả
 //   độc lập của hàm. Khối này phải xanh trên hàm gốc TRƯỚC khi gộp các helper của hàm, và giữ nguyên sau khi gộp.
 // - Invariant cần giữ: kết quả ma trận KHÔNG ĐỔI giữa policy Q7 gốc và policy per-parent của LF3.
 //   Bộ kỳ vọng bên dưới được viết và chạy xanh trên policy gốc trước khi đổi policy (guardrail G1).
-// - Kết quả verify gần nhất: 39/39 xanh trên runtime tách biệt 45441 (11 ở khối 1 trên policy LF2 trước khi đổi, giữ nguyên sau khi đổi policy và gộp helper; 28 ở khối Q5); xem progress.md.
+// - Kết quả verify gần nhất: 39/39 xanh trên runtime tách biệt 45441 ở CẢ baseline (migration trước LF3, `db reset --version 20261010150000`) lẫn trạng thái cuối LF3 (11 ở khối 1; 28 ở khối Q5); xem progress.md.
 // - Ghi chú: cần ALLOW_DB_INTEGRATION_TESTS=true, API 45441, E2E_SUPABASE_WORKDIR=.e2e-runtime;
 //   chạy bằng `npm run test:integration -- __tests__/integration/lf3-content-read-boundary.test.ts`.
 
@@ -47,8 +47,8 @@ type ActorKey =
 type Tree = {
   name: string;
   removed: Level | null;
-  topicStatus: "draft" | "published";
-  courseStatus: "draft" | "published";
+  topicStatus: "draft" | "published" | null;
+  courseStatus: "draft" | "published" | null;
   courseId: string; chapterId: string; topicId: string; cardId: string;
   exerciseId: string; groupId: string; questionId: string; optionId: string;
 };
@@ -86,7 +86,8 @@ function readsTopic(actor: ActorKey, tree: Tree): boolean {
   if ((tree.removed === "course" || tree.removed === "chapter")) return actor === "admin";
   const contentAccess = actor === "admin"
     || collaboratorRole[actor] !== undefined
-    || (actor === "enrolled" && tree.courseStatus === "published");
+    // Baseline: `v_status != 'published'` không từ chối khi status NULL, nên học viên đã enroll vẫn đọc được khóa NULL status.
+    || (actor === "enrolled" && (tree.courseStatus === "published" || tree.courseStatus === null));
   const statusOk = tree.topicStatus === "published" || actor === "admin" || isStaff(actor)
     || actor === "groupMember" || actor === "reviewer";
   return contentAccess && statusOk;
@@ -135,7 +136,7 @@ async function signIn(email: string): Promise<SupabaseClient> {
 async function buildTree(
   name: string,
   { removed = null, topicStatus = "published", courseStatus = "published" }:
-    { removed?: Level | null; topicStatus?: "draft" | "published"; courseStatus?: "draft" | "published" } = {},
+    { removed?: Level | null; topicStatus?: "draft" | "published" | null; courseStatus?: "draft" | "published" | null } = {},
 ): Promise<Tree> {
   const t: Tree = {
     name, removed, topicStatus, courseStatus,
@@ -238,6 +239,10 @@ describe.sequential("LF3 content read boundary matrix (AC3)", () => {
     await buildTree("published");
     await buildTree("draft topic", { topicStatus: "draft" });
     await buildTree("draft course", { courseStatus: "draft" });
+    // Hai cây status NULL (cột nullable): policy gốc không từ chối khóa NULL status với học viên đã enroll, và topic NULL status
+    // chỉ đọc được qua admin/staff/nhóm/reviewer. Bản gộp phải giữ đúng ngữ nghĩa NULL này.
+    await buildTree("null course status", { courseStatus: null });
+    await buildTree("null topic status", { topicStatus: null });
     for (const level of ["option", "question", "group", "exercise", "card", "topic", "chapter", "course"] as const) {
       await buildTree(`removed ${level}`, { removed: level });
     }
@@ -283,7 +288,8 @@ type Rel = {
   contributor?: "active" | "revoked"; excluded?: boolean; profileRemoved?: boolean; anon?: boolean;
 };
 type CheckTree = {
-  name: string; topicStatus: "draft" | "pending" | "published"; removed: "chapter" | "course" | null;
+  name: string; topicStatus: "draft" | "pending" | "published" | null; removed: "chapter" | "course" | null;
+  courseStatus: "published" | null;
   courseId: string; chapterId: string; topicId: string; cardId: string; exerciseId: string; questionId: string; optionId: string;
   mediaPath: string;
 };
@@ -314,7 +320,9 @@ const relKeys = Object.keys(rels);
 function q7Oracle(rel: Rel, tree: CheckTree, isTopicCreator: boolean): boolean {
   if (rel.anon || rel.profileRemoved) return false;
   if (tree.removed) return !!rel.admin;
-  const contentAccess = !!rel.admin || rel.role !== undefined || !!rel.enrolled;
+  // Baseline: `v_status != 'published'` là NULL (không từ chối) khi courses.status NULL, nên enrollment vẫn cấp quyền đọc.
+  const contentAccess = !!rel.admin || rel.role !== undefined
+    || (!!rel.enrolled && (tree.courseStatus === "published" || tree.courseStatus === null));
   const staff = rel.role === "owner" || rel.role === "co_owner" || rel.role === "editor";
   const group = rel.contributor === "active" && rel.role !== undefined;
   const excluded = isTopicCreator || rel.contributor === "active"
@@ -332,14 +340,16 @@ const checkClients: Record<string, SupabaseClient> = {};
 const fixedUserId = (key: string) => (key === "admin" ? ADMIN.id : key === "owner" ? TEACHER.id : key === "editor" ? EDITOR.id
   : key === "previewerOnly" ? PREVIEWER.id : checkUsers[key]?.id);
 
-async function buildCheckTree(name: string, topicStatus: CheckTree["topicStatus"], removed: CheckTree["removed"] = null) {
+async function buildCheckTree(
+  name: string, topicStatus: CheckTree["topicStatus"], removed: CheckTree["removed"] = null, courseStatus: CheckTree["courseStatus"] = "published",
+) {
   const t: CheckTree = {
-    name, topicStatus, removed, courseId: randomUUID(), chapterId: randomUUID(), topicId: randomUUID(), cardId: randomUUID(),
+    name, topicStatus, removed, courseStatus, courseId: randomUUID(), chapterId: randomUUID(), topicId: randomUUID(), cardId: randomUUID(),
     exerciseId: randomUUID(), questionId: randomUUID(), optionId: randomUUID(), mediaPath: "",
   };
   t.mediaPath = `${t.courseId}/${t.topicId}/${randomUUID()}/lf3.png`;
   checkTrees.push(t);
-  await insert("courses", { id: t.courseId, title: `LF3 q7 ${name}`, slug: `lf3-q7-${t.courseId}`, price: 0, status: "published" });
+  await insert("courses", { id: t.courseId, title: `LF3 q7 ${name}`, slug: `lf3-q7-${t.courseId}`, price: 0, status: courseStatus });
   const members: Record<string, unknown>[] = [];
   for (const key of relKeys) {
     const rel = rels[key];
@@ -425,6 +435,8 @@ describe.sequential("LF3 topic read check across every caller (Q5 precondition)"
     await buildCheckTree("pending review", "pending");
     await buildCheckTree("published, chapter removed", "published", "chapter");
     await buildCheckTree("published, course removed", "published", "course");
+    await buildCheckTree("published, course status NULL", "published", null, null);
+    await buildCheckTree("topic status NULL", null);
     // Hồ sơ bị xóa mềm chỉ đặt sau khi đăng nhập xong.
     const removed = await service.from("profiles").update({ removed_at: new Date().toISOString() }).eq("id", checkUsers.removedProfileEditor.id);
     if (removed.error) throw new Error(`remove profile: ${removed.error.message}`);
@@ -456,8 +468,8 @@ describe.sequential("LF3 topic read check across every caller (Q5 precondition)"
         const mismatches: string[] = [];
         for (const tree of checkTrees) {
           const readable = oracleFor(key, tree);
-          // d4 đòi cả chapter và course còn hiệu lực; lf2 chỉ đòi topic published và chapter còn hiệu lực (không đọc course).
-          const expectedUnavailable = !(readable && tree.topicStatus === "published" && !tree.removed);
+          // d4 đòi cả chapter và course còn hiệu lực và course published (nên course NULL status là unavailable); lf2 chỉ đòi topic published và chapter còn hiệu lực (không đọc status course).
+          const expectedUnavailable = !(readable && tree.topicStatus === "published" && tree.courseStatus === "published" && !tree.removed);
           const expectedLf2Unavailable = !(readable && tree.topicStatus === "published" && tree.removed !== "chapter");
           const d4 = await checkClients[key].rpc("d4_sync_topic_progress", { p_topic_id: tree.topicId });
           const d4Unavailable = /TOPIC_UNAVAILABLE/.test(d4.error?.message ?? "");

@@ -4,7 +4,9 @@
 -- Kết quả KHÔNG đổi: mọi nhánh của hai helper được viết lại dưới đây với cùng ba giá trị logic (đúng/sai/null).
 --   public.is_admin()                         = p.role = 'admin' (cùng dòng profiles của auth.uid(), p đã đòi chưa bị xóa mềm).
 --   public.has_course_content_read_access(c)  = khóa học đã xóa mềm -> chỉ admin; còn lại admin, hoặc collaborator
---                                               owner/co_owner/editor/previewer, hoặc khóa published có enrollment của người gọi.
+--                                               owner/co_owner/editor/previewer, hoặc enrollment của người gọi khi khóa KHÔNG bị từ chối bởi
+--                                               `status != 'published'`: bản gốc dùng `IF v_status != 'published' THEN RETURN false`, nên
+--                                               courses.status NULL (cột nullable) không từ chối và enrollment vẫn cấp quyền đọc.
 -- d1_topic_group_member và has_topic_review_access giữ nguyên lời gọi (chỉ chạy khi topic chưa published và người gọi không phải
 -- admin/staff). Chữ ký, quyền thực thi và mọi nơi gọi (policy, Storage media, D4, LF2, workflow RPC) không đổi.
 create or replace function private.q7_can_read_topic(p_topic_id uuid)
@@ -41,7 +43,7 @@ as $$
                 )
             )
             or (
-              c.status = 'published'::public.item_status
+              (c.status is null or c.status = 'published'::public.item_status)
               and exists (
                 select 1 from public.enrollments en
                 where en.course_id = t.course_id and en.user_id = (select auth.uid())
