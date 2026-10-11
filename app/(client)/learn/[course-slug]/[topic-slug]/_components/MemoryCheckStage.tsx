@@ -30,7 +30,13 @@ interface MemoryCheckStageProps {
   isPassed: boolean;
   hasExercises: boolean;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
+  /** Điều hướng sau khi học viên bấm nút ở phản hồi cuối: chỉ chuyển bước, không quyết định memory check đã qua hay chưa. */
   onPassed: () => void;
+  /**
+   * Server báo memory check đã qua ngay trong kết quả của câu trả lời. Workspace đánh dấu bước "đã xong" tại đây (AC8),
+   * không đợi học viên bấm tiếp; phản hồi của câu vẫn hiện cho tới khi học viên tiếp tục.
+   */
+  onMemoryPassed?: () => void;
   onGoToExercises: () => void;
   onTopicCompleted?: () => void;
   /**
@@ -62,6 +68,7 @@ export default function MemoryCheckStage({
   hasExercises,
   onCorrectAnswer,
   onPassed,
+  onMemoryPassed,
   onGoToExercises,
   onTopicCompleted,
   onCardsRequired,
@@ -117,7 +124,8 @@ export default function MemoryCheckStage({
     if (feedbackKey) continueButtonRef.current?.focus();
   }, [feedbackKey]);
 
-  if (isPassed) {
+  // Khi câu trả lời vừa làm memory check qua, phản hồi của câu còn hiện (kèm nút mở bài tập) dù isPassed đã bật.
+  if (isPassed && !feedback?.passed) {
     return (
       <section
         aria-labelledby="memory-check-done-title"
@@ -194,6 +202,7 @@ export default function MemoryCheckStage({
         progressError: result.progressError,
         passed: result.isMemoryCheckPassed === true,
       });
+      if (result.isMemoryCheckPassed === true) onMemoryPassed?.();
     });
   };
 

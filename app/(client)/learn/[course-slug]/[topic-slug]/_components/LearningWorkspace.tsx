@@ -267,10 +267,10 @@ export default function LearningWorkspace({
   );
 
   const exercisesLocked = memoryCheck !== null && !memoryPassed;
-  // LF3: memory check chỉ mở khi mọi thẻ active đã có dòng của học viên (không phân biệt điểm chấm). Memory check đã qua
-  // là sticky nên không bị khóa lại; cổng ở server chỉ chặn việc ghi câu trả lời mới.
-  const memoryCardsLocked =
-    memoryCheck !== null && !memoryPassed && flashcards.length > 0 && unseenCardIds.size > 0;
+  // LF3 AC6: memory check chỉ mở khi mọi thẻ active đã có dòng của học viên (không phân biệt điểm chấm) và không có ngoại lệ:
+  // cổng ở server cũng từ chối ghi câu trả lời khi có thẻ mới chưa xem, kể cả sau khi đã qua. Quyền vào bài tập vẫn theo
+  // luật LF2 (`exercisesLocked`): memory check đã qua giữ bài tập mở.
+  const memoryCardsLocked = memoryCheck !== null && flashcards.length > 0 && unseenCardIds.size > 0;
   const nextStageAfterFlashcards: LearningStage | null =
     memoryCheck && (exercisesLocked || exercises.length === 0)
       ? "memory"
@@ -534,12 +534,10 @@ export default function LearningWorkspace({
       done: !exercisesLocked && exercisesDone,
     });
   }
-  // Đã đủ dòng cho mọi thẻ nhưng còn thẻ chưa Ổn/Dễ: bước Từ vựng chưa xong, nói rõ còn bao nhiêu thẻ.
+  // Đã đủ dòng cho mọi thẻ (memory check mở) nhưng còn thẻ chưa Ổn/Dễ: bước Từ vựng chưa xong, nói rõ còn bao nhiêu thẻ.
+  // Hiện bất cứ lúc nào điều kiện đó đúng, kể cả khi hàng đợi thẻ còn thẻ Lại/Khó phải học lại.
   const showUnratedHint =
-    flashcards.length > 0 &&
-    unseenCardIds.size === 0 &&
-    unratedCardIds.size > 0 &&
-    (learningStage !== "flashcard" || learningQueue.length === 0);
+    flashcards.length > 0 && unseenCardIds.size === 0 && unratedCardIds.size > 0;
 
   const arrangement =
     currentExercise && currentGroup
@@ -740,6 +738,7 @@ export default function LearningWorkspace({
                 [questionId]: optionId,
               }))
             }
+            onMemoryPassed={() => setMemoryPassed(true)}
             onPassed={() => {
               setMemoryPassed(true);
               if (exercises.length > 0) goToStage("exercise");
@@ -874,7 +873,6 @@ export default function LearningWorkspace({
               </Button>
             ) : null}
             {learningStage === "flashcard" &&
-              canSkipToQuiz &&
               !memoryCardsLocked &&
               nextStageAfterFlashcards === "memory" && (
                 <Button onClick={() => goToStage("memory")} variant="outline">
