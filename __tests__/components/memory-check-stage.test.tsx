@@ -124,6 +124,7 @@ function workspaceData(
     isMemoryCheckPassed: false,
     unseenCardIds: [],
     unratedCardIds: [],
+    dueCardIds: [],
     answers: {},
     progress: null,
     ...overrides,

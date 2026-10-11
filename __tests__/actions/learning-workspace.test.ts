@@ -18,7 +18,9 @@ import { createClient } from "@/utils/supabase/server";
 //   RPC lỗi lúc tải trang vẫn trả success với progress đã lưu;
 //   syllabus đánh dấu `isCompleted` chỉ theo dòng progress đã hoàn thành của chính learner.
 // - LF3: danh sách thẻ chưa xem/chưa Ổn-Dễ chỉ từ dòng user_flashcards của chính học viên (admin đọc được mọi dòng), thiếu dữ liệu thì lỗi rõ.
-// - Kết quả verify gần nhất: 16/16 passed (2026-10-11) bằng `npx vitest run __tests__/actions/learning-workspace.test.ts`.
+// - LF4: `dueCardIds` (thẻ đã xem mà đến hạn FSRS hoặc chưa Ổn/Dễ) lấy từ cùng embed `ratings` (thêm `next_review_date`, không thêm truy vấn),
+//   chỉ từ dòng của chính học viên, biên thời gian trước/bằng/sau `now` của server, thẻ chưa xem không bao giờ đến hạn.
+// - Kết quả verify gần nhất: 17/17 passed (2026-10-12) bằng `npx vitest run __tests__/actions/learning-workspace.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
@@ -85,7 +87,7 @@ const topic = {
       order_index: 1,
       removed_at: null,
       // LF3: dòng user_flashcards của chính học viên, embed cùng truy vấn topic (không thêm round trip).
-      ratings: [{ user_id: user.id, last_rating: 3 }],
+      ratings: [{ user_id: user.id, last_rating: 3, next_review_date: "2099-01-01T00:00:00Z" }],
     },
   ],
   progress: [
@@ -382,7 +384,50 @@ describe("getLearningWorkspace", () => {
     expect(await load([topic.cards[0], { ...secondCard, ratings: [{ user_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", last_rating: 4 }] }]))
       .toMatchObject({ unseenCardIds: [secondCard.id], unratedCardIds: [secondCard.id] });
     // Topic không có thẻ active không khóa.
-    expect(await load([removedCard])).toMatchObject({ unseenCardIds: [], unratedCardIds: [] });
+    expect(await load([removedCard])).toMatchObject({ unseenCardIds: [], unratedCardIds: [], dueCardIds: [] });
+  });
+
+  it("returns the cards due for review from the learner's own rows with the time boundary at the server clock (LF4 AC5)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T10:00:00.000Z"));
+    try {
+      const card = (suffix: string, index: number, ratings: unknown[]) => ({
+        ...topic.cards[0],
+        id: `5${suffix}000000-0000-4000-8000-000000000000`,
+        order_index: index,
+        ratings,
+      });
+      const own = (lastRating: number | null, nextReviewDate: string | null) => ({
+        user_id: user.id,
+        last_rating: lastRating,
+        next_review_date: nextReviewDate,
+      });
+      const before = card("1", 1, [own(3, "2026-10-12T09:59:59.999Z")]);
+      const equal = card("2", 2, [own(4, "2026-10-12T10:00:00.000Z")]);
+      const after = card("3", 3, [own(3, "2026-10-12T10:00:00.001Z")]);
+      const again = card("4", 4, [own(1, "2099-01-01T00:00:00Z")]);
+      const hard = card("5", 5, [own(2, "2099-01-01T00:00:00Z")]);
+      const unseen = card("6", 6, []);
+      const otherLearnerOnly = card("7", 7, [
+        { user_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", last_rating: 1, next_review_date: "2000-01-01T00:00:00Z" },
+      ]);
+      const removed = { ...card("8", 8, [own(1, "2000-01-01T00:00:00Z")]), removed_at: "2026-01-01T00:00:00Z" };
+      const topics = singleQuery({ ...topic, cards: [before, equal, after, again, hard, unseen, otherLearnerOnly, removed] });
+      mockSupabase({ queries: { courses: singleQuery(course), chapters: rowsQuery([chapter]), topics } });
+
+      const result = await getLearningWorkspace(course.slug, topic.slug);
+      expect(result.status).toBe("success");
+      if (result.status !== "success") throw new Error("expected success");
+      // Trước hoặc đúng `now` thì đến hạn; sau `now` thì không. Lại/Khó đến hạn dù ngày còn xa. Thẻ chưa xem,
+      // thẻ chỉ có dòng của người khác và thẻ đã gỡ không bao giờ đến hạn.
+      expect(result.data.dueCardIds).toEqual([before.id, equal.id, again.id, hard.id]);
+      expect(result.data.unseenCardIds).toEqual([unseen.id, otherLearnerOnly.id]);
+      // G1: cùng embed `ratings` của truy vấn topic, thêm cột ngày; vẫn đúng ba request.
+      const select = (topics.select as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      expect(select).toContain("ratings:user_flashcards (user_id, last_rating, next_review_date)");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("scopes the embedded flashcard rows to the learner and fails loud when they were not loaded (LF3 G4/G7)", async () => {

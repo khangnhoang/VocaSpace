@@ -103,6 +103,7 @@ function workspaceData(
     isMemoryCheckPassed: true,
     unseenCardIds: [],
     unratedCardIds: [],
+    dueCardIds: [],
     answers: {},
     progress: null,
     ...overrides,
@@ -140,7 +141,7 @@ describe("C2 learning workspace route", () => {
     expect(mockedNotFound).not.toHaveBeenCalled();
     expect(isValidElement(element)).toBe(true);
     expect(isValidElement(element) ? element.key : null).toBe(
-      "toeic-foundation/topic-one|44444444-4444-4444-8444-444444444444||",
+      "toeic-foundation/topic-one|44444444-4444-4444-8444-444444444444|||",
     );
   });
 
@@ -180,6 +181,19 @@ describe("C2 learning workspace route", () => {
         }),
       ),
     ).not.toBe(withNewCard);
+  });
+
+  it("changes the workspace key when only the due cards change, so a reload rebuilds the queue offer (LF4 AC5)", async () => {
+    const keyFor = async (data: LearningWorkspaceData) => {
+      mockedGetWorkspace.mockResolvedValueOnce({ status: "success", data });
+      const element = await LearningWorkspacePage(pageProps());
+      return isValidElement(element) ? element.key : null;
+    };
+    const base = workspaceData();
+    const cardId = base.flashcards[0].id;
+
+    expect(await keyFor(workspaceData({ dueCardIds: [cardId] }))).not.toBe(await keyFor(base));
+    expect(await keyFor(workspaceData({ dueCardIds: [cardId] }))).toBe(await keyFor(workspaceData({ dueCardIds: [cardId] })));
   });
 
   it("uses framework control flow only for auth and course not-found", async () => {

@@ -138,6 +138,7 @@ function workspaceData(overrides: Partial<LearningWorkspaceData> = {}): Learning
     isMemoryCheckPassed: true,
     unseenCardIds: [],
     unratedCardIds: [],
+    dueCardIds: [],
     answers: {},
     progress: null,
     ...overrides,

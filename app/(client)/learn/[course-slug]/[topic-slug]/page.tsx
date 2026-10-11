@@ -37,12 +37,13 @@ export default async function LearningWorkspacePage(props: PageProps) {
 
   // Key theo dữ liệu thẻ: sau `router.refresh()` vì thẻ mới (LF3 AC6) workspace dựng lại state từ dữ liệu mới thay vì giữ hàng đợi cũ.
   // Không dùng nonce; trong một phiên học dữ liệu trang không đổi nên key không đổi và state không bị dựng lại.
-  const { courseSlug, currentTopic, flashcards, unseenCardIds, unratedCardIds } = result.data;
+  const { courseSlug, currentTopic, flashcards, unseenCardIds, unratedCardIds, dueCardIds } = result.data;
   const workspaceKey = [
     `${courseSlug}/${currentTopic.slug}`,
     flashcards.map((card) => card.id).join(","),
     unseenCardIds.join(","),
     unratedCardIds.join(","),
+    dueCardIds.join(","),
   ].join("|");
 
   return <LearningWorkspace key={workspaceKey} data={result.data} />;
