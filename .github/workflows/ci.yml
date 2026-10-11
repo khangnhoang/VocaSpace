@@ -126,7 +126,7 @@ jobs:
 
       - name: Run integration tests
         if: steps.integration.outputs.required == 'true'
-        run: npm run test:integration -- --exclude __tests__/integration/learner-integrity.test.ts --exclude __tests__/integration/lf2-memory-check-answer-gate.test.ts --exclude __tests__/integration/lf2-learning-action-rpcs.test.ts
+        run: npm run test:integration -- --exclude __tests__/integration/learner-integrity.test.ts --exclude __tests__/integration/lf2-memory-check-answer-gate.test.ts --exclude __tests__/integration/lf2-learning-action-rpcs.test.ts --exclude __tests__/integration/lf3-content-read-boundary.test.ts
 
       - name: Run learner integrity tests on isolated Supabase
         if: steps.integration.outputs.required == 'true'
@@ -145,7 +145,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY="${ANON_KEY:-${PUBLISHABLE_KEY}}" \
           SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-${SECRET_KEY}}" \
           E2E_SUPABASE_WORKDIR=.e2e-runtime \
-          npm run test:integration -- __tests__/integration/learner-integrity.test.ts __tests__/integration/lf2-memory-check-answer-gate.test.ts __tests__/integration/lf2-learning-action-rpcs.test.ts
+          npm run test:integration -- __tests__/integration/learner-integrity.test.ts __tests__/integration/lf2-memory-check-answer-gate.test.ts __tests__/integration/lf2-learning-action-rpcs.test.ts __tests__/integration/lf3-content-read-boundary.test.ts
 
       - name: Build application
         run: npm run build
