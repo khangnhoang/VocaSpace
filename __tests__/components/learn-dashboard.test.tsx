@@ -416,6 +416,8 @@ describe("LearningWorkspace route ownership", () => {
     exercises: [],
     memoryCheck: null,
     isMemoryCheckPassed: true,
+    unseenCardIds: [],
+    unratedCardIds: [],
     answers: {},
     progress: null,
   };

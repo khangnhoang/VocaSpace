@@ -293,6 +293,8 @@ describe.sequential("D4 topic completion server truth", { timeout: 30_000 }, () 
     await expectMemoryParity(fixture, progress);
 
     await review(fixture.cardIds[0]);
+    // LF3: memory check chỉ ghi được sau khi mọi thẻ active đã có dòng của học viên; chấm Lại (1) là đã xem nhưng chưa xong flashcard.
+    await review(fixture.cardIds[1], 1);
     await answer(fixture.memoryQuestions[0], fixture.memoryQuestions[0].wrong);
     progress = await syncOk(fixture.topicId);
     expect(progress).toMatchObject({

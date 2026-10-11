@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowLeft,
@@ -25,6 +26,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
+import { CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
 import type {
   ExerciseDTO,
   FlashcardDTO,
@@ -45,7 +47,9 @@ import { arrangeMaterial } from "./exercise-arrangement";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
 type LearningStage = "flashcard" | "memory" | "exercise";
-type StepState = "current" | "done" | "locked" | "upcoming";
+// Vị trí của bước. "Đã xong" là thuộc tính riêng (LF3 AC8) để một bước vừa đang học vừa đã xong.
+type StepState = "current" | "locked" | "upcoming";
+type StageStep = { key: LearningStage; label: string; state: StepState; done: boolean };
 
 type ExerciseSegment = QuestionGroupDTO & { isStandalone: boolean };
 
@@ -78,20 +82,21 @@ function exerciseSegments(exercise: ExerciseDTO | undefined): ExerciseSegment[] 
 
 const STEP_STATE_TEXT: Record<StepState, string> = {
   current: "đang học",
-  done: "đã xong",
   locked: "đang khóa",
   upcoming: "chưa mở",
 };
+
+/** Tên truy cập của bước: "đã xong" đứng riêng, kể cả khi bước đang là bước hiện tại. */
+function stepStateText(step: StageStep) {
+  if (!step.done) return STEP_STATE_TEXT[step.state];
+  return step.state === "upcoming" ? "đã xong" : `đã xong, ${STEP_STATE_TEXT[step.state]}`;
+}
 
 /**
  * Progress thread of the stages this topic really has. It reports state with
  * words and icons and is not a control, so it cannot bypass a server gate.
  */
-function StageThread({
-  steps,
-}: {
-  steps: Array<{ key: LearningStage; label: string; state: StepState }>;
-}) {
+function StageThread({ steps }: { steps: StageStep[] }) {
   return (
     <ol aria-label="Các bước của bài học" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
       {steps.map((step, index) => (
@@ -101,7 +106,7 @@ function StageThread({
           className={`flex items-center gap-2 text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
             step.state === "current"
               ? "font-bold text-slate-900"
-              : step.state === "done"
+              : step.done
                 ? "font-semibold text-slate-700"
                 : "font-medium text-slate-600"
           }`}
@@ -114,22 +119,23 @@ function StageThread({
             className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors duration-[220ms] motion-reduce:transition-none ${
               step.state === "current"
                 ? "border-route bg-route text-white"
-                : step.state === "done"
+                : step.state !== "locked" && step.done
                   ? "border-growth-line bg-growth-quiet text-growth"
                   : "border-slate-300 bg-white text-slate-600"
             }`}
           >
-            {step.state === "done" ? (
-              <CheckCircle2 className="size-4" />
-            ) : step.state === "locked" ? (
+            {/* Khóa thắng dấu xong (AC6): bước đã xong nhưng bị khóa lại vẫn hiện ổ khóa; "đã xong" nằm ở tên truy cập. */}
+            {step.state === "locked" ? (
               <Lock className="size-3" />
+            ) : step.done ? (
+              <CheckCircle2 className="size-4" />
             ) : (
               index + 1
             )}
           </span>
           <span>
             {step.label}
-            <span className="sr-only"> ({STEP_STATE_TEXT[step.state]})</span>
+            <span className="sr-only"> ({stepStateText(step)})</span>
           </span>
         </li>
       ))}
@@ -139,6 +145,13 @@ function StageThread({
 
 const MEMORY_LOCK_REASON =
   "Trả lời đúng hết memory check để mở khóa phần bài tập.";
+
+function withoutId(ids: ReadonlySet<string>, id: string): ReadonlySet<string> {
+  if (!ids.has(id)) return ids;
+  const next = new Set(ids);
+  next.delete(id);
+  return next;
+}
 
 export default function LearningWorkspace({
   data,
@@ -157,6 +170,7 @@ export default function LearningWorkspace({
     memoryCheck,
     isMemoryCheckPassed,
   } = data;
+  const router = useRouter();
   // Stage order: flashcards -> memory check (when the topic has one) -> exercises.
   const initialStage: LearningStage =
     flashcards.length > 0
@@ -184,6 +198,14 @@ export default function LearningWorkspace({
   // gần nhất của mọi thẻ nên một lần Lại/Khó sau đó tắt nó đi (LF1 AC3); không điều khiển điều hướng.
   const [flashcardStageDone, setFlashcardStageDone] = useState(
     progress?.isFlashcardCompleted ?? false,
+  );
+  // LF3: thẻ chưa có dòng của học viên (memory check đóng tới khi rỗng) và thẻ chưa Ổn/Dễ, từ server lúc tải;
+  // cập nhật theo từng lần chấm thành công trong phiên này.
+  const [unseenCardIds, setUnseenCardIds] = useState<ReadonlySet<string>>(
+    () => new Set(data.unseenCardIds),
+  );
+  const [unratedCardIds, setUnratedCardIds] = useState<ReadonlySet<string>>(
+    () => new Set(data.unratedCardIds),
   );
   const [userAnswers, setUserAnswers] =
     useState<Record<string, string>>(answers);
@@ -246,6 +268,10 @@ export default function LearningWorkspace({
   );
 
   const exercisesLocked = memoryCheck !== null && !memoryPassed;
+  // LF3 AC6: memory check chỉ mở khi mọi thẻ active đã có dòng của học viên (không phân biệt điểm chấm) và không có ngoại lệ:
+  // cổng ở server cũng từ chối ghi câu trả lời khi có thẻ mới chưa xem, kể cả sau khi đã qua. Quyền vào bài tập vẫn theo
+  // luật LF2 (`exercisesLocked`): memory check đã qua giữ bài tập mở.
+  const memoryCardsLocked = memoryCheck !== null && flashcards.length > 0 && unseenCardIds.size > 0;
   const nextStageAfterFlashcards: LearningStage | null =
     memoryCheck && (exercisesLocked || exercises.length === 0)
       ? "memory"
@@ -267,6 +293,14 @@ export default function LearningWorkspace({
     toast.error(MEMORY_LOCK_REASON);
   };
 
+  // `cards_locked` từ server: dữ liệu thẻ của trang đã cũ (thẻ mới thêm sau khi tải). Về bước từ vựng và xin server
+  // tải lại; trang đổi `key` theo dữ liệu mới nên workspace dựng lại state, hàng đợi thẻ có thẻ mới.
+  const recoverFromCardsRequired = () => {
+    toast.error(CARDS_REQUIRED_ERROR);
+    goToStage("flashcard");
+    router.refresh();
+  };
+
   const restartFlashcards = () => {
     setLearningQueue(flashcards);
     setIsFlipped(false);
@@ -283,6 +317,13 @@ export default function LearningWorkspace({
         return;
       }
       announceTopicProgress(result, markTopicCompleted);
+      // Lần chấm đã ghi: thẻ này đã xem; Ổn/Dễ thì xong, Lại/Khó thì chưa (lần chấm gần nhất quyết định, như server).
+      setUnseenCardIds((current) => withoutId(current, currentCard.id));
+      setUnratedCardIds((current) =>
+        rating === Rating.Good || rating === Rating.Easy
+          ? withoutId(current, currentCard.id)
+          : new Set(current).add(currentCard.id),
+      );
       if (result.topicProgress?.isFlashcardCompleted) setCanSkipToQuiz(true);
       // Kết quả server thắng theo cả hai chiều chỉ với dấu "đã xong" của StageThread.
       if (result.topicProgress) setFlashcardStageDone(result.topicProgress.isFlashcardCompleted);
@@ -466,34 +507,38 @@ export default function LearningWorkspace({
   }, [groupKey]);
 
   const exerciseQuestionCount = exerciseQuestionPositions.length;
-  const stageSteps: Array<{ key: LearningStage; label: string; state: StepState }> = [];
+  // Bước "Từ vựng" chỉ hiện đã xong khi server báo xong và không còn thẻ nào chưa Ổn/Dễ (LF3 AC6/AC8).
+  const flashcardStepDone = flashcardStageDone && unratedCardIds.size === 0;
+  const exercisesDone = exerciseQuestionCount > 0 && remainingQuestions.length === 0;
+  const stageSteps: StageStep[] = [];
   if (flashcards.length > 0) {
     stageSteps.push({
       key: "flashcard",
       label: "Từ vựng",
-      state: learningStage === "flashcard" ? "current" : flashcardStageDone ? "done" : "upcoming",
+      state: learningStage === "flashcard" ? "current" : "upcoming",
+      done: flashcardStepDone,
     });
   }
   if (memoryCheck) {
     stageSteps.push({
       key: "memory",
       label: "Memory check",
-      state: learningStage === "memory" ? "current" : memoryPassed ? "done" : "upcoming",
+      state: memoryCardsLocked ? "locked" : learningStage === "memory" ? "current" : "upcoming",
+      done: memoryPassed,
     });
   }
   if (exercises.length > 0) {
     stageSteps.push({
       key: "exercise",
       label: "Bài tập",
-      state: exercisesLocked
-        ? "locked"
-        : learningStage === "exercise"
-          ? "current"
-          : exerciseQuestionCount > 0 && remainingQuestions.length === 0
-            ? "done"
-            : "upcoming",
+      state: exercisesLocked ? "locked" : learningStage === "exercise" ? "current" : "upcoming",
+      done: !exercisesLocked && exercisesDone,
     });
   }
+  // Đã đủ dòng cho mọi thẻ (memory check mở) nhưng còn thẻ chưa Ổn/Dễ: bước Từ vựng chưa xong, nói rõ còn bao nhiêu thẻ.
+  // Hiện bất cứ lúc nào điều kiện đó đúng, kể cả khi hàng đợi thẻ còn thẻ Lại/Khó phải học lại.
+  const showUnratedHint =
+    flashcards.length > 0 && unseenCardIds.size === 0 && unratedCardIds.size > 0;
 
   const arrangement =
     currentExercise && currentGroup
@@ -657,6 +702,23 @@ export default function LearningWorkspace({
         </div>
       );
     }
+    if (learningStage === "memory" && memoryCheck && memoryCardsLocked) {
+      return (
+        <section
+          role="status"
+          className="mx-auto flex max-w-md flex-col items-center gap-4 text-center"
+        >
+          <Lock aria-hidden="true" className="size-10 text-attention" />
+          <h2 className="text-xl font-bold text-slate-900">Memory check đang khóa</h2>
+          <p className="text-slate-700">
+            Học hết flashcard của bài này để mở memory check. Còn {unseenCardIds.size} thẻ chưa học.
+          </p>
+          <Button onClick={backToFlashcard} size="lg" className="px-8">
+            Về Từ vựng
+          </Button>
+        </section>
+      );
+    }
     if (learningStage === "memory" && memoryCheck) {
       return (
         <div className="mx-auto flex w-full justify-center">
@@ -677,12 +739,14 @@ export default function LearningWorkspace({
                 [questionId]: optionId,
               }))
             }
+            onMemoryPassed={() => setMemoryPassed(true)}
             onPassed={() => {
               setMemoryPassed(true);
               if (exercises.length > 0) goToStage("exercise");
             }}
             onGoToExercises={() => goToStage("exercise")}
             onTopicCompleted={markTopicCompleted}
+            onCardsRequired={recoverFromCardsRequired}
           />
         </div>
       );
@@ -810,7 +874,7 @@ export default function LearningWorkspace({
               </Button>
             ) : null}
             {learningStage === "flashcard" &&
-              canSkipToQuiz &&
+              !memoryCardsLocked &&
               nextStageAfterFlashcards === "memory" && (
                 <Button onClick={() => goToStage("memory")} variant="outline">
                   Tới Memory check
@@ -829,6 +893,12 @@ export default function LearningWorkspace({
               )}
           </div>
         </div>
+
+        {showUnratedHint && (
+          <p role="status" className="text-sm font-medium text-slate-700">
+            Còn {unratedCardIds.size} thẻ cần chấm Ổn hoặc Dễ để hoàn thành bước Từ vựng.
+          </p>
+        )}
 
         <main
           ref={planeRef}

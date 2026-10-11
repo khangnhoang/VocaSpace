@@ -1,20 +1,35 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, LockKeyhole } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  Circle,
+  LockKeyhole,
+  PlayCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPublicCoursePreviewPath } from "@/lib/public-courses/routes";
-import type { PublicCourseDetail } from "@/lib/schemas/public-course";
+import type {
+  PublicCourseDetail,
+  PublicCourseLearnerProgress,
+} from "@/lib/schemas/public-course";
 
 type PublicCourseSyllabusProps = {
   courseSlug: string;
   isPreviewSuspended: boolean;
+  // LF3 AC10: có giá trị khi người xem đã ghi danh; null giữ nguyên hiển thị cho khách và người chưa ghi danh.
+  learnerProgress?: PublicCourseLearnerProgress | null;
   syllabus: PublicCourseDetail["syllabus"];
 };
 
 export function PublicCourseSyllabus({
   courseSlug,
   isPreviewSuspended,
+  learnerProgress = null,
   syllabus,
 }: PublicCourseSyllabusProps) {
+  const completedTopicIds = new Set(learnerProgress?.completed_topic_ids);
+
   return (
     <section aria-labelledby="public-course-syllabus-title">
       <div>
@@ -66,38 +81,98 @@ export function PublicCourseSyllabus({
                 </p>
               ) : (
                 <ol className="mt-4 space-y-2 border-l-2 border-slate-100 pl-3 sm:pl-4">
-                  {chapter.topics.map((topic) => (
-                    <li
-                      key={topic.id}
-                      className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 transition-colors hover:bg-slate-50"
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="break-words text-sm font-semibold text-slate-800">
-                          {topic.title}
-                        </span>
-                        {topic.is_preview && !isPreviewSuspended ? (
-                          <Button
-                            asChild
-                            variant="outline"
-                            size="sm"
-                            className="h-11 w-fit text-route [@media(hover:hover)_and_(pointer:fine)]:h-8 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:px-0 [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline underline-offset-4"
+                  {chapter.topics.map((topic) => {
+                    if (learnerProgress) {
+                      // Học viên đã ghi danh: mọi chủ đề (kể cả Preview) là liên kết vào bài học, trạng thái giống tổng quan khóa học.
+                      const isCompleted = completedTopicIds.has(topic.id);
+                      const isCurrent =
+                        !isCompleted &&
+                        learnerProgress.next_topic_slug === topic.slug;
+                      const stateLabel = isCompleted
+                        ? "Đã hoàn thành"
+                        : isCurrent
+                          ? "Học tiếp"
+                          : "Sắp tới";
+                      const StateIcon = isCompleted
+                        ? CheckCircle2
+                        : isCurrent
+                          ? PlayCircle
+                          : Circle;
+
+                      return (
+                        <li key={topic.id}>
+                          <Link
+                            href={`/learn/${courseSlug}/${topic.slug}`}
+                            className={`group flex min-h-11 min-w-0 items-center gap-3 rounded-xl border px-4 py-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 ${
+                              isCurrent
+                                ? "border-route-line bg-route-quiet"
+                                : isCompleted
+                                  ? "border-growth-line bg-growth-quiet hover:border-growth"
+                                  : "border-slate-100 bg-slate-50/60 hover:bg-slate-50"
+                            }`}
                           >
-                            <Link
-                              href={getPublicCoursePreviewPath(courseSlug, topic.slug)}
+                            <StateIcon
+                              aria-hidden="true"
+                              className={`size-5 shrink-0 ${
+                                isCurrent
+                                  ? "text-blue-600"
+                                  : isCompleted
+                                    ? "text-growth"
+                                    : "text-slate-400"
+                              }`}
+                            />
+                            <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-800">
+                              {topic.title}
+                            </span>
+                            <span
+                              className={`shrink-0 text-[11px] font-extrabold ${
+                                isCurrent
+                                  ? "text-blue-700"
+                                  : isCompleted
+                                    ? "text-growth"
+                                    : "text-slate-500"
+                              }`}
                             >
-                              <span>Xem thử bài học</span>
-                              <ArrowRight aria-hidden="true" className="size-3.5" />
-                            </Link>
-                          </Button>
-                        ) : (
-                          <span className="inline-flex w-fit items-center gap-1.5 text-xs text-slate-400">
-                            <LockKeyhole aria-hidden="true" className="size-3.5" />
-                            Nội dung dành cho học viên
+                              {stateLabel}
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    }
+
+                    return (
+                      <li
+                        key={topic.id}
+                        className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 transition-colors hover:bg-slate-50"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="break-words text-sm font-semibold text-slate-800">
+                            {topic.title}
                           </span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
+                          {topic.is_preview && !isPreviewSuspended ? (
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="h-11 w-fit text-route [@media(hover:hover)_and_(pointer:fine)]:h-8 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:px-0 [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline underline-offset-4"
+                            >
+                              <Link
+                                href={getPublicCoursePreviewPath(courseSlug, topic.slug)}
+                              >
+                                <span>Xem thử bài học</span>
+                                <ArrowRight aria-hidden="true" className="size-3.5" />
+                              </Link>
+                            </Button>
+                          ) : (
+                            <span className="inline-flex w-fit items-center gap-1.5 text-xs text-slate-400">
+                              <LockKeyhole aria-hidden="true" className="size-3.5" />
+                              Nội dung dành cho học viên
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ol>
               )}
             </li>

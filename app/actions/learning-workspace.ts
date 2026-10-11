@@ -17,6 +17,7 @@ import {
   toLoadedMemoryCheck,
   type MemoryCheckRow,
 } from "@/lib/memory-check";
+import { summarizeOwnCardProgress } from "@/lib/card-progress";
 import { syncTopicProgress } from "@/lib/topic-progress";
 import { createClient } from "@/utils/supabase/server";
 
@@ -125,6 +126,7 @@ type RawCard = {
   image_url: string | null;
   order_index: number | null;
   removed_at: string | null;
+  ratings?: Array<{ user_id: string; last_rating: number | null }> | null;
 };
 
 type RawProgress = {
@@ -259,11 +261,14 @@ function buildTopicData(
     .find((item) => item.id === topic.id && item.slug === topic.slug);
   if (!syllabusTopic) return null;
 
-  const flashcards = (topic.cards ?? [])
+  const activeCards = (topic.cards ?? [])
     .filter(
       (card) => card.topic_id === topic.id && card.removed_at === null,
     )
-    .sort(compareOrderedRows)
+    .sort(compareOrderedRows);
+  // LF3: thẻ chưa xem (memory check đóng) và thẻ chưa Ổn/Dễ chỉ từ dòng user_flashcards của chính học viên (G4/G7).
+  const { unseenCardIds, unratedCardIds } = summarizeOwnCardProgress(activeCards, userId);
+  const flashcards = activeCards
     .map((card) => ({
       id: card.id,
       front_content: card.front_content,
@@ -378,6 +383,8 @@ function buildTopicData(
       chapterId: syllabusTopic.chapterId,
     },
     flashcards,
+    unseenCardIds,
+    unratedCardIds,
     exercises,
     memoryCheck: memoryCheck
       ? {
@@ -487,7 +494,10 @@ export async function getLearningWorkspace(
           `
           id, slug, title, status, order_index, chapter_id, course_id, removed_at,
           chapter:chapters!inner (id, course_id, removed_at),
-          cards (id, topic_id, front_content, back_content, audio_url, image_url, order_index, removed_at),
+          cards (
+            id, topic_id, front_content, back_content, audio_url, image_url, order_index, removed_at,
+            ratings:user_flashcards (user_id, last_rating)
+          ),
           progress:user_topic_progress (
             topic_id, is_flashcard_completed, is_exercise_completed, is_topic_completed
           ),
@@ -517,6 +527,7 @@ export async function getLearningWorkspace(
         .eq("memory_checks.activity_stage", "memory_check")
         .is("memory_checks.removed_at", null)
         .eq("memory_checks.questions.answers.user_id", user.id)
+        .eq("cards.ratings.user_id", user.id)
         .eq("slug", topicSlugResult.data)
         .eq("course_id", course.id)
         .eq("status", "published")

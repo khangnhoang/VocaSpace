@@ -15,7 +15,13 @@ import PublicCoursePaymentModal from "./PublicCoursePaymentModal";
 type PublicCourseEnrollmentCardProps = {
   course: Pick<
     PublicCourseDetail,
-    "id" | "title" | "slug" | "price" | "thumbnail_url" | "is_enrolled"
+    | "id"
+    | "title"
+    | "slug"
+    | "price"
+    | "thumbnail_url"
+    | "is_enrolled"
+    | "learner_progress"
   >;
 };
 
@@ -26,6 +32,8 @@ export function PublicCourseEnrollmentCard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [paymentData, setPaymentData] = useState<CheckoutResponse | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  // LF3 AC7: vừa đăng ký xong thì ở lại trang, nút chính đổi thành "Bắt đầu học" và chỉ mở chủ đề đầu khi bấm.
+  const [justEnrolled, setJustEnrolled] = useState(false);
 
   async function continueLearning() {
     try {
@@ -42,9 +50,23 @@ export function PublicCourseEnrollmentCard({
     }
   }
 
+  // LF3 AC10/Q7: "Tiếp tục học" mở chủ đề "Học tiếp" của đề cương, hoặc tổng quan khóa học khi đã xong hết/không có chủ đề.
+  function openProgressDestination() {
+    const nextTopicSlug = course.learner_progress?.next_topic_slug;
+    router.push(
+      nextTopicSlug
+        ? `/learn/${course.slug}/${nextTopicSlug}`
+        : `/learn/${course.slug}`,
+    );
+  }
+
   async function handlePrimaryAction() {
-    if (course.is_enrolled) {
+    if (justEnrolled) {
       await continueLearning();
+      return;
+    }
+    if (course.is_enrolled) {
+      openProgressDestination();
       return;
     }
 
@@ -69,10 +91,9 @@ export function PublicCourseEnrollmentCard({
         setIsModalOpen(false);
         setPaymentData(null);
         setPaymentId(null);
+        setJustEnrolled(true);
         toast.success(response.message || "Đăng ký thành công!");
         router.refresh();
-        // Enrollment đã thành công; lỗi điều hướng sau đó chỉ được báo riêng, không mở lại modal.
-        await continueLearning();
         return false;
       }
 
@@ -95,11 +116,13 @@ export function PublicCourseEnrollmentCard({
     course.price === 0
       ? "Miễn phí"
       : `${course.price.toLocaleString("vi-VN")} ₫`;
-  const actionLabel = course.is_enrolled
-    ? "Tiếp tục học"
-    : course.price === 0
-      ? "Đăng ký miễn phí"
-      : "Đăng ký khóa học";
+  const actionLabel = justEnrolled
+    ? "Bắt đầu học"
+    : course.is_enrolled
+      ? "Tiếp tục học"
+      : course.price === 0
+        ? "Đăng ký miễn phí"
+        : "Đăng ký khóa học";
 
   return (
     <>
@@ -165,8 +188,9 @@ export function PublicCourseEnrollmentCard({
         onGeneratePayment={createPayment}
         onSuccess={async () => {
           setIsModalOpen(false);
+          setJustEnrolled(true);
+          toast.success("Thanh toán thành công! Bạn đã có quyền truy cập khóa học.");
           router.refresh();
-          await continueLearning();
         }}
       />
     </>

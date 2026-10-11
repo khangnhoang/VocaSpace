@@ -25,7 +25,8 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Bảo mật/phân quyền: unavailable không lộ topic identity; unenrolled chỉ dùng public-safe course identity.
 // - Ổn định/resilience: loading có accessible busy state; topic-local card state reset khi route đổi.
 // - Invariant cần giữ: route params sở hữu topic; không fallback và không client content/history waterfall.
-// - Kết quả verify gần nhất: post-review full C2 Vitest 46 files / 415 tests passed tại CP4.
+// - LF3 (AC6): key của workspace gồm id thẻ và trạng thái xem/chấm, nên `router.refresh()` sau khi có thẻ mới dựng lại workspace (không dùng nonce).
+// - Kết quả verify gần nhất: post-review full C2 Vitest 46 files / 415 tests passed tại CP4. LF3 CP4: chạy lại 8/8 (2026-10-11).
 
 vi.mock("@/app/actions/learning-workspace", () => ({
   getLearningWorkspace: vi.fn(),
@@ -100,6 +101,8 @@ function workspaceData(
     exercises: [],
     memoryCheck: null,
     isMemoryCheckPassed: true,
+    unseenCardIds: [],
+    unratedCardIds: [],
     answers: {},
     progress: null,
     ...overrides,
@@ -137,8 +140,46 @@ describe("C2 learning workspace route", () => {
     expect(mockedNotFound).not.toHaveBeenCalled();
     expect(isValidElement(element)).toBe(true);
     expect(isValidElement(element) ? element.key : null).toBe(
-      "toeic-foundation/topic-one",
+      "toeic-foundation/topic-one|44444444-4444-4444-8444-444444444444||",
     );
+  });
+
+  it("changes the workspace key when the card data changes, so a refresh rebuilds the workspace (LF3 AC6)", async () => {
+    const keyFor = async (data: LearningWorkspaceData) => {
+      mockedGetWorkspace.mockResolvedValueOnce({ status: "success", data });
+      const element = await LearningWorkspacePage(pageProps());
+      return isValidElement(element) ? element.key : null;
+    };
+    const base = workspaceData();
+    const newCard = {
+      id: "55555555-5555-4555-8555-555555555555",
+      front_content: { word: "history" },
+      back_content: { translation: "lịch sử" },
+      audio_url: null,
+      image_url: null,
+    };
+
+    const sameData = await keyFor(workspaceData());
+    expect(sameData).toBe(await keyFor(base));
+    // Thẻ mới thêm vào: key đổi.
+    const withNewCard = await keyFor(
+      workspaceData({
+        flashcards: [...base.flashcards, newCard],
+        unseenCardIds: [newCard.id],
+        unratedCardIds: [newCard.id],
+      }),
+    );
+    expect(withNewCard).not.toBe(sameData);
+    // Cùng thẻ nhưng học viên đã xem thẻ mới: key đổi theo trạng thái xem/chấm.
+    expect(
+      await keyFor(
+        workspaceData({
+          flashcards: [...base.flashcards, newCard],
+          unseenCardIds: [],
+          unratedCardIds: [newCard.id],
+        }),
+      ),
+    ).not.toBe(withNewCard);
   });
 
   it("uses framework control flow only for auth and course not-found", async () => {

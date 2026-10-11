@@ -156,3 +156,8 @@ export function isMemoryCheckPassed(memoryCheck: LoadedMemoryCheck | null) {
   if (!memoryCheck) return true;
   return correctlyAnsweredMemoryQuestionIds(memoryCheck).length === memoryCheck.questions.length;
 }
+
+// LF3: memory check chỉ trả lời được sau khi học viên đã xem (có dòng user_flashcards của mình) mọi thẻ active của topic.
+export const CARDS_REQUIRED = "CARDS_REQUIRED";
+export const CARDS_REQUIRED_ERROR =
+  "Bạn cần học hết flashcard của bài này trước khi làm memory check.";

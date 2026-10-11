@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { CheckCircle2, Loader2, RotateCcw, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
+import { CARDS_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO } from "@/lib/schemas/learn";
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import ChoiceGroup from "./ChoiceGroup";
@@ -29,9 +30,20 @@ interface MemoryCheckStageProps {
   isPassed: boolean;
   hasExercises: boolean;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
+  /** Điều hướng sau khi học viên bấm nút ở phản hồi cuối: chỉ chuyển bước, không quyết định memory check đã qua hay chưa. */
   onPassed: () => void;
+  /**
+   * Server báo memory check đã qua ngay trong kết quả của câu trả lời. Workspace đánh dấu bước "đã xong" tại đây (AC8),
+   * không đợi học viên bấm tiếp; phản hồi của câu vẫn hiện cho tới khi học viên tiếp tục.
+   */
+  onMemoryPassed?: () => void;
   onGoToExercises: () => void;
   onTopicCompleted?: () => void;
+  /**
+   * The server refused the answer because the topic has a card this learner has not seen (a card added after the page
+   * loaded). The workspace owns recovery: back to the flashcards and a data refresh.
+   */
+  onCardsRequired?: () => void;
 }
 
 function sortOptions(question: QuestionDTO) {
@@ -56,8 +68,10 @@ export default function MemoryCheckStage({
   hasExercises,
   onCorrectAnswer,
   onPassed,
+  onMemoryPassed,
   onGoToExercises,
   onTopicCompleted,
+  onCardsRequired,
 }: MemoryCheckStageProps) {
   const [isPending, startTransition] = useTransition();
   // Retry queue: unanswered/incorrect questions in authoring order; a wrong
@@ -110,7 +124,8 @@ export default function MemoryCheckStage({
     if (feedbackKey) continueButtonRef.current?.focus();
   }, [feedbackKey]);
 
-  if (isPassed) {
+  // Khi câu trả lời vừa làm memory check qua, phản hồi của câu còn hiện (kèm nút mở bài tập) dù isPassed đã bật.
+  if (isPassed && !feedback?.passed) {
     return (
       <section
         aria-labelledby="memory-check-done-title"
@@ -170,6 +185,12 @@ export default function MemoryCheckStage({
     startTransition(async () => {
       const result = await submitQuestionAnswer(questionId, chosenId);
       if (result.error) {
+        if (result.errorCode === CARDS_REQUIRED && onCardsRequired) {
+          // Không có câu trả lời nào được ghi: bỏ lượt gửi để câu hỏi không kẹt, rồi để workspace phục hồi.
+          onAttemptCleared(questionId);
+          onCardsRequired();
+          return;
+        }
         onAttemptSettled(questionId, chosenId, { kind: "error", message: result.error });
         return;
       }
@@ -181,6 +202,7 @@ export default function MemoryCheckStage({
         progressError: result.progressError,
         passed: result.isMemoryCheckPassed === true,
       });
+      if (result.isMemoryCheckPassed === true) onMemoryPassed?.();
     });
   };
 

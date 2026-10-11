@@ -68,6 +68,7 @@ export const questionAnswerRpcFailureStatusSchema = z.enum([
   "not_enrolled",
   "option_unavailable",
   "memory_locked",
+  "cards_locked",
   "save_failed",
 ]);
 
@@ -101,6 +102,9 @@ export const learningWorkspaceDataSchema = z.strictObject({
   syllabus: z.array(learningWorkspaceChapterSchema),
   currentTopic: learningWorkspaceTopicSchema,
   flashcards: z.array(FlashcardSchema),
+  // LF3: tính từ dòng user_flashcards của chính học viên (xem lib/card-progress.ts): thẻ chưa có dòng nào và thẻ chưa Ổn/Dễ.
+  unseenCardIds: z.array(z.uuid()),
+  unratedCardIds: z.array(z.uuid()),
   exercises: z.array(ExerciseSchema),
   memoryCheck: learningWorkspaceMemoryCheckSchema.nullable(),
   isMemoryCheckPassed: z.boolean(),
