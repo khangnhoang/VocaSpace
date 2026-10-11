@@ -119,15 +119,16 @@ function StageThread({ steps }: { steps: StageStep[] }) {
             className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors duration-[220ms] motion-reduce:transition-none ${
               step.state === "current"
                 ? "border-route bg-route text-white"
-                : step.done
+                : step.state !== "locked" && step.done
                   ? "border-growth-line bg-growth-quiet text-growth"
                   : "border-slate-300 bg-white text-slate-600"
             }`}
           >
-            {step.done ? (
-              <CheckCircle2 className="size-4" />
-            ) : step.state === "locked" ? (
+            {/* Khóa thắng dấu xong (AC6): bước đã xong nhưng bị khóa lại vẫn hiện ổ khóa; "đã xong" nằm ở tên truy cập. */}
+            {step.state === "locked" ? (
               <Lock className="size-3" />
+            ) : step.done ? (
+              <CheckCircle2 className="size-4" />
             ) : (
               index + 1
             )}

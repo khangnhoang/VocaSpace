@@ -795,6 +795,12 @@ describe("D8-LUI learning workspace presentation", () => {
       );
       // AC6 không có ngoại lệ cho memory check đã qua; bài tập vẫn theo luật LF2 nên không bị khóa.
       expect(steps()).toEqual(["Từ vựng (đang học)", "Memory check (đã xong, đang khóa)", "Bài tập (chưa mở)"]);
+      // AC6: bước đang khóa hiện ổ khóa, không hiện dấu xong; "đã xong" chỉ còn trong tên truy cập.
+      const memoryIcon = within(
+        within(screen.getByRole("list", { name: "Các bước của bài học" })).getAllByRole("listitem")[1],
+      ).getByText((_, el) => el?.tagName.toLowerCase() === "svg");
+      expect(memoryIcon.getAttribute("class")).toContain("lucide-lock");
+      expect(memoryIcon.getAttribute("class")).not.toMatch(/lucide-circle-check|lucide-check-circle/);
       expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
       expect(screen.getByRole("button", { name: "Tới Bài tập" })).not.toBeNull();
     });
