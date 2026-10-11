@@ -87,8 +87,17 @@ export const publicCourseDetailRpcSchema = z
   })
   .strict();
 
+// LF3 AC10: tiến độ của học viên đã ghi danh, suy ra từ buildLearnCourseProgressProjection; null với khách và học viên chưa ghi danh.
+export const publicCourseLearnerProgressSchema = z
+  .object({
+    completed_topic_ids: z.array(z.uuid()),
+    next_topic_slug: publicCourseSlugSchema.nullable(),
+  })
+  .strict();
+
 export const publicCourseDetailSchema = publicCourseDetailRpcSchema.extend({
   is_enrolled: z.boolean(),
+  learner_progress: publicCourseLearnerProgressSchema.nullable(),
 });
 
 export type PublicCourseCatalogItem = z.output<
@@ -96,5 +105,8 @@ export type PublicCourseCatalogItem = z.output<
 >;
 export type PublicCourseDetailRpc = z.output<
   typeof publicCourseDetailRpcSchema
+>;
+export type PublicCourseLearnerProgress = z.output<
+  typeof publicCourseLearnerProgressSchema
 >;
 export type PublicCourseDetail = z.output<typeof publicCourseDetailSchema>;

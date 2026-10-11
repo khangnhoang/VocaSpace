@@ -84,6 +84,9 @@ type ClientOptions = {
   user?: { id: string } | null;
   enrollment?: { id: string } | null;
   enrollmentError?: unknown;
+  // LF3 AC10: hàng user_topic_progress hoàn thành và lỗi đọc tiến độ.
+  progressRows?: { topic_id: string; is_topic_completed: boolean }[];
+  progressError?: unknown;
 };
 
 function createMockClient(options: ClientOptions = {}) {
@@ -99,6 +102,25 @@ function createMockClient(options: ClientOptions = {}) {
     error: options.enrollmentError ?? null,
   });
 
+  const progressQuery = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    in: vi.fn(),
+    order: vi.fn(),
+    range: vi.fn(),
+  };
+  progressQuery.select.mockImplementation(() => progressQuery);
+  progressQuery.eq.mockImplementation(() => progressQuery);
+  progressQuery.in.mockImplementation(() => progressQuery);
+  progressQuery.order.mockImplementation(() => progressQuery);
+  progressQuery.range.mockImplementation(() =>
+    Promise.resolve(
+      options.progressError
+        ? { data: null, error: options.progressError }
+        : { data: options.progressRows ?? [], error: null },
+    ),
+  );
+
   return {
     rpc: vi.fn().mockResolvedValue({
       data: options.rpcData,
@@ -110,8 +132,11 @@ function createMockClient(options: ClientOptions = {}) {
         error: null,
       }),
     },
-    from: vi.fn(() => enrollmentQuery),
+    from: vi.fn((table: string) =>
+      table === "user_topic_progress" ? progressQuery : enrollmentQuery,
+    ),
     enrollmentQuery,
+    progressQuery,
   };
 }
 
@@ -286,6 +311,182 @@ describe("public course actions", () => {
     );
     await expect(getPublicCourseDetail("public-course")).resolves.toMatchObject({
       status: "error",
+    });
+  });
+
+  describe("enrolled learner progress overlay (LF3 AC10)", () => {
+    const firstTopicId = "55555555-5555-4555-8555-555555555555";
+    const secondTopicId = "66666666-6666-4666-8666-666666666666";
+    const laterTopicId = "88888888-8888-4888-8888-888888888888";
+
+    async function enrolledDetail(options: Partial<ClientOptions> = {}) {
+      const client = createMockClient({
+        rpcData: detailPayload(),
+        user: { id: userId },
+        enrollment: { id: "99999999-9999-4999-8999-999999999999" },
+        ...options,
+      });
+      mockClient(client);
+      const result = await getPublicCourseDetail("public-course");
+      return { client, result };
+    }
+
+    it("gives anonymous visitors and not-enrolled learners no progress and no progress read", async () => {
+      const anonymous = createMockClient({ rpcData: detailPayload() });
+      mockClient(anonymous);
+      const anonymousResult = await getPublicCourseDetail("public-course");
+      expect(anonymousResult).toMatchObject({
+        status: "success",
+        data: { is_enrolled: false, learner_progress: null },
+      });
+      expect(anonymous.from).not.toHaveBeenCalled();
+
+      const unenrolled = createMockClient({
+        rpcData: detailPayload(),
+        user: { id: userId },
+        enrollment: null,
+      });
+      mockClient(unenrolled);
+      const unenrolledResult = await getPublicCourseDetail("public-course");
+      expect(unenrolledResult).toMatchObject({
+        status: "success",
+        data: { is_enrolled: false, learner_progress: null },
+      });
+      expect(unenrolled.from).not.toHaveBeenCalledWith("user_topic_progress");
+    });
+
+    it("marks the first topic next when an enrolled learner has no progress", async () => {
+      const { result } = await enrolledDetail({ progressRows: [] });
+
+      expect(result).toMatchObject({
+        status: "success",
+        data: {
+          is_enrolled: true,
+          learner_progress: {
+            completed_topic_ids: [],
+            next_topic_slug: "first-topic",
+          },
+        },
+      });
+    });
+
+    it("projects completed topics and the next not-completed topic for partial progress", async () => {
+      const { result } = await enrolledDetail({
+        progressRows: [{ topic_id: firstTopicId, is_topic_completed: true }],
+      });
+
+      expect(result).toMatchObject({
+        status: "success",
+        data: {
+          learner_progress: {
+            completed_topic_ids: [firstTopicId],
+            next_topic_slug: "second-topic",
+          },
+        },
+      });
+    });
+
+    it("has no next topic when every topic is completed", async () => {
+      const { result } = await enrolledDetail({
+        progressRows: [firstTopicId, secondTopicId, laterTopicId].map(
+          (topic_id) => ({ topic_id, is_topic_completed: true }),
+        ),
+      });
+
+      expect(result).toMatchObject({
+        status: "success",
+        data: {
+          learner_progress: {
+            completed_topic_ids: [firstTopicId, secondTopicId, laterTopicId],
+            next_topic_slug: null,
+          },
+        },
+      });
+    });
+
+    it("has no next topic and skips the progress read for an empty syllabus", async () => {
+      const { client, result } = await enrolledDetail({
+        rpcData: {
+          ...detailPayload(),
+          syllabus: [
+            {
+              id: "33333333-3333-4333-8333-333333333333",
+              title: "Empty chapter",
+              order_index: 0,
+              topics: [],
+            },
+          ],
+        },
+      });
+
+      expect(result).toMatchObject({
+        status: "success",
+        data: {
+          is_enrolled: true,
+          learner_progress: { completed_topic_ids: [], next_topic_slug: null },
+        },
+      });
+      expect(client.from).not.toHaveBeenCalledWith("user_topic_progress");
+    });
+
+    it("reads only the learner's own completed rows for the syllabus topics, even for an admin learner", async () => {
+      const { client } = await enrolledDetail({
+        user: { id: userId, app_metadata: { role: "admin" } } as { id: string },
+      });
+
+      expect(client.from).toHaveBeenCalledWith("user_topic_progress");
+      expect(client.progressQuery.select).toHaveBeenCalledWith(
+        "topic_id, is_topic_completed",
+      );
+      expect(client.progressQuery.eq).toHaveBeenCalledWith("user_id", userId);
+      expect(client.progressQuery.eq).toHaveBeenCalledWith(
+        "is_topic_completed",
+        true,
+      );
+      expect(client.progressQuery.in).toHaveBeenCalledWith("topic_id", [
+        firstTopicId,
+        secondTopicId,
+        laterTopicId,
+      ]);
+    });
+
+    it("reads progress in id chunks for a long syllabus", async () => {
+      const topics = Array.from({ length: 150 }, (_, index) => ({
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        title: `Topic ${index}`,
+        slug: `topic-${index}`,
+        order_index: index,
+        is_preview: false,
+      }));
+      const { client, result } = await enrolledDetail({
+        rpcData: {
+          ...detailPayload(),
+          syllabus: [
+            {
+              id: "44444444-4444-4444-8444-444444444444",
+              title: "Long chapter",
+              order_index: 0,
+              topics,
+            },
+          ],
+        },
+      });
+
+      expect(result.status).toBe("success");
+      expect(client.progressQuery.in).toHaveBeenCalledTimes(2);
+      expect(client.progressQuery.in.mock.calls[0][1]).toHaveLength(100);
+      expect(client.progressQuery.in.mock.calls[1][1]).toHaveLength(50);
+    });
+
+    it("fails loud when the progress read fails", async () => {
+      const { result } = await enrolledDetail({
+        progressError: { message: "rls failure" },
+      });
+
+      expect(result).toEqual({
+        status: "error",
+        error: "Không thể tải thông tin khóa học lúc này. Vui lòng thử lại.",
+      });
     });
   });
 });

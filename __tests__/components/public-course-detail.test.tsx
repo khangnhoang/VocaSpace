@@ -154,8 +154,21 @@ function detail(overrides: Partial<PublicCourseDetail> = {}): PublicCourseDetail
       },
     ],
     is_enrolled: false,
+    learner_progress: null,
     ...overrides,
   };
+}
+
+// LF3 AC10: học viên đã ghi danh, chủ đề đầu hoàn thành, chủ đề luyện tập là "Học tiếp".
+const firstTopicId = "55555555-5555-4555-8555-555555555555";
+function enrolledDetail(
+  progress: PublicCourseDetail["learner_progress"] = {
+    completed_topic_ids: [firstTopicId],
+    next_topic_slug: "chu-de-luyen-tap",
+  },
+  overrides: Partial<PublicCourseDetail> = {},
+) {
+  return detail({ is_enrolled: true, learner_progress: progress, ...overrides });
 }
 
 function pageProps(slug = "toeic-nen-tang") {
@@ -360,6 +373,86 @@ describe("public course detail routes and presentation", () => {
     expect(suspendedHtml).not.toMatch(/quota|moderation|audit|marked_topic_count|quota_cap/i);
   });
 
+  it("renders every syllabus topic as a learning link with its state for an enrolled learner", () => {
+    const html = renderToStaticMarkup(
+      <PublicCourseDetailView course={enrolledDetail()} />,
+    );
+
+    // Chủ đề Preview cũng là liên kết /learn khi đã ghi danh, không còn liên kết xem thử hay khóa.
+    expect(html).toContain('href="/learn/toeic-nen-tang/chu-de-mo-dau"');
+    expect(html).toContain('href="/learn/toeic-nen-tang/chu-de-luyen-tap"');
+    expect(html).not.toContain("Xem thử bài học");
+    expect(html).not.toContain("/preview/");
+    expect(html).not.toContain("Nội dung dành cho học viên");
+    expect(html).toContain("Đã hoàn thành");
+    expect(html).toContain("Học tiếp");
+    expect(html).not.toContain("Sắp tới");
+  });
+
+  it("marks only the projected next topic as Học tiếp and the rest as Sắp tới", () => {
+    const noProgress = renderToStaticMarkup(
+      <PublicCourseDetailView
+        course={enrolledDetail({
+          completed_topic_ids: [],
+          next_topic_slug: "chu-de-mo-dau",
+        })}
+      />,
+    );
+    expect(countOccurrences(noProgress, "Học tiếp")).toBe(1);
+    expect(countOccurrences(noProgress, "Sắp tới")).toBe(1);
+    expect(noProgress).not.toContain("Đã hoàn thành");
+
+    const allDone = renderToStaticMarkup(
+      <PublicCourseDetailView
+        course={enrolledDetail({
+          completed_topic_ids: [
+            firstTopicId,
+            "66666666-6666-4666-8666-666666666666",
+          ],
+          next_topic_slug: null,
+        })}
+      />,
+    );
+    expect(countOccurrences(allDone, "Đã hoàn thành")).toBe(2);
+    expect(allDone).not.toContain("Học tiếp");
+    expect(allDone).not.toContain("Sắp tới");
+  });
+
+  it("links Preview topics to the learning page for an enrolled learner even when Preview is suspended", () => {
+    const html = renderToStaticMarkup(
+      <PublicCourseDetailView
+        course={enrolledDetail(undefined, { is_preview_suspended: true })}
+      />,
+    );
+
+    expect(html).toContain('href="/learn/toeic-nen-tang/chu-de-mo-dau"');
+    expect(html).not.toContain("Xem thử bài học");
+    expect(html).not.toContain("Nội dung dành cho học viên");
+  });
+
+  it("keeps the visitor and not-enrolled syllabus unchanged, including suspended Preview", () => {
+    for (const course of [
+      detail(),
+      detail({ is_enrolled: false, learner_progress: null }),
+    ]) {
+      const html = renderToStaticMarkup(<PublicCourseDetailView course={course} />);
+      expect(html).toContain('href="/courses/toeic-nen-tang/preview/chu-de-mo-dau"');
+      expect(html).toContain("Xem thử bài học");
+      expect(html).toContain("Nội dung dành cho học viên");
+      expect(html).not.toContain("Đã hoàn thành");
+      expect(html).not.toContain("Học tiếp");
+      expect(html).not.toContain("Sắp tới");
+      expect(html).not.toMatch(/href="\/learn\/toeic-nen-tang\//);
+    }
+
+    const suspended = renderToStaticMarkup(
+      <PublicCourseDetailView course={detail({ is_preview_suspended: true })} />,
+    );
+    expect(suspended).not.toContain("Xem thử bài học");
+    expect(suspended).toContain("Nội dung dành cho học viên");
+    expect(suspended).not.toMatch(/href="\/learn\/toeic-nen-tang\//);
+  });
+
   it("places the enrollment action before detail sections in mobile document order", () => {
     const html = renderToStaticMarkup(<PublicCourseDetailView course={detail()} />);
 
@@ -538,6 +631,54 @@ describe("public course detail routes and presentation", () => {
     await vi.waitFor(() =>
       expect(pushRoute).toHaveBeenCalledWith("/learn/toeic-nen-tang/chu-de-mo-dau"),
     );
+  });
+
+  it("opens the projected next topic from Tiếp tục học without the first-topic lookup", () => {
+    const state = getEnrollmentModalWithState(enrolledDetail());
+    expect(state.primaryButton?.props.children).toBe("Tiếp tục học");
+
+    state.primaryButton?.props.onClick();
+
+    expect(pushRoute).toHaveBeenCalledWith("/learn/toeic-nen-tang/chu-de-luyen-tap");
+    expect(mockedGetFirstTopicSlug).not.toHaveBeenCalled();
+  });
+
+  it("opens the course overview from Tiếp tục học when every topic is completed or none exists", () => {
+    const allDone = getEnrollmentModalWithState(
+      enrolledDetail({
+        completed_topic_ids: [firstTopicId],
+        next_topic_slug: null,
+      }),
+    );
+    allDone.primaryButton?.props.onClick();
+    expect(pushRoute).toHaveBeenLastCalledWith("/learn/toeic-nen-tang");
+
+    const empty = getEnrollmentModalWithState(
+      enrolledDetail(
+        { completed_topic_ids: [], next_topic_slug: null },
+        { syllabus: [] },
+      ),
+    );
+    empty.primaryButton?.props.onClick();
+    expect(pushRoute).toHaveBeenLastCalledWith("/learn/toeic-nen-tang");
+    expect(mockedGetFirstTopicSlug).not.toHaveBeenCalled();
+  });
+
+  it("keeps Bắt đầu học on the first topic right after enrollment even when the DTO already has progress", async () => {
+    mockedGetFirstTopicSlug.mockResolvedValue({
+      error: null,
+      topicSlug: "chu-de-mo-dau",
+    });
+    // Sau router.refresh DTO đã có tiến độ (Học tiếp = chủ đề thứ hai), nhưng vừa đăng ký xong thì vẫn mở chủ đề đầu.
+    const state = getEnrollmentModalWithState(enrolledDetail(), true);
+    expect(state.primaryButton?.props.children).toBe("Bắt đầu học");
+
+    state.primaryButton?.props.onClick();
+
+    await vi.waitFor(() =>
+      expect(pushRoute).toHaveBeenCalledWith("/learn/toeic-nen-tang/chu-de-mo-dau"),
+    );
+    expect(pushRoute).not.toHaveBeenCalledWith("/learn/toeic-nen-tang/chu-de-luyen-tap");
   });
 
   it("reports a failed first-topic lookup on click without undoing the enrollment", async () => {

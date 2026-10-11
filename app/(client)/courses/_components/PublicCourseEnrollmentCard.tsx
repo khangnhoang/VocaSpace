@@ -15,7 +15,13 @@ import PublicCoursePaymentModal from "./PublicCoursePaymentModal";
 type PublicCourseEnrollmentCardProps = {
   course: Pick<
     PublicCourseDetail,
-    "id" | "title" | "slug" | "price" | "thumbnail_url" | "is_enrolled"
+    | "id"
+    | "title"
+    | "slug"
+    | "price"
+    | "thumbnail_url"
+    | "is_enrolled"
+    | "learner_progress"
   >;
 };
 
@@ -44,9 +50,23 @@ export function PublicCourseEnrollmentCard({
     }
   }
 
+  // LF3 AC10/Q7: "Tiếp tục học" mở chủ đề "Học tiếp" của đề cương, hoặc tổng quan khóa học khi đã xong hết/không có chủ đề.
+  function openProgressDestination() {
+    const nextTopicSlug = course.learner_progress?.next_topic_slug;
+    router.push(
+      nextTopicSlug
+        ? `/learn/${course.slug}/${nextTopicSlug}`
+        : `/learn/${course.slug}`,
+    );
+  }
+
   async function handlePrimaryAction() {
-    if (course.is_enrolled || justEnrolled) {
+    if (justEnrolled) {
       await continueLearning();
+      return;
+    }
+    if (course.is_enrolled) {
+      openProgressDestination();
       return;
     }
 

@@ -73,6 +73,7 @@ export function PublicCourseDetailView({ course }: PublicCourseDetailViewProps) 
                 price: course.price,
                 thumbnail_url: course.thumbnail_url,
                 is_enrolled: course.is_enrolled,
+                learner_progress: course.learner_progress,
               }}
             />
           </aside>
@@ -95,6 +96,7 @@ export function PublicCourseDetailView({ course }: PublicCourseDetailViewProps) 
             <PublicCourseSyllabus
               courseSlug={course.slug}
               isPreviewSuspended={course.is_preview_suspended}
+              learnerProgress={course.learner_progress}
               syllabus={course.syllabus}
             />
           </div>
