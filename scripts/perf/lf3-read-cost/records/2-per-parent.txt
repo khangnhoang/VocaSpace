@@ -1,0 +1,258 @@
+stage: 2-per-parent
+date: 2026-10-11T19:26:59+07:00
+latest applied migration: 20261011090000
+environment: isolated runtime (.e2e-runtime, DB port 45442), db reset to the stated version, then scripts/perf/lf3-read-cost/fixture.sql (ends with ANALYZE)
+role and claims: authenticated, sub 33333333-3333-4333-8333-333333333333 (student@gmail.com), enrolled in fixture course 1 only
+warm state: 3 discarded warm-up runs then n=20 per statement; one machine, other load not controlled
+
+=== fixture.sql output (row counts after ANALYZE) ===
+      table_name      | row_count
+----------------------+-----------
+ cards                |       632
+ course_collaborators |        31
+ enrollments          |        10
+ exercises            |       218
+ question_groups      |        13
+ question_options     |      2861
+ questions            |       717
+ topics               |       214
+(8 rows)
+
+
+=== measure.mjs all ===
+==== statement a ====
+function calls in one transaction:
+  has_course_content_read_access = 4
+  is_admin = 4
+  lf3_active_question_topic_id = 4
+  q7_can_read_topic = 4
+plan:
+Aggregate  (cost=10.41..10.43 rows=1 width=144) (actual time=5.489..5.490 rows=1 loops=1)
+  Buffers: shared hit=1565
+  ->  Limit  (cost=0.28..10.41 rows=1 width=55) (actual time=4.659..5.459 rows=4 loops=1)
+        Buffers: shared hit=1565
+        ->  Index Scan using idx_question_options_question_id on question_options  (cost=0.28..10.41 rows=1 width=55) (actual time=4.657..5.456 rows=4 loops=1)
+              Index Cond: (question_id = 'f3070000-0000-4000-8000-000000000001'::uuid)
+              Filter: ((removed_at IS NULL) AND private.q7_can_read_topic(private.lf3_active_question_topic_id(question_id)))
+              Buffers: shared hit=1565
+Planning:
+  Buffers: shared hit=152
+Planning Time: 0.398 ms
+Execution Time: 5.630 ms
+
+timing: {"n":20,"warmups":3,"client_roundtrip_median_ms":3.26,"client_roundtrip_min_ms":2.432,"client_roundtrip_max_ms":6.522,"server_execution_median_ms":2.07,"server_execution_min_ms":1.363,"server_execution_max_ms":2.797}
+==== statement b ====
+function calls in one transaction:
+  has_course_content_read_access = 854
+  is_admin = 853
+  lf3_active_exercise_topic_id = 170
+  lf3_active_question_topic_id = 640
+  q7_can_read_topic = 853
+plan:
+Aggregate  (cost=185.88..185.90 rows=1 width=144) (actual time=179.238..179.267 rows=1 loops=1)
+  Buffers: shared hit=15017
+  ->  Limit  (cost=168.42..185.87 rows=1 width=262) (actual time=178.152..178.192 rows=1 loops=1)
+        Buffers: shared hit=15016
+        ->  Nested Loop Left Join  (cost=168.42..185.87 rows=1 width=262) (actual time=178.151..178.189 rows=1 loops=1)
+              Buffers: shared hit=15016
+              ->  Nested Loop Left Join  (cost=89.28..106.69 rows=1 width=262) (actual time=15.485..15.506 rows=1 loops=1)
+                    Buffers: shared hit=1557
+                    ->  Nested Loop Left Join  (cost=81.07..98.46 rows=1 width=230) (actual time=15.466..15.485 rows=1 loops=1)
+                          Buffers: shared hit=1556
+                          ->  Nested Loop  (cost=41.74..59.10 rows=1 width=198) (actual time=11.091..11.107 rows=1 loops=1)
+                                Buffers: shared hit=1207
+                                ->  Nested Loop Left Join  (cost=41.60..50.15 rows=1 width=134) (actual time=11.050..11.060 rows=1 loops=1)
+                                      Buffers: shared hit=1201
+                                      ->  Index Scan using topics_slug_key on topics  (cost=0.14..8.67 rows=1 width=102) (actual time=3.616..3.618 rows=1 loops=1)
+                                            Index Cond: (slug = 'lf3-perf-topic-1'::text)
+                                            Filter: ((removed_at IS NULL) AND (course_id = 'f3010000-0000-4000-8000-000000000001'::uuid) AND (((removed_at IS NOT NULL) AND has_course_authoring_access(course_id)) OR ((removed_at IS NULL) AND private.q7_can_read_topic(id))) AND (status = 'published'::item_status))
+                                            Buffers: shared hit=704
+                                      ->  Aggregate  (cost=41.45..41.47 rows=1 width=32) (actual time=7.431..7.438 rows=1 loops=1)
+                                            Buffers: shared hit=497
+                                            ->  Subquery Scan on topics_memory_checks_1  (cost=32.89..41.45 rows=1 width=73) (actual time=7.374..7.382 rows=1 loops=1)
+                                                  Buffers: shared hit=497
+                                                  ->  Limit  (cost=32.89..41.44 rows=1 width=81) (actual time=7.369..7.376 rows=1 loops=1)
+                                                        Buffers: shared hit=497
+                                                        ->  Nested Loop Left Join  (cost=32.89..41.44 rows=1 width=81) (actual time=7.367..7.374 rows=1 loops=1)
+                                                              Buffers: shared hit=497
+                                                              ->  Index Scan using exercises_one_active_memory_check_per_topic on exercises exercises_1  (cost=0.13..8.65 rows=1 width=65) (actual time=1.091..1.092 rows=1 loops=1)
+                                                                    Index Cond: (topic_id = topics.id)
+                                                                    Filter: ((course_id = topics.course_id) AND (((removed_at IS NULL) AND private.q7_can_read_topic(topic_id)) OR ((removed_at IS NOT NULL) AND has_course_authoring_access(course_id))))
+                                                                    Buffers: shared hit=29
+                                                              ->  Aggregate  (cost=32.76..32.78 rows=1 width=32) (actual time=6.273..6.278 rows=1 loops=1)
+                                                                    Buffers: shared hit=468
+                                                                    ->  Subquery Scan on exercises_questions_2  (cost=22.90..32.76 rows=1 width=133) (actual time=3.630..6.207 rows=5 loops=1)
+                                                                          Buffers: shared hit=468
+                                                                          ->  Limit  (cost=22.90..32.75 rows=1 width=173) (actual time=3.622..6.197 rows=5 loops=1)
+                                                                                Buffers: shared hit=468
+                                                                                ->  Nested Loop Left Join  (cost=22.90..32.75 rows=1 width=173) (actual time=3.621..6.195 rows=5 loops=1)
+                                                                                      Buffers: shared hit=468
+                                                                                      ->  Nested Loop Left Join  (cost=12.48..22.30 rows=1 width=141) (actual time=1.429..2.003 rows=5 loops=1)
+                                                                                            Buffers: shared hit=90
+                                                                                            ->  Bitmap Heap Scan on questions questions_2  (cost=4.30..14.09 rows=1 width=109) (actual time=1.404..1.949 rows=5 loops=1)
+                                                                                                  Recheck Cond: (exercise_id = exercises_1.id)
+                                                                                                  Filter: ((course_id = exercises_1.course_id) AND (((removed_at IS NULL) AND private.q7_can_read_topic(private.lf3_active_exercise_topic_id(exercise_id))) OR ((removed_at IS NOT NULL) AND has_course_authoring_access(course_id))))
+                                                                                                  Heap Blocks: exact=2
+                                                                                                  Buffers: shared hit=85
+                                                                                                  ->  Bitmap Index Scan on idx_questions_exercise_id  (cost=0.00..4.30 rows=3 width=0) (actual time=0.017..0.017 rows=5 loops=1)
+                                                                                                        Index Cond: (exercise_id = exercises_1.id)
+                                                                                                        Buffers: shared hit=2
+                                                                                            ->  Aggregate  (cost=8.18..8.20 rows=1 width=32) (actual time=0.009..0.009 rows=1 loops=5)
+                                                                                                  Buffers: shared hit=5
+                                                                                                  ->  Subquery Scan on questions_answers_3  (cost=0.15..8.18 rows=1 width=56) (actual time=0.007..0.008 rows=0 loops=5)
+                                                                                                        Buffers: shared hit=5
+                                                                                                        ->  Limit  (cost=0.15..8.17 rows=1 width=32) (actual time=0.007..0.007 rows=0 loops=5)
+                                                                                                              Buffers: shared hit=5
+                                                                                                              ->  Result  (cost=0.15..8.17 rows=1 width=32) (actual time=0.007..0.007 rows=0 loops=5)
+                                                                                                                    One-Time Filter: ((COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid = '33333333-3333-4333-8333-333333333333'::uuid)
+                                                                                                                    Buffers: shared hit=5
+                                                                                                                    ->  Index Scan using user_question_answers_user_id_question_id_key on user_question_answers user_question_answers_3  (cost=0.15..8.17 rows=1 width=32) (actual time=0.004..0.004 rows=0 loops=5)
+                                                                                                                          Index Cond: ((user_id = '33333333-3333-4333-8333-333333333333'::uuid) AND (question_id = questions_2.id))
+                                                                                                                          Buffers: shared hit=5
+                                                                                      ->  Aggregate  (cost=10.42..10.44 rows=1 width=32) (actual time=0.836..0.836 rows=1 loops=5)
+                                                                                            Buffers: shared hit=378
+                                                                                            ->  Subquery Scan on questions_options_3  (cost=0.28..10.42 rows=1 width=79) (actual time=0.368..0.817 rows=4 loops=5)
+                                                                                                  Buffers: shared hit=378
+                                                                                                  ->  Limit  (cost=0.28..10.41 rows=1 width=55) (actual time=0.366..0.813 rows=4 loops=5)
+                                                                                                        Buffers: shared hit=378
+                                                                                                        ->  Index Scan using idx_question_options_question_id on question_options question_options_3  (cost=0.28..10.41 rows=1 width=55) (actual time=0.365..0.812 rows=4 loops=5)
+                                                                                                              Index Cond: (question_id = questions_2.id)
+                                                                                                              Filter: ((removed_at IS NULL) AND private.q7_can_read_topic(private.lf3_active_question_topic_id(question_id)))
+                                                                                                              Buffers: shared hit=378
+                                ->  Subquery Scan on topics_chapter_1  (cost=0.14..8.94 rows=1 width=64) (actual time=0.039..0.043 rows=1 loops=1)
+                                      Buffers: shared hit=6
+                                      ->  Limit  (cost=0.14..8.93 rows=1 width=40) (actual time=0.037..0.040 rows=1 loops=1)
+                                            Buffers: shared hit=6
+                                            ->  Index Scan using chapters_id_course_id_key on chapters chapters_1  (cost=0.14..8.93 rows=1 width=40) (actual time=0.036..0.039 rows=1 loops=1)
+                                                  Index Cond: ((id = topics.chapter_id) AND (course_id = topics.course_id))
+                                                  Filter: (((removed_at IS NULL) AND has_course_content_read_access(course_id)) OR ((removed_at IS NOT NULL) AND has_course_authoring_access(course_id) AND (can_reorder_course_chapters(course_id) OR (created_by_user_id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid))))
+                                                  Buffers: shared hit=6
+                          ->  Aggregate  (cost=39.34..39.35 rows=1 width=32) (actual time=4.372..4.375 rows=1 loops=1)
+                                Buffers: shared hit=349
+                                ->  Subquery Scan on topics_cards_1  (cost=4.30..39.33 rows=1 width=184) (actual time=1.000..4.237 rows=30 loops=1)
+                                      Buffers: shared hit=349
+                                      ->  Limit  (cost=4.30..39.32 rows=1 width=160) (actual time=0.996..4.218 rows=30 loops=1)
+                                            Buffers: shared hit=349
+                                            ->  Bitmap Heap Scan on cards cards_1  (cost=4.30..39.32 rows=1 width=160) (actual time=0.995..4.212 rows=30 loops=1)
+                                                  Recheck Cond: (topic_id = topics.id)
+                                                  Filter: (((removed_at IS NULL) AND private.q7_can_read_topic(topic_id)) OR ((removed_at IS NOT NULL) AND EXISTS(SubPlan 1)))
+                                                  Heap Blocks: exact=1
+                                                  Buffers: shared hit=349
+                                                  ->  Bitmap Index Scan on idx_cards_topic_id  (cost=0.00..4.30 rows=3 width=0) (actual time=0.012..0.012 rows=30 loops=1)
+                                                        Index Cond: (topic_id = topics.id)
+                                                        Buffers: shared hit=2
+                                                  SubPlan 1
+                                                    ->  Index Scan using topics_pkey on topics t  (cost=0.14..8.91 rows=1 width=0) (never executed)
+                                                          Index Cond: (id = cards_1.topic_id)
+                                                          Filter: ((((removed_at IS NOT NULL) AND has_course_authoring_access(course_id)) OR ((removed_at IS NULL) AND private.q7_can_read_topic(id))) AND has_course_management_access(course_id))
+                    ->  Aggregate  (cost=8.21..8.22 rows=1 width=32) (actual time=0.017..0.018 rows=1 loops=1)
+                          Buffers: shared hit=1
+                          ->  Subquery Scan on topics_progress_1  (cost=0.17..8.20 rows=1 width=43) (actual time=0.016..0.016 rows=0 loops=1)
+                                Buffers: shared hit=1
+                                ->  Limit  (cost=0.17..8.19 rows=1 width=19) (actual time=0.015..0.015 rows=0 loops=1)
+                                      Buffers: shared hit=1
+                                      ->  Index Scan using utp_user_topic_unique on user_topic_progress user_topic_progress_1  (cost=0.17..8.19 rows=1 width=19) (actual time=0.010..0.010 rows=0 loops=1)
+                                            Index Cond: ((user_id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid) AND (topic_id = topics.id))
+                                            Buffers: shared hit=1
+              ->  Aggregate  (cost=79.14..79.16 rows=1 width=32) (actual time=162.649..162.665 rows=1 loops=1)
+                    Buffers: shared hit=13459
+                    ->  Subquery Scan on topics_exercises_1  (cost=70.56..79.14 rows=1 width=116) (actual time=13.632..160.199 rows=11 loops=1)
+                          Buffers: shared hit=13459
+                          ->  Limit  (cost=70.56..79.13 rows=1 width=156) (actual time=13.623..160.132 rows=11 loops=1)
+                                Buffers: shared hit=13459
+                                ->  Nested Loop Left Join  (cost=70.56..79.13 rows=1 width=156) (actual time=13.621..160.123 rows=11 loops=1)
+                                      Buffers: shared hit=13459
+                                      ->  Nested Loop Left Join  (cost=32.93..41.48 rows=1 width=124) (actual time=13.605..116.211 rows=11 loops=1)
+                                            Buffers: shared hit=9038
+                                            ->  Index Scan using idx_exercises_topic_id on exercises exercises_1_1  (cost=0.14..8.66 rows=1 width=92) (actual time=1.148..4.202 rows=11 loops=1)
+                                                  Index Cond: (topic_id = topics.id)
+                                                  Filter: ((course_id = topics.course_id) AND (((removed_at IS NULL) AND private.q7_can_read_topic(topic_id)) OR ((removed_at IS NOT NULL) AND has_course_authoring_access(course_id))))
+                                                  Buffers: shared hit=139
+                                            ->  Aggregate  (cost=32.79..32.80 rows=1 width=32) (actual time=10.178..10.178 rows=1 loops=11)
+                                                  Buffers: shared hit=8899
+                                                  ->  Subquery Scan on exercises_questions_2_1  (cost=22.93..32.78 rows=1 width=119) (actual time=1.333..10.027 rows=10 loops=11)
+                                                        Buffers: shared hit=8899
+                                                        ->  Limit  (cost=22.93..32.77 rows=1 width=159) (actual time=1.331..10.016 rows=10 loops=11)
+                                                              Buffers: shared hit=8899
+                                                              ->  Nested Loop Left Join  (cost=22.93..32.77 rows=1 width=159) (actual time=1.329..10.013 rows=10 loops=11)
+                                                                    Buffers: shared hit=8899
+                                                                    ->  Nested Loop Left Join  (cost=14.72..24.54 rows=1 width=127) (actual time=1.321..9.935 rows=10 loops=11)
+                                                                          Buffers: shared hit=8794
+                                                                          ->  Bitmap Heap Scan on questions questions_2_1  (cost=4.30..14.09 rows=1 width=95) (actual time=0.305..1.872 rows=10 loops=11)
+                                                                                Recheck Cond: (exercise_id = exercises_1_1.id)
+                                                                                Filter: ((course_id = exercises_1_1.course_id) AND (((removed_at IS NULL) AND private.q7_can_read_topic(private.lf3_active_exercise_topic_id(exercise_id))) OR ((removed_at IS NOT NULL) AND has_course_authoring_access(course_id))))
+                                                                                Heap Blocks: exact=13
+                                                                                Buffers: shared hit=1416
+                                                                                ->  Bitmap Index Scan on idx_questions_exercise_id  (cost=0.00..4.30 rows=3 width=0) (actual time=0.006..0.006 rows=10 loops=11)
+                                                                                      Index Cond: (exercise_id = exercises_1_1.id)
+                                                                                      Buffers: shared hit=22
+                                                                          ->  Aggregate  (cost=10.42..10.44 rows=1 width=32) (actual time=0.843..0.843 rows=1 loops=105)
+                                                                                Buffers: shared hit=7378
+                                                                                ->  Subquery Scan on questions_options_3_1  (cost=0.28..10.42 rows=1 width=79) (actual time=0.225..0.819 rows=4 loops=105)
+                                                                                      Buffers: shared hit=7378
+                                                                                      ->  Limit  (cost=0.28..10.41 rows=1 width=55) (actual time=0.223..0.815 rows=4 loops=105)
+                                                                                            Buffers: shared hit=7378
+                                                                                            ->  Index Scan using idx_question_options_question_id on question_options question_options_3_1  (cost=0.28..10.41 rows=1 width=55) (actual time=0.223..0.814 rows=4 loops=105)
+                                                                                                  Index Cond: (question_id = questions_2_1.id)
+                                                                                                  Filter: ((removed_at IS NULL) AND private.q7_can_read_topic(private.lf3_active_question_topic_id(question_id)))
+                                                                                                  Buffers: shared hit=7378
+                                                                    ->  Aggregate  (cost=8.21..8.22 rows=1 width=32) (actual time=0.006..0.006 rows=1 loops=105)
+                                                                          Buffers: shared hit=105
+                                                                          ->  Subquery Scan on questions_answers_3_1  (cost=0.17..8.20 rows=1 width=40) (actual time=0.005..0.005 rows=0 loops=105)
+                                                                                Buffers: shared hit=105
+                                                                                ->  Limit  (cost=0.17..8.19 rows=1 width=16) (actual time=0.005..0.005 rows=0 loops=105)
+                                                                                      Buffers: shared hit=105
+                                                                                      ->  Index Scan using user_question_answers_user_id_question_id_key on user_question_answers user_question_answers_3_1  (cost=0.17..8.19 rows=1 width=16) (actual time=0.002..0.002 rows=0 loops=105)
+                                                                                            Index Cond: ((user_id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid) AND (question_id = questions_2_1.id))
+                                                                                            Buffers: shared hit=105
+                                      ->  Aggregate  (cost=37.63..37.64 rows=1 width=32) (actual time=3.976..3.977 rows=1 loops=11)
+                                            Buffers: shared hit=4421
+                                            ->  Subquery Scan on exercises_groups_2  (cost=29.92..37.62 rows=1 width=167) (actual time=2.184..3.919 rows=1 loops=11)
+                                                  Buffers: shared hit=4421
+                                                  ->  Limit  (cost=29.92..37.61 rows=1 width=175) (actual time=2.183..3.917 rows=1 loops=11)
+                                                        Buffers: shared hit=4421
+                                                        ->  Nested Loop Left Join  (cost=29.92..37.61 rows=1 width=175) (actual time=2.182..3.915 rows=1 loops=11)
+                                                              Buffers: shared hit=4421
+                                                              ->  Seq Scan on question_groups question_groups_2  (cost=0.00..7.66 rows=1 width=143) (actual time=0.188..0.270 rows=1 loops=11)
+                                                                    Filter: ((removed_at IS NULL) AND (exercise_id = exercises_1_1.id) AND private.q7_can_read_topic(private.lf3_active_exercise_topic_id(exercise_id)))
+                                                                    Rows Removed by Filter: 12
+                                                                    Buffers: shared hit=157
+                                                              ->  Aggregate  (cost=29.92..29.94 rows=1 width=32) (actual time=4.003..4.004 rows=1 loops=10)
+                                                                    Buffers: shared hit=4264
+                                                                    ->  Subquery Scan on question_groups_questions_3  (cost=18.78..29.92 rows=1 width=119) (actual time=1.008..3.936 rows=5 loops=10)
+                                                                          Buffers: shared hit=4264
+                                                                          ->  Limit  (cost=18.78..29.91 rows=1 width=159) (actual time=1.005..3.931 rows=5 loops=10)
+                                                                                Buffers: shared hit=4264
+                                                                                ->  Nested Loop Left Join  (cost=18.78..29.91 rows=1 width=159) (actual time=1.004..3.929 rows=5 loops=10)
+                                                                                      Buffers: shared hit=4264
+                                                                                      ->  Nested Loop Left Join  (cost=10.57..21.68 rows=1 width=127) (actual time=0.996..3.896 rows=5 loops=10)
+                                                                                            Buffers: shared hit=4214
+                                                                                            ->  Index Scan using idx_questions_group_id on questions questions_3  (cost=0.15..11.23 rows=1 width=95) (actual time=0.266..0.837 rows=5 loops=10)
+                                                                                                  Index Cond: (group_id = question_groups_2.id)
+                                                                                                  Filter: ((exercise_id = question_groups_2.exercise_id) AND (((removed_at IS NULL) AND private.q7_can_read_topic(private.lf3_active_exercise_topic_id(exercise_id))) OR ((removed_at IS NOT NULL) AND has_course_authoring_access(course_id))))
+                                                                                                  Buffers: shared hit=686
+                                                                                            ->  Aggregate  (cost=10.42..10.44 rows=1 width=32) (actual time=0.610..0.610 rows=1 loops=50)
+                                                                                                  Buffers: shared hit=3528
+                                                                                                  ->  Subquery Scan on questions_options_4  (cost=0.28..10.42 rows=1 width=79) (actual time=0.164..0.592 rows=4 loops=50)
+                                                                                                        Buffers: shared hit=3528
+                                                                                                        ->  Limit  (cost=0.28..10.41 rows=1 width=55) (actual time=0.163..0.589 rows=4 loops=50)
+                                                                                                              Buffers: shared hit=3528
+                                                                                                              ->  Index Scan using idx_question_options_question_id on question_options question_options_4  (cost=0.28..10.41 rows=1 width=55) (actual time=0.162..0.587 rows=4 loops=50)
+                                                                                                                    Index Cond: (question_id = questions_3.id)
+                                                                                                                    Filter: ((removed_at IS NULL) AND private.q7_can_read_topic(private.lf3_active_question_topic_id(question_id)))
+                                                                                                                    Buffers: shared hit=3528
+                                                                                      ->  Aggregate  (cost=8.21..8.22 rows=1 width=32) (actual time=0.005..0.005 rows=1 loops=50)
+                                                                                            Buffers: shared hit=50
+                                                                                            ->  Subquery Scan on questions_answers_4  (cost=0.17..8.20 rows=1 width=40) (actual time=0.004..0.004 rows=0 loops=50)
+                                                                                                  Buffers: shared hit=50
+                                                                                                  ->  Limit  (cost=0.17..8.19 rows=1 width=16) (actual time=0.004..0.004 rows=0 loops=50)
+                                                                                                        Buffers: shared hit=50
+                                                                                                        ->  Index Scan using user_question_answers_user_id_question_id_key on user_question_answers user_question_answers_4  (cost=0.17..8.19 rows=1 width=16) (actual time=0.002..0.002 rows=0 loops=50)
+                                                                                                              Index Cond: ((user_id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid) AND (question_id = questions_3.id))
+                                                                                                              Buffers: shared hit=50
+Planning:
+  Buffers: shared hit=851
+Planning Time: 7.302 ms
+Execution Time: 180.919 ms
+
+timing: {"n":20,"warmups":3,"client_roundtrip_median_ms":143.19,"client_roundtrip_min_ms":117.4,"client_roundtrip_max_ms":192.09,"server_execution_median_ms":135.997,"server_execution_min_ms":112.29,"server_execution_max_ms":202.805}

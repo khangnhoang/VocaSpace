@@ -3,7 +3,9 @@
 // Ba phép đo, mỗi phép chạy với vai trò `authenticated` và claims của student@gmail.com (đúng như PostgREST):
 //   counts : số lần gọi từng hàm trong MỘT transaction, đọc từ pg_stat_xact_user_functions (track_functions = all).
 //   explain: EXPLAIN (ANALYZE, BUFFERS) để lấy hình dạng plan (tách riêng khỏi phép đo thời gian).
-//   timing : 3 lần chạy nóng bị bỏ, rồi trung vị của 20 lần chạy (thời gian client của psql, gồm cả round trip loopback).
+//   timing : 3 lần chạy nóng bị bỏ, rồi trung vị của 20 lần chạy, ghi HAI số tách biệt:
+//            client_roundtrip_* = thời gian client của psql (`	iming`, gồm round trip loopback và serialize kết quả; KHÔNG phải thời gian thực thi);
+//            server_execution_* = dòng "Execution Time" của EXPLAIN (ANALYZE, BUFFERS) từ chính server, cùng quy trình warm-up/n.
 // Cách chạy:  PGPASSWORD=postgres node scripts/perf/lf3-read-cost/measure.mjs [counts|explain|timing|all]
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -51,7 +53,22 @@ function timing(sql) {
   const measured = times.slice(WARMUPS).sort((x, y) => x - y);
   if (measured.length !== RUNS) throw new Error(`expected ${RUNS} timings, got ${measured.length} (of ${times.length})`);
   const median = (measured[RUNS / 2 - 1] + measured[RUNS / 2]) / 2;
-  return { median_ms: Number(median.toFixed(2)), min_ms: measured[0], max_ms: measured[RUNS - 1] };
+  return { client_roundtrip_median_ms: Number(median.toFixed(2)), client_roundtrip_min_ms: measured[0], client_roundtrip_max_ms: measured[RUNS - 1] };
+}
+
+// Thời gian thực thi phía server: "Execution Time" của EXPLAIN (ANALYZE, BUFFERS), 3 lần nóng bị bỏ rồi trung vị của 20 lần.
+function serverExecution(sql) {
+  const scripts = [];
+  for (let i = 0; i < WARMUPS + RUNS; i += 1) scripts.push(`begin;
+${asLearner}explain (analyze, buffers) ${sql};
+rollback;
+`);
+  const out = psql(scripts.join(""));
+  const times = [...out.matchAll(/Execution Time: ([\d.]+) ms/g)].map((m) => Number(m[1]));
+  const measured = times.slice(WARMUPS).sort((x, y) => x - y);
+  if (measured.length !== RUNS) throw new Error(`expected ${RUNS} execution times, got ${measured.length} (of ${times.length})`);
+  const median = (measured[RUNS / 2 - 1] + measured[RUNS / 2]) / 2;
+  return { server_execution_median_ms: Number(median.toFixed(3)), server_execution_min_ms: measured[0], server_execution_max_ms: measured[RUNS - 1] };
 }
 
 const mode = process.argv[2] ?? "all";
@@ -59,5 +76,7 @@ for (const [name, sql] of Object.entries(statements)) {
   console.log(`==== statement ${name} ====`);
   if (mode === "counts" || mode === "all") console.log("function calls in one transaction:\n  " + (counts(sql).join("\n  ") || "(none)"));
   if (mode === "explain" || mode === "all") console.log("plan:\n" + explain(sql));
-  if (mode === "timing" || mode === "all") console.log("timing:", JSON.stringify(timing(sql)));
+  if (mode === "timing" || mode === "all") {
+    console.log("timing:", JSON.stringify({ n: RUNS, warmups: WARMUPS, ...timing(sql), ...serverExecution(sql) }));
+  }
 }
