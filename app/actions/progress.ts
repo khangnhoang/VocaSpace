@@ -10,6 +10,8 @@ import { createClient } from "@/utils/supabase/server";
 import {
   MEMORY_CHECK_REQUIRED,
   MEMORY_CHECK_REQUIRED_ERROR,
+  CARDS_REQUIRED,
+  CARDS_REQUIRED_ERROR,
 } from "@/lib/memory-check";
 import { createActionTimer, type ActionTimer } from "@/lib/learning-action-timing";
 
@@ -103,6 +105,8 @@ async function answerQuestion(
         return { error: "Đáp án không khả dụng." };
       case "memory_locked":
         return { error: MEMORY_CHECK_REQUIRED_ERROR, errorCode: MEMORY_CHECK_REQUIRED };
+      case "cards_locked":
+        return { error: CARDS_REQUIRED_ERROR, errorCode: CARDS_REQUIRED };
       case "save_failed":
         return { error: SAVE_ERROR };
     }

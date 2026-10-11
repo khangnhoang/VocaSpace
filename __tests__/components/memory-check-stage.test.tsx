@@ -113,6 +113,8 @@ function workspaceData(
       questions: [memoryQuestion(ids.first, 1), memoryQuestion(ids.second, 2)],
     },
     isMemoryCheckPassed: false,
+    cardsSeen: true,
+    cardsToRate: 0,
     answers: {},
     progress: null,
     ...overrides,

@@ -126,8 +126,9 @@ async function createFixture({ memoryQuestions = 2, enrolled = true } = {}) {
     original_creator_user_id: TEACHER_ID,
     responsible_author_user_id: TEACHER_ID,
   });
+  const cardId = randomUUID();
   await insertOrThrow("cards", {
-    topic_id: fixture.topicId, front_content: { word: "due" }, back_content: { translation: "đến hạn" },
+    id: cardId, topic_id: fixture.topicId, front_content: { word: "due" }, back_content: { translation: "đến hạn" },
   });
   await insertOrThrow("exercises", {
     id: exerciseId, topic_id: fixture.topicId, course_id: fixture.courseId, title: "Part 6", part_type: "part6", order_index: 1,
@@ -147,6 +148,8 @@ async function createFixture({ memoryQuestions = 2, enrolled = true } = {}) {
       title: "Memory check", part_type: null, activity_stage: "memory_check", order_index: 0,
     });
     for (let order = 1; order <= memoryQuestions; order += 1) await addMemoryQuestion(fixture, order);
+    // LF3: memory check chỉ ghi được sau khi học viên có dòng user_flashcards của mình cho mọi thẻ active; suite này kiểm cổng D3 nên coi thẻ đã xem.
+    await insertOrThrow("user_flashcards", { user_id: STUDENT_ID, card_id: cardId, last_rating: 3 });
   }
   if (enrolled) await insertOrThrow("enrollments", { course_id: fixture.courseId, user_id: STUDENT_ID });
   return fixture;

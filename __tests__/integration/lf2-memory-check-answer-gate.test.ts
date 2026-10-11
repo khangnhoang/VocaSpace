@@ -84,6 +84,8 @@ async function build(memoryCount = 2): Promise<Fixture> {
       part_type: null, activity_stage: "memory_check", order_index: 0,
     });
     for (let order = 0; order < memoryCount; order += 1) f.memory.push(await addQuestion(f.courseId, f.memoryExerciseId, order));
+    // LF3: memory check chỉ ghi được sau khi học viên có dòng user_flashcards của mình cho mọi thẻ active; suite này kiểm cổng LF2 nên coi thẻ đã xem.
+    await insert("user_flashcards", { user_id: studentId, card_id: f.cardId, last_rating: 3 });
   }
   await insert("exercises", {
     id: f.exerciseId, topic_id: f.topicId, course_id: f.courseId, title: "Part 5",

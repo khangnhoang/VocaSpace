@@ -9,7 +9,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Case thành công: kết quả RPC `ok` trả `isCorrect`, `topicProgress` đã parse; LF1 (AC6): câu đúng trả `explanation` của tác giả khi có
 //   và không có khóa `explanation` khi để trống; câu sai giữ nguyên lời giải thích và lời nhắc mặc định.
 // - Case thất bại: malformed ID không tạo client; mỗi status của RPC map đúng message/errorCode hiện tại (AC3, AC5): unavailable, not_enrolled,
-//   option_unavailable, memory_locked (`MEMORY_CHECK_REQUIRED`), save_failed; RPC lỗi hoặc sai shape trả lỗi lưu chung, không lộ lỗi DB.
+//   option_unavailable, memory_locked (`MEMORY_CHECK_REQUIRED`), cards_locked (`CARDS_REQUIRED`, LF3), save_failed; RPC lỗi hoặc sai shape trả lỗi lưu chung, không lộ lỗi DB.
 // - Bảo mật/phân quyền: thiếu auth không gọi RPC; action chỉ gửi questionId + selectedOptionId đã parse, không gửi user hay đáp án đúng.
 // - Ổn định/resilience (D4 H4, AC3a): đã lưu thì luôn `success: true`; progress null hoặc sai shape cho `progressError` và không có `topicProgress`;
 //   trạng thái memory đến từ RPC (sync hoặc suy ra khi sync hỏng) và để trống khi RPC không xác minh được.
@@ -111,6 +111,7 @@ describe("submitQuestionAnswer", () => {
     ["not_enrolled", { error: "Bạn cần ghi danh khóa học để lưu câu trả lời." }],
     ["option_unavailable", { error: "Đáp án không khả dụng." }],
     ["memory_locked", { error: "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.", errorCode: "MEMORY_CHECK_REQUIRED" }],
+    ["cards_locked", { error: "Bạn cần học hết flashcard của bài này trước khi làm memory check.", errorCode: "CARDS_REQUIRED" }],
     ["save_failed", { error: GENERIC_SAVE_ERROR }],
     ["auth_required", { error: "Vui lòng đăng nhập" }],
   ])("maps the %s status to today's message without any grading or progress", async (status, expected) => {
