@@ -14,7 +14,7 @@ import { beginLocalPostgresTransaction, waitForLocalPostgresQuery } from "./help
 // - Thất bại: cùng các đường ghi bị từ chối (42501 / `cards_locked`) khi còn thẻ chưa có dòng; thẻ thêm sau khóa lại và đáp án đã lưu giữ nguyên.
 // - Phân quyền: dòng của học viên khác (kể cả admin đọc được mọi dòng) không làm thẻ thành "đã xem"; admin đang học dùng dòng của chính admin.
 // - Resilience: thẻ bị mất dòng giữa lúc phân loại và lúc ghi (barrier test-only) cho `cards_locked` ở cả nhánh insert lẫn nhánh conflict.
-// - Invariant: cổng SQL, RPC và cờ `cardsSeen` của workspace luôn cùng đáp án ở mọi trạng thái; cổng bài tập LF2 và thứ tự ưu tiên giữ nguyên;
+// - Invariant: cổng SQL, RPC và danh sách thẻ chưa xem (`unseenCardIds`) của workspace luôn cùng đáp án ở mọi trạng thái; cổng bài tập LF2 và thứ tự ưu tiên giữ nguyên;
 //   catalog (definer, search_path, grants) và policy L1 không có policy permissive mới.
 // - Preview công khai không ghi user_question_answers nên không bị ảnh hưởng (memory-check-preview.test.ts giữ nguyên).
 // - Verify: xem số pass gần nhất trong progress.md (LF3 CP3).
@@ -163,7 +163,7 @@ const rpcAnswer = async (client: SupabaseClient, q: Q, option: string) => {
   return r.data as Status;
 };
 
-// Cùng một trạng thái, ba câu trả lời: cổng SQL (thử upsert một câu probe rồi dọn), RPC (cũng ghi probe rồi dọn) và cờ `cardsSeen`
+// Cùng một trạng thái, ba câu trả lời: cổng SQL (thử upsert một câu probe rồi dọn), RPC (cũng ghi probe rồi dọn) và danh sách `unseenCardIds`
 // mà workspace trả về cho đúng người đó (G4: parity ở mọi trạng thái).
 async function gateStates(f: Fixture, client: SupabaseClient, userId: string) {
   const attempt = await upsertAnswer(client, userId, f.probe, f.probe.right);
@@ -176,7 +176,7 @@ async function gateStates(f: Fixture, client: SupabaseClient, userId: string) {
   authenticated.client = learner;
   if (workspace.status !== "success") throw new Error(`workspace status ${workspace.status}`);
   expect(["ok", "cards_locked"]).toContain(status);
-  return { sql: attempt.error === null, rpc: status === "ok", workspace: workspace.data.cardsSeen };
+  return { sql: attempt.error === null, rpc: status === "ok", workspace: workspace.data.unseenCardIds.length === 0 };
 }
 const expectGate = async (f: Fixture, open: boolean, client = learner, userId = studentId) =>
   expect(await gateStates(f, client, userId)).toEqual({ sql: open, rpc: open, workspace: open });
@@ -371,23 +371,28 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       expect((await upsertAnswer(admin, adminId, f.memory[0], f.memory[0].right)).error).toBeNull();
     });
 
-    it("reports the workspace flag and the cards still to rate from the learner's own rows only", async () => {
+    it("reports the unseen and the not-yet-Ổn/Dễ cards from the learner's own rows only", async () => {
       const f = await build(3);
+      const [c0, c1, c2] = f.cardIds;
       const load = async () => {
         const result = await getLearningWorkspace(f.courseSlug, f.topicSlug);
         if (result.status !== "success") throw new Error(`workspace status ${result.status}`);
-        return { cardsSeen: result.data.cardsSeen, cardsToRate: result.data.cardsToRate };
+        return { unseen: [...result.data.unseenCardIds].sort(), unrated: [...result.data.unratedCardIds].sort() };
       };
-      expect(await load()).toEqual({ cardsSeen: false, cardsToRate: 3 });
-      await rate(f.cardIds[0], 3);
-      await rate(f.cardIds[1], 1);
-      await rateAll(f, 4, teacherId);
-      expect(await load()).toEqual({ cardsSeen: false, cardsToRate: 2 });
-      await rate(f.cardIds[2], 2);
-      expect(await load()).toEqual({ cardsSeen: true, cardsToRate: 2 });
-      await rate(f.cardIds[1], 4);
-      await rate(f.cardIds[2], 3);
-      expect(await load()).toEqual({ cardsSeen: true, cardsToRate: 0 });
+      const all = [...f.cardIds].sort();
+      expect(await load()).toEqual({ unseen: all, unrated: all });
+      await rate(c0, 3);
+      await rate(c1, 1);
+      await rateAll(f, 4, teacherId); // dòng của người khác không đổi kết quả
+      expect(await load()).toEqual({ unseen: [c2], unrated: [c1, c2].sort() });
+      await rate(c2, 2);
+      expect(await load()).toEqual({ unseen: [], unrated: [c1, c2].sort() });
+      await rate(c1, 4);
+      await rate(c2, 3);
+      expect(await load()).toEqual({ unseen: [], unrated: [] });
+      // Chấm Lại sau đó đưa thẻ về "chưa Ổn/Dễ" nhưng vẫn là đã xem (LF1 dùng lần chấm gần nhất).
+      await rate(c0, 1);
+      expect(await load()).toEqual({ unseen: [], unrated: [c0] });
     });
   });
 

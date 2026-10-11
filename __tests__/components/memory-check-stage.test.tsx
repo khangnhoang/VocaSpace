@@ -6,7 +6,10 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useRouter } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import { submitQuestionAnswer } from "@/app/actions/progress";
+import { submitCardReview } from "@/app/actions/review";
+import { CARDS_REQUIRED, CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
@@ -18,7 +21,8 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Ổn định/resilience: hàng đợi sau khi tải lại dựng từ map `answers` server trả (option đổi/xóa thì câu quay lại hàng).
 // - Invariant cần giữ: bài tập khóa kèm lý do + CTA tới khi qua; topic không có memory check giữ flow cũ.
 // - Đổi giai đoạn khi đang chờ phản hồi: mỗi câu dựng lại từ lần gửi của nó (đang chờ thì khóa, đã có kết quả thì hiện phản hồi), kể cả câu bị xếp lại sau; kết quả đạt đến lúc vắng mặt được áp dụng khi quay lại và vẫn chờ người học bấm tiếp; không gửi lần hai.
-// - Kết quả verify gần nhất: xem plan D3 §10.
+// - LF3 (AC6): server từ chối với CARDS_REQUIRED (thẻ mới thêm sau khi tải trang) thì về bước Từ vựng, báo lỗi, xin server tải lại; trang đổi key theo dữ liệu thẻ nên workspace dựng lại và thẻ mới vào hàng đợi, câu trả lời không bị ghi.
+// - Kết quả verify gần nhất: xem plan D3 §10; LF3 CP4 chạy lại toàn file (2026-10-11).
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
@@ -32,8 +36,12 @@ vi.mock("next/navigation", () => ({
   useRouter: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
 const mockedSubmit = vi.mocked(submitQuestionAnswer);
 const mockedUseRouter = vi.mocked(useRouter);
+const mockedReview = vi.mocked(submitCardReview);
+const mockedToast = vi.mocked(toast);
 
 const ids = {
   memory: "66666666-6666-4666-8666-666666666666",
@@ -113,8 +121,8 @@ function workspaceData(
       questions: [memoryQuestion(ids.first, 1), memoryQuestion(ids.second, 2)],
     },
     isMemoryCheckPassed: false,
-    cardsSeen: true,
-    cardsToRate: 0,
+    unseenCardIds: [],
+    unratedCardIds: [],
     answers: {},
     progress: null,
     ...overrides,
@@ -392,6 +400,69 @@ describe("D3 memory check stage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tải lại" }));
     expect(reload).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
+  });
+
+  it("recovers from CARDS_REQUIRED: back to the flashcards, refresh, and a rebuilt workspace with the new card", async () => {
+    const refresh = vi.fn();
+    mockedUseRouter.mockReturnValue({ refresh } as never);
+    const oldCard = {
+      id: "e0000000-0000-4000-8000-00000000000a",
+      front_content: { word: "reliable" },
+      back_content: { translation: "đáng tin cậy" },
+      audio_url: null,
+      image_url: null,
+    };
+    const newCard = {
+      id: "e0000000-0000-4000-8000-00000000000b",
+      front_content: { word: "improve" },
+      back_content: { translation: "cải thiện" },
+      audio_url: null,
+      image_url: null,
+    };
+    const { rerender } = render(
+      <LearningWorkspace key="before" data={workspaceData({ flashcards: [oldCard] })} />,
+    );
+
+    // Chấm xong thẻ duy nhất thì chuyển sang memory check.
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    mockedReview.mockResolvedValueOnce({
+      success: true,
+      topicProgress: {
+        isFlashcardCompleted: true,
+        isExerciseCompleted: false,
+        isTopicCompleted: false,
+        isMemoryCheckPassed: false,
+        newlyCompleted: false,
+      },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+    });
+    expect(questionHeading()).toBe("Câu nhớ 1");
+
+    // Giảng viên đã thêm một thẻ sau khi tải trang: server không ghi câu trả lời.
+    mockedSubmit.mockResolvedValueOnce({ error: CARDS_REQUIRED_ERROR, errorCode: CARDS_REQUIRED });
+    await answer("Đúng 1");
+
+    expect(mockedSubmit).toHaveBeenCalledTimes(1);
+    expect(mockedToast.error).toHaveBeenCalledWith(CARDS_REQUIRED_ERROR);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Câu nhớ 1")).toBeNull();
+    expect(screen.getByRole("button", { name: "Ôn lại từ vựng" })).not.toBeNull();
+
+    // Dữ liệu tải lại có thẻ mới chưa xem: key đổi theo dữ liệu nên state dựng lại, memory check khóa tới khi chấm thẻ mới.
+    rerender(
+      <LearningWorkspace
+        key="after"
+        data={workspaceData({
+          flashcards: [oldCard, newCard],
+          unseenCardIds: [newCard.id],
+          unratedCardIds: [newCard.id],
+        })}
+      />,
+    );
+    expect(screen.getByText("reliable")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
   });
 
   it("keeps the old flow for a topic without a memory check", () => {

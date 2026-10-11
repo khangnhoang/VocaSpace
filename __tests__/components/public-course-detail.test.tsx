@@ -19,6 +19,7 @@ import PublicCoursePaymentModal, {
 import PublicCoursePaymentStageDiscount from "@/app/(client)/courses/_components/PublicCoursePaymentStageDiscount";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 vi.mock("@/app/actions/public-course", () => ({
   getPublicCourseDetail: vi.fn(),
@@ -76,7 +77,8 @@ vi.mock("react", async (importOriginal) => {
 // - Bảo mật/phân quyền: không render protected counts/content/contact/internal role, quota/audit detail hay workspace link.
 // - Ổn định/resilience: nullable/empty DTO vẫn render và free submit chống lặp.
 // - Invariant cần giữ: public detail chỉ thuộc canonical `/courses/[slug]`; payment contract không đổi.
-// - Kết quả verify gần nhất: `npx vitest run __tests__/components/public-course-detail.test.tsx` đạt 18 tests; targeted ESLint đạt.
+// - LF3 AC7: đăng ký xong (miễn phí và trả phí) ở lại trang, không tự điều hướng; nút chính thành "Bắt đầu học" và chỉ mở chủ đề đầu khi bấm.
+// - Kết quả verify gần nhất: `npx vitest run __tests__/components/public-course-detail.test.tsx` đạt 20 tests (2026-10-11); targeted ESLint đạt.
 
 const mockedGetPublicCourseDetail = vi.mocked(getPublicCourseDetail);
 const mockedNotFound = vi.mocked(notFound);
@@ -179,16 +181,31 @@ function paymentModalProps(coursePrice: number) {
   };
 }
 
-function getEnrollmentModalWithState(course: PublicCourseDetail) {
+function findElement(
+  node: React.ReactNode,
+  predicate: (element: React.ReactElement<Record<string, unknown>>) => boolean,
+): React.ReactElement<Record<string, unknown>> | undefined {
+  if (!React.isValidElement<Record<string, unknown>>(node)) return undefined;
+  if (predicate(node)) return node;
+  for (const child of React.Children.toArray(node.props.children as React.ReactNode)) {
+    const found = findElement(child, predicate);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function getEnrollmentModalWithState(course: PublicCourseDetail, justEnrolled = false) {
   const setModalOpen = vi.fn();
   const setPaymentData = vi.fn();
   const setPaymentId = vi.fn();
+  const setJustEnrolled = vi.fn();
 
   mockedUseState.mockReset();
   mockedUseState
     .mockReturnValueOnce([true, setModalOpen])
     .mockReturnValueOnce([{ checkoutUrl: "stale" }, setPaymentData])
-    .mockReturnValueOnce(["stale-payment-id", setPaymentId]);
+    .mockReturnValueOnce(["stale-payment-id", setPaymentId])
+    .mockReturnValueOnce([justEnrolled, setJustEnrolled]);
 
   const enrollmentCard = PublicCourseEnrollmentCard({ course });
   const modal = React.Children.toArray(enrollmentCard.props.children).find(
@@ -198,7 +215,12 @@ function getEnrollmentModalWithState(course: PublicCourseDetail) {
     onGeneratePayment: (couponCode?: string) => Promise<boolean>;
   }>;
 
-  return { modal, setModalOpen, setPaymentData, setPaymentId };
+  const primaryButton = findElement(enrollmentCard, (element) => element.type === Button) as
+    | React.ReactElement<{ onClick: () => void; children: React.ReactNode }>
+    | undefined;
+  const modalProps = modal.props as typeof modal.props & { onSuccess: () => Promise<void> };
+
+  return { modal, modalProps, primaryButton, setModalOpen, setPaymentData, setPaymentId, setJustEnrolled };
 }
 
 describe("public course detail routes and presentation", () => {
@@ -460,14 +482,10 @@ describe("public course detail routes and presentation", () => {
     );
   });
 
-  it("closes and clears the modal before refreshing and navigating after free enrollment", async () => {
+  it("closes and clears the modal and stays on the page after free enrollment", async () => {
     mockedCreateCheckoutSession.mockResolvedValue({
       type: "free",
       message: "Đăng ký thành công!",
-    });
-    mockedGetFirstTopicSlug.mockResolvedValue({
-      error: null,
-      topicSlug: "chu-de-mo-dau",
     });
     const state = getEnrollmentModalWithState(detail({ price: 0 }));
 
@@ -476,42 +494,66 @@ describe("public course detail routes and presentation", () => {
     expect(state.setModalOpen).toHaveBeenCalledWith(false);
     expect(state.setPaymentData).toHaveBeenCalledWith(null);
     expect(state.setPaymentId).toHaveBeenCalledWith(null);
+    expect(state.setJustEnrolled).toHaveBeenCalledWith(true);
     expect(mockedToast.success).toHaveBeenCalledWith("Đăng ký thành công!");
     expect(refreshRoute).toHaveBeenCalledOnce();
-    expect(mockedGetFirstTopicSlug).toHaveBeenCalledWith("toeic-nen-tang");
-    expect(pushRoute).toHaveBeenCalledWith(
-      "/learn/toeic-nen-tang/chu-de-mo-dau",
-    );
+    // AC7: không tự điều hướng và không đọc chủ đề đầu tiên khi chưa bấm.
+    expect(mockedGetFirstTopicSlug).not.toHaveBeenCalled();
+    expect(pushRoute).not.toHaveBeenCalled();
     expect(state.setModalOpen.mock.invocationCallOrder[0]).toBeLessThan(
       refreshRoute.mock.invocationCallOrder[0],
     );
-    expect(state.setModalOpen.mock.invocationCallOrder[0]).toBeLessThan(
-      mockedGetFirstTopicSlug.mock.invocationCallOrder[0],
+  });
+
+  it("stays on the page after a successful paid enrollment", async () => {
+    const state = getEnrollmentModalWithState(detail());
+
+    await state.modalProps.onSuccess();
+
+    expect(state.setModalOpen).toHaveBeenCalledWith(false);
+    expect(state.setJustEnrolled).toHaveBeenCalledWith(true);
+    expect(mockedToast.success).toHaveBeenCalledTimes(1);
+    expect(refreshRoute).toHaveBeenCalledOnce();
+    expect(mockedGetFirstTopicSlug).not.toHaveBeenCalled();
+    expect(pushRoute).not.toHaveBeenCalled();
+  });
+
+  it("offers Bắt đầu học after enrolling and opens the first topic only on click", async () => {
+    mockedGetFirstTopicSlug.mockResolvedValue({
+      error: null,
+      topicSlug: "chu-de-mo-dau",
+    });
+    // Đã ghi danh từ trước: vẫn là "Tiếp tục học".
+    const returning = getEnrollmentModalWithState(detail({ is_enrolled: true }));
+    expect(returning.primaryButton?.props.children).toBe("Tiếp tục học");
+
+    // Chưa tải lại DTO (is_enrolled còn false) nhưng vừa đăng ký xong: "Bắt đầu học".
+    const state = getEnrollmentModalWithState(detail({ price: 0 }), true);
+    expect(state.primaryButton?.props.children).toBe("Bắt đầu học");
+    expect(pushRoute).not.toHaveBeenCalled();
+
+    state.primaryButton?.props.onClick();
+
+    expect(mockedGetFirstTopicSlug).toHaveBeenCalledWith("toeic-nen-tang");
+    await vi.waitFor(() =>
+      expect(pushRoute).toHaveBeenCalledWith("/learn/toeic-nen-tang/chu-de-mo-dau"),
     );
   });
 
-  it("keeps successful free enrollment closed when learning-entry navigation fails", async () => {
-    mockedCreateCheckoutSession.mockResolvedValue({
-      type: "free",
-      message: "Đăng ký thành công!",
-    });
+  it("reports a failed first-topic lookup on click without undoing the enrollment", async () => {
     mockedGetFirstTopicSlug.mockResolvedValue({
       error: "Khóa học chưa có chủ đề công khai.",
       topicSlug: null,
     });
-    const state = getEnrollmentModalWithState(detail({ price: 0 }));
+    const state = getEnrollmentModalWithState(detail({ price: 0 }), true);
 
-    await state.modal.props.onGeneratePayment();
+    state.primaryButton?.props.onClick();
 
-    expect(state.setModalOpen).toHaveBeenCalledTimes(1);
-    expect(state.setModalOpen).toHaveBeenCalledWith(false);
-    expect(mockedToast.success).toHaveBeenCalledWith("Đăng ký thành công!");
-    expect(mockedToast.error).toHaveBeenCalledTimes(1);
-    expect(mockedToast.error).toHaveBeenCalledWith(
-      "Khóa học chưa có chủ đề công khai.",
+    await vi.waitFor(() =>
+      expect(mockedToast.error).toHaveBeenCalledWith("Khóa học chưa có chủ đề công khai."),
     );
-    expect(refreshRoute).toHaveBeenCalledOnce();
     expect(pushRoute).not.toHaveBeenCalled();
+    expect(state.setModalOpen).not.toHaveBeenCalled();
   });
 
   it("uses an accessible shadcn icon control to close the enrollment modal", () => {

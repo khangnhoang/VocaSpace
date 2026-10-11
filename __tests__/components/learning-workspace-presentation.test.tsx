@@ -23,7 +23,8 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Mặt sau thẻ: chọn bố cục căn giữa (giống thẻ ôn D6) khi vừa khung cố định, bố cục đọc cuộn khi tràn; đo lại khi đổi kích thước; mặt active và nội dung đọc được giống nhau ở cả hai.
 // - LF1 (AC3): bước "Từ vựng" theo kết quả server cả hai chiều; sau một lần Lại, lối tắt "Tới Bài tập" vẫn còn (điều hướng không đổi) và, khi rời giai đoạn mà server vẫn báo chưa xong, dòng các bước không còn ghi "đã xong".
 // - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật và không phải điều khiển; danh sách chương mở theo yêu cầu.
-// - Kết quả verify gần nhất: 23/23 passed (2026-10-10) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`.
+// - LF3 (AC6/AC8): bước đã xong vẫn ghi "đã xong" khi đang là bước hiện tại (cả ba bước); memory check khóa tới khi mọi thẻ có dòng của học viên (Lại/Khó cũng là đã xem), mở ngay khi thẻ cuối được chấm; nhắc số thẻ còn cần Ổn/Dễ; về memory check đang khóa thì có panel khóa và lối về Từ vựng.
+// - Kết quả verify gần nhất: xem lần chạy LF3 CP4 (2026-10-11) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`.
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
 vi.mock("@/app/actions/review", () => ({ submitCardReview: vi.fn() }));
@@ -123,8 +124,8 @@ function data(overrides: Partial<LearningWorkspaceData> = {}): LearningWorkspace
     exercises: [],
     memoryCheck: null,
     isMemoryCheckPassed: true,
-    cardsSeen: true,
-    cardsToRate: 0,
+    unseenCardIds: [],
+    unratedCardIds: [],
     answers: {},
     progress: null,
     ...overrides,
@@ -606,6 +607,179 @@ describe("D8-LUI learning workspace presentation", () => {
 
       const dialog = screen.getByRole("dialog", { name: "Duyệt chương học" });
       expect(within(dialog).getByText("Chương một")).not.toBeNull();
+    });
+  });
+
+  describe("LF3 stage thread done state and the cards gate", () => {
+    const memoryCheck = {
+      id: "d0000000-0000-4000-8000-000000000001",
+      questions: [question("d0000000-0000-4000-8000-000000000002", "Câu nhớ", 1)],
+    };
+    const finished = {
+      isFlashcardCompleted: true,
+      isExerciseCompleted: false,
+      isTopicCompleted: false,
+      isMemoryCheckPassed: false,
+      newlyCompleted: false,
+    };
+    const steps = () =>
+      within(screen.getByRole("list", { name: "Các bước của bài học" }))
+        .getAllByRole("listitem")
+        .map((item) => item.textContent?.replace(/^\d/, ""));
+
+    it("shows a stage as done while it is still the current stage (AC8)", () => {
+      // Từ vựng: server báo xong, không còn thẻ nào chưa Ổn/Dễ.
+      const { unmount } = render(
+        <LearningWorkspace data={data({ flashcards: [cardA], progress: { ...finished } })} />,
+      );
+      expect(steps()).toEqual(["Từ vựng (đã xong, đang học)"]);
+      expect(
+        within(screen.getByRole("list", { name: "Các bước của bài học" }))
+          .getAllByRole("listitem")[0]
+          .getAttribute("aria-current"),
+      ).toBe("step");
+      unmount();
+
+      // Bài tập: mọi câu đã có đáp án, người học đang ở bước bài tập.
+      const answered = render(
+        <LearningWorkspace
+          data={data({
+            exercises: [exercise("part5", {})],
+            answers: { [q(1)]: "any-option" },
+          })}
+        />,
+      );
+      expect(steps()).toEqual(["Bài tập (đã xong, đang học)"]);
+      answered.unmount();
+
+      // Memory check: đã qua, người học mở lại bước này.
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA],
+            memoryCheck,
+            isMemoryCheckPassed: true,
+            progress: { isFlashcardCompleted: true, isExerciseCompleted: false, isTopicCompleted: false },
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Tới Memory check" }));
+      expect(steps()).toEqual(["Từ vựng (đã xong)", "Memory check (đã xong, đang học)"]);
+    });
+
+    it("keeps the memory check locked until every card has a row, and unlocks as the cards are rated", async () => {
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA, cardB],
+            memoryCheck,
+            isMemoryCheckPassed: false,
+            progress: { ...finished },
+            unseenCardIds: [cardA.id, cardB.id],
+            unratedCardIds: [cardA.id, cardB.id],
+          })}
+        />,
+      );
+      expect(steps()).toEqual(["Từ vựng (đang học)", "Memory check (đang khóa)"]);
+      // Server đã lưu "xong" cho Từ vựng nhưng còn thẻ chưa xem: không có lối tắt tới memory check.
+      expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      mockedReview.mockResolvedValueOnce({ success: true, topicProgress: { ...finished } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+      });
+      // Thẻ A đã có dòng nhưng thẻ B thì chưa: vẫn khóa.
+      expect(steps()[1]).toBe("Memory check (đang khóa)");
+      expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      mockedReview.mockResolvedValueOnce({ success: true, topicProgress: { ...finished } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+      });
+      // Hết thẻ chưa xem: memory check mở và được vào ngay.
+      expect(screen.getByText("Câu nhớ")).not.toBeNull();
+      expect(screen.queryByText("Memory check đang khóa")).toBeNull();
+    });
+
+    it("counts a card rated Again as seen but not rated, and says how many cards still need Ổn or Dễ", async () => {
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA],
+            memoryCheck,
+            isMemoryCheckPassed: false,
+            unseenCardIds: [cardA.id],
+            unratedCardIds: [cardA.id],
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      mockedReview.mockResolvedValueOnce({
+        success: true,
+        topicProgress: { ...finished, isFlashcardCompleted: false },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Lại" }));
+      });
+      // Thẻ đã có dòng nên memory check mở (cổng chỉ hỏi dòng tồn tại); thẻ Lại vẫn là thẻ chưa Ổn/Dễ.
+      expect(steps()[1]).not.toMatch(/đang khóa/);
+      expect(steps()[0]).not.toMatch(/đã xong/);
+    });
+
+    it("shows the unrated hint once every card has a row but some still need Ổn or Dễ", () => {
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA, cardB],
+            exercises: [exercise("part5", {})],
+            progress: { ...finished },
+            unseenCardIds: [],
+            unratedCardIds: [cardB.id],
+          })}
+        />,
+      );
+      // Đang ở hàng đợi thẻ: chưa nhắc. Rời bước Từ vựng thì nhắc, và bước Từ vựng không ghi "đã xong".
+      expect(screen.queryByText(/thẻ cần chấm Ổn hoặc Dễ/)).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Tới Bài tập" }));
+      expect(screen.getByText("Còn 1 thẻ cần chấm Ổn hoặc Dễ để hoàn thành bước Từ vựng.")).not.toBeNull();
+      expect(steps()[0]).toBe("Từ vựng (chưa mở)");
+    });
+
+    it("shows the locked panel when the learner is sent back to a memory check whose cards are unseen", async () => {
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA],
+            exercises: [exercise("part5", {})],
+            memoryCheck,
+            isMemoryCheckPassed: true,
+            progress: { isFlashcardCompleted: true, isExerciseCompleted: false, isTopicCompleted: false },
+            unseenCardIds: [cardA.id],
+            unratedCardIds: [cardA.id],
+          })}
+        />,
+      );
+      // Đã qua memory check từ trước nên bước này không bị khóa lại, kể cả khi có thẻ mới chưa xem.
+      expect(steps()[1]).toBe("Memory check (đã xong)");
+
+      // Server báo bài tập cần memory check (bộ câu đổi): về memory check đang khóa vì thẻ chưa xem.
+      fireEvent.click(screen.getByRole("button", { name: "Tới Bài tập" }));
+      mockedSubmit.mockResolvedValueOnce({
+        error: "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.",
+        errorCode: "MEMORY_CHECK_REQUIRED",
+      });
+      fireEvent.click(screen.getAllByRole("radio")[0]);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
+      });
+
+      expect(screen.getByText("Memory check đang khóa")).not.toBeNull();
+      expect(screen.getByText(/Còn 1 thẻ chưa học/)).not.toBeNull();
+      expect(steps()[1]).toBe("Memory check (đang khóa)");
+      fireEvent.click(screen.getAllByRole("button", { name: "Về Từ vựng" })[0]);
+      expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
     });
   });
 });

@@ -266,8 +266,8 @@ function buildTopicData(
       (card) => card.topic_id === topic.id && card.removed_at === null,
     )
     .sort(compareOrderedRows);
-  // LF3: cờ "đã xem hết thẻ" và số thẻ còn thiếu Ổn/Dễ chỉ từ dòng user_flashcards của chính học viên (G4/G7).
-  const { cardsSeen, cardsToRate } = summarizeOwnCardProgress(activeCards, userId);
+  // LF3: thẻ chưa xem (memory check đóng) và thẻ chưa Ổn/Dễ chỉ từ dòng user_flashcards của chính học viên (G4/G7).
+  const { unseenCardIds, unratedCardIds } = summarizeOwnCardProgress(activeCards, userId);
   const flashcards = activeCards
     .map((card) => ({
       id: card.id,
@@ -383,8 +383,8 @@ function buildTopicData(
       chapterId: syllabusTopic.chapterId,
     },
     flashcards,
-    cardsSeen,
-    cardsToRate,
+    unseenCardIds,
+    unratedCardIds,
     exercises,
     memoryCheck: memoryCheck
       ? {

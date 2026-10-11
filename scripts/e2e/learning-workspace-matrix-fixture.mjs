@@ -410,6 +410,28 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
   return { courseSlug: MATRIX_COURSE_SLUG, topics: MATRIX_TOPICS, uploaded };
 }
 
+/**
+ * LF3: a teacher adds a flashcard to the full-flow topic after a learner has loaded it. The id is fixed and the card
+ * belongs to the matrix topic, so `cleanupLearningWorkspaceMatrix` removes it (and any learner row on it) with the rest.
+ */
+export const FULL_FLOW_ADDED_CARD = { word: "negotiate", translation: "đàm phán" };
+
+export async function addFullFlowCard(env = process.env, options = {}) {
+  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
+  const supabase = createSupabaseAdmin(env);
+  checked(
+    await supabase.from("cards").insert({
+      id: id(900),
+      topic_id: id(10 + Object.keys(MATRIX_TOPICS).indexOf("full")),
+      front_content: { word: FULL_FLOW_ADDED_CARD.word, pos: "verb", phonetic: "/nɪˈɡoʊʃieɪt/" },
+      back_content: { translation: FULL_FLOW_ADDED_CARD.translation, example: "They negotiate the price.", exampleTranslation: "Họ thương lượng giá." },
+      order_index: 4,
+      removed_at: null,
+    }),
+    "Add full-flow card",
+  );
+}
+
 export async function cleanupLearningWorkspaceMatrix(env = process.env, options = {}) {
   assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
   const supabase = createSupabaseAdmin(env);

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { CheckCircle2, Loader2, RotateCcw, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
+import { CARDS_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO } from "@/lib/schemas/learn";
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import ChoiceGroup from "./ChoiceGroup";
@@ -32,6 +33,11 @@ interface MemoryCheckStageProps {
   onPassed: () => void;
   onGoToExercises: () => void;
   onTopicCompleted?: () => void;
+  /**
+   * The server refused the answer because the topic has a card this learner has not seen (a card added after the page
+   * loaded). The workspace owns recovery: back to the flashcards and a data refresh.
+   */
+  onCardsRequired?: () => void;
 }
 
 function sortOptions(question: QuestionDTO) {
@@ -58,6 +64,7 @@ export default function MemoryCheckStage({
   onPassed,
   onGoToExercises,
   onTopicCompleted,
+  onCardsRequired,
 }: MemoryCheckStageProps) {
   const [isPending, startTransition] = useTransition();
   // Retry queue: unanswered/incorrect questions in authoring order; a wrong
@@ -170,6 +177,12 @@ export default function MemoryCheckStage({
     startTransition(async () => {
       const result = await submitQuestionAnswer(questionId, chosenId);
       if (result.error) {
+        if (result.errorCode === CARDS_REQUIRED && onCardsRequired) {
+          // Không có câu trả lời nào được ghi: bỏ lượt gửi để câu hỏi không kẹt, rồi để workspace phục hồi.
+          onAttemptCleared(questionId);
+          onCardsRequired();
+          return;
+        }
         onAttemptSettled(questionId, chosenId, { kind: "error", message: result.error });
         return;
       }

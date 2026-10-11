@@ -17,7 +17,7 @@ import { createClient } from "@/utils/supabase/server";
 //   topic chưa hoàn thành thì gọi RPC `d4_sync_topic_progress` đúng một lần, đã hoàn thành thì không gọi;
 //   RPC lỗi lúc tải trang vẫn trả success với progress đã lưu;
 //   syllabus đánh dấu `isCompleted` chỉ theo dòng progress đã hoàn thành của chính learner.
-// - LF3: cờ cardsSeen/cardsToRate chỉ từ dòng user_flashcards của chính học viên (admin đọc được mọi dòng), thiếu dữ liệu thì lỗi rõ.
+// - LF3: danh sách thẻ chưa xem/chưa Ổn-Dễ chỉ từ dòng user_flashcards của chính học viên (admin đọc được mọi dòng), thiếu dữ liệu thì lỗi rõ.
 // - Kết quả verify gần nhất: 16/16 passed (2026-10-11) bằng `npx vitest run __tests__/actions/learning-workspace.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -356,7 +356,7 @@ describe("getLearningWorkspace", () => {
     ]);
   });
 
-  it("derives the cards-seen flag and the cards still to rate only from the learner's own flashcard rows (LF3)", async () => {
+  it("derives the unseen cards and the cards still to rate only from the learner's own flashcard rows (LF3)", async () => {
     const secondCard = { ...topic.cards[0], id: "45454545-4545-4545-8545-454545454545", order_index: 2, ratings: [] as unknown[] };
     const removedCard = { ...topic.cards[0], id: "46464646-4646-4646-8646-464646464646", order_index: 3, removed_at: "2026-01-01T00:00:00Z", ratings: [] as unknown[] };
     const load = async (cards: unknown[]) => {
@@ -374,15 +374,15 @@ describe("getLearningWorkspace", () => {
     };
 
     // Thẻ 1 đã chấm Ổn, thẻ 2 chưa có dòng nào, thẻ đã gỡ không tính.
-    expect(await load([topic.cards[0], secondCard, removedCard])).toMatchObject({ cardsSeen: false, cardsToRate: 1 });
+    expect(await load([topic.cards[0], secondCard, removedCard])).toMatchObject({ unseenCardIds: [secondCard.id], unratedCardIds: [secondCard.id] });
     // Có dòng với Lại (1): đã xem nhưng vẫn còn một thẻ chưa Ổn/Dễ.
     expect(await load([topic.cards[0], { ...secondCard, ratings: [{ user_id: user.id, last_rating: 1 }] }]))
-      .toMatchObject({ cardsSeen: true, cardsToRate: 1 });
+      .toMatchObject({ unseenCardIds: [], unratedCardIds: [secondCard.id] });
     // Dòng của học viên khác (admin đọc được mọi dòng) không làm thẻ thành "đã xem".
     expect(await load([topic.cards[0], { ...secondCard, ratings: [{ user_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", last_rating: 4 }] }]))
-      .toMatchObject({ cardsSeen: false, cardsToRate: 1 });
+      .toMatchObject({ unseenCardIds: [secondCard.id], unratedCardIds: [secondCard.id] });
     // Topic không có thẻ active không khóa.
-    expect(await load([removedCard])).toMatchObject({ cardsSeen: true, cardsToRate: 0 });
+    expect(await load([removedCard])).toMatchObject({ unseenCardIds: [], unratedCardIds: [] });
   });
 
   it("scopes the embedded flashcard rows to the learner and fails loud when they were not loaded (LF3 G4/G7)", async () => {
