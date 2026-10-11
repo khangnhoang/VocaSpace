@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // - Case thất bại: cổng lạ (kể cả cổng DB 45322), host không phải loopback, giao thức https, URL hỏng, URL không cổng đều ném lỗi;
 //   với đích bị từ chối, spawnSync không được gọi lần nào.
 // - Bảo mật/phân quyền: không áp dụng.
-// - Ổn định/resilience: khi NEXT_PUBLIC_SUPABASE_URL chưa đặt, mapping rơi về runtime gốc như `local-postgres-coordination.ts` đã làm.
+// - Ổn định/resilience: khi NEXT_PUBLIC_SUPABASE_URL chưa đặt hoặc rỗng thì helper ném lỗi (không rơi về runtime gốc) và runLocalPsql không spawn psql; các test integration luôn có biến này từ `.env.test.local` hoặc môi trường CI.
 // - Invariant cần giữ: một mapping duy nhất cho cả hai helper; đích lạ không bao giờ chạm tới database.
 // - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/utils/local-database-port.test.ts`.
 // - Ghi chú: không cần psql thật vì spawnSync bị thay.
@@ -43,14 +43,24 @@ describe("resolveLocalDatabasePort", () => {
   });
 });
 
-describe("resolveLocalDatabasePort default", () => {
+describe("resolveLocalDatabasePort without a target", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it("falls back to the root runtime when NEXT_PUBLIC_SUPABASE_URL is not set, as the coordination helper did", () => {
+  it.each([
+    ["unset", undefined],
+    ["empty", ""],
+  ])("throws instead of falling back to the root runtime when NEXT_PUBLIC_SUPABASE_URL is %s", (_name, value) => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", value);
+    expect(() => resolveLocalDatabasePort()).toThrow(/local Supabase/);
+  });
+
+  it("runLocalPsql spawns no psql when the target is unset", () => {
+    spawnSync.mockReset();
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", undefined);
-    expect(resolveLocalDatabasePort()).toBe("45322");
+    expect(() => runLocalPsql("select 1")).toThrow(/local Supabase/);
+    expect(spawnSync).not.toHaveBeenCalled();
   });
 });
 

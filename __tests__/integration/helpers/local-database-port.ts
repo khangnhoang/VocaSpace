@@ -3,14 +3,13 @@ const DATABASE_PORT_BY_API_PORT: Readonly<Record<string, string>> = {
   "45321": "45322",
   "45441": "45442",
 };
-const DEFAULT_API_URL = "http://127.0.0.1:45321";
 
 // Suy cổng PostgreSQL từ NEXT_PUBLIC_SUPABASE_URL để psql luôn nói chuyện với đúng runtime mà test đang nhắm tới.
-// Mọi host, giao thức, cổng hoặc URL lạ đều ném lỗi, không bao giờ rơi về một cổng mặc định khi chưa biết đích.
-export function resolveLocalDatabasePort(apiUrl: string = process.env.NEXT_PUBLIC_SUPABASE_URL ?? DEFAULT_API_URL): string {
+// Mọi host, giao thức, cổng hoặc URL lạ, kể cả biến chưa đặt hoặc rỗng, đều ném lỗi; không bao giờ rơi về một cổng mặc định khi chưa biết đích.
+export function resolveLocalDatabasePort(apiUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL): string {
   let api: URL;
   try {
-    api = new URL(apiUrl);
+    api = new URL(apiUrl ?? "");
   } catch {
     throw new Error("PostgreSQL helpers require a valid local Supabase API URL.");
   }
