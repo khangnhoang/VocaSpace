@@ -16,7 +16,9 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture tổng hợp tạo trong beforeAll và dọn trong afterAll.
 // - Case thành công: học hết thẻ -> memory check mở; giảng viên thêm thẻ -> trả lời bị từ chối, về Từ vựng, tải lại có thẻ mới;
 //   chấm thẻ mới -> trả lời lần đầu rồi đổi đáp án đều được ghi; dòng các bước ghi "đã xong" ngay cả khi là bước hiện tại.
-// - Case thất bại: câu trả lời bị từ chối không để lại dòng user_question_answers nào.
+// - Case phục hồi có đáp án đã lưu: học viên đã có đáp án memory check được lưu, giảng viên thêm thẻ, lần ĐỔI đáp án bị từ chối và
+//   đáp án đã lưu giữ nguyên; sau khi học thẻ mới, gửi lại thì đáp án được đổi.
+// - Case thất bại: câu trả lời bị từ chối không để lại dòng user_question_answers nào (lần đầu) hoặc không đổi dòng đã lưu (lần đổi).
 // - Bảo mật/phân quyền: kết quả kiểm tra bằng service role chỉ trên runtime E2E cô lập; học viên seed là người duy nhất được ghi danh.
 // - Ổn định/resilience: không tràn ngang ở 375px và 1280px trên các màn bị đụng tới.
 // - Invariant cần giữ: server là nguồn cuối của cổng; UI chỉ phục hồi (về Từ vựng, tải lại dữ liệu), không tự mở khóa.
@@ -160,4 +162,53 @@ test("the stage thread shows a finished step as done while it is the current ste
     await expect(thread).toContainText("Memory check (đã xong)");
     await expectNoHorizontalOverflow(page);
   }
+});
+
+test("a changed answer is refused while a new card is unseen and the stored answer stays; it succeeds after the card is rated", async ({
+  page,
+}) => {
+  // Test này tự seed lại để bắt đầu từ trạng thái sạch (không còn thẻ mới, đáp án, tiến độ của hai test trước).
+  test.setTimeout(300_000);
+  await seedLearningWorkspaceMatrix();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(topicPath);
+  const thread = page.getByRole("list", { name: "Các bước của bài học" });
+  await rateCardsUntilMemoryCheck(page);
+
+  // Có đáp án đã lưu: câu đầu trả lời sai (ghi lại), hai câu sau đúng; câu đầu quay lại cuối hàng.
+  await page.getByRole("radio", { name: /lịch trình/ }).click();
+  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await expect(page.getByRole("radio", { name: /bạn chọn chưa đúng/ })).toBeVisible();
+  const stored = await answeredOptionFor(FIRST_QUESTION);
+  expect(stored).toHaveLength(1);
+  await page.getByRole("button", { name: "Tiếp tục" }).click();
+  await page.getByRole("radio", { name: /approved/ }).click();
+  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await page.getByRole("button", { name: "Tiếp tục" }).click();
+  await page.getByRole("radio", { name: /có sẵn, rảnh/ }).click();
+  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await page.getByRole("button", { name: "Tiếp tục" }).click();
+  await expect(page.getByRole("heading", { name: FIRST_QUESTION })).toBeVisible();
+
+  // Giảng viên thêm thẻ; lần đổi đáp án của câu đầu bị từ chối và đáp án đã lưu không đổi.
+  await addFullFlowCard();
+  await page.getByRole("radio", { name: /hạn chót/ }).click();
+  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await expect(page.getByText(CARDS_REQUIRED_ERROR)).toBeVisible();
+  await expect(thread).toContainText("Memory check (đang khóa)");
+  const afterRefusal = await answeredOptionFor(FIRST_QUESTION);
+  expect(afterRefusal).toHaveLength(1);
+  expect(afterRefusal[0].selected_option_id).toBe(stored[0].selected_option_id);
+
+  // Phục hồi: học thẻ mới rồi gửi lại thì đáp án được đổi sang đáp án đúng.
+  const shownCards = await rateCardsUntilMemoryCheck(page);
+  expect(shownCards).toContain(FULL_FLOW_ADDED_CARD.word);
+  await page.getByRole("radio", { name: /hạn chót/ }).click();
+  await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
+  await expect(page.getByRole("button", { name: "Mở bài tập" })).toBeVisible();
+  // AC8: bước memory check đã xong ngay khi câu cuối được chấp nhận, trước khi bấm "Mở bài tập".
+  await expect(thread).toContainText("Memory check (đã xong, đang học)");
+  const changed = await answeredOptionFor(FIRST_QUESTION);
+  expect(changed).toHaveLength(1);
+  expect(changed[0].selected_option_id).not.toBe(stored[0].selected_option_id);
 });

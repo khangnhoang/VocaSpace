@@ -8,7 +8,7 @@
 --    nhờ dòng của người khác. Người gọi lấy từ auth.uid() (không nhận user id từ client).
 --    - Chỉ áp cho câu của exercise memory_check; câu bài tập thường đi theo cổng LF2 (private.lf2_memory_gate_open) và luôn qua ở đây.
 --    - "Thẻ active" đúng như D4 (G5): cards.topic_id = topic và removed_at is null. Chỉ hỏi dòng user_flashcards của mình có tồn tại,
---      bỏ qua last_rating (Lại/Khó không đóng lại cổng) và dòng trùng không đổi kết quả.
+--      bỏ qua last_rating (Lại/Khó không đóng lại cổng). Ràng buộc unique_user_card (user_id, card_id) đã chặn dòng trùng nên đếm theo từng thẻ chỉ là biện pháp an toàn.
 --    - Topic không có thẻ active thì không khóa. Không tìm thấy câu/exercise thì trả false (đường ghi đã đóng sẵn bằng LF2 + L1).
 create function private.lf3_cards_seen_gate_open(p_question_id uuid)
 returns boolean
