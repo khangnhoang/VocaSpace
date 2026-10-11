@@ -24,12 +24,13 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - LF1 (AC3): bước "Từ vựng" theo kết quả server cả hai chiều; sau một lần Lại, lối tắt "Tới Bài tập" vẫn còn (điều hướng không đổi) và, khi rời giai đoạn mà server vẫn báo chưa xong, dòng các bước không còn ghi "đã xong".
 // - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật và không phải điều khiển; danh sách chương mở theo yêu cầu.
 // - LF3 (AC6/AC8): bước đã xong vẫn ghi "đã xong" khi đang là bước hiện tại (cả ba bước); memory check khóa tới khi mọi thẻ có dòng của học viên (Lại/Khó cũng là đã xem), mở ngay khi thẻ cuối được chấm (kể cả khi mọi thẻ Lại/Khó và hàng đợi chưa rỗng) và không có ngoại lệ cho memory check đã qua (bài tập vẫn mở theo luật LF2); nhắc số thẻ còn cần Ổn/Dễ ngay khi đủ dòng cho mọi thẻ; về memory check đang khóa thì có panel khóa và lối về Từ vựng.
+// - LF4 (AC3/AC4/AC5/AC6): vào trang chỉ xếp thẻ chưa xem (bộ đếm theo lượt) và báo số thẻ chưa học đúng một lần (không báo khi mọi thẻ đều chưa xem, không báo hai lần dưới StrictMode); đã xem hết thì có màn hình kết thúc; lời mời "Ôn ngay N thẻ" chỉ hiện khi có thẻ đến hạn thuộc bài (id lạ bị bỏ qua), Ổn/Dễ trong phiên đưa thẻ ra và Lại/Khó đưa vào; "Ôn lại từ vựng" dựng lại toàn bộ thẻ; dòng các bước vẫn không có điều khiển; bài không có thẻ không có toast chưa học.
 // - Kết quả verify gần nhất: xem lần chạy LF3 CP4 (2026-10-11) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`.
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
 vi.mock("@/app/actions/review", () => ({ submitCardReview: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 const mockedSubmit = vi.mocked(submitQuestionAnswer);
 const mockedReview = vi.mocked(submitCardReview);
@@ -107,7 +108,9 @@ function exercise(
   };
 }
 
+// LF4: mặc định là lần học đầu (mọi thẻ chưa xem) nên hàng đợi mở trang là toàn bộ thẻ; test về trạng thái đã xem truyền `unseenCardIds`.
 function data(overrides: Partial<LearningWorkspaceData> = {}): LearningWorkspaceData {
+  const flashcards = overrides.flashcards ?? [];
   return {
     courseSlug: "toeic-foundation",
     courseTitle: "TOEIC Foundation",
@@ -124,7 +127,7 @@ function data(overrides: Partial<LearningWorkspaceData> = {}): LearningWorkspace
     exercises: [],
     memoryCheck: null,
     isMemoryCheckPassed: true,
-    unseenCardIds: [],
+    unseenCardIds: flashcards.map((card) => card.id),
     unratedCardIds: [],
     dueCardIds: [],
     answers: {},
@@ -660,6 +663,7 @@ describe("D8-LUI learning workspace presentation", () => {
             flashcards: [cardA],
             memoryCheck,
             isMemoryCheckPassed: true,
+            unseenCardIds: [],
             progress: { isFlashcardCompleted: true, isExerciseCompleted: false, isTopicCompleted: false },
           })}
         />,
@@ -839,6 +843,115 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(steps()[1]).toBe("Memory check (đang khóa)");
       fireEvent.click(screen.getAllByRole("button", { name: "Về Từ vựng" })[0]);
       expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
+    });
+  });
+
+  describe("LF4 queue start, finished screen and due offer", () => {
+    const finishedScreen = () => screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" });
+    const counter = () => screen.getByText(/^\d+ \/ \d+$/).textContent;
+    async function rate(name: string) {
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      mockedReview.mockResolvedValueOnce({ success: true });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: name }));
+      });
+    }
+
+    it("queues only the unseen cards, counts the session total and tells the learner how many are unseen once", () => {
+      render(
+        <React.StrictMode>
+          <LearningWorkspace data={data({ flashcards: [cardA, cardB], unseenCardIds: [cardB.id] })} />
+        </React.StrictMode>,
+      );
+      expect(screen.getByText("improve")).not.toBeNull();
+      expect(screen.queryByText("reliable")).toBeNull();
+      expect(counter()).toBe("1 / 1");
+      expect(mockedToast.info).toHaveBeenCalledTimes(1);
+      expect(mockedToast.info).toHaveBeenCalledWith("Bạn còn 1 thẻ chưa học trong bài học này");
+    });
+
+    it("does not announce unseen cards when every card is unseen or the topic has no cards", () => {
+      const { unmount } = render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      expect(counter()).toBe("2 / 2");
+      unmount();
+      render(<LearningWorkspace data={data({ exercises: [exercise("part5", {})] })} />);
+      expect(mockedToast.info).not.toHaveBeenCalled();
+    });
+
+    it("shows the finished screen without a due offer when every card was seen and none is due", () => {
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB], unseenCardIds: [] })} />);
+      expect(finishedScreen()).not.toBeNull();
+      expect(screen.queryByRole("button", { name: /^Ôn ngay/ })).toBeNull();
+      expect(screen.queryByText(/thẻ đến hạn/)).toBeNull();
+      expect(mockedToast.info).not.toHaveBeenCalled();
+      // Dòng các bước vẫn chỉ là dấu hiệu, không có điều khiển.
+      expect(
+        within(screen.getByRole("list", { name: "Các bước của bài học" })).queryAllByRole("button"),
+      ).toHaveLength(0);
+    });
+
+    it("offers to review only the due cards and ignores ids that are not active cards", () => {
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA, cardB],
+            unseenCardIds: [],
+            dueCardIds: [cardB.id, "e0000000-0000-4000-8000-0000000000ff"],
+          })}
+        />,
+      );
+      expect(screen.getByText("Bạn có 1 thẻ đến hạn thuộc bài học này")).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 1 thẻ" }));
+      expect(finishedScreen()).toBeNull();
+      expect(screen.getByText("improve")).not.toBeNull();
+      expect(counter()).toBe("1 / 1");
+    });
+
+    it("rebuilds the whole topic for Ôn lại từ vựng even when only some cards are due", () => {
+      render(
+        <LearningWorkspace
+          data={data({ flashcards: [cardA, cardB], unseenCardIds: [], dueCardIds: [cardA.id] })}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Ôn lại từ vựng" }));
+      expect(counter()).toBe("2 / 2");
+      expect(screen.getByText("reliable")).not.toBeNull();
+    });
+
+    it("moves cards in and out of the due offer by the ratings given in this session", async () => {
+      render(
+        <LearningWorkspace
+          data={data({ flashcards: [cardA, cardB], unseenCardIds: [cardB.id], dueCardIds: [cardA.id] })}
+        />,
+      );
+      // Thẻ B chấm Khó rồi Ổn nên không ở lại tập đến hạn; thẻ A vẫn đến hạn theo dữ liệu server.
+      await rate("Khó");
+      await rate("Ổn");
+      expect(finishedScreen()).not.toBeNull();
+      expect(screen.getByText("Bạn có 1 thẻ đến hạn thuộc bài học này")).not.toBeNull();
+
+      // Ôn ngay thẻ đến hạn và chấm Dễ thì không còn thẻ đến hạn.
+      fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 1 thẻ" }));
+      await rate("Dễ");
+      expect(finishedScreen()).not.toBeNull();
+      expect(screen.queryByRole("button", { name: /^Ôn ngay/ })).toBeNull();
+    });
+
+    it("keeps the empty queue when the learner returns to the flashcard step", () => {
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA],
+            unseenCardIds: [],
+            exercises: [exercise("part5", {})],
+            progress: { isFlashcardCompleted: true, isExerciseCompleted: false, isTopicCompleted: false },
+          })}
+        />,
+      );
+      expect(finishedScreen()).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Tới Bài tập" }));
+      fireEvent.click(screen.getByRole("button", { name: "Về Từ vựng" }));
+      expect(finishedScreen()).not.toBeNull();
     });
   });
 });

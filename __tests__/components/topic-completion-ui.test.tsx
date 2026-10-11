@@ -24,6 +24,7 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
 // - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
 //   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính; không còn nút "Hoàn thành bài học".
+// - LF4 (AC2): chấm thẻ cuối làm bài học hoàn thành khi còn chặng sau (bài tập) thì chỉ có toast hoàn thành bài, không thêm toast chuyển bước; chưa hoàn thành thì vẫn có toast chuyển bước.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/topic-completion-ui.test.tsx`).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -39,7 +40,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
 const mockedSubmit = vi.mocked(submitQuestionAnswer);
@@ -432,7 +433,7 @@ describe("D4 topic completion UI", () => {
       audio_url: null,
       image_url: null,
     };
-    const data = workspaceData({ flashcards: [card], exercises: [] });
+    const data = workspaceData({ flashcards: [card], exercises: [], unseenCardIds: [card.id] });
     const { unmount } = render(<LearningWorkspace data={data} />);
 
     mockedReview.mockResolvedValueOnce({
@@ -460,6 +461,38 @@ describe("D4 topic completion UI", () => {
       "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
     );
     expect(successToasts()).toEqual(["Đã nạp xong từ vựng!"]);
+  });
+
+  it("shows only the completion toast when the last card rating completes the topic with exercises still ahead", async () => {
+    const card = {
+      id: ids.card,
+      front_content: { word: "reliable" },
+      back_content: { translation: "đáng tin cậy" },
+      audio_url: null,
+      image_url: null,
+    };
+    const data = workspaceData({ flashcards: [card], unseenCardIds: [card.id] });
+    const { unmount } = render(<LearningWorkspace data={data} />);
+
+    mockedReview.mockResolvedValueOnce({
+      success: true,
+      topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+    });
+    expect(successToasts()).toEqual([TOPIC_COMPLETED_MESSAGE]);
+    unmount();
+
+    vi.clearAllMocks();
+    render(<LearningWorkspace data={data} />);
+    mockedReview.mockResolvedValueOnce({ success: true, topicProgress: progress() });
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+    });
+    expect(successToasts()).toEqual(["Đã nạp xong từ vựng! Chuyển sang bài tập."]);
   });
 
   it("announces completion and sync failures from the memory check", async () => {

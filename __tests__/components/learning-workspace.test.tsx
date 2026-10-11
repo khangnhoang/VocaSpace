@@ -270,8 +270,10 @@ describe("C2 learning workspace route", () => {
   });
 
   it("resets topic-local card state when the route key changes", () => {
-    const first = workspaceData();
+    // Lần học đầu của cả hai bài: mọi thẻ chưa xem nên hàng đợi mở trang có đủ thẻ (LF4).
+    const first = workspaceData({ unseenCardIds: ["44444444-4444-4444-8444-444444444444"] });
     const second = workspaceData({
+      unseenCardIds: ["55555555-5555-4555-8555-555555555555"],
       currentTopic: workspaceData().syllabus[0].topics[1],
       flashcards: [
         {

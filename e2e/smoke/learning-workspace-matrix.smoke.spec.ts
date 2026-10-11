@@ -5,6 +5,7 @@ import {
   cleanupLearningWorkspaceMatrix,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
+import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/d8-learning-ui/plan.md
 // Test plan:
@@ -16,8 +17,10 @@ import {
 // - Ổn định/resilience: không tràn ngang ở 320/375/768/1024/1366/1440px; reduced motion bỏ bản sao đang gấp của thẻ cũ.
 // - Invariant cần giữ: kết quả chấm không tự chuyển câu; câu cùng nhóm không tạo lại player.
 // - Chưa kiểm chứng: cảm nhận chuyển động, thời gian và mật độ đọc do Owner đánh giá trên UI chạy thật.
+// - LF4: các test thẻ từ vựng xóa dòng chấm của học viên trước khi chạy vì hàng đợi chỉ gồm thẻ chưa xem.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2/CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-workspace-matrix.smoke.spec.ts`).
 
+const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 const WIDTHS = [320, 375, 768, 1024, 1366, 1440];
 
 test.beforeAll(async () => {
@@ -45,6 +48,21 @@ const topicPath = (key: keyof typeof MATRIX_TOPICS) =>
 const nextQuestion = (page: Page) =>
   page.getByRole("button", { name: /^(Câu sau|Câu tiếp theo)$/ }).click();
 
+// LF4: workspace chỉ xếp thẻ chưa xem, nên test thẻ từ vựng xóa dòng chấm của học viên để luôn bắt đầu từ hàng đợi đầy đủ.
+async function forgetVocabularyCardProgress() {
+  const admin = createSupabaseAdmin(process.env);
+  const topic = await admin.from("topics").select("id").eq("slug", MATRIX_TOPICS.vocabulary.slug).single();
+  if (topic.error) throw new Error(topic.error.message);
+  const cards = await admin.from("cards").select("id").eq("topic_id", topic.data.id);
+  if (cards.error) throw new Error(cards.error.message);
+  const removed = await admin
+    .from("user_flashcards")
+    .delete()
+    .eq("user_id", STUDENT_ID)
+    .in("card_id", cards.data.map((card) => card.id));
+  if (removed.error) throw new Error(removed.error.message);
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -52,6 +70,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test("vocabulary card turns in place and continues to the next front", async ({ page }) => {
+  await forgetVocabularyCardProgress();
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto(topicPath("vocabulary"));
   await expect(page.getByRole("heading", { level: 1, name: MATRIX_TOPICS.vocabulary.title })).toBeVisible();
@@ -79,6 +98,7 @@ test("vocabulary card turns in place and continues to the next front", async ({ 
 });
 
 test("reduced motion shows the next front without turning the card", async ({ page }) => {
+  await forgetVocabularyCardProgress();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(topicPath("vocabulary"));
   await page.getByRole("button", { name: "Hiện đáp án" }).click();
@@ -88,6 +108,7 @@ test("reduced motion shows the next front without turning the card", async ({ pa
 });
 
 test("card box keeps one height for long and short cards", async ({ page }) => {
+  await forgetVocabularyCardProgress();
   for (const [width, height] of [[320, 700], [1440, 900]] as const) {
     await page.setViewportSize({ width, height });
     await page.goto(topicPath("vocabulary"));

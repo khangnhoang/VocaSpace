@@ -23,6 +23,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Đổi giai đoạn khi đang chờ phản hồi: mỗi câu dựng lại từ lần gửi của nó (đang chờ thì khóa, đã có kết quả thì hiện phản hồi), kể cả câu bị xếp lại sau; kết quả đạt đến lúc vắng mặt được áp dụng khi quay lại và vẫn chờ người học bấm tiếp; không gửi lần hai.
 // - LF3 (AC6): server từ chối với CARDS_REQUIRED (thẻ mới thêm sau khi tải trang) thì về bước Từ vựng, báo lỗi, xin server tải lại; trang đổi key theo dữ liệu thẻ nên workspace dựng lại và thẻ mới vào hàng đợi, câu trả lời không bị ghi.
 // - LF3 (AC8): khi kết quả trả lời báo memory check đã qua thì bước memory check đánh dấu đã xong ngay, bài tập mở ngay; phản hồi của câu vẫn hiện và việc chuyển sang bài tập chỉ xảy ra khi học viên bấm.
+// - LF4 (AC1): toast "Đã hoàn thành memory check!" đúng một lần ở bước chưa qua -> qua theo kết quả của chính câu trả lời; không toast khi chưa qua, khi memory check đã qua lúc tải trang, và khi chính câu trả lời đó làm bài học hoàn thành (chỉ còn toast hoàn thành bài).
 // - Kết quả verify gần nhất: xem plan D3 §10; LF3 CP4 chạy lại toàn file (2026-10-11).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -37,7 +38,7 @@ vi.mock("next/navigation", () => ({
   useRouter: vi.fn(),
 }));
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 const mockedSubmit = vi.mocked(submitQuestionAnswer);
 const mockedUseRouter = vi.mocked(useRouter);
@@ -230,6 +231,64 @@ describe("D3 memory check stage", () => {
     // Điều hướng là việc riêng: chỉ chuyển sang bài tập khi học viên bấm.
     fireEvent.click(screen.getByRole("button", { name: "Mở bài tập" }));
     expect(screen.getByText("Câu bài tập")).not.toBeNull();
+  });
+
+  describe("LF4 memory check completion toast", () => {
+    const passedProgress = {
+      isFlashcardCompleted: true,
+      isMemoryCheckPassed: true,
+      isExerciseCompleted: false,
+      isTopicCompleted: false,
+      newlyCompleted: false,
+    };
+
+    it("announces the memory check once when this answer turns it from not passed to passed", async () => {
+      render(<LearningWorkspace data={workspaceData({ answers: { [ids.first]: rightOption(1) } })} />);
+
+      mockedSubmit.mockResolvedValueOnce({
+        success: true,
+        isCorrect: true,
+        isMemoryCheckPassed: true,
+        topicProgress: passedProgress,
+      });
+      await answer("Đúng 2");
+
+      expect(mockedToast.success.mock.calls.map(([message]) => message)).toEqual(["Đã hoàn thành memory check!"]);
+    });
+
+    it("stays silent for answers that leave the memory check not passed", async () => {
+      render(<LearningWorkspace data={workspaceData()} />);
+      mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: false, isMemoryCheckPassed: false });
+      await answer("Sai 1");
+      fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+      mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, isMemoryCheckPassed: false });
+      await answer("Đúng 2");
+
+      expect(mockedToast.success).not.toHaveBeenCalled();
+    });
+
+    it("stays silent when the memory check was already passed at page load", () => {
+      render(<LearningWorkspace data={workspaceData({ isMemoryCheckPassed: true })} />);
+      fireEvent.click(screen.getByRole("button", { name: /Memory check/ }));
+
+      expect(screen.getByText("Bạn đã trả lời đúng hết memory check")).not.toBeNull();
+      expect(mockedToast.success).not.toHaveBeenCalled();
+    });
+
+    it("leaves only the topic completion toast when the same answer completes the topic", async () => {
+      render(<LearningWorkspace data={workspaceData({ exercises: [], answers: { [ids.first]: rightOption(1) } })} />);
+      mockedSubmit.mockResolvedValueOnce({
+        success: true,
+        isCorrect: true,
+        isMemoryCheckPassed: true,
+        topicProgress: { ...passedProgress, isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true },
+      });
+      await answer("Đúng 2");
+
+      expect(mockedToast.success.mock.calls.map(([message]) => message)).toEqual([
+        "Chúc mừng bạn đã hoàn thành trọn vẹn bài học!",
+      ]);
+    });
   });
 
   it("keeps an answer in flight pending when the learner leaves and returns, and shows its result when it lands", async () => {
@@ -448,7 +507,14 @@ describe("D3 memory check stage", () => {
       image_url: null,
     };
     const { rerender } = render(
-      <LearningWorkspace key="before" data={workspaceData({ flashcards: [oldCard] })} />,
+      <LearningWorkspace
+        key="before"
+        data={workspaceData({
+          flashcards: [oldCard],
+          unseenCardIds: [oldCard.id],
+          unratedCardIds: [oldCard.id],
+        })}
+      />,
     );
 
     // Chấm xong thẻ duy nhất thì chuyển sang memory check.
@@ -489,7 +555,10 @@ describe("D3 memory check stage", () => {
         })}
       />,
     );
-    expect(screen.getByText("reliable")).not.toBeNull();
+    // AC6 (LF4): hàng đợi dựng lại chỉ có thẻ mới chưa xem, kèm toast số thẻ chưa học.
+    expect(screen.getByText("improve")).not.toBeNull();
+    expect(screen.queryByText("reliable")).toBeNull();
+    expect(mockedToast.info).toHaveBeenCalledWith("Bạn còn 1 thẻ chưa học trong bài học này");
     expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
   });
 
