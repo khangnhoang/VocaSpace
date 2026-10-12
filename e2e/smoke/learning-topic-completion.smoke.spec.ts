@@ -153,7 +153,14 @@ async function startMotionSampler(page: Page) {
   });
 }
 
-type AutoAdvanceSample = { time: number; radios: number; resultButtons: number; completed: boolean; section: boolean };
+type AutoAdvanceSample = {
+  time: number;
+  radios: number;
+  resultButtons: number;
+  graded: boolean;
+  completed: boolean;
+  section: boolean;
+};
 
 async function startAutoAdvanceRecorder(page: Page) {
   await page.evaluate(() => {
@@ -168,6 +175,10 @@ async function startAutoAdvanceRecorder(page: Page) {
         time: performance.now(),
         radios: document.querySelectorAll("[role='radio']").length,
         resultButtons: resultButtons.length,
+        // The answer was graded correct: the polite live region carries the "Chính xác" feedback.
+        graded: Array.from(document.querySelectorAll("[aria-live='polite']")).some((region) =>
+          region.textContent?.includes("Chính xác"),
+        ),
         // The header's "Đã hoàn thành" badge: the moment the topic shows as completed.
         completed: Array.from(document.querySelectorAll("span, p, div")).some(
           (element) => element.textContent?.trim() === "Đã hoàn thành",
@@ -192,13 +203,20 @@ async function expectAutoAdvance(page: Page) {
   );
   const openedAt = samples.findIndex((sample) => sample.section);
   expect(openedAt, "the completion screen opens").toBeGreaterThanOrEqual(0);
-  // Wait frames: the topic shows as completed and the screen is not open yet.
-  const waiting = samples.filter((sample, index) => index < openedAt && sample.completed);
-  expect(waiting.length, "at least one wait frame with the feedback").toBeGreaterThan(0);
-  for (const sample of waiting) {
+  // 1. The correct feedback shows before the screen opens.
+  const beforeOpen = samples.slice(0, openedAt);
+  expect(
+    beforeOpen.some((sample) => sample.graded),
+    "the graded-correct feedback shows",
+  ).toBe(true);
+  // 2. While that feedback is visible the topic shows as completed and there is no return action or end button.
+  const waiting = beforeOpen.filter((sample) => sample.graded && sample.completed);
+  expect(waiting.length, "a wait frame with the feedback and the completed topic").toBeGreaterThan(0);
+  for (const sample of beforeOpen.filter((frame) => frame.graded)) {
     expect(sample.radios).toBeGreaterThan(0);
     expect(sample.resultButtons).toBe(0);
   }
+  // 3. Then the completion screen (openedAt >= 0 above).
 }
 
 async function readMotionSamples(page: Page) {
