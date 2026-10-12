@@ -340,6 +340,47 @@ for (const width of WIDTHS) {
     expect(resting.widthRatio).toBeLessThan(0.6);
     await subordinate.hover();
     expect((await measure(subordinate)).underline).toBe("underline");
+    // The touch treatment must apply when EITHER capability is missing (hover without a fine pointer included), which
+    // a touch context cannot emulate: guard the generated media rule that carries the coarse-input classes.
+    const coarseMedia = await page.evaluate(() => {
+      const found: string[] = [];
+      // Tailwind may emit the media either around the class rule or nested inside it, so walk every grouping level.
+      const visit = (rules: CSSRuleList, owner: CSSRule | null) => {
+        for (const rule of Array.from(rules)) {
+          if (rule instanceof CSSMediaRule) {
+            const outer = owner instanceof CSSStyleRule && owner.selectorText.includes("coarse-input");
+            const inner = Array.from(rule.cssRules).some(
+              (child) => child instanceof CSSStyleRule && child.selectorText.includes("coarse-input"),
+            );
+            if (outer || inner) found.push(rule.conditionText);
+          }
+          if ("cssRules" in rule) visit((rule as CSSGroupingRule).cssRules, rule);
+        }
+      };
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          visit(sheet.cssRules, null);
+        } catch {
+          // Cross-origin sheets are not readable and do not carry the app classes.
+        }
+      }
+      return found;
+    });
+    expect(coarseMedia.length).toBeGreaterThan(0);
+    for (const condition of coarseMedia) {
+      expect(condition).toContain("not (hover: hover)");
+      expect(condition).toContain("not (pointer: fine)");
+    }
+    // Keyboard focus on the text action stays visible.
+    await subordinate.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(subordinate).toBeFocused();
+    const focusRing = await subordinate.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { boxShadow: style.boxShadow, outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth };
+    });
+    expect(focusRing.boxShadow !== "none" || (focusRing.outlineStyle !== "none" && focusRing.outlineWidth !== "0px")).toBe(true);
     // Q11 on touch-primary input (a second context sharing the signed-in session): the visible outlined 44px button.
     const touchContext = await browser.newContext({
       storageState: await page.context().storageState(),

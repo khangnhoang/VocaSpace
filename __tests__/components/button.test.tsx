@@ -78,6 +78,8 @@ describe("shared Button contract", () => {
     expect(classes).not.toContain("transition-all");
     expect(classes).not.toContain("translate-y");
     expect(globalCss).toContain("@media (not (hover: hover)), (not (pointer: fine))");
+    // The coarse-input variant must use the block form: the shorthand splits the query on its comma and drops a branch.
+    expect(globalCss).toMatch(/@custom-variant coarse-input \{\s*@media \(not \(hover: hover\)\), \(not \(pointer: fine\)\) \{\s*@slot;/);
     expect(globalCss).toContain('[data-icon-only="true"]');
     expect(globalCss).toContain('.group\\/button[data-icon-only="true"]');
     expect(globalCss).toContain('[data-variant="destructive-quiet"]');
