@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CARDS_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO } from "@/lib/schemas/learn";
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
+import { AUTO_ADVANCE_MS } from "./auto-advance";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -59,9 +60,6 @@ interface MemoryCheckStageProps {
    */
   onCardsRequired?: () => void;
 }
-
-// LF5 AC7: thời gian phản hồi đúng của câu cuối hiện trước khi workspace tự chuyển tiếp (không còn nút để bấm).
-const AUTO_ADVANCE_MS = 900;
 
 function sortOptions(question: QuestionDTO) {
   return question.options

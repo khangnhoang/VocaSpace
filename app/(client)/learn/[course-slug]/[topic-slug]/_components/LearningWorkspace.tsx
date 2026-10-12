@@ -110,12 +110,17 @@ function stepStateText(step: StageStep) {
  */
 function StageThread({ steps }: { steps: StageStep[] }) {
   return (
-    <ol aria-label="Các bước của bài học" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+    // Owner Q14: one line down to 320 px. The steps never wrap, so no connector can dangle at the start of a line;
+    // gaps, connectors and the label shrink on narrow widths instead.
+    <ol
+      aria-label="Các bước của bài học"
+      className="flex min-w-0 flex-nowrap items-center gap-x-1.5 max-[360px]:gap-x-1 sm:gap-x-2"
+    >
       {steps.map((step, index) => (
         <li
           key={step.key}
           aria-current={step.state === "current" ? "step" : undefined}
-          className={`flex items-center gap-2 text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
+          className={`flex shrink-0 items-center gap-1.5 text-[13px] max-[360px]:gap-1 sm:gap-2 sm:text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
             step.state === "current"
               ? "font-bold text-slate-900"
               : step.done
@@ -124,11 +129,11 @@ function StageThread({ steps }: { steps: StageStep[] }) {
           }`}
         >
           {index > 0 && (
-            <span aria-hidden="true" className="h-px w-4 bg-slate-300 sm:w-6" />
+            <span aria-hidden="true" className="h-px w-2 bg-slate-300 max-[360px]:w-1.5 sm:w-6" />
           )}
           <span
             aria-hidden="true"
-            className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors duration-[220ms] motion-reduce:transition-none ${
+            className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold max-[360px]:size-5 transition-colors duration-[220ms] motion-reduce:transition-none ${
               step.state === "current"
                 ? "border-route bg-route text-white"
                 : step.state !== "locked" && step.done
@@ -154,6 +159,11 @@ function StageThread({ steps }: { steps: StageStep[] }) {
     </ol>
   );
 }
+
+// Owner Q14: the footer destinations are subordinate text beside a mouse or trackpad, but a touch-primary input needs a
+// visible bordered 44px target (button.md), so the border and background come from the input capability, not the width.
+const FOOTER_TOUCH_CLASS = "coarse-input:border-border coarse-input:bg-background";
+const FOOTER_GHOST_CLASS = `text-slate-700 ${FOOTER_TOUCH_CLASS}`;
 
 const MEMORY_LOCK_REASON =
   "Trả lời đúng hết memory check để mở khóa phần bài tập.";
@@ -837,6 +847,11 @@ export default function LearningWorkspace({
               onIncorrectAnswer={(questionId) =>
                 setIncorrectIds((current) => ({ ...current, [questionId]: true }))
               }
+              onAutoAdvance={
+                (pendingCompletion || isTopicCompleted) && remainingQuestions.length === 0
+                  ? goToComplete
+                  : undefined
+              }
               onTopicCompleted={markTopicCompleted}
               onMemoryCheckRequired={returnToMemoryCheck}
             />
@@ -1102,11 +1117,11 @@ export default function LearningWorkspace({
           {stageSteps.length > 0 ? <StageThread steps={stageSteps} /> : <span />}
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* LF5 AC5: chủ đề đã hoàn thành và đang xem một bước khác thì có đúng một lối quay lại màn hình hoàn thành. */}
+            {/* LF5 AC5: chủ đề đã hoàn thành và đang xem một bước khác thì có đúng một lối quay lại màn hình hoàn thành (nút "Xem kết quả chủ đề"). */}
             {isTopicCompleted && learningStage !== "complete" && (
               <Button onClick={goToComplete} variant="outline">
                 <CheckCircle2 aria-hidden="true" />
-                Đến màn hình hoàn thành
+                Xem kết quả chủ đề
               </Button>
             )}
             {learningStage === "complete" ? null : learningStage === "exercise" && memoryCheck ? (
@@ -1167,14 +1182,14 @@ export default function LearningWorkspace({
           className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-200 pt-5"
         >
           {lessonNeighbors.previous ? (
-            <Button asChild variant="ghost" size="lg" className="text-slate-700">
+            <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.previous.slug}`}>
                 <ChevronLeft aria-hidden="true" />
                 Bài trước
               </Link>
             </Button>
           ) : (
-            <Button disabled variant="ghost" size="lg">
+            <Button disabled variant="ghost" size="lg" className={FOOTER_TOUCH_CLASS}>
               <ChevronLeft aria-hidden="true" />
               Bài trước
             </Button>
@@ -1195,18 +1210,18 @@ export default function LearningWorkspace({
             </Button>
           ) : learningStage === "complete" && !lessonNeighbors.next ? (
             // LF5 AC3: màn hình hoàn thành giữ đúng một hành động chính, nên đích cuối khóa ở chân trang là hành động phụ.
-            <Button asChild variant="ghost" size="lg" className="text-slate-700">
+            <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
               <Link href={`/learn/${courseSlug}`}>Về tổng quan khóa học</Link>
             </Button>
           ) : lessonNeighbors.next ? (
-            <Button asChild variant="ghost" size="lg" className="text-slate-700">
+            <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
                 Bài sau
                 <ChevronRight aria-hidden="true" />
               </Link>
             </Button>
           ) : (
-            <Button disabled variant="ghost" size="lg">
+            <Button disabled variant="ghost" size="lg" className={FOOTER_TOUCH_CLASS}>
               Bài sau
               <ChevronRight aria-hidden="true" />
             </Button>

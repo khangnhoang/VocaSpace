@@ -297,7 +297,7 @@ describe("D3 memory check stage", () => {
         });
         await answer("Đúng 2");
         await act(async () => {
-          vi.advanceTimersByTime(1000);
+          vi.advanceTimersByTime(1200);
         });
 
         expect(mockedToast.success).not.toHaveBeenCalled();
@@ -437,8 +437,13 @@ describe("D3 memory check stage", () => {
 
         noButtons();
         expect(screen.getByText("Chính xác!")).not.toBeNull();
+        // Owner Q14: the correct feedback stays for 1200 ms before the workspace moves on.
         await act(async () => {
-          vi.advanceTimersByTime(1000);
+          vi.advanceTimersByTime(1100);
+        });
+        expect(screen.getByText("Chính xác!")).not.toBeNull();
+        await act(async () => {
+          vi.advanceTimersByTime(100);
         });
         // Not completed: the AC1 rule sends the learner back to Từ vựng (the finished screen with the cards still to rate).
         expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
@@ -464,7 +469,7 @@ describe("D3 memory check stage", () => {
         noButtons();
         expect(mockedToast.success).not.toHaveBeenCalled();
         await act(async () => {
-          vi.advanceTimersByTime(1000);
+          vi.advanceTimersByTime(1200);
         });
         const heading = screen.getByRole("heading", { name: /^Đã hoàn thành chủ đề/ });
         expect(heading.closest("section")?.getAttribute("data-motion")).toBe("sequence");

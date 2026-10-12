@@ -21,7 +21,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Bảo mật/phân quyền: fixture và kiểm tra chỉ trên runtime E2E cô lập; học viên seed là người duy nhất được ghi danh.
 // - Ổn định/resilience: không tràn ngang ở 375px và 1280px trên các màn bị đụng tới.
 // - Invariant cần giữ: xem lại không ghi gì; tiến độ khóa học/chương lấy từ cùng nguồn với danh sách chương.
-// - Chưa kiểm chứng: cảm nhận chuyển động và nhịp 900 ms của lần tự chuyển do Owner đánh giá trên UI chạy thật.
+// - Chưa kiểm chứng: cảm nhận chuyển động và nhịp 1200 ms của lần tự chuyển do Owner đánh giá trên UI chạy thật.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint LF5 CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-topic-completion.smoke.spec.ts`).
 
 test.describe.configure({ mode: "serial" });
@@ -153,6 +153,54 @@ async function startMotionSampler(page: Page) {
   });
 }
 
+type AutoAdvanceSample = { time: number; radios: number; resultButtons: number; filledResultButtons: number; section: boolean };
+
+async function startAutoAdvanceRecorder(page: Page) {
+  await page.evaluate(() => {
+    const samples: AutoAdvanceSample[] = [];
+    (window as unknown as { __autoAdvance: AutoAdvanceSample[] }).__autoAdvance = samples;
+    const begin = performance.now();
+    const tick = () => {
+      const resultButtons = Array.from(document.querySelectorAll("button")).filter(
+        (button) => button.textContent?.trim() === "Xem kết quả chủ đề",
+      );
+      samples.push({
+        time: performance.now(),
+        radios: document.querySelectorAll("[role='radio']").length,
+        resultButtons: resultButtons.length,
+        filledResultButtons: resultButtons.filter((button) => button.getAttribute("data-variant") === "default").length,
+        section: document.querySelector("section[aria-labelledby='topic-completion-title']") !== null,
+      });
+      if (performance.now() - begin < 12_000) requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+/**
+ * The last exercise answer keeps its feedback on screen with no end button (only the top bar's outline return action
+ * is there), then the completion screen opens by itself about AUTO_ADVANCE_MS (1200 ms) after the completed state shows.
+ */
+async function expectAutoAdvance(page: Page) {
+  const samples = await page.evaluate(
+    () => (window as unknown as { __autoAdvance: AutoAdvanceSample[] }).__autoAdvance,
+  );
+  const completedAt = samples.find((sample) => sample.resultButtons > 0)?.time;
+  const openedAt = samples.find((sample) => sample.section)?.time;
+  expect(completedAt, "the completed state shows before the screen").toBeDefined();
+  expect(openedAt, "the completion screen opens").toBeDefined();
+  const waiting = samples.filter((sample) => sample.resultButtons > 0 && !sample.section);
+  expect(waiting.length).toBeGreaterThan(5);
+  for (const sample of waiting) {
+    expect(sample.radios).toBeGreaterThan(0);
+    expect(sample.resultButtons).toBe(1);
+    expect(sample.filledResultButtons).toBe(0);
+  }
+  const delay = (openedAt as number) - (completedAt as number);
+  expect(delay).toBeGreaterThanOrEqual(1100);
+  expect(delay).toBeLessThan(2500);
+}
+
 async function readMotionSamples(page: Page) {
   return page.evaluate(() => (window as unknown as { __motion: MotionSample[] }).__motion);
 }
@@ -169,7 +217,7 @@ async function answerMemory(page: Page, answers: Array<[RegExp, string]>) {
   for (const [option, afterwards] of answers) {
     await page.getByRole("radio", { name: option }).click();
     await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-    // Câu cuối của memory check không bài tập tự chuyển sau 900 ms, nên không chờ phản hồi của nó.
+    // Câu cuối của memory check không bài tập tự chuyển sau 1200 ms, nên không chờ phản hồi của nó.
     if (!afterwards) continue;
     await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
     await page.getByRole("button", { name: afterwards }).click();
@@ -192,21 +240,34 @@ const FULL_EXERCISES: RegExp[] = [
   /^(?:[A-D]\.?\s*)?deadline$/,
 ];
 
-/** Học trọn chủ đề full-flow đến câu cuối; dừng trước hành động xác nhận "Xem kết quả chủ đề". */
+/**
+ * Học trọn chủ đề full-flow đến hết câu cuối. Câu cuối không có nút kết thúc: phản hồi hiện trong lúc chờ rồi
+ * màn hình hoàn thành tự mở sau AUTO_ADVANCE_MS. Bộ lấy mẫu chuyển động chạy từ trước câu cuối để không lỡ chuỗi.
+ */
 async function finishFullFlow(page: Page) {
   await page.goto(topicPath("full"));
   await rateCards(page, FULL_WORDS);
   await expect(page.getByRole("heading", { name: 'Nghĩa của "deadline" là gì?' })).toBeVisible();
   await answerMemory(page, FULL_MEMORY);
   for (const [index, option] of FULL_EXERCISES.entries()) {
-    await page.getByRole("radio", { name: option }).click();
-    await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
     const last = index === FULL_EXERCISES.length - 1;
-    const forward = page.getByRole("button", { name: last ? "Xem kết quả chủ đề" : "Câu tiếp theo" });
-    await expect(forward).toBeVisible();
-    // Chưa xác nhận thì chưa có màn hình hoàn thành, và không có toast hoàn thành bài.
-    await expect(completionSection(page)).toHaveCount(0);
-    if (!last) await forward.click();
+    await page.getByRole("radio", { name: option }).click();
+    if (last) {
+      await startMotionSampler(page);
+      await startAutoAdvanceRecorder(page);
+    }
+    await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
+    if (last) {
+      // Không chờ từng điều kiện bằng nhiều lệnh riêng: cửa sổ phản hồi chỉ dài 1200 ms, nên bộ ghi theo khung hình
+      // trong trang lấy mẫu và phần kiểm tra chạy sau khi màn hình hoàn thành đã mở.
+      await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
+      await expectAutoAdvance(page);
+    } else {
+      const forward = page.getByRole("button", { name: "Câu tiếp theo" });
+      await expect(forward).toBeVisible();
+      await expect(completionSection(page)).toHaveCount(0);
+      await forward.click();
+    }
   }
 }
 
@@ -219,8 +280,7 @@ for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await finishFullFlow(page);
 
-    await startMotionSampler(page);
-    await page.getByRole("button", { name: "Xem kết quả chủ đề" }).click();
+    // The completion screen opens by itself once the last answer's feedback delay ends.
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "sequence");
     // Result text and the primary action are usable at once; only the progress and the hint are sequenced.
@@ -286,7 +346,7 @@ for (const width of WIDTHS) {
     await expect(page.getByText("deadline nghĩa là hạn chót.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Kiểm tra đáp án" })).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
-    await page.getByRole("button", { name: "Đến màn hình hoàn thành" }).click();
+    await page.getByRole("button", { name: "Xem kết quả chủ đề" }).click();
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
 
@@ -297,7 +357,7 @@ for (const width of WIDTHS) {
     await expect(page.locator("[data-completion-gain]")).toHaveCount(0);
     await page.getByRole("button", { name: "Xem lại Memory check" }).click();
     await expect(page.getByText("deadline nghĩa là hạn chót.")).toBeVisible();
-    await page.getByRole("button", { name: "Đến màn hình hoàn thành" }).click();
+    await page.getByRole("button", { name: "Xem kết quả chủ đề" }).click();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
 
     // Chấm một thẻ Lại sau khi hoàn thành: tải lại thì màn hình mời ôn thẻ đến hạn trước.
@@ -367,6 +427,65 @@ for (const width of WIDTHS) {
       expect(outline.widthRatio).toBeGreaterThan(0.95);
     };
     await expectStacked(page, subordinate);
+    // Owner Q14 (checked on the phone widths and at 320 px): the stage thread on one line, the Xem lại grid as wide as the
+    // primary with 44px buttons, and the footer destinations with the capability-based treatment.
+    const expectMobileLayout = async (view: Page, footer: "plain" | "outlined") => {
+      const geometry = await view.evaluate(() => {
+        const thread = document.querySelector("ol[aria-label='Các bước của bài học']") as HTMLElement;
+        const items = Array.from(thread.children).map((item) => item.getBoundingClientRect());
+        const primary = Array.from(document.querySelectorAll("button")).find((button) =>
+          button.getAttribute("aria-label")?.startsWith("Có "),
+        ) as HTMLElement;
+        const group = document.querySelector("[role='group'][aria-label='Xem lại các bước']") as HTMLElement;
+        const p = primary.getBoundingClientRect();
+        const g = group.getBoundingClientRect();
+        const footerActions = Array.from(
+          document.querySelectorAll("nav[aria-label='Điều hướng bài học'] a, nav[aria-label='Điều hướng bài học'] button"),
+        ).map((element) => {
+          const style = getComputedStyle(element);
+          return {
+            borderColor: style.borderTopColor,
+            background: style.backgroundColor,
+            height: element.getBoundingClientRect().height,
+          };
+        });
+        return {
+          threadTops: items.map((rect) => Math.round(rect.top)),
+          threadRight: Math.max(...items.map((rect) => rect.right)),
+          threadBoxRight: thread.getBoundingClientRect().right,
+          primaryLeft: p.left,
+          primaryRight: p.right,
+          groupLeft: g.left,
+          groupRight: g.right,
+          reviewHeights: Array.from(group.querySelectorAll("button")).map((button) => button.getBoundingClientRect().height),
+          footerActions,
+          overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        };
+      });
+      expect(new Set(geometry.threadTops).size).toBe(1);
+      expect(geometry.threadRight).toBeLessThanOrEqual(geometry.threadBoxRight + 0.5);
+      expect(Math.abs(geometry.groupLeft - geometry.primaryLeft)).toBeLessThan(1);
+      expect(Math.abs(geometry.groupRight - geometry.primaryRight)).toBeLessThan(1);
+      for (const height of geometry.reviewHeights) expect(height).toBeGreaterThanOrEqual(44);
+      expect(geometry.overflow).toBe(false);
+      expect(geometry.footerActions.length).toBeGreaterThan(0);
+      for (const action of geometry.footerActions) {
+        if (footer === "outlined") {
+          expect(action.borderColor).not.toBe("rgba(0, 0, 0, 0)");
+          expect(action.background).not.toBe("rgba(0, 0, 0, 0)");
+          expect(action.height).toBeGreaterThanOrEqual(44);
+        } else {
+          // A fine pointer keeps the quiet footer treatment.
+          expect(action.borderColor).toBe("rgba(0, 0, 0, 0)");
+          expect(action.background).toBe("rgba(0, 0, 0, 0)");
+        }
+      }
+    };
+    await expectMobileLayout(page, "plain");
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.waitForTimeout(300);
+    await expectMobileLayout(page, "plain");
+    await page.setViewportSize({ width, height: 900 });
     // Keyboard focus on the next-topic action shows a real ring: the :focus-visible state with a Route Blue ring of non-zero
     // spread, polled across the 120 ms colour/shadow transition.
     await subordinate.focus();
@@ -390,6 +509,7 @@ for (const width of WIDTHS) {
       expect(await touchPage.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(false);
       // Q13 on touch: the same stacked composition, so the two contexts cannot diverge.
       await expectStacked(touchPage, touchPage.getByRole("link", { name: "Chủ đề tiếp theo" }));
+      await expectMobileLayout(touchPage, "outlined");
     } finally {
       await touchContext.close();
     }
@@ -404,8 +524,7 @@ for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await finishFullFlow(page);
 
-    await startMotionSampler(page);
-    await page.getByRole("button", { name: "Xem kết quả chủ đề" }).click();
+    // The completion screen opens by itself once the last answer's feedback delay ends.
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     expect(await completionSection(page).getAttribute("data-motion")).toBe("settled");
     // The final values are there from the first frame: no bar growth and no hint fade.

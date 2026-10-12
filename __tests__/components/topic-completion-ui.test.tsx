@@ -11,6 +11,7 @@ import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learning-workspace";
+import { AUTO_ADVANCE_MS } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/auto-advance";
 
 // Test plan:
 // - Mục tiêu: bảo vệ UI hoàn thành topic D4 (H6/G7) trong learning workspace.
@@ -333,12 +334,23 @@ describe("D4 topic completion UI", () => {
     expect(completionHeading()).toBeNull();
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
     expect(screen.getByText("Chính xác!")).not.toBeNull();
-    // The last question's end action no longer links away: it opens the completion screen.
+    // LF5 AC4: no end button at all; the completion screen follows the same delay as the memory check.
     expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    // Only the top bar's outline return action carries that name; the answer area has no end button.
+    const resultButtons = screen.getAllByRole("button", { name: "Xem kết quả chủ đề" });
+    expect(resultButtons).toHaveLength(1);
+    expect(resultButtons[0].getAttribute("data-variant")).toBe("outline");
     const overviewBefore = screen.getAllByRole("link", { name: "Về tổng quan khóa học" });
     expect(overviewBefore).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
+    act(() => {
+      vi.advanceTimersByTime(AUTO_ADVANCE_MS - 100);
+    });
+    expect(completionHeading()).toBeNull();
+    expect(screen.getByText("Chính xác!")).not.toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
     expect(completionHeading()?.textContent).toBe("Đã hoàn thành chủ đề “Bài một”");
     expect(screen.queryByText("Câu nhóm A")).toBeNull();
     // This is the last topic: the screen's primary action and the footer both lead to the overview.
@@ -346,6 +358,79 @@ describe("D4 topic completion UI", () => {
     expect(overviewLinks).toHaveLength(2);
     overviewLinks.forEach((link) => expect(link.getAttribute("href")).toBe("/learn/toeic-foundation"));
     expect(successToasts()).toEqual([]);
+  });
+
+  it("also hands over by itself when the topic was already complete and the last answer leaves no question open", async () => {
+    render(
+      <LearningWorkspace
+        data={workspaceData({
+          answers: { [ids.standalone]: right(ids.standalone) },
+          progress: progress({ isExerciseCompleted: true, isTopicCompleted: true }),
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Xem lại Bài tập" }));
+    next();
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    mockedSubmit.mockResolvedValueOnce({
+      success: true,
+      isCorrect: true,
+      topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true }),
+    });
+    await submitExerciseAnswer("Đúng Câu nhóm A");
+
+    expect(screen.getByText("Chính xác!")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Bài tiếp theo" })).toBeNull();
+    expect(completionHeading()).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(AUTO_ADVANCE_MS);
+    });
+    expect(completionHeading()).not.toBeNull();
+  });
+
+  it("does not hand over when the learner leaves the last question before the delay ends", async () => {
+    render(
+      <LearningWorkspace
+        data={workspaceData({ answers: { [ids.standalone]: right(ids.standalone) } })}
+      />,
+    );
+    next();
+    mockedSubmit.mockResolvedValueOnce({
+      success: true,
+      isCorrect: true,
+      topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
+    });
+    await submitExerciseAnswer("Đúng Câu nhóm A");
+    fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
+    expect(screen.getByText("Câu đơn")).not.toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(AUTO_ADVANCE_MS * 2);
+    });
+    expect(completionHeading()).toBeNull();
+    expect(screen.getByText("Câu đơn")).not.toBeNull();
+  });
+
+  it("keeps the end action on a last question the server already had, so visiting it never moves the learner", () => {
+    render(
+      <LearningWorkspace
+        data={workspaceData({
+          answers: { [ids.standalone]: right(ids.standalone), [ids.groupedA]: right(ids.groupedA) },
+          progress: progress({ isExerciseCompleted: true, isTopicCompleted: true }),
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Xem lại Bài tập" }));
+    next();
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    // The footer and the end action both lead to the overview; the end action is still there.
+    expect(screen.getAllByRole("link", { name: "Về tổng quan khóa học" })).toHaveLength(2);
+    act(() => {
+      vi.advanceTimersByTime(AUTO_ADVANCE_MS * 2);
+    });
+    expect(completionHeading()).toBeNull();
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
   });
 
   it("opens the completion screen from Câu tiếp theo when an earlier missed question completes the topic", async () => {
@@ -566,7 +651,7 @@ describe("D4 topic completion UI", () => {
     expect(screen.getByText("Chính xác!")).not.toBeNull();
     expect(completionHeading()).toBeNull();
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1200);
     });
     expect(completionHeading()).not.toBeNull();
     expect(successToasts()).toEqual([]);

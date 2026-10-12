@@ -1403,18 +1403,44 @@ describe("D8-LUI learning workspace presentation", () => {
     describe("Xem lại and the return action (AC5)", () => {
       it("starts a full review queue from Xem lại Từ vựng, and the return action brings the screen back without replaying", () => {
         render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
-        expect(screen.queryByRole("button", { name: "Đến màn hình hoàn thành" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
 
         fireEvent.click(screen.getByRole("button", { name: "Xem lại Từ vựng" }));
         expect(completionHeading()).toBeNull();
         expect(screen.getByText("2 / 2")).not.toBeNull();
         // A subordinate action, not a second primary.
-        const back = screen.getByRole("button", { name: "Đến màn hình hoàn thành" });
+        const back = screen.getByRole("button", { name: "Xem kết quả chủ đề" });
         expect(back.getAttribute("data-variant")).toBe("outline");
 
         fireEvent.click(back);
         expect(completionHeading()).not.toBeNull();
         expect(panel().getAttribute("data-motion")).toBe("settled");
+      });
+
+      it("lays the Xem lại buttons on an equal-width grid, keeps the stage thread on one line and gives the footer a touch outline (Owner Q14)", () => {
+        render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
+        const group = within(panel()).getByRole("group", { name: "Xem lại các bước" });
+        // Three stages: two columns on a phone with the odd last button spanning both, three columns from `sm`.
+        expect(group.className).toContain("grid-cols-2");
+        expect(group.className).toContain("sm:grid-cols-3");
+        expect(group.className).toContain("col-span-2");
+        const reviewButtons = within(group).getAllByRole("button");
+        expect(reviewButtons).toHaveLength(3);
+        for (const button of reviewButtons) {
+          expect(button.className).toContain("w-full");
+          expect(button.className).toContain("min-h-11");
+          expect(button.getAttribute("data-variant")).toBe("outline");
+        }
+        // The thread never wraps, so no connector can start a line.
+        const thread = screen.getByRole("list", { name: "Các bước của bài học" });
+        expect(thread.className).toContain("flex-nowrap");
+        expect(thread.className).not.toMatch(/(^| )flex-wrap( |$)/);
+        // Footer destinations get a visible border and background on touch-primary input, chosen by input capability.
+        const footer = within(screen.getByRole("navigation", { name: "Điều hướng bài học" }));
+        const overview = footer.getByRole("link", { name: "Về tổng quan khóa học" });
+        expect(overview.className).toContain("coarse-input:border-border");
+        expect(overview.className).toContain("coarse-input:bg-background");
+        expect(footer.getByRole("button", { name: "Bài trước" }).className).toContain("coarse-input:bg-background");
       });
 
       it("opens the passed memory check as a read-only review without writing", () => {
@@ -1424,7 +1450,7 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
         expect(screen.getByRole("radio", { name: /Câu nhớ lựa chọn 1/ }).getAttribute("aria-checked")).toBe("true");
         expect(mockedSubmit).not.toHaveBeenCalled();
-        expect(screen.getByRole("button", { name: "Đến màn hình hoàn thành" })).not.toBeNull();
+        expect(screen.getByRole("button", { name: "Xem kết quả chủ đề" })).not.toBeNull();
       });
 
       it("opens the exercises as they already render answered questions", () => {
@@ -1513,7 +1539,7 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(chapter.className).toContain("h-2.5");
 
         fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
-        fireEvent.click(screen.getByRole("button", { name: "Đến màn hình hoàn thành" }));
+        fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
         expect(panel().getAttribute("data-motion")).toBe("settled");
         expect(panel().querySelectorAll("[data-completion-gain]")).toHaveLength(0);
       });
@@ -1525,7 +1551,7 @@ describe("D8-LUI learning workspace presentation", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
         expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
-        fireEvent.click(screen.getByRole("button", { name: "Đến màn hình hoàn thành" }));
+        fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
         expect(panel().getAttribute("data-motion")).toBe("settled");
       });
 
