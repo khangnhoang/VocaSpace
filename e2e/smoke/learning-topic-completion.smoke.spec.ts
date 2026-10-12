@@ -394,6 +394,13 @@ for (const width of WIDTHS) {
     await expect(stepThread(page).getByRole("button").first()).toBeFocused();
     const ring = page.locator("[data-thread-highlight]");
     await expect(ring).toHaveCSS("opacity", "1", { timeout: 600 });
+    // The ring only fades in 220 ms: it is an opacity transition and never moves or scales.
+    expect(
+      await ring.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return { property: style.transitionProperty, duration: style.transitionDuration, transform: style.transform };
+      }),
+    ).toEqual({ property: "opacity", duration: "0.22s", transform: "none" });
     await expect(ring).toHaveCSS("opacity", "0", { timeout: 2500 });
     await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
 
@@ -660,6 +667,7 @@ for (const width of WIDTHS) {
     await expect(stepThread(page).getByRole("button").first()).toBeFocused();
     const ring = page.locator("[data-thread-highlight]");
     await expect(ring).toHaveCSS("opacity", "0");
+    await expect(ring).toHaveCSS("transition-property", "none");
     await page.waitForTimeout(400);
     await expect(ring).toHaveCSS("opacity", "0");
   });

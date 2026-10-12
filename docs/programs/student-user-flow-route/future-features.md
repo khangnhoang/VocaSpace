@@ -67,10 +67,9 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 ## FEAT-005: Route riêng `/learn/review`
 
 - Trạng thái: Dropped (Owner, 2026-10-12): ôn tập ở lại trong không gian học tập qua `ReviewSheet`, không cần route riêng.
-- Mô tả: Tạo route riêng cho FSRS review session thay vì đặt trong dashboard sheet/modal.
-- Lý do hoãn: B2 dùng `ReviewSheet` modal hiện có; dedicated route chờ đến khi dashboard/workspace ổn định và có product need rõ ràng.
-- Wave/phạm vi dự kiến: Wave D hoặc scope riêng.
-- Liên kết: [FUTURE-REVIEW-001](./problems.md#future-review-001-fsrs-review-route-or-deeper-review-ux).
+- Mô tả (ý định ban đầu): tạo route riêng cho FSRS review session thay vì đặt trong dashboard sheet/modal.
+- Quyết định: Owner (2026-10-12) chốt ôn tập ở lại trong không gian học tập qua `ReviewSheet`; không cần route riêng và không có wave nào được xếp cho mục này.
+- Liên kết: FUTURE-REVIEW-001 (đã Resolved trong [problems.md](./problems.md)), [LF6](./implementation-plans/lf6/plan.md).
 
 ---
 
@@ -105,7 +104,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 ## FEAT-009: Chuỗi giai đoạn trong trang học bấm được để nhảy tới giai đoạn đã mở khóa
 
 - Trạng thái: Completed trong [LF6](./implementation-plans/lf6/plan.md) (AC1 đến AC4, AC10) trên nhánh `feat/lf6-stage-thread-review-polish`; chưa merge, xem [progress.md](./progress.md).
-- Mô tả: Trong workspace `/learn/[course-slug]/[topic-slug]`, chuỗi giai đoạn (Từ vựng / Memory check / Bài tập) cho phép bấm để nhảy thẳng tới một giai đoạn đã mở khóa, thay vì bấm lặp lại các nút bước. Giai đoạn đang khóa vẫn không bấm được và hiện lý do khóa; cổng memory check và `exercisesLocked` vẫn là nơi sở hữu quyền truy cập. Bàn phím và focus phải được xử lý (thứ tự Tab, kích hoạt bằng Enter/Space, focus đặt vào nội dung giai đoạn sau khi nhảy, trạng thái hiện tại và trạng thái khóa đọc được bằng trình đọc màn hình).
+- Mô tả: Trong workspace `/learn/[course-slug]/[topic-slug]`, chuỗi giai đoạn (Từ vựng / Memory check / Bài tập) cho phép bấm để nhảy thẳng tới một giai đoạn đã mở khóa, thay vì bấm lặp lại các nút bước. Giai đoạn đang khóa vẫn bấm được nhưng không đổi giai đoạn, chỉ hiện lý do khóa; cổng memory check và `exercisesLocked` vẫn là nơi sở hữu quyền truy cập. Bàn phím và focus phải được xử lý (thứ tự Tab, kích hoạt bằng Enter/Space, focus đặt vào nội dung giai đoạn sau khi nhảy, trạng thái hiện tại và trạng thái khóa đọc được bằng trình đọc màn hình).
 - Ghi chú thêm (QA thủ công LF5, Owner chốt 2026-10-12, Q9): PR này làm chuỗi giai đoạn bấm được rồi thay ba nút `Xem lại Từ vựng` / `Xem lại Memory check` / `Xem lại Bài tập` trên màn hình hoàn thành bằng một nút `Xem lại` duy nhất, bấm vào sẽ kéo sự chú ý tới chuỗi giai đoạn, kèm một dòng giải thích ngắn và nút `Chủ đề tiếp theo`. LF5 giữ ba nút `Xem lại …` cho tới khi PR này được làm.
 - Lý do hoãn: Owner đề xuất khi QA thủ công LF1 (2026-10-10); ngoài phạm vi LF1 (luật hoàn thành flashcard và giải thích khi trả lời đúng).
 - Wave/phạm vi dự kiến: Kế hoạch nhỏ riêng và PR riêng, theo `frontend-design` và `frontend-workflow`.

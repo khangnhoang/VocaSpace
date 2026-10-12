@@ -216,6 +216,7 @@ function StageThread({
         <span
           aria-hidden="true"
           data-thread-highlight=""
+          data-active={highlighted}
           className={`pointer-events-none absolute -inset-1.5 rounded-lg ring-2 ring-route transition-opacity duration-[220ms] motion-reduce:transition-none ${
             highlighted ? "opacity-100" : "opacity-0"
           }`}

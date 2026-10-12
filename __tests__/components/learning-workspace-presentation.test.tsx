@@ -1692,21 +1692,18 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(screen.queryByRole("button", { name: /^Ôn ngay/ })).toBeNull();
       });
 
-      it("gives each step at least a 24 px target with a focus ring and a 44 px touch target that leaves the line layout alone", () => {
+      it("makes every non-current step a native, focusable button, locked ones included", () => {
         render(<LearningWorkspace data={unpassedMemory({ dueCardIds: [] })} />);
         const buttons = thread().getAllByRole("button");
         expect(buttons.length).toBeGreaterThanOrEqual(2);
         for (const button of buttons) {
-          expect(button.className).toContain("min-h-6");
-          expect(button.className).toContain("focus-visible:ring-2");
-          // Enabled and locked steps get the same coarse-pointer target: a transparent 44 px pseudo-element, so the line layout is untouched.
-          expect(button.className).toContain("coarse-input:after:h-11");
-          expect(button.className).toContain("coarse-input:after:absolute");
-          expect(button.className).not.toMatch(/coarse-input:(-?m[yt]|min-h|py|h-)/);
+          expect(button.tagName).toBe("BUTTON");
+          expect(button.getAttribute("type")).toBe("button");
+          expect((button as HTMLButtonElement).disabled).toBe(false);
+          expect(button.getAttribute("tabindex")).not.toBe("-1");
         }
         expect(buttons.some((button) => button.hasAttribute("data-step-locked"))).toBe(true);
-        const list = screen.getByRole("list", { name: "Các bước của bài học" });
-        expect(list.className).toContain("flex-nowrap");
+        // Target size, the 44 px touch hit area, the single line and the focus ring are CSS: the topic-completion smoke measures them.
       });
     });
 
@@ -1738,25 +1735,23 @@ describe("D8-LUI learning workspace presentation", () => {
 
       it("scrolls the thread into view smoothly, focuses its first enabled button and shows then removes a ring", () => {
         render(<LearningWorkspace data={completedTopic()} />);
-        expect(highlight().className).toContain("opacity-0");
+        expect(highlight().getAttribute("data-active")).toBe("false");
 
         fireEvent.click(within(panel()).getByRole("button", { name: "Xem lại" }));
         expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", behavior: "smooth" });
         expect(document.activeElement).toBe(threadButtons()[0]);
-        // The ring is only a colour/opacity change: no movement, and it lasts about a second in total.
-        expect(highlight().className).toContain("opacity-100");
-        expect(highlight().className).toContain("duration-[220ms]");
-        expect(highlight().className).not.toMatch(/translate|scale/);
+        // The ring shows and lasts about a second in total; that it only fades (no movement) is measured in the smoke.
+        expect(highlight().getAttribute("data-active")).toBe("true");
         // The completion screen stays where it was.
         expect(completionHeading()).not.toBeNull();
         act(() => {
           vi.advanceTimersByTime(700);
         });
-        expect(highlight().className).toContain("opacity-100");
+        expect(highlight().getAttribute("data-active")).toBe("true");
         act(() => {
           vi.advanceTimersByTime(100);
         });
-        expect(highlight().className).toContain("opacity-0");
+        expect(highlight().getAttribute("data-active")).toBe("false");
       });
 
       it("skips the smooth scroll and the ring under reduced motion but still moves focus", () => {
@@ -1766,7 +1761,7 @@ describe("D8-LUI learning workspace presentation", () => {
           fireEvent.click(within(panel()).getByRole("button", { name: "Xem lại" }));
           expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", behavior: "auto" });
           expect(document.activeElement).toBe(threadButtons()[0]);
-          expect(highlight().className).toContain("opacity-0");
+          expect(highlight().getAttribute("data-active")).toBe("false");
         } finally {
           restore();
         }
