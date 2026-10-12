@@ -33,10 +33,10 @@ This file was migrated to the repository templates and translated to English on 
 
 ### HEADER-001: The account dropdown loses its navigation items under reduced motion
 
-- Status: Open (found 2026-10-12 during LF5 Owner manual QA; not fixed in LF5, the fix goes in a separate PR).
+- Status: Open (found 2026-10-12 during LF5 Owner manual QA; LF6 could not reproduce it and left it open, see Evidence).
 - Problem: with `prefers-reduced-motion: reduce` emulated in Chrome DevTools, the header account dropdown (`components/ui/header.tsx`, DropdownMenu) opens with only its label and `Đăng xuất`. The navigation group items (`Không gian học tập`, `Hồ sơ cá nhân`, `Quản trị hệ thống`, `Khóa học của tôi`) are missing. Turning reduced motion off restores them.
-- Evidence: Owner manual QA on 2026-10-12, signed in as `admin@gmail.com`. LF5 does not touch the header, so this is pre-existing. The root cause has not been investigated.
-- Direction: a separate PR investigates and fixes it, with a test that opens the dropdown under reduced motion and expects every destination for the role.
+- Evidence: Owner manual QA on 2026-10-12, signed in as `admin@gmail.com`. LF5 does not touch the header, so this is pre-existing. LF6 CP2 reproduction attempt (2026-10-13, isolated runtime, port 3100): `e2e/smoke/account-menu.smoke.spec.ts` now opens the account menu under emulated `prefers-reduced-motion: reduce` for the student, teacher and admin seeded roles, on the first open and on a reopen, and expects every destination for the role; it passes on the unmodified header, so the defect was not reproduced and no header change was made. Untested hypotheses: state specific to the Owner's `next dev` on :3000 (HMR or stale client state), an OS-level reduced-motion setting rather than the DevTools emulation, or a transient dev-server state. The D6 CP2 attempt at a blank first open also could not reproduce it.
+- Direction: needs a reproduction from the Owner (browser, how reduced motion is set, URL and account) before a fix; the LF6 reduced-motion smoke stays as the regression guard once a cause is found.
 - Exit condition: the dropdown shows the full destination list for each role with reduced motion on and off, and the fix is merged.
 
 ### FUTURE-OWNERSHIP-001: Ownership transfer is not available
@@ -56,14 +56,6 @@ This file was migrated to the repository templates and translated to English on 
 - Evidence update (2026-10-09): the Owner confirmed that the D1 UI cases he listed were already tested by him locally during D1 development. This is historical Owner-reported local evidence with no original SHA and no production scope, kept separate from the hosted DB/RPC probes above; it closes the local manual-evidence gap (including exercise creation and browser navigation) for the listed cases only. Whether that list equals the labels M17 to M28 is not independently verified. Seed debt, cleanup debt, media cleanup atomicity and candidate revisions stay open.
 - Direction: handle each deferred item as its own unit with its own contract; remote migration and production remediation need separate authority.
 - Exit condition: each listed limit is delivered or remediated by its own unit.
-
-### FUTURE-REVIEW-001: FSRS review route or deeper review UX
-
-- Status: Deferred.
-- Problem: FSRS review must be discoverable from `/learn`; a dedicated `/learn/review` route can wait until the dashboard and workspace are stable.
-- Evidence: `ReviewSheet` is the current review flow (see `FEAT-005` and plan unit D6). On 2026-10-08 the Owner accepted the delivered UI and confirmed scrolling at 200% preserves content, with non-blocking feedback that animation feels slightly fast and rating buttons lack color distinction between levels.
-- Direction: retain those motion/color notes for a bounded polish task when opened; D8-LUI does not restyle ReviewSheet, so no such implementation is claimed. Add a dedicated route only if the product needs it. Verification needed for a route change: dashboard data states and review card navigation.
-- Exit condition: the product decides on the dedicated route and the chosen scope is delivered.
 
 ### FUTURE-PAYMENT-001: Deeper payment dashboard and history
 
@@ -96,6 +88,7 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - AUTH-002 — Moved 2026-10-02 to the [Auth onboarding problems](../auth-onboarding/problems.md) with the same ID; it is no longer tracked here.
 - E2E-001 — Resolved 2026-10-07: co-owner/draft fixtures with D1/D2 provenance, current teacher routes and public syllabus expectations restore the four affected specs in two full local smoke runs; AUTH-010 remains open and this correction is local only.
 
+- FUTURE-REVIEW-001 — Resolved 2026-10-13: a dedicated review route is not needed (Owner, 2026-10-12; `FEAT-005` Dropped), and the motion and colour notes of 2026-10-08 are delivered by LF6 AC5 (shared rating colours) and AC6 (400 ms flip, 300 ms entry); merge pending, see [progress.md](./progress.md).
 - STUDENT-004 — Resolved 2026-10-09: the review-session completion and return correction (existing due counts for next-batch eligibility, congratulation on exhaustion, `Quay lại`, no empty reload) was verified on the zero/2/51-card journeys, accepted by the Owner on 2026-10-08 and merged in L1 (PR 142, `a92f371`); optional motion/color polish stays in FUTURE-REVIEW-001.
 - STUDENT-008 — Resolved 2026-10-09: CSS owns the dashboard column placement with one DOM tree, so desktop no longer flashes a narrow layout before hydration; responsive loading evidence recorded and merged in L1 (PR 142, `a92f371`).
 - NAVIGATION-001 — Resolved 2026-10-08: mobile/desktop account destinations, logout and keyboard close/focus parity merged in F1 (PR 139, `ee46176`); D6 CP2 names the avatar and verifies first-open/navigation/reopen on seeded roles. The reported blank first-open was not reproduced; no mount fix is claimed.
