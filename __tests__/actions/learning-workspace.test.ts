@@ -20,7 +20,9 @@ import { createClient } from "@/utils/supabase/server";
 // - LF3: danh sách thẻ chưa xem/chưa Ổn-Dễ chỉ từ dòng user_flashcards của chính học viên (admin đọc được mọi dòng), thiếu dữ liệu thì lỗi rõ.
 // - LF4: `dueCardIds` (thẻ đã xem mà đến hạn FSRS hoặc chưa Ổn/Dễ) lấy từ cùng embed `ratings` (thêm `next_review_date`, không thêm truy vấn),
 //   chỉ từ dòng của chính học viên, biên thời gian trước/bằng/sau `now` của server, thẻ chưa xem không bao giờ đến hạn.
-// - Kết quả verify gần nhất: 17/17 passed (2026-10-12) bằng `npx vitest run __tests__/actions/learning-workspace.test.ts`.
+// - LF5 (G2/AC9): `explanation` của câu memory chỉ có khi đáp án đã lưu đang đúng (kể cả `null`); câu sai, chưa làm hoặc bị đổi key không có khóa này
+//   và chuỗi giải thích không xuất hiện trong payload; câu exercise không bao giờ có.
+// - Kết quả verify gần nhất: xem lần chạy cuối của `npx vitest run __tests__/actions/learning-workspace.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
@@ -510,6 +512,89 @@ describe("getLearningWorkspace", () => {
       [memory.first]: `${memory.first.slice(0, 35)}1`,
     });
     expect(from.mock.calls.map(([table]) => table)).toEqual(["courses", "chapters", "topics"]);
+  });
+
+  it("sends a memory-check explanation only for questions whose stored answer is currently correct", async () => {
+    const memoryExercise = "abababab-abab-4bab-8bab-abababababab";
+    const questionIds = {
+      correct: "c0c0c0c0-c0c0-4cc0-8cc0-c0c0c0c0c0c0",
+      correctNoExplanation: "c1c1c1c1-c1c1-4cc1-8cc1-c1c1c1c1c1c1",
+      wrong: "c2c2c2c2-c2c2-4cc2-8cc2-c2c2c2c2c2c2",
+      unanswered: "c3c3c3c3-c3c3-4cc3-8cc3-c3c3c3c3c3c3",
+      invalidated: "c4c4c4c4-c4c4-4cc4-8cc4-c4c4c4c4c4c4",
+    };
+    const optionId = (questionId: string, suffix: string) => `${questionId.slice(0, 35)}${suffix}`;
+    const memoryQuestion = (
+      id: string,
+      order: number,
+      explanation: string | null,
+      selectedSuffix: string | null,
+      // Option "1" là đáp án đúng ban đầu; với `keyFlipped` giáo viên đã đổi đáp án đúng sang option "2".
+      keyFlipped = false,
+    ) => ({
+      id,
+      exercise_id: memoryExercise,
+      group_id: null,
+      content: `Câu nhớ ${order}`,
+      explanation,
+      order_index: order,
+      removed_at: null,
+      options: [
+        { id: optionId(id, "1"), question_id: id, content: "A", label: "A", is_correct: !keyFlipped, order_index: 1, removed_at: null },
+        { id: optionId(id, "2"), question_id: id, content: "B", label: "B", is_correct: keyFlipped, order_index: 2, removed_at: null },
+      ],
+      answers: selectedSuffix
+        ? [{ user_id: user.id, selected_option_id: optionId(id, selectedSuffix) }]
+        : [],
+    });
+    const memoryTopic = {
+      ...topic,
+      memory_checks: [{
+        id: memoryExercise,
+        topic_id: ids.topic,
+        activity_stage: "memory_check",
+        removed_at: null,
+        questions: [
+          memoryQuestion(questionIds.correct, 1, "Vì sao A đúng", "1"),
+          memoryQuestion(questionIds.correctNoExplanation, 2, null, "1"),
+          memoryQuestion(questionIds.wrong, 3, "Lộ đáp án câu sai", "2"),
+          memoryQuestion(questionIds.unanswered, 4, "Lộ đáp án câu chưa làm", null),
+          // Learner đã chọn A khi A đúng; sau đó giáo viên đổi đáp án đúng sang B.
+          memoryQuestion(questionIds.invalidated, 5, "Lộ đáp án câu bị đổi key", "1", true),
+        ],
+      }],
+    };
+    mockSupabase({
+      queries: {
+        courses: singleQuery(course),
+        chapters: rowsQuery([chapter]),
+        topics: singleQuery(memoryTopic),
+      },
+    });
+
+    const result = await getLearningWorkspace(course.slug, topic.slug);
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") return;
+    const byId = new Map(result.data.memoryCheck?.questions.map((question) => [question.id, question]));
+    expect(byId.get(questionIds.correct)?.explanation).toBe("Vì sao A đúng");
+    // Câu đúng nhưng không có giải thích vẫn mang khóa `explanation: null` để client biết là không có gì để hiện.
+    expect(byId.get(questionIds.correctNoExplanation)).toHaveProperty("explanation", null);
+    for (const hidden of [questionIds.wrong, questionIds.unanswered, questionIds.invalidated]) {
+      expect(byId.get(hidden)).not.toHaveProperty("explanation");
+    }
+    expect(Object.keys(result.data.answers)).toEqual(
+      expect.arrayContaining([questionIds.correct, questionIds.correctNoExplanation]),
+    );
+    expect(Object.keys(result.data.answers)).not.toEqual(
+      expect.arrayContaining([questionIds.wrong]),
+    );
+    // Không chuỗi giải thích nào của câu chưa đúng được lọt vào payload gửi xuống client.
+    const payload = JSON.stringify(result.data);
+    expect(payload).not.toContain("Lộ đáp án");
+    // Câu exercise vẫn không bao giờ mang explanation.
+    expect(result.data.exercises[0].questions[0]).not.toHaveProperty("explanation");
+    expect(result.data.exercises[0].groups[0].questions[0]).not.toHaveProperty("explanation");
   });
 
   it("counts an exercise answer only while its selected option is currently correct", async () => {
