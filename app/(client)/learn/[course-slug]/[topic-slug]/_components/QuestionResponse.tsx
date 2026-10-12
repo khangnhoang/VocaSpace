@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
@@ -59,6 +59,8 @@ interface QuestionResponseProps {
    * keeps `endAction`, so merely visiting the last question never moves the learner.
    */
   onAutoAdvance?: () => void;
+  /** LF5 Q16: true exactly while the auto-advance timer runs, so the workspace can hide its duplicate return action. */
+  onAutoAdvancePending?: (pending: boolean) => void;
   onPrevious: () => void;
   onNext: () => void;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
@@ -89,6 +91,7 @@ export default function QuestionResponse({
   hasNext,
   endAction,
   onAutoAdvance,
+  onAutoAdvancePending,
   onPrevious,
   onNext,
   onCorrectAnswer,
@@ -230,14 +233,19 @@ export default function QuestionResponse({
   // A fresh correct answer on the last question of a finished topic hands over by itself: no end button.
   const autoAdvances =
     phase.kind === "correct" && !phase.alreadySaved && !hasNext && Boolean(onAutoAdvance);
-  const onAutoAdvanceRef = useRef(onAutoAdvance);
-  useEffect(() => {
-    onAutoAdvanceRef.current = onAutoAdvance;
+  const onAutoAdvanceRef = useRef({ onAutoAdvance, onAutoAdvancePending });
+  // Layout effects: the workspace hides its return action in the same commit as the wait starts, so it never flashes.
+  useLayoutEffect(() => {
+    onAutoAdvanceRef.current = { onAutoAdvance, onAutoAdvancePending };
   });
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!autoAdvances) return;
-    const timer = window.setTimeout(() => onAutoAdvanceRef.current?.(), AUTO_ADVANCE_MS);
-    return () => window.clearTimeout(timer);
+    onAutoAdvanceRef.current.onAutoAdvancePending?.(true);
+    const timer = window.setTimeout(() => onAutoAdvanceRef.current.onAutoAdvance?.(), AUTO_ADVANCE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      onAutoAdvanceRef.current.onAutoAdvancePending?.(false);
+    };
   }, [autoAdvances]);
 
   const primary =

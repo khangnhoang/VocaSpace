@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { CheckCircle2, Loader2, RotateCcw, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,8 @@ interface MemoryCheckStageProps {
   onMemoryPassed?: (newlyCompleted: boolean) => void;
   onGoToExercises: () => void;
   onTopicCompleted?: (newlyCompleted: boolean) => void;
+  /** LF5 Q16: true exactly while the auto-advance timer runs, so the workspace can hide its duplicate return action. */
+  onAutoAdvancePending?: (pending: boolean) => void;
   /**
    * The server refused the answer because the topic has a card this learner has not seen (a card added after the page
    * loaded). The workspace owns recovery: back to the flashcards and a data refresh.
@@ -90,6 +92,7 @@ export default function MemoryCheckStage({
   onMemoryPassed,
   onGoToExercises,
   onTopicCompleted,
+  onAutoAdvancePending,
   onCardsRequired,
 }: MemoryCheckStageProps) {
   const [isPending, startTransition] = useTransition();
@@ -146,18 +149,23 @@ export default function MemoryCheckStage({
   // LF5 AC7: câu đúng cuối cùng làm memory check qua mà không còn bài tập mở thì không có nút nào; workspace tự chuyển tiếp
   // sau phản hồi. Callback mới nhất nằm trong ref để mỗi lần workspace render lại không đặt lại bộ đếm.
   const autoAdvances = feedback?.kind === "correct" && feedback.passed && !hasOpenExercises;
-  const latestRef = useRef({ onAttemptCleared, onPassed });
-  useEffect(() => {
-    latestRef.current = { onAttemptCleared, onPassed };
+  const latestRef = useRef({ onAttemptCleared, onPassed, onAutoAdvancePending });
+  // Layout effects: the workspace hides its return action in the same commit as the wait starts, so it never flashes.
+  useLayoutEffect(() => {
+    latestRef.current = { onAttemptCleared, onPassed, onAutoAdvancePending };
   });
   const autoAdvanceQuestionId = autoAdvances ? currentQuestion?.id : undefined;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!autoAdvanceQuestionId) return;
+    latestRef.current.onAutoAdvancePending?.(true);
     const timer = window.setTimeout(() => {
       latestRef.current.onAttemptCleared(autoAdvanceQuestionId);
       latestRef.current.onPassed();
     }, AUTO_ADVANCE_MS);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      latestRef.current.onAutoAdvancePending?.(false);
+    };
   }, [autoAdvanceQuestionId]);
 
   // Khi câu trả lời vừa làm memory check qua, phản hồi của câu còn hiện (kèm nút mở bài tập) dù isPassed đã bật.

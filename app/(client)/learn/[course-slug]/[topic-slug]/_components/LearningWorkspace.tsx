@@ -238,6 +238,8 @@ export default function LearningWorkspace({
   // Ref để callback async đọc đúng giá trị vừa đặt; state để render nút hành động của câu hỏi cuối.
   const [pendingCompletion, setPendingCompletionState] = useState(false);
   const pendingCompletionRef = useRef(false);
+  // LF5 Q16: a last answer's auto-advance is waiting; the return action to the completion screen would only duplicate it.
+  const [autoAdvancePending, setAutoAdvancePending] = useState(false);
   const setPendingCompletion = (value: boolean) => {
     pendingCompletionRef.current = value;
     setPendingCompletionState(value);
@@ -852,6 +854,7 @@ export default function LearningWorkspace({
                   ? goToComplete
                   : undefined
               }
+              onAutoAdvancePending={setAutoAdvancePending}
               onTopicCompleted={markTopicCompleted}
               onMemoryCheckRequired={returnToMemoryCheck}
             />
@@ -978,6 +981,7 @@ export default function LearningWorkspace({
               }
             }}
             onGoToExercises={() => goToStage("exercise")}
+            onAutoAdvancePending={setAutoAdvancePending}
             onTopicCompleted={markTopicCompleted}
             onCardsRequired={recoverFromCardsRequired}
           />
@@ -1118,7 +1122,7 @@ export default function LearningWorkspace({
 
           <div className="flex flex-wrap items-center gap-2">
             {/* LF5 AC5: chủ đề đã hoàn thành và đang xem một bước khác thì có đúng một lối quay lại màn hình hoàn thành (nút "Xem kết quả chủ đề"). */}
-            {isTopicCompleted && learningStage !== "complete" && (
+            {isTopicCompleted && learningStage !== "complete" && !autoAdvancePending && (
               <Button onClick={goToComplete} variant="outline">
                 <CheckCircle2 aria-hidden="true" />
                 Xem kết quả chủ đề

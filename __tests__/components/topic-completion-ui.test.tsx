@@ -336,10 +336,8 @@ describe("D4 topic completion UI", () => {
     expect(screen.getByText("Chính xác!")).not.toBeNull();
     // LF5 AC4: no end button at all; the completion screen follows the same delay as the memory check.
     expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
-    // Only the top bar's outline return action carries that name; the answer area has no end button.
-    const resultButtons = screen.getAllByRole("button", { name: "Xem kết quả chủ đề" });
-    expect(resultButtons).toHaveLength(1);
-    expect(resultButtons[0].getAttribute("data-variant")).toBe("outline");
+    // Q16: the top bar's return action would only duplicate the wait, so no button has that name meanwhile.
+    expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
     const overviewBefore = screen.getAllByRole("link", { name: "Về tổng quan khóa học" });
     expect(overviewBefore).toHaveLength(1);
 
@@ -402,6 +400,27 @@ describe("D4 topic completion UI", () => {
       topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
     });
     await submitExerciseAnswer("Đúng Câu nhóm A");
+    expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
+    expect(screen.getByText("Câu đơn")).not.toBeNull();
+    // Q16: the timer is gone with the question, so the way back to the completion screen is shown again.
+    fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
+    expect(completionHeading()).not.toBeNull();
+  });
+
+  it("keeps the timer cleared and the return action visible when the learner stays on another question", async () => {
+    render(
+      <LearningWorkspace
+        data={workspaceData({ answers: { [ids.standalone]: right(ids.standalone) } })}
+      />,
+    );
+    next();
+    mockedSubmit.mockResolvedValueOnce({
+      success: true,
+      isCorrect: true,
+      topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
+    });
+    await submitExerciseAnswer("Đúng Câu nhóm A");
     fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
     expect(screen.getByText("Câu đơn")).not.toBeNull();
 
@@ -410,6 +429,7 @@ describe("D4 topic completion UI", () => {
     });
     expect(completionHeading()).toBeNull();
     expect(screen.getByText("Câu đơn")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Xem kết quả chủ đề" })).not.toBeNull();
   });
 
   it("keeps the end action on a last question the server already had, so visiting it never moves the learner", () => {
@@ -650,6 +670,8 @@ describe("D4 topic completion UI", () => {
     expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
     expect(screen.getByText("Chính xác!")).not.toBeNull();
     expect(completionHeading()).toBeNull();
+    // Q16: no return action during the memory check's own wait either.
+    expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
     await act(async () => {
       vi.advanceTimersByTime(1200);
     });

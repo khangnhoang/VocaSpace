@@ -153,7 +153,7 @@ async function startMotionSampler(page: Page) {
   });
 }
 
-type AutoAdvanceSample = { time: number; radios: number; resultButtons: number; filledResultButtons: number; section: boolean };
+type AutoAdvanceSample = { time: number; radios: number; resultButtons: number; completed: boolean; section: boolean };
 
 async function startAutoAdvanceRecorder(page: Page) {
   await page.evaluate(() => {
@@ -168,7 +168,10 @@ async function startAutoAdvanceRecorder(page: Page) {
         time: performance.now(),
         radios: document.querySelectorAll("[role='radio']").length,
         resultButtons: resultButtons.length,
-        filledResultButtons: resultButtons.filter((button) => button.getAttribute("data-variant") === "default").length,
+        // The header's "Đã hoàn thành" badge: the moment the topic shows as completed.
+        completed: Array.from(document.querySelectorAll("span, p, div")).some(
+          (element) => element.textContent?.trim() === "Đã hoàn thành",
+        ),
         section: document.querySelector("section[aria-labelledby='topic-completion-title']") !== null,
       });
       if (performance.now() - begin < 12_000) requestAnimationFrame(tick);
@@ -178,23 +181,23 @@ async function startAutoAdvanceRecorder(page: Page) {
 }
 
 /**
- * The last exercise answer keeps its feedback on screen with no end button (only the top bar's outline return action
- * is there), then the completion screen opens by itself about AUTO_ADVANCE_MS (1200 ms) after the completed state shows.
+ * The last exercise answer keeps its feedback on screen with no `Xem kết quả chủ đề` button at all (the top bar's return
+ * action is hidden during the wait, Owner Q16), then the completion screen opens by itself about AUTO_ADVANCE_MS
+ * (1200 ms) after the completed state shows.
  */
 async function expectAutoAdvance(page: Page) {
   const samples = await page.evaluate(
     () => (window as unknown as { __autoAdvance: AutoAdvanceSample[] }).__autoAdvance,
   );
-  const completedAt = samples.find((sample) => sample.resultButtons > 0)?.time;
+  const completedAt = samples.find((sample) => sample.completed)?.time;
   const openedAt = samples.find((sample) => sample.section)?.time;
   expect(completedAt, "the completed state shows before the screen").toBeDefined();
   expect(openedAt, "the completion screen opens").toBeDefined();
-  const waiting = samples.filter((sample) => sample.resultButtons > 0 && !sample.section);
+  const waiting = samples.filter((sample) => sample.completed && !sample.section);
   expect(waiting.length).toBeGreaterThan(5);
   for (const sample of waiting) {
     expect(sample.radios).toBeGreaterThan(0);
-    expect(sample.resultButtons).toBe(1);
-    expect(sample.filledResultButtons).toBe(0);
+    expect(sample.resultButtons).toBe(0);
   }
   const delay = (openedAt as number) - (completedAt as number);
   expect(delay).toBeGreaterThanOrEqual(1100);
@@ -289,7 +292,7 @@ for (const width of WIDTHS) {
     await expect(page.getByText(/^Tiếp theo: /)).toBeVisible();
     await page.waitForTimeout(2200);
     // AC8 (Owner Q7). Timing is verified from the computed CSS, not from frame cadence, so a slow runner cannot flip it:
-    // the course fill has a fixed 1 s transition with no delay, the highlight grows with it and fades right after, and
+    // the course fill has a fixed 1.2 s transition with no delay, the highlight grows with it and fades right after, and
     // the hint starts only once the fill is over. Samples only prove the start and end values and the highlight.
     const samples = await readMotionSamples(page);
     expect(samples.length).toBeGreaterThan(0);
@@ -300,12 +303,12 @@ for (const width of WIDTHS) {
     expect(last.courseFill).toBeGreaterThan(0.12);
     expect(last.courseFill).toBeLessThan(0.16);
     expect(last.hintOpacity).toBe(1);
-    expect(cssTimesMs(first.fillTiming.duration)).toEqual([1000]);
+    expect(cssTimesMs(first.fillTiming.duration)).toEqual([1200]);
     expect(cssTimesMs(first.fillTiming.delay)).toEqual([0]);
     expect(first.gainTiming).not.toBeNull();
-    expect(cssTimesMs(first.gainTiming!.duration)).toEqual([1000, 300]);
-    expect(cssTimesMs(first.gainTiming!.delay)).toEqual([0, 1000]);
-    expect(cssTimesMs(first.hintAnimationDelay)[0]).toBeGreaterThanOrEqual(1000);
+    expect(cssTimesMs(first.gainTiming!.duration)).toEqual([1200, 300]);
+    expect(cssTimesMs(first.gainTiming!.delay)).toEqual([0, 1200]);
+    expect(cssTimesMs(first.hintAnimationDelay)[0]).toBeGreaterThanOrEqual(1250);
     // The highlight is shown when the sequence starts and transparent once it has settled.
     expect(first.gainPresent).toBe(true);
     expect(first.gainOpacity).toBeGreaterThan(0.9);

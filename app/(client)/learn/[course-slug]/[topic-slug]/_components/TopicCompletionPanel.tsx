@@ -47,12 +47,12 @@ const percent = (value: number, total: number) =>
   total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
 
 // Owner Q7 (2026-10-12): each fill runs a fixed duration whatever the size of the change, so a small gain stays visible.
-// The whole sequence (~1.3 s) deliberately exceeds the 600-900 ms product-language cap for this screen only. Easing is the accepted token.
+// The whole sequence (~1.5 s) deliberately exceeds the 600-900 ms product-language cap for this screen only. Easing is the accepted token.
 const EASE = "cubic-bezier(0.2, 0, 0, 1)";
-const COURSE_BAR = { delay: 0, duration: 1000 };
-const CHAPTER_BAR = { delay: 250, duration: 800 };
+const COURSE_BAR = { delay: 0, duration: 1200 };
+const CHAPTER_BAR = { delay: 250, duration: 1000 };
 const GAIN_FADE_MS = 300;
-// The hint and the chapter-done note wait 1050 ms (the literal `delay-[1050ms]` classes below) so they follow the bars.
+// The hint and the chapter-done note wait 1250 ms (the literal `delay-[1250ms]` classes below) so they follow the bars.
 
 interface ProgressFillProps {
   previous: number;
@@ -111,7 +111,7 @@ function reviewGridClass(count: number) {
 /**
  * LF5 AC3/AC8: the shared completion screen of a finished topic. The text, the
  * values and every action are rendered at once; only the bars move. The sequence
- * (course fill, chapter fill, next hint, about 1.3 s: an Owner-accepted deviation from the 600-900 ms cap for this screen) runs only for a
+ * (course fill, chapter fill, next hint, about 1.5 s: an Owner-accepted deviation from the 600-900 ms cap for this screen) runs only for a
  * completion that just happened and never under reduced motion.
  */
 export default function TopicCompletionPanel({
@@ -146,7 +146,7 @@ export default function TopicCompletionPanel({
   const showChapterDone = chapterFinished && revealed;
   // The hint (and the chapter-done note) is the last step: it appears once both fills have finished.
   const hintMotion = sequence
-    ? "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[260ms] motion-safe:delay-[1050ms] motion-safe:fill-mode-backwards"
+    ? "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[260ms] motion-safe:delay-[1250ms] motion-safe:fill-mode-backwards"
     : "";
 
   const nextLink =
@@ -235,7 +235,7 @@ export default function TopicCompletionPanel({
             <p
               className={`flex items-center gap-1.5 text-sm font-bold text-growth ${
                 sequence
-                  ? `motion-safe:transition-opacity motion-safe:duration-[260ms] motion-safe:delay-[1050ms] ${revealed ? "opacity-100" : "opacity-0"}`
+                  ? `motion-safe:transition-opacity motion-safe:duration-[260ms] motion-safe:delay-[1250ms] ${revealed ? "opacity-100" : "opacity-0"}`
                   : ""
               }`}
             >
