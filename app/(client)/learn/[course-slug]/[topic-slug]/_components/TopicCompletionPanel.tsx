@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronRight } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface CompletionReviewStage {
@@ -46,10 +46,66 @@ function prefersReducedMotion() {
 const percent = (value: number, total: number) =>
   total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
 
+// Owner Q7 (2026-10-12): each fill runs a fixed duration whatever the size of the change, so a small gain stays visible.
+// The whole sequence (~1.3 s) deliberately exceeds the 600-900 ms product-language cap for this screen only. Easing is the accepted token.
+const EASE = "cubic-bezier(0.2, 0, 0, 1)";
+const COURSE_BAR = { delay: 0, duration: 1000 };
+const CHAPTER_BAR = { delay: 250, duration: 800 };
+const GAIN_FADE_MS = 300;
+// The hint and the chapter-done note wait 1050 ms (the literal `delay-[1050ms]` classes below) so they follow the bars.
+
+interface ProgressFillProps {
+  previous: number;
+  completed: number;
+  total: number;
+  sequence: boolean;
+  revealed: boolean;
+  timing: { delay: number; duration: number };
+  /** Fill colour once settled. */
+  tone: string;
+}
+
+/** The fill from `previous` to `completed`; during the sequence the gained segment is tinted, then settles to the fill colour. */
+function ProgressFill({ previous, completed, total, sequence, revealed, timing, tone }: ProgressFillProps) {
+  const from = percent(previous, total);
+  const to = percent(completed, total);
+  const shown = sequence && !revealed ? from : to;
+  const grow = (property: string) => ({
+    transitionProperty: property,
+    transitionDuration: `${timing.duration}ms`,
+    transitionDelay: `${timing.delay}ms`,
+    transitionTimingFunction: EASE,
+  });
+  return (
+    <>
+      <div
+        className={`h-full rounded-full ${tone}`}
+        style={{ width: `${shown}%`, ...(sequence ? grow("width") : {}) }}
+      />
+      {sequence && (
+        <div
+          aria-hidden="true"
+          data-completion-gain
+          className="absolute inset-y-0 rounded-full bg-white/60"
+          style={{
+            left: `${from}%`,
+            width: revealed ? `${Math.max(0, to - from)}%` : "0%",
+            opacity: revealed ? 0 : 1,
+            transitionProperty: "width, opacity",
+            transitionDuration: `${timing.duration}ms, ${GAIN_FADE_MS}ms`,
+            transitionDelay: `${timing.delay}ms, ${timing.delay + timing.duration}ms`,
+            transitionTimingFunction: EASE,
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 /**
  * LF5 AC3/AC8: the shared completion screen of a finished topic. The text, the
  * values and every action are rendered at once; only the bars move. The sequence
- * (course progress, chapter settle, next hint, about 880 ms) runs only for a
+ * (course fill, chapter fill, next hint, about 1.3 s: an Owner-accepted deviation from the 600-900 ms cap for this screen) runs only for a
  * completion that just happened and never under reduced motion.
  */
 export default function TopicCompletionPanel({
@@ -80,34 +136,17 @@ export default function TopicCompletionPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const courseValue = revealed ? course.completed : course.previous;
-  const chapterValue = revealed ? chapter.completed : chapter.previous;
   const chapterFinished = chapter.total > 0 && chapter.completed >= chapter.total;
   const showChapterDone = chapterFinished && revealed;
-  const barMotion = (delay: string, duration: string) =>
-    sequence
-      ? `motion-safe:transition-[width] motion-safe:ease-[cubic-bezier(0.2,0,0,1)] ${delay} ${duration}`
-      : "";
+  // The hint (and the chapter-done note) is the last step: it appears once both fills have finished.
   const hintMotion = sequence
-    ? "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[260ms] motion-safe:delay-[620ms] motion-safe:fill-mode-backwards"
+    ? "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[260ms] motion-safe:delay-[1050ms] motion-safe:fill-mode-backwards"
     : "";
 
   const nextLink =
     next.kind === "topic" ? (
-      <Link href={next.href}>
-        <span className="flex min-w-0 flex-col items-start text-left leading-tight">
-          <span>Tiếp tục học</span>
-          <span className="break-words text-sm font-medium [overflow-wrap:anywhere]">
-            {next.unitLabel}
-          </span>
-          {next.detail && (
-            <span className="break-words text-xs font-medium opacity-90 [overflow-wrap:anywhere]">
-              {next.detail}
-            </span>
-          )}
-        </span>
-        <ChevronRight aria-hidden="true" />
-      </Link>
+      // Owner Q8: one line; the next topic is already named in the hint above.
+      <Link href={next.href}>Chủ đề tiếp theo</Link>
     ) : (
       <Link href={next.href}>Về tổng quan khóa học</Link>
     );
@@ -145,11 +184,16 @@ export default function TopicCompletionPanel({
             aria-valuemax={course.total}
             aria-valuenow={course.completed}
             aria-valuetext={`${course.completed} trên ${course.total} chủ đề`}
-            className="h-2.5 overflow-hidden rounded-full bg-slate-200"
+            className="relative h-2.5 overflow-hidden rounded-full bg-slate-200"
           >
-            <div
-              className={`h-full rounded-full bg-recall ${barMotion("motion-safe:delay-0", "motion-safe:duration-[400ms]")}`}
-              style={{ width: `${percent(courseValue, course.total)}%` }}
+            <ProgressFill
+              previous={course.previous}
+              completed={course.completed}
+              total={course.total}
+              sequence={sequence}
+              revealed={revealed}
+              timing={COURSE_BAR}
+              tone="bg-recall"
             />
           </div>
         </div>
@@ -170,18 +214,23 @@ export default function TopicCompletionPanel({
             aria-valuemax={chapter.total}
             aria-valuenow={chapter.completed}
             aria-valuetext={`${chapter.completed} trên ${chapter.total} chủ đề của chương`}
-            className="h-2 overflow-hidden rounded-full bg-slate-200"
+            className="relative h-2.5 overflow-hidden rounded-full bg-slate-200"
           >
-            <div
-              className={`h-full rounded-full ${showChapterDone ? "bg-growth" : "bg-recall"} ${barMotion("motion-safe:delay-[400ms]", "motion-safe:duration-[220ms]")}`}
-              style={{ width: `${percent(chapterValue, chapter.total)}%` }}
+            <ProgressFill
+              previous={chapter.previous}
+              completed={chapter.completed}
+              total={chapter.total}
+              sequence={sequence}
+              revealed={revealed}
+              timing={CHAPTER_BAR}
+              tone={showChapterDone ? "bg-growth" : "bg-recall"}
             />
           </div>
           {chapterFinished && (
             <p
               className={`flex items-center gap-1.5 text-sm font-bold text-growth ${
                 sequence
-                  ? `motion-safe:transition-opacity motion-safe:duration-[220ms] motion-safe:delay-[400ms] ${revealed ? "opacity-100" : "opacity-0"}`
+                  ? `motion-safe:transition-opacity motion-safe:duration-[260ms] motion-safe:delay-[1050ms] ${revealed ? "opacity-100" : "opacity-0"}`
                   : ""
               }`}
             >
@@ -198,15 +247,15 @@ export default function TopicCompletionPanel({
       <div className="flex flex-col gap-3">
         {dueCount > 0 ? (
           <>
-            <Button size="lg" className="min-h-12 w-full" onClick={onReviewDue}>
+            <Button size="lg" className="min-h-12 w-full text-base" onClick={onReviewDue}>
               Ôn ngay {dueCount} thẻ
             </Button>
-            <Button asChild size="lg" variant="outline" className="h-auto min-h-12 w-full py-2">
+            <Button asChild size="lg" variant="outline" className="h-auto min-h-12 w-full py-2 text-base">
               {nextLink}
             </Button>
           </>
         ) : (
-          <Button asChild size="lg" className="h-auto min-h-12 w-full py-2">
+          <Button asChild size="lg" className="h-auto min-h-12 w-full py-2 text-base">
             {nextLink}
           </Button>
         )}

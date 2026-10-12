@@ -105,6 +105,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 - Trạng thái: Deferred.
 - Mô tả: Trong workspace `/learn/[course-slug]/[topic-slug]`, chuỗi giai đoạn (Từ vựng / Memory check / Bài tập) cho phép bấm để nhảy thẳng tới một giai đoạn đã mở khóa, thay vì bấm lặp lại các nút bước. Giai đoạn đang khóa vẫn không bấm được và hiện lý do khóa; cổng memory check và `exercisesLocked` vẫn là nơi sở hữu quyền truy cập. Bàn phím và focus phải được xử lý (thứ tự Tab, kích hoạt bằng Enter/Space, focus đặt vào nội dung giai đoạn sau khi nhảy, trạng thái hiện tại và trạng thái khóa đọc được bằng trình đọc màn hình).
+- Ghi chú thêm (QA thủ công LF5, Owner chốt 2026-10-12, Q9): PR này làm chuỗi giai đoạn bấm được rồi thay ba nút `Xem lại Từ vựng` / `Xem lại Memory check` / `Xem lại Bài tập` trên màn hình hoàn thành bằng một nút `Xem lại` duy nhất, bấm vào sẽ kéo sự chú ý tới chuỗi giai đoạn, kèm một dòng giải thích ngắn và nút `Chủ đề tiếp theo`. LF5 giữ ba nút `Xem lại …` cho tới khi PR này được làm.
 - Lý do hoãn: Owner đề xuất khi QA thủ công LF1 (2026-10-10); ngoài phạm vi LF1 (luật hoàn thành flashcard và giải thích khi trả lời đúng).
 - Wave/phạm vi dự kiến: Kế hoạch nhỏ riêng và PR riêng, theo `frontend-design` và `frontend-workflow`.
 - Liên kết: [LF1 plan](./implementation-plans/learning-followup/plan.md).

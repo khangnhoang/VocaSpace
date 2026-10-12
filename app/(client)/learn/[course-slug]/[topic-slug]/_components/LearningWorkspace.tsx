@@ -872,7 +872,13 @@ export default function LearningWorkspace({
             total: chapterTopics.length,
             previous: chapterCompletedCount - countBefore,
           }}
-          nextHint={completionNext.kind === "topic" ? completionNext.unitLabel : "Tổng quan khóa học"}
+          nextHint={
+            completionNext.kind === "topic"
+              ? completionNext.detail
+                ? `${completionNext.unitLabel} — ${completionNext.detail}`
+                : completionNext.unitLabel
+              : "Tổng quan khóa học"
+          }
           animate={completionEntry.animate}
           focusOnEntry={completionEntry.focus}
           dueCount={dueCards.length}
@@ -1098,7 +1104,7 @@ export default function LearningWorkspace({
           <div className="flex flex-wrap items-center gap-2">
             {/* LF5 AC5: chủ đề đã hoàn thành và đang xem một bước khác thì có đúng một lối quay lại màn hình hoàn thành. */}
             {isTopicCompleted && learningStage !== "complete" && (
-              <Button onClick={goToComplete} variant="ghost" className="text-slate-700">
+              <Button onClick={goToComplete} variant="outline">
                 <CheckCircle2 aria-hidden="true" />
                 Về màn hình hoàn thành
               </Button>

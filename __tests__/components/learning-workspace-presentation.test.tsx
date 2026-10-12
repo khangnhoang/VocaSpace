@@ -1275,9 +1275,12 @@ describe("D8-LUI learning workspace presentation", () => {
 
       it("makes the next topic the only primary action, with the footer subordinate, when no card is due", () => {
         render(<LearningWorkspace data={completedTopic({ syllabus: threeTopicSyllabus(false) })} />);
-        const nextLink = within(panel()).getByRole("link", { name: /Tiếp tục học/ });
+        // Owner Q8: one line, no second line and no chevron; the next topic is named in the hint above.
+        const nextLink = within(panel()).getByRole("link", { name: "Chủ đề tiếp theo" });
         expect(nextLink.getAttribute("href")).toBe("/learn/toeic-foundation/topic-two");
-        expect(nextLink.textContent).toContain("Chủ đề 2 · Bài hai");
+        expect(nextLink.textContent).toBe("Chủ đề tiếp theo");
+        expect(nextLink.querySelector("svg")).toBeNull();
+        expect(within(panel()).getByText("Tiếp theo: Chủ đề 2 · Bài hai")).not.toBeNull();
         expect(primaries()).toEqual([nextLink]);
         expect(within(panel()).queryByRole("button", { name: /^Ôn ngay/ })).toBeNull();
 
@@ -1293,7 +1296,7 @@ describe("D8-LUI learning workspace presentation", () => {
         );
         const review = within(panel()).getByRole("button", { name: "Ôn ngay 1 thẻ" });
         expect(primaries()).toEqual([review]);
-        const nextLink = within(panel()).getByRole("link", { name: /Tiếp tục học/ });
+        const nextLink = within(panel()).getByRole("link", { name: "Chủ đề tiếp theo" });
         expect(nextLink.getAttribute("data-variant")).toBe("outline");
         const footer = within(screen.getByRole("navigation", { name: "Điều hướng bài học" }));
         expect(footer.getByRole("link", { name: "Bài sau" }).getAttribute("data-variant")).toBe("ghost");
@@ -1308,7 +1311,7 @@ describe("D8-LUI learning workspace presentation", () => {
         render(<LearningWorkspace data={completedTopic()} />);
         const overview = within(panel()).getByRole("link", { name: "Về tổng quan khóa học" });
         expect(overview.getAttribute("href")).toBe("/learn/toeic-foundation");
-        expect(within(panel()).queryByRole("link", { name: /Tiếp tục học/ })).toBeNull();
+        expect(within(panel()).queryByRole("link", { name: "Chủ đề tiếp theo" })).toBeNull();
         expect(primaries()).toEqual([overview]);
         // The footer keeps the destination, but as a subordinate action.
         const footer = within(screen.getByRole("navigation", { name: "Điều hướng bài học" }));
@@ -1357,11 +1360,9 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(chapter.getAttribute("aria-valuenow")).toBe("2");
         expect(chapter.getAttribute("aria-valuemax")).toBe("2");
         expect(within(panel()).getByText("Đã hoàn thành chương này")).not.toBeNull();
-        expect(within(panel()).getByText("Tiếp theo: Chương 2 · Chương hai")).not.toBeNull();
-        // The next executable unit is the next chapter, with its first topic as supporting context.
-        const nextLink = within(panel()).getByRole("link", { name: /Tiếp tục học/ });
-        expect(nextLink.textContent).toContain("Chương 2 · Chương hai");
-        expect(nextLink.textContent).toContain("Chủ đề 1 · Bài ba");
+        // The next unit is the next chapter; the hint names it and its first topic.
+        expect(within(panel()).getByText("Tiếp theo: Chương 2 · Chương hai — Chủ đề 1 · Bài ba")).not.toBeNull();
+        const nextLink = within(panel()).getByRole("link", { name: "Chủ đề tiếp theo" });
         expect(nextLink.getAttribute("href")).toBe("/learn/toeic-foundation/topic-three");
       });
 
@@ -1382,7 +1383,7 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(screen.getByText("2 / 2")).not.toBeNull();
         // A subordinate action, not a second primary.
         const back = screen.getByRole("button", { name: "Về màn hình hoàn thành" });
-        expect(back.getAttribute("data-variant")).toBe("ghost");
+        expect(back.getAttribute("data-variant")).toBe("outline");
 
         fireEvent.click(back);
         expect(completionHeading()).not.toBeNull();
@@ -1462,13 +1463,32 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(course.getAttribute("aria-valuenow")).toBe("2");
         const chapter = within(panel()).getByRole("progressbar", { name: "Chương 1 · Chương một" });
         expect(chapter.getAttribute("aria-valuenow")).toBe("2");
-        expect(within(panel()).getByText("Tiếp theo: Chương 2 · Chương hai")).not.toBeNull();
+        expect(within(panel()).getByText("Tiếp theo: Chương 2 · Chương hai — Chủ đề 1 · Bài ba")).not.toBeNull();
         // Focus goes to the confirmation because the learner arrived by an action.
         expect(document.activeElement).toBe(completionHeading());
         expect(mockedToast.success).not.toHaveBeenCalled();
 
         fireEvent.click(screen.getByRole("button", { name: "Mở danh sách chương và bài học" }));
         expect(screen.getByRole("link", { name: /^Bài một\s*\(Đã hoàn thành\)$/ })).not.toBeNull();
+      });
+
+      it("tints only the gained segment during the sequence and drops it once settled, with equal-height tracks", async () => {
+        render(<LearningWorkspace data={lastCard()} />);
+        await completeWithLastCard();
+
+        const course = within(panel()).getByRole("progressbar", { name: "Tiến độ khóa học" });
+        const chapter = within(panel()).getByRole("progressbar", { name: "Chương 1 · Chương một" });
+        expect(panel().querySelectorAll("[data-completion-gain]")).toHaveLength(2);
+        expect(course.querySelector("[data-completion-gain]")).not.toBeNull();
+        expect(chapter.querySelector("[data-completion-gain]")).not.toBeNull();
+        // Both tracks share one height; the labels and scales stay separate.
+        expect(course.className).toContain("h-2.5");
+        expect(chapter.className).toContain("h-2.5");
+
+        fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
+        fireEvent.click(screen.getByRole("button", { name: "Về màn hình hoàn thành" }));
+        expect(panel().getAttribute("data-motion")).toBe("settled");
+        expect(panel().querySelectorAll("[data-completion-gain]")).toHaveLength(0);
       });
 
       it("shows the settled screen on every later entry in the same session", async () => {
@@ -1497,7 +1517,7 @@ describe("D8-LUI learning workspace presentation", () => {
           expect(panel().getAttribute("data-motion")).toBe("settled");
           const course = within(panel()).getByRole("progressbar", { name: "Tiến độ khóa học" });
           expect(course.getAttribute("aria-valuenow")).toBe("2");
-          expect(within(panel()).getByText("Tiếp theo: Chương 2 · Chương hai")).not.toBeNull();
+          expect(within(panel()).getByText("Tiếp theo: Chương 2 · Chương hai — Chủ đề 1 · Bài ba")).not.toBeNull();
         } finally {
           window.matchMedia = original;
         }

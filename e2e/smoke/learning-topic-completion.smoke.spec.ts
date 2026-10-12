@@ -99,6 +99,11 @@ interface MotionSample {
   courseFill: number;
   /** Opacity of the "Tiếp theo" hint. */
   hintOpacity: number;
+  /** Whether the gained-segment highlight element exists on the course bar. */
+  gainPresent: boolean;
+  /** Width of the highlight as a fraction of the track, and its opacity. */
+  gainWidth: number;
+  gainOpacity: number;
 }
 
 /** Records the course bar and the next hint on every frame once the completion screen exists. */
@@ -112,10 +117,14 @@ async function startMotionSampler(page: Page) {
       const fill = section?.querySelector("[role='progressbar'] > div") as HTMLElement | null;
       const hint = section?.querySelector("[data-completion-hint]") as HTMLElement | null;
       if (fill?.parentElement && hint) {
+        const gain = fill.parentElement.querySelector("[data-completion-gain]") as HTMLElement | null;
         samples.push({
           time: performance.now(),
           courseFill: fill.getBoundingClientRect().width / fill.parentElement.getBoundingClientRect().width,
           hintOpacity: Number(getComputedStyle(hint).opacity),
+          gainPresent: gain !== null,
+          gainWidth: gain ? gain.getBoundingClientRect().width / fill.parentElement.getBoundingClientRect().width : 0,
+          gainOpacity: gain ? Number(getComputedStyle(gain).opacity) : 0,
         });
       }
       if (performance.now() - begin < 12_000) requestAnimationFrame(tick);
@@ -194,11 +203,12 @@ for (const width of WIDTHS) {
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "sequence");
     // Result text and the primary action are usable at once; only the progress and the hint are sequenced.
-    await expect(page.getByRole("link", { name: /Tiếp tục học/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Chủ đề tiếp theo" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Xem lại Memory check" })).toBeEnabled();
     await expect(page.getByText(/^Tiếp theo: /)).toBeVisible();
-    await page.waitForTimeout(1500);
-    // AC8 order: the course bar starts at its previous value (0 of 7) and reaches 1 of 7, then the hint appears.
+    await page.waitForTimeout(2200);
+    // AC8 (Owner Q7): the course bar starts at its previous value (0 of 7) and grows for a fixed ~1 s to 1 of 7,
+    // the gained segment is highlighted while it grows and fades afterwards, then the hint appears.
     const samples = await readMotionSamples(page);
     expect(samples.length).toBeGreaterThan(5);
     expect(samples[0].courseFill).toBeLessThan(0.05);
@@ -207,17 +217,43 @@ for (const width of WIDTHS) {
     expect(last.courseFill).toBeGreaterThan(0.12);
     expect(last.courseFill).toBeLessThan(0.16);
     expect(last.hintOpacity).toBe(1);
-    const barDone = samples.find((sample) => sample.courseFill > 0.12);
+    const barDone = samples.find((sample) => sample.courseFill > 0.135);
     const hintShown = samples.find((sample) => sample.hintOpacity > 0.9);
     expect(barDone && hintShown && barDone.time < hintShown.time).toBe(true);
+    // Fixed duration: the fill is seen mid-way on many frames, and reaches its target about 1 s after it starts.
+    const growing = samples.filter((sample) => sample.courseFill > 0.01 && sample.courseFill < 0.13);
+    expect(growing.length).toBeGreaterThanOrEqual(8);
+    const started = samples.find((sample) => sample.courseFill > 0.005);
+    expect(started && barDone).toBeTruthy();
+    // The easing is a steep ease-out, so "reached" means within 0.5% of the 14% target (1 of 7, rounded).
+    const reached = samples.find((sample) => sample.courseFill >= 0.1395);
+    expect(reached).toBeTruthy();
+    const fillMs = reached!.time - started!.time;
+    expect(fillMs).toBeGreaterThan(800);
+    expect(fillMs).toBeLessThan(1500);
+    // The highlight covers the gained part while the bar moves, and is gone (transparent) once settled.
+    const highlighted = samples.filter((sample) => sample.gainPresent && sample.gainWidth > 0.01 && sample.gainOpacity > 0.9);
+    expect(highlighted.length).toBeGreaterThanOrEqual(8);
+    expect(last.gainOpacity).toBeLessThan(0.05);
+    // The whole sequence stays within the accepted ~1.2-1.5 s window (plus sampling slack).
+    const total = (hintShown?.time ?? 0) - samples[0].time;
+    expect(total).toBeLessThan(2000);
     await expect(page.getByRole("progressbar")).toHaveCount(2);
     await expect(page.getByRole("progressbar", { name: "Tiến độ khóa học" })).toHaveAttribute("aria-valuenow", "1");
     // Thẻ vừa chấm Ổn chưa đến hạn nên hành động chính là chủ đề kế, không phải ôn thẻ.
     await expect(page.getByRole("button", { name: /^Ôn ngay/ })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: /Tiếp tục học/ })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Chủ đề tiếp theo" })).toHaveAttribute(
       "href",
       `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS.vocabulary.slug}`,
     );
+    // Q8: a one-line action with no second line; the next topic is named in the hint instead.
+    await expect(page.getByRole("link", { name: "Chủ đề tiếp theo" })).toHaveText("Chủ đề tiếp theo");
+    await expect(page.getByText(/^Tiếp theo: Chủ đề /)).toBeVisible();
+    // Both progress tracks share one height.
+    const heights = await page
+      .getByRole("progressbar")
+      .evaluateAll((bars) => bars.map((bar) => Math.round(bar.getBoundingClientRect().height)));
+    expect(new Set(heights).size).toBe(1);
     await expectNoHorizontalOverflow(page);
 
     // Xem lại memory check ngay trong phiên: chỉ đọc, có giải thích; quay về không phát lại chuỗi.
@@ -235,6 +271,7 @@ for (const width of WIDTHS) {
     await page.reload();
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
+    await expect(page.locator("[data-completion-gain]")).toHaveCount(0);
     await page.getByRole("button", { name: "Xem lại Memory check" }).click();
     await expect(page.getByText("deadline nghĩa là hạn chót.")).toBeVisible();
     await page.getByRole("button", { name: "Về màn hình hoàn thành" }).click();
@@ -274,7 +311,9 @@ for (const width of WIDTHS) {
       expect(sample.courseFill).toBeGreaterThan(0.12);
       expect(sample.courseFill).toBeLessThan(0.16);
       expect(sample.hintOpacity).toBe(1);
+      expect(sample.gainPresent).toBe(false);
     }
+    await expect(page.locator("[data-completion-gain]")).toHaveCount(0);
     await expect(page.getByRole("progressbar", { name: "Tiến độ khóa học" })).toHaveAttribute("aria-valuenow", "1");
     await expectNoHorizontalOverflow(page);
   });
