@@ -1294,10 +1294,18 @@ describe("D8-LUI learning workspace presentation", () => {
             data={completedTopic({ syllabus: threeTopicSyllabus(false), dueCardIds: [cardA.id, "ffffffff-ffff-4fff-8fff-ffffffffffff"] })}
           />,
         );
-        const review = within(panel()).getByRole("button", { name: "Ôn ngay 1 thẻ" });
+        // Owner Q10: a small context line over the larger action; the accessible name keeps both.
+        const review = within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn ôn, Ôn ngay" });
         expect(primaries()).toEqual([review]);
+        const lines = Array.from(review.querySelectorAll("span")).map((line) => line.textContent);
+        expect(lines).toEqual(["Có 1 thẻ đến hạn ôn", "Ôn ngay"]);
+        // Owner Q11: subordinate Route Blue text on a fine pointer, the outlined 44px button on touch-primary input.
         const nextLink = within(panel()).getByRole("link", { name: "Chủ đề tiếp theo" });
-        expect(nextLink.getAttribute("data-variant")).toBe("outline");
+        expect(nextLink.getAttribute("data-variant")).toBe("link");
+        expect(nextLink.className).toContain("w-fit");
+        expect(nextLink.className).toContain("min-h-11");
+        expect(nextLink.className).toContain("coarse-input:border-border");
+        expect(nextLink.className).toContain("coarse-input:w-full");
         const footer = within(screen.getByRole("navigation", { name: "Điều hướng bài học" }));
         expect(footer.getByRole("link", { name: "Bài sau" }).getAttribute("data-variant")).toBe("ghost");
 
@@ -1316,6 +1324,15 @@ describe("D8-LUI learning workspace presentation", () => {
         // The footer keeps the destination, but as a subordinate action.
         const footer = within(screen.getByRole("navigation", { name: "Điều hướng bài học" }));
         expect(footer.getByRole("link", { name: "Về tổng quan khóa học" }).getAttribute("data-variant")).toBe("ghost");
+      });
+
+      it("shows the course overview as the same subordinate text action on the last topic when cards are due", () => {
+        render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
+        const review = within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn ôn, Ôn ngay" });
+        expect(primaries()).toEqual([review]);
+        const overview = within(panel()).getByRole("link", { name: "Về tổng quan khóa học" });
+        expect(overview.getAttribute("data-variant")).toBe("link");
+        expect(overview.className).toContain("coarse-input:border-border");
       });
 
       it("keeps the completion screen for a completed topic whose active content was all removed", () => {

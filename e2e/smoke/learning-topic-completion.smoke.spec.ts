@@ -13,7 +13,8 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture tổng hợp tạo một lần trong beforeAll; mỗi test xóa tiến độ của học viên seed rồi chạy ở 375px và 1280px.
 // - Case thành công: học trọn chủ đề full-flow (thẻ, memory check, bài tập) -> không toast, màn hình hoàn thành hiện với chuỗi chuyển động (`data-motion="sequence"`);
 //   xem lại Memory check chỉ đọc (có giải thích) rồi về màn hình hoàn thành không phát lại chuỗi; tải lại mở thẳng màn hình đã ổn định (`settled`);
-//   chấm một thẻ Lại sau khi hoàn thành -> tải lại thì hành động chính của màn hình là "Ôn ngay 1 thẻ".
+//   chấm một thẻ Lại sau khi hoàn thành -> tải lại thì hành động chính của màn hình là nút hai dòng "Có 1 thẻ đến hạn ôn" / "Ôn ngay";
+//   hành động "Chủ đề tiếp theo" phụ là chữ Route Blue khi con trỏ chính xác (hover + fine pointer) và là nút viền 44px khi nhập bằng cảm ứng (độc lập với độ rộng viewport).
 // - Case reduced motion: cùng luồng nhưng với `prefers-reduced-motion: reduce` thì màn hình hoàn thành hiện ngay ở trạng thái `settled`.
 // - Case không có bài tập: chủ đề thẻ + memory check không bài tập, qua memory check thì tự chuyển sang màn hình hoàn thành, không có nút "Mở bài tập" hay "Hoàn thành memory check".
 // - Case chưa hoàn thành: chủ đề mở ở bước đầu tiên còn phải làm (Từ vựng, rồi Memory check khi thẻ đã xong, rồi Bài tập khi memory check đã qua).
@@ -212,6 +213,7 @@ async function finishFullFlow(page: Page) {
 for (const width of WIDTHS) {
   test(`finishing the full-flow topic opens the completion screen with its sequence, and the review and reload settle it, at ${width}px`, async ({
     page,
+    browser,
   }) => {
     test.setTimeout(240_000);
     await page.setViewportSize({ width, height: 900 });
@@ -306,9 +308,57 @@ for (const width of WIDTHS) {
     await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
     await page.reload();
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
-    const dueNow = page.getByRole("button", { name: "Ôn ngay 1 thẻ" });
+    // Q10: the primary action is two lines; its accessible name keeps both.
+    const dueNow = page.getByRole("button", { name: "Có 1 thẻ đến hạn ôn, Ôn ngay" });
     await expect(dueNow).toBeVisible();
+    await expect(dueNow.locator("span")).toHaveText(["Có 1 thẻ đến hạn ôn", "Ôn ngay"]);
     await expectNoHorizontalOverflow(page);
+    // Q11 on a mouse/trackpad (the default context): the next-topic action is subordinate Route Blue text of intrinsic
+    // width with an underline on hover, whatever the viewport width.
+    expect(await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(true);
+    const subordinate = page.getByRole("link", { name: "Chủ đề tiếp theo" });
+    const measure = (link: typeof subordinate) =>
+      link.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        const parent = element.parentElement!.getBoundingClientRect();
+        return {
+          borderColor: style.borderTopColor,
+          background: style.backgroundColor,
+          color: style.color,
+          underline: style.textDecorationLine,
+          height: box.height,
+          widthRatio: box.width / parent.width,
+        };
+      });
+    const resting = await measure(subordinate);
+    // The base Button keeps a transparent 1px border for stable geometry; nothing is drawn.
+    expect(resting.borderColor).toBe("rgba(0, 0, 0, 0)");
+    expect(resting.background).toBe("rgba(0, 0, 0, 0)");
+    expect(resting.color).toBe("rgb(37, 99, 235)");
+    expect(resting.underline).toBe("none");
+    expect(resting.widthRatio).toBeLessThan(0.6);
+    await subordinate.hover();
+    expect((await measure(subordinate)).underline).toBe("underline");
+    // Q11 on touch-primary input (a second context sharing the signed-in session): the visible outlined 44px button.
+    const touchContext = await browser.newContext({
+      storageState: await page.context().storageState(),
+      viewport: { width, height: 900 },
+      hasTouch: true,
+    });
+    try {
+      const touchPage = await touchContext.newPage();
+      await touchPage.goto(page.url());
+      await expect(touchPage.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
+      expect(await touchPage.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(false);
+      const touchLink = await measure(touchPage.getByRole("link", { name: "Chủ đề tiếp theo" }));
+      expect(touchLink.borderColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(touchLink.background).not.toBe("rgba(0, 0, 0, 0)");
+      expect(touchLink.height).toBeGreaterThanOrEqual(44);
+      expect(touchLink.widthRatio).toBeGreaterThan(0.95);
+    } finally {
+      await touchContext.close();
+    }
     await dueNow.click();
     await expect(page.getByText("1 / 1", { exact: true })).toBeVisible();
     await expect(page.getByText("schedule", { exact: true })).toBeVisible();

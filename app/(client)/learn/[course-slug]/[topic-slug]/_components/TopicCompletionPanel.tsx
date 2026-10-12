@@ -150,6 +150,10 @@ export default function TopicCompletionPanel({
     ) : (
       <Link href={next.href}>Về tổng quan khóa học</Link>
     );
+  // Owner Q11: beside the filled `Ôn ngay` the next-topic action is a subordinate Route Blue text action on a mouse or
+  // trackpad (intrinsic width, underline on hover) and the visible outlined 44px button on touch-primary input.
+  const subordinateClass =
+    "h-auto min-h-11 w-fit self-center px-1 py-2 text-base coarse-input:w-full coarse-input:self-stretch coarse-input:border-border coarse-input:bg-background coarse-input:px-5 coarse-input:text-foreground";
 
   return (
     <section
@@ -247,10 +251,21 @@ export default function TopicCompletionPanel({
       <div className="flex flex-col gap-3">
         {dueCount > 0 ? (
           <>
-            <Button size="lg" className="min-h-12 w-full text-base" onClick={onReviewDue}>
-              Ôn ngay {dueCount} thẻ
+            {/* Owner Q10: a small context line over the larger action; the accessible name keeps both. */}
+            <Button
+              size="lg"
+              className="h-auto min-h-14 w-full flex-col gap-0.5 py-2"
+              aria-label={`Có ${dueCount} thẻ đến hạn ôn, Ôn ngay`}
+              onClick={onReviewDue}
+            >
+              <span aria-hidden="true" className="text-sm font-medium leading-5">
+                Có {dueCount} thẻ đến hạn ôn
+              </span>
+              <span aria-hidden="true" className="text-lg font-bold leading-6">
+                Ôn ngay
+              </span>
             </Button>
-            <Button asChild size="lg" variant="outline" className="h-auto min-h-12 w-full py-2 text-base">
+            <Button asChild size="lg" variant="link" className={subordinateClass}>
               {nextLink}
             </Button>
           </>

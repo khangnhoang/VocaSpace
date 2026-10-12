@@ -11,6 +11,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Input capability, not viewport width: true unless the primary input has both hover and a fine pointer (touch-primary). */
+@custom-variant coarse-input (@media (not (hover: hover)), (not (pointer: fine)));
+
 /* 1. THANH CUỘN MẶC ĐỊNH CHO (CLIENT) - TÔNG SÁNG / BLUE */
 ::-webkit-scrollbar {
   width: 10px;
