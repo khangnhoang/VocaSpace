@@ -833,6 +833,16 @@ export default function LearningWorkspace({
                 <RotateCcw aria-hidden="true" />
                 Ôn lại từ vựng
               </Button>
+              {!memoryCardsLocked && nextStageAfterFlashcards === "memory" && (
+                <Button
+                  size="lg"
+                  variant={dueCards.length > 0 ? "outline" : "default"}
+                  onClick={() => goToStage("memory")}
+                >
+                  Tới Memory check
+                  <ChevronRight aria-hidden="true" />
+                </Button>
+              )}
             </div>
           </section>
         );
@@ -927,6 +937,7 @@ export default function LearningWorkspace({
               </Button>
             ) : null}
             {learningStage === "flashcard" &&
+              learningQueue.length > 0 &&
               !memoryCardsLocked &&
               nextStageAfterFlashcards === "memory" && (
                 <Button onClick={() => goToStage("memory")} variant="outline">

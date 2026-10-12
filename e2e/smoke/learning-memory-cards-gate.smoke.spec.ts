@@ -24,6 +24,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Invariant cần giữ: server là nguồn cuối của cổng; UI chỉ phục hồi (về Từ vựng, tải lại dữ liệu), không tự mở khóa.
 // - LF4 (AC3/AC4/AC5/AC6) ở 375px và 1280px: (a) chấm một phần thẻ rồi tải lại thì chỉ xếp thẻ chưa xem và có toast số thẻ chưa học;
 //   (b) mọi thẻ đã xem, có một thẻ chấm Lại, tải lại thì màn hình kết thúc mời ôn thẻ đến hạn đó, "Ôn ngay" chỉ xếp thẻ đó còn "Ôn lại từ vựng" xếp mọi thẻ;
+//   (b') màn hình kết thúc có đúng một nút "Tới Memory check" cùng hàng với hai nút kia;
 //   (c) giảng viên thêm thẻ, tải lại thì chỉ thẻ mới được xếp. Nửa ngày giờ FSRS của AC5 kiểm ở tầng action, không kiểm ở trình duyệt.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint LF3 CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-memory-cards-gate.smoke.spec.ts`).
 
@@ -257,6 +258,9 @@ for (const width of [375, 1280]) {
     await expect(finishedHeading).toBeVisible();
     await expect(page.getByText("Bạn có 1 thẻ đến hạn thuộc bài học này")).toBeVisible();
     await expect(unseenToast(1)).toHaveCount(0);
+    // Ba nút cùng hàng đợi kết thúc (Ôn ngay, Ôn lại, Tới Memory check) không tràn ngang; nút Memory check không lặp ở thanh trên.
+    await expect(page.getByRole("button", { name: "Tới Memory check" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Tới Memory check" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
     await page.getByRole("button", { name: "Ôn ngay 1 thẻ" }).click();
