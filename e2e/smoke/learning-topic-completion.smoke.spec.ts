@@ -248,8 +248,17 @@ for (const width of WIDTHS) {
     expect(first.gainPresent).toBe(true);
     expect(first.gainOpacity).toBeGreaterThan(0.9);
     expect(last.gainOpacity).toBeLessThan(0.05);
-    // Loose sanity check: the bar was seen between its old and new value at least once.
-    expect(samples.some((sample) => sample.courseFill > 0.005 && sample.courseFill < 0.135)).toBe(true);
+    // Loose sanity check, no frame count or time window: at least one sample mid-run, with the bar between its old and
+    // new value and the highlight both visibly wide and opaque.
+    expect(
+      samples.some(
+        (sample) =>
+          sample.courseFill > 0.005 &&
+          sample.courseFill < 0.135 &&
+          sample.gainWidth > 0.01 &&
+          sample.gainOpacity > 0.9,
+      ),
+    ).toBe(true);
     await expect(page.getByRole("progressbar")).toHaveCount(2);
     await expect(page.getByRole("progressbar", { name: "Tiến độ khóa học" })).toHaveAttribute("aria-valuenow", "1");
     // Thẻ vừa chấm Ổn chưa đến hạn nên hành động chính là chủ đề kế, không phải ôn thẻ.
