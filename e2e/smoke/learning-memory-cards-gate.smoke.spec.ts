@@ -10,7 +10,7 @@ import {
 import { CARDS_REQUIRED_ERROR } from "../../lib/memory-check";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
-// spec: docs/programs/student-user-flow-route/implementation-plans/lf3/plan.md
+// spec: docs/programs/student-user-flow-route/implementation-plans/lf3/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf4/plan.md
 // Test plan:
 // - Mục tiêu: kiểm chứng trên trình duyệt thật cổng "đã xem hết thẻ" của memory check (LF3 AC4-AC6) và dòng các bước (AC8).
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture tổng hợp tạo trong beforeAll và dọn trong afterAll.
@@ -22,6 +22,10 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Bảo mật/phân quyền: kết quả kiểm tra bằng service role chỉ trên runtime E2E cô lập; học viên seed là người duy nhất được ghi danh.
 // - Ổn định/resilience: không tràn ngang ở 375px và 1280px trên các màn bị đụng tới.
 // - Invariant cần giữ: server là nguồn cuối của cổng; UI chỉ phục hồi (về Từ vựng, tải lại dữ liệu), không tự mở khóa.
+// - LF4 (AC3/AC4/AC5/AC6) ở 375px và 1280px: (a) chấm một phần thẻ rồi tải lại thì chỉ xếp thẻ chưa xem và có toast số thẻ chưa học;
+//   (b) mọi thẻ đã xem, có một thẻ chấm Lại, tải lại thì màn hình kết thúc mời ôn thẻ đến hạn đó, "Ôn ngay" chỉ xếp thẻ đó còn "Ôn lại từ vựng" xếp mọi thẻ;
+//   (b') màn hình kết thúc có đúng một nút "Tới Memory check" cùng hàng với hai nút kia;
+//   (c) giảng viên thêm thẻ, tải lại thì chỉ thẻ mới được xếp. Nửa ngày giờ FSRS của AC5 kiểm ở tầng action, không kiểm ở trình duyệt.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint LF3 CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-memory-cards-gate.smoke.spec.ts`).
 
 // Hai test dùng chung một lần seed và test sau đọc trạng thái do test trước để lại.
@@ -46,6 +50,7 @@ test.beforeEach(async ({ page }) => {
 
 const topicPath = `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS.full.slug}`;
 const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
+const NEW_CARDS_TOAST = "Bài học vừa có thêm 1 thẻ mới. Học xong rồi làm lại memory check nhé.";
 const FIRST_QUESTION = 'Nghĩa của "deadline" là gì?';
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -109,7 +114,10 @@ test("a card added after the page loaded sends the learner back to the flashcard
   // Server từ chối: không có câu trả lời nào được ghi, người học về Từ vựng và dữ liệu được tải lại.
   await page.getByRole("radio", { name: /hạn chót/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-  await expect(page.getByText(CARDS_REQUIRED_ERROR)).toBeVisible();
+  // Đúng một toast thông tin với số thẻ mới; không có toast lỗi và không có toast "Bạn còn N thẻ chưa học".
+  await expect(page.getByText(NEW_CARDS_TOAST)).toBeVisible();
+  await expect(page.getByText(CARDS_REQUIRED_ERROR)).toHaveCount(0);
+  await expect(page.getByText(/Bạn còn \d+ thẻ chưa học/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
   await expect(thread).toContainText("Memory check (đang khóa)");
   expect(await answeredOptionFor(FIRST_QUESTION)).toHaveLength(0);
@@ -125,7 +133,7 @@ test("a card added after the page loaded sends the learner back to the flashcard
 
   // Chấm lại hàng đợi (có thẻ mới) rồi trả lời: lần đầu sai (ghi mới), sau đó đúng (đổi đáp án).
   const shownCards = await rateCardsUntilMemoryCheck(page);
-  expect(shownCards).toContain(FULL_FLOW_ADDED_CARD.word);
+  expect(shownCards).toEqual([FULL_FLOW_ADDED_CARD.word]);
   await page.getByRole("radio", { name: /lịch trình/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
   await expect(page.getByRole("radio", { name: /bạn chọn chưa đúng/ })).toBeVisible();
@@ -194,7 +202,7 @@ test("a changed answer is refused while a new card is unseen and the stored answ
   await addFullFlowCard();
   await page.getByRole("radio", { name: /hạn chót/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-  await expect(page.getByText(CARDS_REQUIRED_ERROR)).toBeVisible();
+  await expect(page.getByText(NEW_CARDS_TOAST)).toBeVisible();
   await expect(thread).toContainText("Memory check (đang khóa)");
   const afterRefusal = await answeredOptionFor(FIRST_QUESTION);
   expect(afterRefusal).toHaveLength(1);
@@ -202,7 +210,7 @@ test("a changed answer is refused while a new card is unseen and the stored answ
 
   // Phục hồi: học thẻ mới rồi gửi lại thì đáp án được đổi sang đáp án đúng.
   const shownCards = await rateCardsUntilMemoryCheck(page);
-  expect(shownCards).toContain(FULL_FLOW_ADDED_CARD.word);
+  expect(shownCards).toEqual([FULL_FLOW_ADDED_CARD.word]);
   await page.getByRole("radio", { name: /hạn chót/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
   await expect(page.getByRole("button", { name: "Mở bài tập" })).toBeVisible();
@@ -212,3 +220,69 @@ test("a changed answer is refused while a new card is unseen and the stored answ
   expect(changed).toHaveLength(1);
   expect(changed[0].selected_option_id).not.toBe(stored[0].selected_option_id);
 });
+
+// LF4: mỗi bề rộng tự seed lại để bắt đầu từ trạng thái sạch (học viên chưa xem thẻ nào).
+for (const width of [375, 1280]) {
+  test(`only unseen cards are queued, due cards are offered after the last card and a new card is queued alone, at ${width}px`, async ({
+    page,
+  }) => {
+    test.setTimeout(300_000);
+    await seedLearningWorkspaceMatrix();
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(topicPath);
+
+    const counter = (left: number, total: number) => page.getByText(`${left} / ${total}`, { exact: true });
+    const finishedHeading = page.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" });
+    const rate = async (word: string, rating: string, nextVisible: ReturnType<Page["getByText"]>) => {
+      await expect(page.getByText(word, { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Hiện đáp án" }).click();
+      await page.getByRole("button", { name: rating, exact: true }).click();
+      // Thẻ kế tiếp chỉ hiện sau khi server đã ghi dòng chấm.
+      await expect(nextVisible).toBeVisible();
+    };
+    const unseenToast = (count: number) => page.getByText(`Bạn còn ${count} thẻ chưa học trong bài học này`);
+
+    // Lần đầu mọi thẻ đều chưa xem: đủ 4 thẻ và không có toast chưa học.
+    await expect(counter(4, 4)).toBeVisible();
+    await expect(unseenToast(4)).toHaveCount(0);
+
+    // (a) Chấm hai thẻ đầu Dễ rồi tải lại: chỉ còn hai thẻ chưa xem và có toast.
+    await rate("schedule", "Dễ", page.getByText("deadline", { exact: true }));
+    await rate("deadline", "Dễ", page.getByText("approve", { exact: true }));
+    await page.reload();
+    await expect(counter(2, 2)).toBeVisible();
+    await expect(page.getByText("approve", { exact: true })).toBeVisible();
+    await expect(unseenToast(2)).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    // (b) Thẻ "approve" chấm Lại, thẻ "available" chấm Dễ; mọi thẻ đã xem nên tải lại thì vào màn hình kết thúc.
+    await rate("approve", "Lại", page.getByText("available", { exact: true }));
+    await rate("available", "Dễ", page.getByText("approve", { exact: true }));
+    await page.reload();
+    await expect(finishedHeading).toBeVisible();
+    await expect(page.getByText("Bạn có 1 thẻ đến hạn thuộc bài học này")).toBeVisible();
+    await expect(unseenToast(1)).toHaveCount(0);
+    // Ba nút cùng hàng đợi kết thúc (Ôn ngay, Ôn lại, Tới Memory check) không tràn ngang; nút Memory check không lặp ở thanh trên.
+    await expect(page.getByRole("button", { name: "Tới Memory check" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Tới Memory check" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    await page.getByRole("button", { name: "Ôn ngay 1 thẻ" }).click();
+    await expect(counter(1, 1)).toBeVisible();
+    await expect(page.getByText("approve", { exact: true })).toBeVisible();
+
+    await page.reload();
+    await expect(finishedHeading).toBeVisible();
+    await page.getByRole("button", { name: "Ôn lại từ vựng" }).click();
+    await expect(counter(4, 4)).toBeVisible();
+    await expect(page.getByText("schedule", { exact: true })).toBeVisible();
+
+    // (c) Giảng viên thêm thẻ: tải lại thì chỉ thẻ mới được xếp, kèm toast.
+    await addFullFlowCard();
+    await page.reload();
+    await expect(counter(1, 1)).toBeVisible();
+    await expect(page.getByText(FULL_FLOW_ADDED_CARD.word, { exact: true })).toBeVisible();
+    await expect(unseenToast(1)).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+}

@@ -126,7 +126,7 @@ type RawCard = {
   image_url: string | null;
   order_index: number | null;
   removed_at: string | null;
-  ratings?: Array<{ user_id: string; last_rating: number | null }> | null;
+  ratings?: Array<{ user_id: string; last_rating: number | null; next_review_date: string | null }> | null;
 };
 
 type RawProgress = {
@@ -267,7 +267,8 @@ function buildTopicData(
     )
     .sort(compareOrderedRows);
   // LF3: thẻ chưa xem (memory check đóng) và thẻ chưa Ổn/Dễ chỉ từ dòng user_flashcards của chính học viên (G4/G7).
-  const { unseenCardIds, unratedCardIds } = summarizeOwnCardProgress(activeCards, userId);
+  // LF4: thẻ đến hạn lấy từ cùng các dòng đó (không thêm truy vấn), tính theo giờ của server lúc tải trang.
+  const { unseenCardIds, unratedCardIds, dueCardIds } = summarizeOwnCardProgress(activeCards, userId);
   const flashcards = activeCards
     .map((card) => ({
       id: card.id,
@@ -385,6 +386,7 @@ function buildTopicData(
     flashcards,
     unseenCardIds,
     unratedCardIds,
+    dueCardIds,
     exercises,
     memoryCheck: memoryCheck
       ? {
@@ -496,7 +498,7 @@ export async function getLearningWorkspace(
           chapter:chapters!inner (id, course_id, removed_at),
           cards (
             id, topic_id, front_content, back_content, audio_url, image_url, order_index, removed_at,
-            ratings:user_flashcards (user_id, last_rating)
+            ratings:user_flashcards (user_id, last_rating, next_review_date)
           ),
           progress:user_topic_progress (
             topic_id, is_flashcard_completed, is_exercise_completed, is_topic_completed

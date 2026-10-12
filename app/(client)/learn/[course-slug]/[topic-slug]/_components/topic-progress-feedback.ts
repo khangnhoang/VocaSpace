@@ -2,6 +2,9 @@ import { toast } from "sonner";
 import type { TopicProgress } from "@/lib/schemas/learning-workspace";
 
 export const TOPIC_COMPLETED_MESSAGE = "Chúc mừng bạn đã hoàn thành trọn vẹn bài học!";
+export const MEMORY_CHECK_PASSED_MESSAGE = "Đã hoàn thành memory check!";
+export const newCardsAddedMessage = (count: number) =>
+  `Bài học vừa có thêm ${count} thẻ mới. Học xong rồi làm lại memory check nhé.`;
 
 /**
  * D4 G7: completion is announced only when the server reports the topic just

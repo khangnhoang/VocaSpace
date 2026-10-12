@@ -11,6 +11,7 @@ import { expect, test, type Page, type Request } from "@playwright/test";
 // - Invariant cần giữ: mỗi topic change là canonical RSC navigation; không legacy client content/history action waterfall.
 // - Hồi quy dashboard: bố cục desktop/mobile đúng trước khi bundle JavaScript được tải, không đổi cột sau hydration.
 // - D8-LUI: danh sách chương mở theo yêu cầu (Sheet) thay cho sidebar luôn hiện; helper mở và đóng nó để kiểm tra topic hiện tại.
+// - LF4: hàng đợi thẻ chỉ gồm thẻ chưa xem nên nội dung thẻ được kiểm bằng thẻ chưa xem hoặc bằng "Ôn lại từ vựng" khi học viên seed đã xem hết.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy qua `npm run test:e2e`).
 
 test("guest is sent to login before protected workspace content", async ({
@@ -44,6 +45,7 @@ test("student navigation keeps URL, topic state, and browser history aligned", a
     path: topicTwoPath,
     title: "Topic 2 - Bước tiếp theo",
     cardWord: "progress",
+    finished: true,
   });
   const parentLink = page.getByRole("link", {
     name: "Về tổng quan khóa học B2 QA - Lộ trình đang học",
@@ -62,7 +64,8 @@ test("student navigation keeps URL, topic state, and browser history aligned", a
   await expectWorkspaceTopic(page, {
     path: topicThreePath,
     title: "Topic 3 - Sau khoảng trống",
-    cardWord: "future",
+    cardWord: "milestone",
+    finished: false,
   });
   await expectNoHorizontalOverflow(page);
 
@@ -70,7 +73,8 @@ test("student navigation keeps URL, topic state, and browser history aligned", a
   await expectWorkspaceTopic(page, {
     path: topicThreePath,
     title: "Topic 3 - Sau khoảng trống",
-    cardWord: "future",
+    cardWord: "milestone",
+    finished: false,
   });
 
   await page.goBack();
@@ -78,13 +82,15 @@ test("student navigation keeps URL, topic state, and browser history aligned", a
     path: topicTwoPath,
     title: "Topic 2 - Bước tiếp theo",
     cardWord: "progress",
+    finished: true,
   });
 
   await page.goForward();
   await expectWorkspaceTopic(page, {
     path: topicThreePath,
     title: "Topic 3 - Sau khoảng trống",
-    cardWord: "future",
+    cardWord: "milestone",
+    finished: false,
   });
 
   await page.getByRole("link", { name: "Bài trước" }).click();
@@ -92,6 +98,7 @@ test("student navigation keeps URL, topic state, and browser history aligned", a
     path: topicTwoPath,
     title: "Topic 2 - Bước tiếp theo",
     cardWord: "progress",
+    finished: true,
   });
 
   expect(actionRequests).toHaveLength(0);
@@ -220,12 +227,18 @@ async function loginAsSeededStudent(page: Page) {
 
 async function expectWorkspaceTopic(
   page: Page,
-  expected: { path: string; title: string; cardWord: string },
+  expected: { path: string; title: string; cardWord: string; finished: boolean },
 ) {
   await expectPathname(page, expected.path);
   await expect(
     page.getByRole("heading", { level: 1, name: expected.title }),
   ).toBeVisible();
+  // LF4: workspace chỉ xếp thẻ chưa xem. Học viên seed đã xem hết thẻ của Topic 2 nên bài đó mở ra ở màn hình kết thúc, và
+  // "Ôn lại từ vựng" dựng lại thẻ; Topic 3 còn thẻ "milestone" chưa xem nên mở thẳng vào thẻ đó.
+  if (expected.finished) {
+    await expect(page.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeVisible();
+    await page.getByRole("button", { name: "Ôn lại từ vựng" }).click();
+  }
   await expect(page.getByText(expected.cardWord, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Mở danh sách chương và bài học" }).click();
   await expect(

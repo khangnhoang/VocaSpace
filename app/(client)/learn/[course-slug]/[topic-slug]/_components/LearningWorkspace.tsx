@@ -26,7 +26,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
-import { CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
 import type {
   ExerciseDTO,
   FlashcardDTO,
@@ -44,7 +43,11 @@ import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import QuestionResponse from "./QuestionResponse";
 import StickyColumn from "./StickyColumn";
 import { arrangeMaterial } from "./exercise-arrangement";
-import { announceTopicProgress } from "./topic-progress-feedback";
+import {
+  announceTopicProgress,
+  MEMORY_CHECK_PASSED_MESSAGE,
+  newCardsAddedMessage,
+} from "./topic-progress-feedback";
 
 type LearningStage = "flashcard" | "memory" | "exercise";
 // Vị trí của bước. "Đã xong" là thuộc tính riêng (LF3 AC8) để một bước vừa đang học vừa đã xong.
@@ -153,6 +156,11 @@ function withoutId(ids: ReadonlySet<string>, id: string): ReadonlySet<string> {
   return next;
 }
 
+// Dấu "memory check vừa khóa lại vì có thẻ mới" mang qua lần remount do `router.refresh()` (state component mất khi key đổi).
+// Biến module (không phải sessionStorage hay URL): cùng một tab, không cần quyền truy cập trình duyệt, không đổi URL;
+// F5 xóa nó cùng với toàn bộ trang nên không bao giờ báo nhầm sau khi tải lại trang.
+const relockedTopicIds = new Set<string>();
+
 export default function LearningWorkspace({
   data,
 }: {
@@ -183,6 +191,22 @@ export default function LearningWorkspace({
 
   const [learningStage, setLearningStage] =
     useState<LearningStage>(initialStage);
+  // LF4 AC3: báo số thẻ chưa học đúng một lần lúc tải trang (cả khi remount do key đổi sau `cards_locked`), và không báo
+  // khi mọi thẻ đều chưa xem (lần đầu). Ref chặn hiệu ứng chạy hai lần của StrictMode ở môi trường dev.
+  // Sau `cards_locked` chỉ báo MỘT toast "vừa có thêm N thẻ mới" (N chỉ biết sau khi tải lại) và bỏ toast số thẻ chưa học
+  // thường lệ ở lần remount đó; dấu hiệu được tiêu thụ đúng một lần, nên F5 hay lần vào sau vẫn báo như thường.
+  const unseenNoticeShown = useRef(false);
+  useEffect(() => {
+    if (unseenNoticeShown.current) return;
+    unseenNoticeShown.current = true;
+    const unseenCount = data.unseenCardIds.length;
+    const relocked = relockedTopicIds.delete(currentTopic.id);
+    if (relocked && unseenCount > 0) {
+      toast.info(newCardsAddedMessage(unseenCount));
+    } else if (unseenCount > 0 && unseenCount < flashcards.length) {
+      toast.info(`Bạn còn ${unseenCount} thẻ chưa học trong bài học này`);
+    }
+  }, [currentTopic.id, data.unseenCardIds.length, flashcards.length]);
   const [memoryPassed, setMemoryPassed] = useState(isMemoryCheckPassed);
   // Sticky on the server (G4), so it only ever turns on.
   const [isTopicCompleted, setIsTopicCompleted] = useState(
@@ -206,6 +230,11 @@ export default function LearningWorkspace({
   );
   const [unratedCardIds, setUnratedCardIds] = useState<ReadonlySet<string>>(
     () => new Set(data.unratedCardIds),
+  );
+  // LF4: thẻ đã xem nhưng đến hạn FSRS hoặc chưa Ổn/Dễ, từ server lúc tải; Ổn/Dễ trong phiên đưa thẻ ra khỏi tập,
+  // Lại/Khó đưa vào. Chỉ phục vụ lời mời "Ôn ngay" ở màn hình kết thúc, không điều khiển cổng nào.
+  const [dueCardIds, setDueCardIds] = useState<ReadonlySet<string>>(
+    () => new Set(data.dueCardIds),
   );
   const [userAnswers, setUserAnswers] =
     useState<Record<string, string>>(answers);
@@ -231,8 +260,15 @@ export default function LearningWorkspace({
   const [expandedChapter, setExpandedChapter] = useState(
     currentTopic.chapterId,
   );
-  const [learningQueue, setLearningQueue] =
-    useState<FlashcardDTO[]>(flashcards);
+  // LF4: vào trang chỉ xếp các thẻ chưa xem (đúng thứ tự soạn); đã xem hết thì hàng đợi rỗng và bước Từ vựng hiện màn hình
+  // kết thúc. Lần đầu (mọi thẻ đều chưa xem) hàng đợi vẫn là toàn bộ thẻ. Thay hàng đợi chỉ là việc của bộ nhớ trình duyệt:
+  // không gọi server, cờ LF1/LF3 vẫn chỉ đến từ kết quả server (G3).
+  const [learningQueue, setLearningQueue] = useState<FlashcardDTO[]>(() => {
+    const unseen = new Set(data.unseenCardIds);
+    return flashcards.filter((card) => unseen.has(card.id));
+  });
+  // Số thẻ của lượt ôn hiện tại: bộ đếm "còn X / Y" và thanh tiến độ tính theo lượt, không theo cả bài.
+  const [queueTotal, setQueueTotal] = useState(learningQueue.length);
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
@@ -296,15 +332,23 @@ export default function LearningWorkspace({
   // `cards_locked` từ server: dữ liệu thẻ của trang đã cũ (thẻ mới thêm sau khi tải). Về bước từ vựng và xin server
   // tải lại; trang đổi `key` theo dữ liệu mới nên workspace dựng lại state, hàng đợi thẻ có thẻ mới.
   const recoverFromCardsRequired = () => {
-    toast.error(CARDS_REQUIRED_ERROR);
+    // Không toast lỗi: toast thông tin duy nhất do lần remount sau khi tải lại phát (cần số thẻ mới).
+    relockedTopicIds.add(currentTopic.id);
     goToStage("flashcard");
     router.refresh();
   };
 
-  const restartFlashcards = () => {
-    setLearningQueue(flashcards);
+  const startQueue = (cards: FlashcardDTO[]) => {
+    setLearningQueue(cards);
+    setQueueTotal(cards.length);
     setIsFlipped(false);
   };
+
+  const restartFlashcards = () => startQueue(flashcards);
+
+  // Thứ tự soạn của `flashcards` giữ nguyên; id lạ trong `dueCardIds` (không phải thẻ active) bị bỏ qua.
+  const dueCards = flashcards.filter((card) => dueCardIds.has(card.id));
+  const reviewDueCards = () => startQueue(dueCards);
 
   const handleRateCard = (rating: Rating) => {
     const currentCard = learningQueue[0];
@@ -320,6 +364,11 @@ export default function LearningWorkspace({
       // Lần chấm đã ghi: thẻ này đã xem; Ổn/Dễ thì xong, Lại/Khó thì chưa (lần chấm gần nhất quyết định, như server).
       setUnseenCardIds((current) => withoutId(current, currentCard.id));
       setUnratedCardIds((current) =>
+        rating === Rating.Good || rating === Rating.Easy
+          ? withoutId(current, currentCard.id)
+          : new Set(current).add(currentCard.id),
+      );
+      setDueCardIds((current) =>
         rating === Rating.Good || rating === Rating.Easy
           ? withoutId(current, currentCard.id)
           : new Set(current).add(currentCard.id),
@@ -340,13 +389,15 @@ export default function LearningWorkspace({
         // Không có kết quả server (đồng bộ lỗi) thì hết hàng đợi vẫn coi như đã xong, như trước.
         if (!result.topicProgress) setFlashcardStageDone(true);
 
+        // LF4 AC2: lần chấm cuối vừa hoàn thành bài thì chỉ còn toast hoàn thành bài (đã hiện ở announceTopicProgress).
+        const topicJustCompleted = result.topicProgress?.newlyCompleted === true;
         if (nextStageAfterFlashcards === "memory") {
           goToStage("memory");
-          toast.success("Đã nạp xong từ vựng! Chuyển sang memory check.");
+          if (!topicJustCompleted) toast.success("Đã nạp xong từ vựng! Chuyển sang memory check.");
         } else if (nextStageAfterFlashcards === "exercise") {
           goToStage("exercise");
-          toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
-        } else if (!result.topicProgress?.newlyCompleted) {
+          if (!topicJustCompleted) toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
+        } else if (!topicJustCompleted) {
           toast.success("Đã nạp xong từ vựng!");
         }
       }
@@ -483,9 +534,8 @@ export default function LearningWorkspace({
     } else if (memoryCheck) {
       goToStage("memory");
     } else if (flashcards.length > 0) {
+      // LF4 AC4: quay lại Từ vựng giữ hàng đợi hiện có (rỗng thì là màn hình kết thúc), không dựng lại toàn bộ thẻ.
       setLearningStage("flashcard");
-      setLearningQueue(flashcards);
-      setIsFlipped(false);
     }
   };
 
@@ -739,7 +789,12 @@ export default function LearningWorkspace({
                 [questionId]: optionId,
               }))
             }
-            onMemoryPassed={() => setMemoryPassed(true)}
+            onMemoryPassed={(newlyCompleted) => {
+              // LF4 AC1/G2: chỉ báo ở bước chuyển từ chưa qua sang qua, theo kết quả của chính câu trả lời này; bài vừa hoàn thành
+              // thì toast hoàn thành bài đã hiện nên bỏ toast này. Dữ liệu tải trang (isMemoryCheckPassed) không bao giờ báo.
+              if (!memoryPassed && !newlyCompleted) toast.success(MEMORY_CHECK_PASSED_MESSAGE);
+              setMemoryPassed(true);
+            }}
             onPassed={() => {
               setMemoryPassed(true);
               if (exercises.length > 0) goToStage("exercise");
@@ -777,10 +832,32 @@ export default function LearningWorkspace({
             <h2 id="flashcards-done-title" className="text-xl font-bold text-slate-900">
               Bạn đã ôn xong từ vựng
             </h2>
-            <Button variant="outline" size="lg" onClick={restartFlashcards}>
-              <RotateCcw aria-hidden="true" />
-              Ôn lại từ vựng
-            </Button>
+            {dueCards.length > 0 && (
+              <p className="text-slate-700">
+                Bạn có {dueCards.length} thẻ đến hạn thuộc bài học này
+              </p>
+            )}
+            <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
+              {dueCards.length > 0 && (
+                <Button size="lg" onClick={reviewDueCards}>
+                  Ôn ngay {dueCards.length} thẻ
+                </Button>
+              )}
+              <Button variant="outline" size="lg" onClick={restartFlashcards}>
+                <RotateCcw aria-hidden="true" />
+                Ôn lại từ vựng
+              </Button>
+              {!memoryCardsLocked && nextStageAfterFlashcards === "memory" && (
+                <Button
+                  size="lg"
+                  variant={dueCards.length > 0 ? "outline" : "default"}
+                  onClick={() => goToStage("memory")}
+                >
+                  Tới Memory check
+                  <ChevronRight aria-hidden="true" />
+                </Button>
+              )}
+            </div>
           </section>
         );
       }
@@ -788,7 +865,7 @@ export default function LearningWorkspace({
         <FlashcardStage
           currentCard={learningQueue[0]}
           cardsLeft={learningQueue.length}
-          totalCards={flashcards.length}
+          totalCards={queueTotal}
           isFlipped={isFlipped}
           setIsFlipped={setIsFlipped}
           handleRateCard={handleRateCard}
@@ -874,6 +951,7 @@ export default function LearningWorkspace({
               </Button>
             ) : null}
             {learningStage === "flashcard" &&
+              learningQueue.length > 0 &&
               !memoryCardsLocked &&
               nextStageAfterFlashcards === "memory" && (
                 <Button onClick={() => goToStage("memory")} variant="outline">

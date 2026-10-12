@@ -35,8 +35,10 @@ interface MemoryCheckStageProps {
   /**
    * Server báo memory check đã qua ngay trong kết quả của câu trả lời. Workspace đánh dấu bước "đã xong" tại đây (AC8),
    * không đợi học viên bấm tiếp; phản hồi của câu vẫn hiện cho tới khi học viên tiếp tục.
+   * `newlyCompleted` là giá trị của chính kết quả câu trả lời này (LF4 AC1): khi bài vừa hoàn thành, toast hoàn thành bài
+   * đã hiện ở `announceTopicProgress` nên workspace không hiện thêm toast memory check.
    */
-  onMemoryPassed?: () => void;
+  onMemoryPassed?: (newlyCompleted: boolean) => void;
   onGoToExercises: () => void;
   onTopicCompleted?: () => void;
   /**
@@ -202,7 +204,7 @@ export default function MemoryCheckStage({
         progressError: result.progressError,
         passed: result.isMemoryCheckPassed === true,
       });
-      if (result.isMemoryCheckPassed === true) onMemoryPassed?.();
+      if (result.isMemoryCheckPassed === true) onMemoryPassed?.(result.topicProgress?.newlyCompleted === true);
     });
   };
 
