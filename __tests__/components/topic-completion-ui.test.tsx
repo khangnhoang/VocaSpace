@@ -24,7 +24,7 @@ import { AUTO_ADVANCE_MS } from "@/app/(client)/learn/[course-slug]/[topic-slug]
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
 // - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
 //   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính ở các bước (còn ở màn hình hoàn thành thì là nút phụ); không còn nút "Hoàn thành bài học".
-// - LF5 (AC4): chấm thẻ cuối, trả lời câu bài tập cuối hay câu thiếu cuối, hoặc câu đúng cuối của memory check làm bài học hoàn thành thì không có toast nào (cả toast hoàn thành bài lẫn toast chuyển bước/memory check) và màn hình hoàn thành thay cho bước; câu bài tập giữ phản hồi và chỉ mở màn hình khi học viên bấm hành động xác nhận; chưa hoàn thành thì vẫn có toast chuyển bước.
+// - LF5 (AC4): chấm thẻ cuối, trả lời câu bài tập cuối hay câu thiếu cuối, hoặc câu đúng cuối của memory check làm bài học hoàn thành thì không có toast nào (cả toast hoàn thành bài lẫn toast chuyển bước/memory check) và màn hình hoàn thành thay cho bước; câu bài tập cuối giữ phản hồi rồi (Q15) tự mở màn hình hoàn thành sau AUTO_ADVANCE_MS mà không có nút kết thúc, còn câu thiếu cuối (hoặc câu chưa phải cuối) vẫn dùng hành động xác nhận; lối quay lại `Xem kết quả chủ đề` ẩn trong lúc chờ (Q16); chưa hoàn thành thì vẫn có toast chuyển bước.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/topic-completion-ui.test.tsx`).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -536,6 +536,8 @@ describe("D4 topic completion UI", () => {
       (link) => link.textContent === "Bài sau",
     );
     expect(promoted[0].getAttribute("data-variant")).toBe("default");
+    // Owner Q14: the promoted footer link also gets a visible border on touch or coarse input, chosen by input capability.
+    expect(promoted[0].className).toContain("coarse-input:border-action");
 
     fireEvent.click(screen.getByRole("button", { name: "Mở danh sách chương và bài học" }));
     expect(

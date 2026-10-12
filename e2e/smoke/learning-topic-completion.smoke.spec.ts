@@ -182,26 +182,23 @@ async function startAutoAdvanceRecorder(page: Page) {
 
 /**
  * The last exercise answer keeps its feedback on screen with no `Xem kết quả chủ đề` button at all (the top bar's return
- * action is hidden during the wait, Owner Q16), then the completion screen opens by itself about AUTO_ADVANCE_MS
- * (1200 ms) after the completed state shows.
+ * action is hidden during the wait, Owner Q16), then the completion screen opens by itself. Only the order of the
+ * states is asserted: the 1200 ms delay itself is covered by the fake-timer component tests, and a frame count or an
+ * elapsed-time window would depend on runner speed.
  */
 async function expectAutoAdvance(page: Page) {
   const samples = await page.evaluate(
     () => (window as unknown as { __autoAdvance: AutoAdvanceSample[] }).__autoAdvance,
   );
-  const completedAt = samples.find((sample) => sample.completed)?.time;
-  const openedAt = samples.find((sample) => sample.section)?.time;
-  expect(completedAt, "the completed state shows before the screen").toBeDefined();
-  expect(openedAt, "the completion screen opens").toBeDefined();
-  const waiting = samples.filter((sample) => sample.completed && !sample.section);
-  expect(waiting.length).toBeGreaterThan(5);
+  const openedAt = samples.findIndex((sample) => sample.section);
+  expect(openedAt, "the completion screen opens").toBeGreaterThanOrEqual(0);
+  // Wait frames: the topic shows as completed and the screen is not open yet.
+  const waiting = samples.filter((sample, index) => index < openedAt && sample.completed);
+  expect(waiting.length, "at least one wait frame with the feedback").toBeGreaterThan(0);
   for (const sample of waiting) {
     expect(sample.radios).toBeGreaterThan(0);
     expect(sample.resultButtons).toBe(0);
   }
-  const delay = (openedAt as number) - (completedAt as number);
-  expect(delay).toBeGreaterThanOrEqual(1100);
-  expect(delay).toBeLessThan(2500);
 }
 
 async function readMotionSamples(page: Page) {
@@ -261,9 +258,10 @@ async function finishFullFlow(page: Page) {
     }
     await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
     if (last) {
-      // Không chờ từng điều kiện bằng nhiều lệnh riêng: cửa sổ phản hồi chỉ dài 1200 ms, nên bộ ghi theo khung hình
-      // trong trang lấy mẫu và phần kiểm tra chạy sau khi màn hình hoàn thành đã mở.
-      await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
+      // Không chờ từng điều kiện bằng nhiều lệnh riêng: cửa sổ phản hồi ngắn, nên bộ ghi theo khung hình trong trang
+      // lấy mẫu và phần kiểm tra chạy sau khi màn hình hoàn thành đã mở. Chỉ kiểm thứ tự trạng thái, không kiểm thời gian
+      // (nhịp 1200 ms đã có test component với fake timers); 10 s chỉ để bắt trường hợp không bao giờ tự chuyển.
+      await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible({ timeout: 10_000 });
       await expectAutoAdvance(page);
     } else {
       const forward = page.getByRole("button", { name: "Câu tiếp theo" });

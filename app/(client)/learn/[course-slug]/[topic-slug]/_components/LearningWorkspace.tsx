@@ -164,6 +164,8 @@ function StageThread({ steps }: { steps: StageStep[] }) {
 // visible bordered 44px target (button.md), so the border and background come from the input capability, not the width.
 const FOOTER_TOUCH_CLASS = "coarse-input:border-border coarse-input:bg-background";
 const FOOTER_GHOST_CLASS = `text-slate-700 ${FOOTER_TOUCH_CLASS}`;
+// The filled primary variants keep their action background; on touch input they replace the transparent border with a visible one.
+const FOOTER_PRIMARY_CLASS = "coarse-input:border-action";
 
 const MEMORY_LOCK_REASON =
   "Trả lời đúng hết memory check để mở khóa phần bài tập.";
@@ -1202,14 +1204,14 @@ export default function LearningWorkspace({
               next topic becomes the primary action, or the course overview when
               this is the last topic. */}
           {isTopicCompleted && learningStage !== "complete" && lessonNeighbors.next ? (
-            <Button asChild size="lg">
+            <Button asChild size="lg" className={FOOTER_PRIMARY_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
                 Bài sau
                 <ChevronRight aria-hidden="true" />
               </Link>
             </Button>
           ) : isTopicCompleted && learningStage !== "complete" ? (
-            <Button asChild size="lg">
+            <Button asChild size="lg" className={FOOTER_PRIMARY_CLASS}>
               <Link href={`/learn/${courseSlug}`}>Về tổng quan khóa học</Link>
             </Button>
           ) : learningStage === "complete" && !lessonNeighbors.next ? (

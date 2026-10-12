@@ -1412,6 +1412,14 @@ describe("D8-LUI learning workspace presentation", () => {
         const back = screen.getByRole("button", { name: "Xem kết quả chủ đề" });
         expect(back.getAttribute("data-variant")).toBe("outline");
 
+        // Owner Q14: while a stage of the completed topic is shown the footer destination is the filled primary; on touch
+        // input it still gets a visible border (it used to stay transparent).
+        const footerPrimary = within(screen.getByRole("navigation", { name: "Điều hướng bài học" })).getByRole("link", {
+          name: /^(Bài sau|Về tổng quan khóa học)$/,
+        });
+        expect(footerPrimary.getAttribute("data-variant")).toBe("default");
+        expect(footerPrimary.className).toContain("coarse-input:border-action");
+
         fireEvent.click(back);
         expect(completionHeading()).not.toBeNull();
         expect(panel().getAttribute("data-motion")).toBe("settled");
