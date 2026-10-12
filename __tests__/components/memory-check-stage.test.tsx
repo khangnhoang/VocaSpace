@@ -562,7 +562,7 @@ describe("D3 memory check stage", () => {
         answers: { [ids.first]: rightOption(1), [ids.exerciseQuestion]: ids.exerciseOption },
       });
     const completingPass = {
-      success: true,
+      success: true as const,
       isCorrect: true,
       isMemoryCheckPassed: true,
       topicProgress: { ...passed, isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true },

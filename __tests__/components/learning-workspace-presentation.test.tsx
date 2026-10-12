@@ -9,6 +9,7 @@ import { Rating } from "ts-fsrs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { CARDS_REQUIRED, CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
+import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
@@ -34,6 +35,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - LF6 (AC1/AC2/AC3): mỗi bước không phải bước hiện tại là một nút trong li của nó, mở đúng bước (kể cả chủ đề đã hoàn thành; Từ vựng chỉ mở hàng đợi hiện có, không dựng hàng đợi, không gọi server) và đưa focus về khung bước học; bước khóa không đổi bước mà hiện một dòng lý do ngay dưới thanh (vùng polite), giữ tên "đang khóa", tắt khi đổi bước hoặc khi khóa mở; nút có mục tiêu tối thiểu 24 px, vòng focus và 44 px trên con trỏ thô mà không đổi bố cục dòng.
 // - LF6 (AC4): màn hình hoàn thành chỉ có một nút "Xem lại" cùng một dòng giải thích; bấm thì cuộn thanh tiến trình vào (tức thì dưới reduced motion), focus nút đầu tiên dùng được và bật rồi tắt vòng nổi bật khoảng 1 s (không có dưới reduced motion); chủ đề không có bước nào thì không có nút lẫn dòng.
 // - LF6 (AC10): hết hàng đợi ôn thẻ đến hạn/ôn lại từ vựng có toast riêng; chủ đề đã hoàn thành (đọc lúc hết hàng, kể cả kết quả của chính lần chấm) thì về màn hình hoàn thành đã ổn định, chưa hoàn thành thì ở lại màn hình kết thúc từ vựng và không sang memory check hay bài tập; Lại/Khó xếp lại không đổi loại hàng đợi; lần chấm hoàn thành chủ đề vẫn chạy chuỗi LF5 một lần không toast; hàng đợi lúc vào trang giữ toast và bước chuyển cũ; chấm đang lưu mà rời bước không mất kết quả và không gửi hai lần.
+// - LF6 (AC5): bốn nút tự đánh giá của FlashcardStage dùng đúng lớp Attention/Recall của định nghĩa dùng chung với ReviewSheet, cùng nhãn và thứ tự.
 // - Kết quả verify gần nhất: xem lần chạy LF3 CP4 (2026-10-11) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`; LF5 CP4 (2026-10-12).
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
@@ -166,6 +168,16 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(inertFaces[0].textContent).toContain("reliable");
       expect(screen.queryByRole("button", { name: "Hiện đáp án" })).toBeNull();
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Lại" }));
+    });
+
+    it("rates with the shared Attention and Recall classes in label order (LF6 AC5)", () => {
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      FLASHCARD_RATINGS.forEach(({ label, className }) => {
+        const classes = screen.getByRole("button", { name: label }).className.split(/\s+/);
+        for (const token of className.split(/\s+/)) expect(classes).toContain(token);
+      });
+      expect(FLASHCARD_RATINGS.map(({ label }) => label)).toEqual(["Lại", "Khó", "Ổn", "Dễ"]);
     });
 
     it("turns the same card back with the answer it just showed, then reveals the new answer", async () => {

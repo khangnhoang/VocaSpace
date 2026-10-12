@@ -17,6 +17,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Ổn định/resilience: không tràn ngang ở 320/375/768/1024/1366/1440px; reduced motion bỏ bản sao đang gấp của thẻ cũ.
 // - Invariant cần giữ: kết quả chấm không tự chuyển câu; câu cùng nhóm không tạo lại player.
 // - Chưa kiểm chứng: cảm nhận chuyển động, thời gian và mật độ đọc do Owner đánh giá trên UI chạy thật.
+// - LF6 (AC6): lật thẻ của workspace 400 ms khi bình thường và không chuyển động khi reduced motion (computed style).
 // - LF4: các test thẻ từ vựng xóa dòng chấm của học viên trước khi chạy vì hàng đợi chỉ gồm thẻ chưa xem.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2/CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-workspace-matrix.smoke.spec.ts`).
 
@@ -81,6 +82,8 @@ test("vocabulary card turns in place and continues to the next front", async ({ 
   await reveal.click();
   await expect(page.getByText(/^Nghĩa:\s*đáng tin cậy$/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Lại" })).toBeFocused();
+  // LF6 AC6 (Owner Q3): the flip lasts 400 ms.
+  expect(await page.locator("[data-flashcard-box]").evaluate((box) => getComputedStyle(box).transitionDuration)).toBe("0.4s");
 
   await page.getByRole("button", { name: "Ổn" }).click();
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
@@ -101,6 +104,14 @@ test("reduced motion shows the next front without turning the card", async ({ pa
   await forgetVocabularyCardProgress();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(topicPath("vocabulary"));
+  // LF6 AC6: reduced motion removes the flip, checked separately from the 400 ms case above.
+  await expect(page.locator("[data-flashcard-box]")).toBeVisible();
+  expect(
+    await page.locator("[data-flashcard-box]").evaluate((box) => {
+      const style = getComputedStyle(box);
+      return { property: style.transitionProperty, transform: style.transform };
+    }),
+  ).toEqual({ property: "none", transform: "none" });
   await page.getByRole("button", { name: "Hiện đáp án" }).click();
   await page.getByRole("button", { name: "Ổn" }).click();
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();

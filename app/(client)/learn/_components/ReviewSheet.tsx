@@ -7,6 +7,7 @@ import { getDeckReviewCards } from "@/app/actions/profile";
 import { submitCardReview } from "@/app/actions/review";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 import type { ReviewFlashcardDTO } from "@/lib/schemas/profile";
 import styles from "./ReviewSheet.module.css";
 
@@ -16,10 +17,6 @@ interface ReviewSheetProps {
   onReviewComplete: () => void;
 }
 type Batch = { status: "loading" | "error" | "ready"; cards: ReviewFlashcardDTO[]; total: number; dueLeft?: number; error?: string };
-const ratings = [
-  { value: Rating.Again, label: "Lại" }, { value: Rating.Hard, label: "Khó" },
-  { value: Rating.Good, label: "Ổn" }, { value: Rating.Easy, label: "Dễ" },
-];
 
 export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: ReviewSheetProps) {
   const [batch, setBatch] = useState<Batch>({ status: "loading", cards: [], total: 0 });
@@ -198,7 +195,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
                   <div className="min-h-24 space-y-3" aria-busy={isSaving}>
                     {isFlipped ? <><p className={`${styles.support} text-sm`}>Bạn nhớ từ này ở mức nào?</p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        {ratings.map(({ value, label }, index) => <Button key={value} ref={index === 0 ? firstRating : undefined} type="button" variant="outline" size="lg" className={styles.rating} disabled={isSaving} onClick={() => void handleRate(value)}>{label}</Button>)}
+                        {FLASHCARD_RATINGS.map(({ rating, label, className }, index) => <Button key={rating} ref={index === 0 ? firstRating : undefined} type="button" variant="outline" size="lg" className={className} disabled={isSaving} onClick={() => void handleRate(rating)}>{label}</Button>)}
                       </div></> : <Button ref={revealButton} type="button" size="lg" className="mx-auto flex w-full sm:w-fit sm:min-w-44" onClick={() => setIsFlipped(true)}>Hiện đáp án</Button>}
                     {saveError && <p role="alert" className="text-sm text-correction">{saveError} Chọn lại đánh giá để thử lại.</p>}
                   </div>
