@@ -10,7 +10,7 @@ import {
 import { CARDS_REQUIRED_ERROR } from "../../lib/memory-check";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
-// spec: docs/programs/student-user-flow-route/implementation-plans/lf3/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf4/plan.md
+// spec: docs/programs/student-user-flow-route/implementation-plans/lf3/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf4/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf6/plan.md
 // Test plan:
 // - Mục tiêu: kiểm chứng trên trình duyệt thật cổng "đã xem hết thẻ" của memory check (LF3 AC4-AC6) và dòng các bước (AC8).
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture tổng hợp tạo trong beforeAll và dọn trong afterAll.
@@ -26,6 +26,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 //   (b) mọi thẻ đã xem, có một thẻ chấm Lại, tải lại thì màn hình kết thúc mời ôn thẻ đến hạn đó, "Ôn ngay" chỉ xếp thẻ đó còn "Ôn lại từ vựng" xếp mọi thẻ;
 //   (b') màn hình kết thúc có đúng một nút "Tới Memory check" cùng hàng với hai nút kia;
 //   (c) giảng viên thêm thẻ, tải lại thì chỉ thẻ mới được xếp. Nửa ngày giờ FSRS của AC5 kiểm ở tầng action, không kiểm ở trình duyệt.
+// - LF6 (AC2/AC3): bước khóa của thanh tiến trình là nút; bấm Memory check khi còn thẻ chưa xem hiện lý do ngay dưới thanh, bấm Bài tập hiện lý do memory check, cả hai không đổi bước; dưới ngữ cảnh cảm ứng thật ở 375 và 320 px mọi bước kể cả bước khóa cao >= 44 px, thanh vẫn một dòng và các vùng bấm không chồng nhau.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint LF3 CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-memory-cards-gate.smoke.spec.ts`).
 
 // Hai test dùng chung một lần seed và test sau đọc trạng thái do test trước để lại.
@@ -98,11 +99,77 @@ async function answeredOptionFor(questionContent: string) {
 
 test("a card added after the page loaded sends the learner back to the flashcards, and answers work once it is rated", async ({
   page,
+  browser,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(topicPath);
   const thread = page.getByRole("list", { name: "Các bước của bài học" });
   await expect(thread).toContainText("Memory check (đang khóa)");
+
+  // LF6 AC2: a locked step is a button that explains the lock under the thread and never opens the stage.
+  const lockLine = thread.locator("xpath=../following-sibling::div[@aria-live='polite']");
+  await expect(lockLine).toHaveText("");
+  await thread.getByRole("button", { name: /^Memory check\s*\(đang khóa\)/ }).click();
+  await expect(lockLine).toHaveText(/^Học hết flashcard của bài này để mở memory check\. Còn \d+ thẻ chưa học\.$/);
+  await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
+  await thread.getByRole("button", { name: /^Bài tập\s*\(đang khóa\)/ }).click();
+  await expect(lockLine).toHaveText("Trả lời đúng hết memory check để mở khóa phần bài tập.");
+  await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: FIRST_QUESTION })).toHaveCount(0);
+
+  // LF6 AC3: on touch-primary input every step, locked ones included, keeps a 44 px target on one line at 375 and 320 px.
+  const touchContext = await browser.newContext({
+    storageState: await page.context().storageState(),
+    viewport: { width: 375, height: 812 },
+    hasTouch: true,
+  });
+  try {
+    const touchPage = await touchContext.newPage();
+    await touchPage.goto(topicPath);
+    for (const width of [375, 320]) {
+      await touchPage.setViewportSize({ width, height: 812 });
+      await expect(touchPage.getByRole("list", { name: "Các bước của bài học" })).toContainText("Memory check (đang khóa)");
+      const geometry = await touchPage.evaluate(() => {
+        const list = document.querySelector("ol[aria-label='Các bước của bài học']") as HTMLElement;
+        // One line: the vertical centres agree (a 24 px step target may be 2 px taller than the 20 px circle on the narrowest width).
+        const items = Array.from(list.children).map((item) => {
+          const rect = item.getBoundingClientRect();
+          return Math.round((rect.top + rect.bottom) / 2);
+        });
+        // The 44 px hit area is read by hit-testing 21.5 px above and below each button's centre.
+        const buttons = Array.from(list.querySelectorAll("button")).map((button) => {
+          const rect = button.getBoundingClientRect();
+          const cx = (rect.left + rect.right) / 2;
+          const cy = (rect.top + rect.bottom) / 2;
+          const hit44 = [cy - 21.5, cy + 21.5].every((y) => {
+            const hit = document.elementFromPoint(cx, y);
+            return hit !== null && button.contains(hit);
+          });
+          return { left: rect.left, right: rect.right, hit44, locked: button.hasAttribute("data-step-locked") };
+        });
+        return {
+          coarse: !matchMedia("(hover: hover) and (pointer: fine)").matches,
+          items,
+          buttons,
+          viewportWidth: window.innerWidth,
+          overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        };
+      });
+      expect(geometry.coarse).toBe(true);
+      expect(new Set(geometry.items).size).toBe(1);
+      expect(geometry.buttons.some((button) => button.locked)).toBe(true);
+      expect(geometry.overflow).toBe(false);
+      for (const button of geometry.buttons) {
+        expect(button.hit44).toBe(true);
+        expect(button.left).toBeGreaterThanOrEqual(0);
+        expect(button.right).toBeLessThanOrEqual(geometry.viewportWidth);
+      }
+      const byLeft = [...geometry.buttons].sort((a, b) => a.left - b.left);
+      for (let i = 1; i < byLeft.length; i += 1) expect(byLeft[i].left).toBeGreaterThanOrEqual(byLeft[i - 1].right - 0.5);
+    }
+  } finally {
+    await touchContext.close();
+  }
 
   // Học hết thẻ: memory check mở và được vào ngay.
   await rateCardsUntilMemoryCheck(page);

@@ -27,6 +27,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - LF4 QA fix: sau CARDS_REQUIRED chỉ có MỘT toast thông tin "Bài học vừa có thêm N thẻ mới..." (N = số thẻ chưa xem sau khi tải lại), không toast lỗi và không toast "Bạn còn N thẻ chưa học" ở lần remount đó; tải lại không còn thẻ chưa xem thì không toast gì; lần tải trang sau (F5) báo thường lệ.
 // - LF5 (AC6/AC9): memory check đang đạt thì không còn hộp "Bạn đã trả lời đúng hết memory check" mà có danh sách chỉ đọc theo thứ tự: mỗi câu đánh dấu đáp án đã lưu của học viên kèm giải thích khi có; đầy đủ cả sau khi tải lại (giải thích từ loader) lẫn ngay sau khi đạt trong cùng phiên không tải lại (giải thích giữ từ kết quả trả lời), không ghi gì.
 // - LF5 (AC7): còn câu bài tập chưa đúng thì phản hồi cuối giữ nút "Mở bài tập"; không còn bài tập mở (không có bài tập hoặc mọi câu đã đúng) thì không có nút "Hoàn thành memory check"/"Mở bài tập", workspace tự chuyển tiếp sau phản hồi tới bước đầu tiên còn phải làm hoặc, khi vừa hoàn thành chủ đề, tới màn hình hoàn thành có chuỗi chuyển động; không toast hoàn thành bài lẫn toast memory check.
+// - LF6 (AC1, tương tác LF5): rời memory check bằng thanh tiến trình trong lúc chờ tự chuyển thì đồng hồ cũ không kéo học viên về, "Xem kết quả chủ đề" còn và lần vào đầu tiên chạy chuỗi một lần; quay lại memory check vừa đạt thì phục hồi phản hồi đạt và bắt đầu một lần chờ mới (không phải bản xem lại); câu đang chờ phản hồi vẫn bị khóa khi rời sang Từ vựng và quay lại bằng thanh, kết quả đến vẫn hiện và không gửi hai lần.
 // - Kết quả verify gần nhất: xem plan D3 §10; LF3 CP4 chạy lại toàn file (2026-10-11); LF5 CP4 (2026-10-12).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -279,7 +280,7 @@ describe("D3 memory check stage", () => {
           })}
         />,
       );
-      fireEvent.click(screen.getByRole("button", { name: /Memory check/ }));
+      fireEvent.click(screen.getByRole("button", { name: /^Memory check/ }));
 
       expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
       expect(mockedToast.success).not.toHaveBeenCalled();
@@ -492,7 +493,7 @@ describe("D3 memory check stage", () => {
           })}
         />,
       );
-      fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Memory check/ }));
 
       expect(reviewHeading()).toBeNull();
       expect(questionHeading()).toBe("Câu nhớ 2");
@@ -534,6 +535,126 @@ describe("D3 memory check stage", () => {
     expect(screen.getByText("Đã đúng 1/2")).not.toBeNull();
     expect(screen.getByRole("button", { name: "Tiếp tục" })).not.toBeNull();
     expect(mockedSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  describe("LF6 stage thread during an LF5 wait or a write in flight", () => {
+    const card = {
+      id: "e0000000-0000-4000-8000-00000000000a",
+      front_content: { word: "reliable" },
+      back_content: { translation: "đáng tin cậy" },
+      audio_url: null,
+      image_url: null,
+    };
+    const passed = {
+      isFlashcardCompleted: true,
+      isMemoryCheckPassed: true,
+      isExerciseCompleted: false,
+      isTopicCompleted: false,
+      newlyCompleted: false,
+    };
+    const threadStep = (name: RegExp) =>
+      within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name });
+    const completionHeading = () => screen.queryByRole("heading", { name: /^Đã hoàn thành chủ đề/ });
+    // Every exercise question is already correct, so the pass that completes the topic hands over by itself after 1200 ms.
+    const allAnswered = () =>
+      workspaceData({
+        flashcards: [card],
+        answers: { [ids.first]: rightOption(1), [ids.exerciseQuestion]: ids.exerciseOption },
+      });
+    const completingPass = {
+      success: true,
+      isCorrect: true,
+      isMemoryCheckPassed: true,
+      topicProgress: { ...passed, isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true },
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("does not pull the learner back after leaving by the thread during the completion wait, and keeps the sequence for the first entry", async () => {
+      render(<LearningWorkspace data={allAnswered()} />);
+      // The card is not rated Ổn/Dễ yet, so the learner lands on Từ vựng and opens the memory check from the thread.
+      fireEvent.click(threadStep(/^Memory check/));
+      mockedSubmit.mockResolvedValueOnce(completingPass);
+      await answer("Đúng 2");
+      expect(screen.getByText("Chính xác!")).not.toBeNull();
+
+      fireEvent.click(threadStep(/^Bài tập/));
+      expect(screen.getByText("Câu bài tập")).not.toBeNull();
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      // The old timer is gone with the unmounted stage: still on the exercise, completion not shown, nothing sent twice.
+      expect(screen.getByText("Câu bài tập")).not.toBeNull();
+      expect(completionHeading()).toBeNull();
+      expect(mockedSubmit).toHaveBeenCalledTimes(1);
+      expect(mockedToast.success).not.toHaveBeenCalled();
+
+      // The pending completion survived: the way back is offered and the first entry plays the sequence once.
+      fireEvent.click(screen.getAllByRole("button", { name: "Xem kết quả chủ đề" })[0]);
+      const heading = completionHeading();
+      expect(heading?.closest("section")?.getAttribute("data-motion")).toBe("sequence");
+      fireEvent.click(threadStep(/^Bài tập/));
+      fireEvent.click(screen.getAllByRole("button", { name: "Xem kết quả chủ đề" })[0]);
+      expect(completionHeading()?.closest("section")?.getAttribute("data-motion")).toBe("settled");
+    });
+
+    it("restores the passing feedback and starts a new wait when the learner returns to a just-passed memory check, never the read-only review", async () => {
+      render(<LearningWorkspace data={allAnswered()} />);
+      // The card is not rated Ổn/Dễ yet, so the learner lands on Từ vựng and opens the memory check from the thread.
+      fireEvent.click(threadStep(/^Memory check/));
+      mockedSubmit.mockResolvedValueOnce(completingPass);
+      await answer("Đúng 2");
+
+      fireEvent.click(threadStep(/^Bài tập/));
+      expect(screen.getByText("Câu bài tập")).not.toBeNull();
+      fireEvent.click(threadStep(/^Memory check/));
+
+      expect(screen.getByText("Chính xác!")).not.toBeNull();
+      expect(screen.getByText("Đã đúng 2/2")).not.toBeNull();
+      expect(screen.queryByRole("heading", { name: "Xem lại Memory check" })).toBeNull();
+      expect(completionHeading()).toBeNull();
+      await act(async () => {
+        vi.advanceTimersByTime(1200);
+      });
+      // The new wait ends like the first one: the pending completion plays its sequence, and the server was asked once.
+      expect(completionHeading()?.closest("section")?.getAttribute("data-motion")).toBe("sequence");
+      expect(mockedSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps an answer in flight pending across a jump to Từ vựng and back through the thread, and loses no result", async () => {
+      render(<LearningWorkspace data={workspaceData({ flashcards: [card] })} />);
+      fireEvent.click(threadStep(/^Memory check/));
+      let settle: (value: unknown) => void = () => {};
+      mockedSubmit.mockReturnValueOnce(
+        new Promise((resolve) => {
+          settle = resolve;
+        }) as never,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: /Đúng 1/ }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+      });
+
+      fireEvent.click(threadStep(/^Từ vựng/));
+      expect(screen.queryByText("Câu nhớ 1")).toBeNull();
+      fireEvent.click(threadStep(/^Memory check/));
+      expect(screen.getByRole("radio", { name: /Đúng 1/ }).getAttribute("aria-checked")).toBe("true");
+      expect(
+        (screen.getByRole("button", { name: "Đang kiểm tra..." }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+
+      await act(async () => {
+        settle({ success: true, isCorrect: true, isMemoryCheckPassed: false });
+      });
+      expect(screen.getByText("Chính xác!")).not.toBeNull();
+      expect(screen.getByText("Đã đúng 1/2")).not.toBeNull();
+      expect(mockedSubmit).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("answers in flight across a stage change", () => {

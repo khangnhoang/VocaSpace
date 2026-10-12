@@ -7,7 +7,7 @@ import {
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
-// spec: docs/programs/student-user-flow-route/implementation-plans/lf5/plan.md
+// spec: docs/programs/student-user-flow-route/implementation-plans/lf5/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf6/plan.md
 // Test plan:
 // - Mục tiêu: kiểm chứng trên trình duyệt thật màn hình hoàn thành chủ đề, bước vào chủ đề ở bước đầu tiên còn phải làm và xem lại memory check (LF5 AC1-AC9).
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture tổng hợp tạo một lần trong beforeAll; mỗi test xóa tiến độ của học viên seed rồi chạy ở 375px và 1280px.
@@ -15,6 +15,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 //   xem lại Memory check chỉ đọc (có giải thích) rồi về màn hình hoàn thành không phát lại chuỗi; tải lại mở thẳng màn hình đã ổn định (`settled`);
 //   chấm một thẻ Lại sau khi hoàn thành -> tải lại thì hành động chính của màn hình là nút hai dòng "Có 1 thẻ đến hạn" / "Ôn ngay";
 //   hành động "Chủ đề tiếp theo" phụ là nút viền toàn chiều rộng (từ 44px) xếp dưới nút chính, giống nhau ở con trỏ chính xác và cảm ứng (mỗi hành động một hàng).
+// - LF6 (AC1/AC3/AC4): "Xem lại" là một nút cùng một dòng giải thích; bấm thì focus nút đầu tiên của thanh tiến trình và bật rồi tắt vòng nổi bật (không có dưới reduced motion); các bước của thanh là nút (Enter và Space mở bước, focus về khung bước), Từ vựng mở màn hình kết thúc không dựng hàng đợi; mục tiêu bấm của thanh >= 24 px, >= 44 px dưới ngữ cảnh cảm ứng thật ở 375 và 320 px, không chồng nhau, thanh vẫn một dòng và vòng focus không bị cắt.
 // - Case reduced motion: cùng luồng nhưng với `prefers-reduced-motion: reduce` thì màn hình hoàn thành hiện ngay ở trạng thái `settled`.
 // - Case không có bài tập: chủ đề thẻ + memory check không bài tập, qua memory check thì tự chuyển sang màn hình hoàn thành, không có nút "Mở bài tập" hay "Hoàn thành memory check".
 // - Case chưa hoàn thành: chủ đề mở ở bước đầu tiên còn phải làm (Từ vựng, rồi Memory check khi thẻ đã xong, rồi Bài tập khi memory check đã qua).
@@ -93,6 +94,10 @@ async function expectNoHorizontalOverflow(page: Page) {
 
 const completionSection = (page: Page) => page.locator("section[aria-labelledby='topic-completion-title']");
 const stepThread = (page: Page) => page.getByRole("list", { name: "Các bước của bài học" });
+/** LF6 AC1: the stage plane is the workspace `main`, made focusable with tabindex -1 (the layout has other `main`s). */
+const stagePlane = (page: Page) => page.locator("main[tabindex='-1']");
+/** LF6 AC1: a thread step other than the current one is a button inside the list. */
+const threadStep = (page: Page, name: RegExp) => stepThread(page).getByRole("button", { name });
 
 interface MotionSample {
   time: number;
@@ -304,7 +309,10 @@ for (const width of WIDTHS) {
     await expect(completionSection(page)).toHaveAttribute("data-motion", "sequence");
     // Result text and the primary action are usable at once; only the progress and the hint are sequenced.
     await expect(page.getByRole("link", { name: "Chủ đề tiếp theo" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Xem lại Memory check" })).toBeEnabled();
+    // LF6 AC4: one Xem lại button and one explanation line replace the three per-stage buttons.
+    await expect(page.getByRole("button", { name: "Xem lại", exact: true })).toBeEnabled();
+    await expect(page.getByText("Chọn một bước ở thanh tiến trình để xem lại.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Xem lại .+/ })).toHaveCount(0);
     await expect(page.getByText(/^Tiếp theo: /)).toBeVisible();
     await page.waitForTimeout(2200);
     // AC8 (Owner Q7). Timing is verified from the computed CSS, not from frame cadence, so a slow runner cannot flip it:
@@ -359,8 +367,10 @@ for (const width of WIDTHS) {
     await expectNoHorizontalOverflow(page);
 
     // Xem lại memory check ngay trong phiên: chỉ đọc, có giải thích; quay về không phát lại chuỗi.
-    await page.getByRole("button", { name: "Xem lại Memory check" }).click();
+    await threadStep(page, /^Memory check/).click();
     await expect(page.getByRole("heading", { level: 2, name: "Xem lại Memory check" })).toBeVisible();
+    // LF6 AC1: after a jump the stage plane has focus.
+    await expect(stagePlane(page)).toBeFocused();
     await expect(page.getByRole("heading", { level: 3 })).toHaveCount(3);
     await expect(page.getByText("deadline nghĩa là hạn chót.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Kiểm tra đáp án" })).toHaveCount(0);
@@ -374,13 +384,33 @@ for (const width of WIDTHS) {
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
     await expect(page.locator("[data-completion-gain]")).toHaveCount(0);
-    await page.getByRole("button", { name: "Xem lại Memory check" }).click();
+    await threadStep(page, /^Memory check/).click();
     await expect(page.getByText("deadline nghĩa là hạn chót.")).toBeVisible();
     await page.getByRole("button", { name: "Xem kết quả chủ đề" }).click();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
 
+    // LF6 AC4: Xem lại draws attention to the thread: focus on its first enabled button and a ring that shows, then goes.
+    await page.getByRole("button", { name: "Xem lại", exact: true }).click();
+    await expect(stepThread(page).getByRole("button").first()).toBeFocused();
+    const ring = page.locator("[data-thread-highlight]");
+    await expect(ring).toHaveCSS("opacity", "1", { timeout: 600 });
+    await expect(ring).toHaveCSS("opacity", "0", { timeout: 2500 });
+    await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
+
+    // Enter and Space activate a thread step (native buttons); Từ vựng opens the finished screen and starts no queue.
+    await stepThread(page).getByRole("button").first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeVisible();
+    await expect(stagePlane(page)).toBeFocused();
+    await expect(page.getByText(/^\d+ \/ \d+$/)).toHaveCount(0);
+    await threadStep(page, /^Bài tập/).focus();
+    await page.keyboard.press("Space");
+    await expect(page.getByRole("radio", { name: FULL_EXERCISES[0] })).toBeVisible();
+    await expect(stagePlane(page)).toBeFocused();
+    await threadStep(page, /^Từ vựng/).click();
+
     // Chấm một thẻ Lại sau khi hoàn thành: tải lại thì màn hình mời ôn thẻ đến hạn trước.
-    await page.getByRole("button", { name: "Xem lại Từ vựng" }).click();
+    await page.getByRole("button", { name: "Ôn lại từ vựng" }).click();
     await expect(page.getByText("schedule", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Hiện đáp án" }).click();
     await page.getByRole("button", { name: "Lại", exact: true }).click();
@@ -455,9 +485,29 @@ for (const width of WIDTHS) {
         const primary = Array.from(document.querySelectorAll("button")).find((button) =>
           button.getAttribute("aria-label")?.startsWith("Có "),
         ) as HTMLElement;
-        const group = document.querySelector("[role='group'][aria-label='Xem lại các bước']") as HTMLElement;
+        const review = Array.from(document.querySelectorAll("button")).find(
+          (button) => button.textContent?.trim() === "Xem lại",
+        ) as HTMLElement;
         const p = primary.getBoundingClientRect();
-        const g = group.getBoundingClientRect();
+        const g = review.getBoundingClientRect();
+        // The hit area is read by hit-testing 21.5 px above and below the centre (a 44 px target) and 10 px (a 24 px one).
+        const threadButtons = Array.from(thread.querySelectorAll("button")).map((button) => {
+          const rect = button.getBoundingClientRect();
+          const cx = (rect.left + rect.right) / 2;
+          const cy = (rect.top + rect.bottom) / 2;
+          const hits = (offset: number) =>
+            [cy - offset, cy + offset].every((y) => {
+              const hit = document.elementFromPoint(cx, y);
+              return hit !== null && button.contains(hit);
+            });
+          return {
+            left: rect.left,
+            right: rect.right,
+            height: rect.height,
+            hit44: hits(21.5),
+            hit24: hits(10),
+          };
+        });
         const footerActions = Array.from(
           document.querySelectorAll("nav[aria-label='Điều hướng bài học'] a, nav[aria-label='Điều hướng bài học'] button"),
         ).map((element) => {
@@ -469,23 +519,40 @@ for (const width of WIDTHS) {
           };
         });
         return {
-          threadTops: items.map((rect) => Math.round(rect.top)),
+          // One line: the vertical centres agree (a 24 px step target may be 2 px taller than the 20 px circle on the narrowest width).
+          threadCentres: items.map((rect) => Math.round((rect.top + rect.bottom) / 2)),
           threadRight: Math.max(...items.map((rect) => rect.right)),
           threadBoxRight: thread.getBoundingClientRect().right,
           primaryLeft: p.left,
           primaryRight: p.right,
-          groupLeft: g.left,
-          groupRight: g.right,
-          reviewHeights: Array.from(group.querySelectorAll("button")).map((button) => button.getBoundingClientRect().height),
+          reviewLeft: g.left,
+          reviewRight: g.right,
+          reviewHeight: g.height,
+          threadButtons,
+          viewportWidth: window.innerWidth,
           footerActions,
           overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         };
       });
-      expect(new Set(geometry.threadTops).size).toBe(1);
+      expect(new Set(geometry.threadCentres).size).toBe(1);
       expect(geometry.threadRight).toBeLessThanOrEqual(geometry.threadBoxRight + 0.5);
-      expect(Math.abs(geometry.groupLeft - geometry.primaryLeft)).toBeLessThan(1);
-      expect(Math.abs(geometry.groupRight - geometry.primaryRight)).toBeLessThan(1);
-      for (const height of geometry.reviewHeights) expect(height).toBeGreaterThanOrEqual(44);
+      // LF6 AC4: the single Xem lại button is as wide as the primary and a 44px target.
+      expect(Math.abs(geometry.reviewLeft - geometry.primaryLeft)).toBeLessThan(1);
+      expect(Math.abs(geometry.reviewRight - geometry.primaryRight)).toBeLessThan(1);
+      expect(geometry.reviewHeight).toBeGreaterThanOrEqual(44);
+      // LF6 AC3: every thread step is at least 24x24; on touch-primary input at least 44 high; hit areas never overlap and
+      // stay inside the viewport.
+      expect(geometry.threadButtons.length).toBeGreaterThanOrEqual(2);
+      for (const button of geometry.threadButtons) {
+        expect(button.right - button.left).toBeGreaterThanOrEqual(24);
+        expect(button.height).toBeGreaterThanOrEqual(24);
+        expect(button.hit24).toBe(true);
+        expect(button.hit44).toBe(footer === "outlined");
+        expect(button.left).toBeGreaterThanOrEqual(0);
+        expect(button.right).toBeLessThanOrEqual(geometry.viewportWidth);
+      }
+      const byLeft = [...geometry.threadButtons].sort((a, b) => a.left - b.left);
+      for (let i = 1; i < byLeft.length; i += 1) expect(byLeft[i].left).toBeGreaterThanOrEqual(byLeft[i - 1].right - 0.5);
       expect(geometry.overflow).toBe(false);
       expect(geometry.footerActions.length).toBeGreaterThan(0);
       for (const action of geometry.footerActions) {
@@ -507,6 +574,30 @@ for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     // Keyboard focus on the next-topic action shows a real ring: the :focus-visible state with a Route Blue ring of non-zero
     // spread, polled across the 120 ms colour/shadow transition.
+    // LF6 AC3: a thread step shows the same kind of ring, and the ring is not clipped by an ancestor or the viewport.
+    const firstStep = stepThread(page).getByRole("button").first();
+    await firstStep.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(firstStep).toBeFocused();
+    await expect
+      .poll(() => firstStep.evaluate((element) => getComputedStyle(element).boxShadow), { timeout: 2000 })
+      .toMatch(/rgb\(37, 99, 235\) 0px 0px 0px [1-9]\d*px/);
+    const ringClipped = await firstStep.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const ring = { left: box.left - 2, right: box.right + 2, top: box.top - 2, bottom: box.bottom + 2 };
+      let clipped = ring.left < 0 || ring.right > window.innerWidth;
+      for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        if (style.overflowX === "visible" && style.overflowY === "visible") continue;
+        const parent = node.getBoundingClientRect();
+        if (ring.left < parent.left || ring.right > parent.right || ring.top < parent.top || ring.bottom > parent.bottom) {
+          clipped = true;
+        }
+      }
+      return clipped;
+    });
+    expect(ringClipped).toBe(false);
     await subordinate.focus();
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Tab");
@@ -528,6 +619,10 @@ for (const width of WIDTHS) {
       expect(await touchPage.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(false);
       // Q13 on touch: the same stacked composition, so the two contexts cannot diverge.
       await expectStacked(touchPage, touchPage.getByRole("link", { name: "Chủ đề tiếp theo" }));
+      await expectMobileLayout(touchPage, "outlined");
+      // LF6 AC3: the thread also stays on one line at 320 px under the real touch-primary context.
+      await touchPage.setViewportSize({ width: 320, height: 700 });
+      await touchPage.waitForTimeout(300);
       await expectMobileLayout(touchPage, "outlined");
     } finally {
       await touchContext.close();
@@ -559,6 +654,14 @@ for (const width of WIDTHS) {
     await expect(page.locator("[data-completion-gain]")).toHaveCount(0);
     await expect(page.getByRole("progressbar", { name: "Tiến độ khóa học" })).toHaveAttribute("aria-valuenow", "1");
     await expectNoHorizontalOverflow(page);
+
+    // LF6 AC4: under reduced motion Xem lại still moves focus to the thread but shows no ring.
+    await page.getByRole("button", { name: "Xem lại", exact: true }).click();
+    await expect(stepThread(page).getByRole("button").first()).toBeFocused();
+    const ring = page.locator("[data-thread-highlight]");
+    await expect(ring).toHaveCSS("opacity", "0");
+    await page.waitForTimeout(400);
+    await expect(ring).toHaveCSS("opacity", "0");
   });
 
   test(`passing a memory check with no exercises moves on to the completion screen by itself, at ${width}px`, async ({

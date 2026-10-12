@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type Ref } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -43,7 +43,7 @@ import QuestionNavigator, { type QuestionNavigatorSection } from "./QuestionNavi
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import QuestionResponse from "./QuestionResponse";
 import StickyColumn from "./StickyColumn";
-import TopicCompletionPanel, { type CompletionReviewStage } from "./TopicCompletionPanel";
+import TopicCompletionPanel from "./TopicCompletionPanel";
 import { arrangeMaterial } from "./exercise-arrangement";
 import {
   announceTopicProgress,
@@ -55,6 +55,8 @@ type LearningStage = "flashcard" | "memory" | "exercise" | "complete";
 // Vị trí của bước. "Đã xong" là thuộc tính riêng (LF3 AC8) để một bước vừa đang học vừa đã xong.
 type StepState = "current" | "locked" | "upcoming";
 type StageStep = { key: LearningStage; label: string; state: StepState; done: boolean };
+// Cách một hàng đợi thẻ bắt đầu: lần học đầu của trang, ôn thẻ đến hạn, hay ôn lại toàn bộ từ vựng.
+type QueueKind = "first" | "due" | "full";
 
 type ExerciseSegment = QuestionGroupDTO & { isStandalone: boolean };
 
@@ -104,59 +106,126 @@ function stepStateText(step: StageStep) {
   return step.state === "upcoming" ? "đã xong" : `đã xong, ${STEP_STATE_TEXT[step.state]}`;
 }
 
-/**
- * Progress thread of the stages this topic really has. It reports state with
- * words and icons and is not a control, so it cannot bypass a server gate.
- */
-function StageThread({ steps }: { steps: StageStep[] }) {
+// Khung của một bước: dùng chung cho bước hiện tại (không điều khiển) và nút của các bước còn lại để bố cục không đổi.
+const STEP_BODY_CLASS = "flex items-center gap-1.5 max-[360px]:gap-1 sm:gap-2";
+
+// Mục tiêu bấm của bước: tối thiểu 24px; trên thiết bị cảm ứng vùng bấm cao 44px nhờ phần tử ảo trong suốt nên dòng không đổi bố cục.
+const STEP_BUTTON_CLASS = `${STEP_BODY_CLASS} relative -mx-1 min-h-6 rounded-md px-1 text-left transition-colors duration-[220ms] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route motion-reduce:transition-none coarse-input:after:absolute coarse-input:after:inset-x-0 coarse-input:after:top-1/2 coarse-input:after:h-11 coarse-input:after:-translate-y-1/2`;
+
+// LF6: ghi chú thông báo khóa của thanh tiến trình, lấy từ cùng nguồn chữ với màn hình khóa.
+const cardsLockedReason = (unseenCount: number) =>
+  `Học hết flashcard của bài này để mở memory check. Còn ${unseenCount} thẻ chưa học.`;
+
+// Vòng nổi bật của thanh tiến trình sau "Xem lại": hiện rồi tắt bằng token chuyển trạng thái 220 ms, tổng cộng khoảng 1 s.
+const THREAD_HIGHLIGHT_MS = 780;
+
+function prefersReducedMotion() {
   return (
-    // Owner Q14: one line down to 320 px. The steps never wrap, so no connector can dangle at the start of a line;
-    // gaps, connectors and the label shrink on narrow widths instead.
-    <ol
-      aria-label="Các bước của bài học"
-      className="flex min-w-0 flex-nowrap items-center gap-x-1.5 max-[360px]:gap-x-1 sm:gap-x-2"
-    >
-      {steps.map((step, index) => (
-        <li
-          key={step.key}
-          aria-current={step.state === "current" ? "step" : undefined}
-          className={`flex shrink-0 items-center gap-1.5 text-[13px] max-[360px]:gap-1 sm:gap-2 sm:text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
-            step.state === "current"
-              ? "font-bold text-slate-900"
-              : step.done
-                ? "font-semibold text-slate-700"
-                : "font-medium text-slate-600"
-          }`}
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/**
+ * Progress thread of the stages this topic really has. It reports state with words and icons. Every step except the
+ * current one is a button that only calls `onSelect`; the workspace decides whether it opens the stage or, for a locked
+ * step, explains the lock, so the thread cannot bypass a gate.
+ */
+function StageThread({
+  steps,
+  onSelect,
+  lockReason,
+  highlighted,
+  rootRef,
+}: {
+  steps: StageStep[];
+  onSelect: (step: StageStep) => void;
+  lockReason: string | null;
+  highlighted: boolean;
+  rootRef: Ref<HTMLDivElement>;
+}) {
+  return (
+    <div ref={rootRef} className="flex min-w-0 scroll-my-4 flex-col gap-1.5">
+      <div className="relative">
+        {/* Owner Q14: one line down to 320 px. The steps never wrap, so no connector can dangle at the start of a line;
+            gaps, connectors and the label shrink on narrow widths instead. */}
+        <ol
+          aria-label="Các bước của bài học"
+          className="flex min-w-0 flex-nowrap items-center gap-x-1.5 max-[360px]:gap-x-1 sm:gap-x-2"
         >
-          {index > 0 && (
-            <span aria-hidden="true" className="h-px w-2 bg-slate-300 max-[360px]:w-1.5 sm:w-6" />
-          )}
-          <span
-            aria-hidden="true"
-            className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold max-[360px]:size-5 transition-colors duration-[220ms] motion-reduce:transition-none ${
-              step.state === "current"
-                ? "border-route bg-route text-white"
-                : step.state !== "locked" && step.done
-                  ? "border-growth-line bg-growth-quiet text-growth"
-                  : "border-slate-300 bg-white text-slate-600"
-            }`}
-          >
-            {/* Khóa thắng dấu xong (AC6): bước đã xong nhưng bị khóa lại vẫn hiện ổ khóa; "đã xong" nằm ở tên truy cập. */}
-            {step.state === "locked" ? (
-              <Lock className="size-3" />
-            ) : step.done ? (
-              <CheckCircle2 className="size-4" />
-            ) : (
-              index + 1
-            )}
-          </span>
-          <span>
-            {step.label}
-            <span className="sr-only"> ({stepStateText(step)})</span>
-          </span>
-        </li>
-      ))}
-    </ol>
+          {steps.map((step, index) => {
+            const body = (
+              <>
+                <span
+                  aria-hidden="true"
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold max-[360px]:size-5 transition-colors duration-[220ms] motion-reduce:transition-none ${
+                    step.state === "current"
+                      ? "border-route bg-route text-white"
+                      : step.state !== "locked" && step.done
+                        ? "border-growth-line bg-growth-quiet text-growth"
+                        : "border-slate-300 bg-white text-slate-600"
+                  }`}
+                >
+                  {/* Khóa thắng dấu xong (AC6): bước đã xong nhưng bị khóa lại vẫn hiện ổ khóa; "đã xong" nằm ở tên truy cập. */}
+                  {step.state === "locked" ? (
+                    <Lock className="size-3" />
+                  ) : step.done ? (
+                    <CheckCircle2 className="size-4" />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <span>
+                  {step.label}
+                  <span className="sr-only"> ({stepStateText(step)})</span>
+                </span>
+              </>
+            );
+            return (
+              <li
+                key={step.key}
+                aria-current={step.state === "current" ? "step" : undefined}
+                className={`flex shrink-0 items-center gap-1.5 text-[13px] max-[360px]:gap-1 sm:gap-2 sm:text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
+                  step.state === "current"
+                    ? "font-bold text-slate-900"
+                    : step.done
+                      ? "font-semibold text-slate-700"
+                      : "font-medium text-slate-600"
+                }`}
+              >
+                {index > 0 && (
+                  <span aria-hidden="true" className="h-px w-2 bg-slate-300 max-[360px]:w-1.5 sm:w-6" />
+                )}
+                {step.state === "current" ? (
+                  <span className={STEP_BODY_CLASS}>{body}</span>
+                ) : (
+                  <button
+                    type="button"
+                    data-step-locked={step.state === "locked" ? "" : undefined}
+                    className={STEP_BUTTON_CLASS}
+                    onClick={() => onSelect(step)}
+                  >
+                    {body}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        <span
+          aria-hidden="true"
+          data-thread-highlight=""
+          className={`pointer-events-none absolute -inset-1.5 rounded-lg ring-2 ring-route transition-opacity duration-[220ms] motion-reduce:transition-none ${
+            highlighted ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      </div>
+      {/* Vùng thông báo luôn có mặt trong DOM để lời giải thích bước khóa được đọc khi xuất hiện. */}
+      <div aria-live="polite">
+        {lockReason && <p className="text-sm font-medium text-slate-700">{lockReason}</p>}
+      </div>
+    </div>
   );
 }
 
@@ -248,7 +317,10 @@ export default function LearningWorkspace({
   };
   // `animate`: chuỗi chuyển động chỉ chạy cho lần hiện đầu của một lần hoàn thành vừa xảy ra; `focus`: chỉ khi vào bằng thao tác.
   const [completionEntry, setCompletionEntry] = useState({ animate: false, focus: false });
+  // Bản sao ref của cờ trên: callback async cuối hàng đợi thẻ đọc cờ tại thời điểm hết hàng, không phải lúc bắt đầu chấm (LF6 AC10).
+  const topicCompletedRef = useRef(progress?.isTopicCompleted ?? false);
   const markTopicCompleted = (newlyCompleted: boolean) => {
+    topicCompletedRef.current = true;
     setIsTopicCompleted(true);
     if (newlyCompleted) setPendingCompletion(true);
   };
@@ -336,6 +408,16 @@ export default function LearningWorkspace({
     focus: boolean;
   }>({ direction: "none", focus: false });
   const planeRef = useRef<HTMLElement>(null);
+  // LF6 AC10: cách hàng đợi hiện tại bắt đầu quyết định thông báo và nơi quay về khi hết thẻ. Chỉ `startQueue` đổi nó
+  // (không đổi khi Lại/Khó xếp lại thẻ, lưu lỗi hay đổi bước). Hàng đợi lúc vào trang là lần học đầu.
+  const [queueKind, setQueueKind] = useState<QueueKind>("first");
+  // LF6 AC2: bước bị khóa vừa được bấm; lời giải thích chỉ hiện khi khóa đó vẫn còn và học viên chưa đổi bước.
+  const [lockNotice, setLockNotice] = useState<"memory" | "exercise" | null>(null);
+  // LF6 AC1/AC4: yêu cầu đưa focus về khung bước học sau khi bước mới đã dựng xong; điểm nổi bật tạm thời của thanh tiến trình.
+  const [planeFocusRequest, setPlaneFocusRequest] = useState(0);
+  const [threadHighlighted, setThreadHighlighted] = useState(false);
+  const threadRef = useRef<HTMLDivElement>(null);
+  const highlightTimer = useRef<number | undefined>(undefined);
 
   const flatLessons = useMemo(
     () => syllabus.flatMap((chapter) => chapter.topics),
@@ -371,15 +453,21 @@ export default function LearningWorkspace({
         ? "exercise"
         : null;
 
-  const goToStage = (stage: LearningStage) => {
+  // Mọi lần đổi bước đi qua đây để lời giải thích bước khóa luôn tắt khi bước đổi.
+  const changeStage = (stage: LearningStage) => {
+    setLockNotice(null);
     setLearningStage(stage);
+  };
+
+  const goToStage = (stage: LearningStage) => {
+    changeStage(stage);
   };
 
   // Vào màn hình hoàn thành: dùng và xóa dấu "vừa hoàn thành", nên lần vào sau trong phiên chỉ hiện màn hình đã ổn định (AC8).
   const goToComplete = () => {
     setCompletionEntry({ animate: pendingCompletionRef.current, focus: true });
     setPendingCompletion(false);
-    setLearningStage("complete");
+    changeStage("complete");
   };
 
   const skipToQuiz = () => goToStage("exercise");
@@ -401,17 +489,18 @@ export default function LearningWorkspace({
     router.refresh();
   };
 
-  const startQueue = (cards: FlashcardDTO[]) => {
+  const startQueue = (cards: FlashcardDTO[], kind: QueueKind) => {
     setLearningQueue(cards);
     setQueueTotal(cards.length);
+    setQueueKind(kind);
     setIsFlipped(false);
   };
 
-  const restartFlashcards = () => startQueue(flashcards);
+  const restartFlashcards = () => startQueue(flashcards, "full");
 
   // Thứ tự soạn của `flashcards` giữ nguyên; id lạ trong `dueCardIds` (không phải thẻ active) bị bỏ qua.
   const dueCards = flashcards.filter((card) => dueCardIds.has(card.id));
-  const reviewDueCards = () => startQueue(dueCards);
+  const reviewDueCards = () => startQueue(dueCards, "due");
 
   const handleRateCard = (rating: Rating) => {
     const currentCard = learningQueue[0];
@@ -455,6 +544,12 @@ export default function LearningWorkspace({
         // LF5 AC4: lần chấm vừa hoàn thành chủ đề thì màn hình hoàn thành thay cho màn hình kết thúc thẻ và các toast chuyển bước.
         if (pendingCompletionRef.current) {
           goToComplete();
+        } else if (queueKind !== "first") {
+          // LF6 AC10: ôn thẻ đến hạn hay ôn lại từ vựng không phải lần học đầu nên không báo "đã nạp" và không đẩy sang bước
+          // khác. Chủ đề đã hoàn thành (đọc lúc hết hàng đợi, kể cả kết quả của chính lần chấm này) thì về màn hình hoàn thành
+          // đã ổn định; nếu chưa thì ở lại màn hình kết thúc từ vựng.
+          toast.success(queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
+          if (topicCompletedRef.current) goToComplete();
         } else if (nextStageAfterFlashcards === "memory") {
           goToStage("memory");
           toast.success("Đã nạp xong từ vựng! Chuyển sang memory check.");
@@ -604,7 +699,7 @@ export default function LearningWorkspace({
       goToStage("memory");
     } else if (flashcards.length > 0) {
       // LF4 AC4: quay lại Từ vựng giữ hàng đợi hiện có (rỗng thì là màn hình kết thúc), không dựng lại toàn bộ thẻ.
-      setLearningStage("flashcard");
+      changeStage("flashcard");
     }
   };
 
@@ -624,6 +719,19 @@ export default function LearningWorkspace({
       plane.scrollIntoView?.({ block: "start" });
     }
   }, [groupKey]);
+
+  // Focus về khung bước học chạy trong effect của component cha: effect con (ví dụ nút "Tiếp tục" của memory check hay tiêu đề
+  // câu hỏi) đã chạy trước trong cùng lần commit, nên focus của luồng chuyển bước bằng thanh tiến trình là focus cuối cùng.
+  useEffect(() => {
+    if (planeFocusRequest === 0) return;
+    const plane = planeRef.current;
+    if (!plane) return;
+    plane.focus({ preventScroll: true });
+    // Chỉ cuộn khi đỉnh khung nằm trên khung nhìn, như khi đổi nhóm câu hỏi.
+    if (plane.getBoundingClientRect().top < 0) plane.scrollIntoView?.({ block: "start" });
+  }, [planeFocusRequest]);
+
+  useEffect(() => () => window.clearTimeout(highlightTimer.current), []);
 
   const exerciseQuestionCount = exerciseQuestionPositions.length;
   // Bước "Từ vựng" chỉ hiện đã xong khi server báo xong và không còn thẻ nào chưa Ổn/Dễ (LF3 AC6/AC8).
@@ -654,6 +762,40 @@ export default function LearningWorkspace({
       done: !exercisesLocked && exercisesDone,
     });
   }
+  // LF6 G1: thanh tiến trình chỉ gọi `goToStage`, hàm mà chân trang đã dùng để đổi bước, và không bao giờ dựng hàng đợi thẻ
+  // (kể cả bước Từ vựng: hàng đợi hiện có, rỗng thì là màn hình kết thúc). Bước khóa không đổi bước, chỉ nói lý do.
+  const selectStep = (step: StageStep) => {
+    if (step.state === "locked") {
+      setLockNotice(step.key === "memory" ? "memory" : "exercise");
+      return;
+    }
+    goToStage(step.key);
+    setPlaneFocusRequest((current) => current + 1);
+  };
+  const lockReason =
+    lockNotice === "memory" && memoryCardsLocked
+      ? cardsLockedReason(unseenCardIds.size)
+      : lockNotice === "exercise" && exercisesLocked
+        ? MEMORY_LOCK_REASON
+        : null;
+
+  // LF6 AC4: "Xem lại" của màn hình hoàn thành chỉ chỉ ra thanh tiến trình: cuộn tới, focus nút đầu tiên dùng được và
+  // làm nổi bật ngắn. Dưới reduced motion cuộn tức thì và không làm nổi bật.
+  const showStageThread = () => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    const reduceMotion = prefersReducedMotion();
+    thread.scrollIntoView?.({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+    const target =
+      thread.querySelector<HTMLButtonElement>("button:not([data-step-locked])") ??
+      thread.querySelector<HTMLButtonElement>("button");
+    target?.focus({ preventScroll: true });
+    if (reduceMotion) return;
+    window.clearTimeout(highlightTimer.current);
+    setThreadHighlighted(true);
+    highlightTimer.current = window.setTimeout(() => setThreadHighlighted(false), THREAD_HIGHLIGHT_MS);
+  };
+
   // Đã đủ dòng cho mọi thẻ (memory check mở) nhưng còn thẻ chưa Ổn/Dễ: bước Từ vựng chưa xong, nói rõ còn bao nhiêu thẻ.
   // Hiện bất cứ lúc nào điều kiện đó đúng, kể cả khi hàng đợi thẻ còn thẻ Lại/Khó phải học lại.
   const showUnratedHint =
@@ -695,24 +837,6 @@ export default function LearningWorkspace({
             detail: `Chủ đề 1 · ${nextTopic.title}`,
           }
       : { kind: "overview" as const, href: `/learn/${courseSlug}` };
-  const reviewStages: CompletionReviewStage[] = [];
-  if (flashcards.length > 0) {
-    reviewStages.push({
-      key: "flashcard",
-      label: "Từ vựng",
-      onSelect: () => {
-        restartFlashcards();
-        goToStage("flashcard");
-      },
-    });
-  }
-  if (memoryCheck) {
-    reviewStages.push({ key: "memory", label: "Memory check", onSelect: () => goToStage("memory") });
-  }
-  if (exercises.length > 0) {
-    reviewStages.push({ key: "exercise", label: "Bài tập", onSelect: () => goToStage("exercise") });
-  }
-
   // Review list: every question in learning order, numbered across the whole topic.
   const questionNumbers = new Map(
     exerciseQuestionPositions.map((position, index) => [position.questionId, index + 1]),
@@ -907,7 +1031,7 @@ export default function LearningWorkspace({
             goToStage("flashcard");
           }}
           next={completionNext}
-          reviewStages={reviewStages}
+          onReview={stageSteps.length > 0 ? showStageThread : undefined}
         />
       );
     }
@@ -919,9 +1043,7 @@ export default function LearningWorkspace({
         >
           <Lock aria-hidden="true" className="size-10 text-attention" />
           <h2 className="text-xl font-bold text-slate-900">Memory check đang khóa</h2>
-          <p className="text-slate-700">
-            Học hết flashcard của bài này để mở memory check. Còn {unseenCardIds.size} thẻ chưa học.
-          </p>
+          <p className="text-slate-700">{cardsLockedReason(unseenCardIds.size)}</p>
           <Button onClick={backToFlashcard} size="lg" className="px-8">
             Về Từ vựng
           </Button>
@@ -1120,7 +1242,17 @@ export default function LearningWorkspace({
         </header>
 
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          {stageSteps.length > 0 ? <StageThread steps={stageSteps} /> : <span />}
+          {stageSteps.length > 0 ? (
+            <StageThread
+              steps={stageSteps}
+              onSelect={selectStep}
+              lockReason={lockReason}
+              highlighted={threadHighlighted}
+              rootRef={threadRef}
+            />
+          ) : (
+            <span />
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             {/* LF5 AC5: chủ đề đã hoàn thành và đang xem một bước khác thì có đúng một lối quay lại màn hình hoàn thành (nút "Xem kết quả chủ đề"). */}
@@ -1173,7 +1305,8 @@ export default function LearningWorkspace({
 
         <main
           ref={planeRef}
-          className="min-w-0 scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
+          tabIndex={-1}
+          className="min-w-0 scroll-mt-4 rounded-2xl outline-none border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
         >
           <div
             key={`${learningStage}:${exercisesLocked}`}
