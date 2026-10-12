@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO, QuestionOptionDTO } from "@/lib/schemas/learn";
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
+import { AUTO_ADVANCE_MS } from "./auto-advance";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -48,14 +49,24 @@ interface QuestionResponseProps {
   hasNext: boolean;
   /**
    * What follows a correct answer when no later question exists: go back to a
-   * missing question, or leave for the next topic (or the course overview).
+   * missing question, open the completion screen of a topic this answer just
+   * completed, or leave for the next topic (or the course overview).
    */
   endAction: { label: string; onClick: () => void } | { label: string; href: string };
+  /**
+   * LF5 AC4: set when the topic is complete and no exercise question remains. A correct answer given here then shows
+   * its feedback, offers no end button, and calls this after `AUTO_ADVANCE_MS`; an answer the server already had
+   * keeps `endAction`, so merely visiting the last question never moves the learner.
+   */
+  onAutoAdvance?: () => void;
+  /** LF5 Q16: true exactly while the auto-advance timer runs, so the workspace can hide its duplicate return action. */
+  onAutoAdvancePending?: (pending: boolean) => void;
   onPrevious: () => void;
   onNext: () => void;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
   onIncorrectAnswer?: (questionId: string) => void;
-  onTopicCompleted?: () => void;
+  /** The server reports the topic as completed; the argument is its `newlyCompleted` (LF5 AC4). */
+  onTopicCompleted?: (newlyCompleted: boolean) => void;
   onMemoryCheckRequired?: () => void;
 }
 
@@ -79,6 +90,8 @@ export default function QuestionResponse({
   focusOnEntry,
   hasNext,
   endAction,
+  onAutoAdvance,
+  onAutoAdvancePending,
   onPrevious,
   onNext,
   onCorrectAnswer,
@@ -217,11 +230,29 @@ export default function QuestionResponse({
     headingRef.current?.focus();
   };
 
+  // A fresh correct answer on the last question of a finished topic hands over by itself: no end button.
+  const autoAdvances =
+    phase.kind === "correct" && !phase.alreadySaved && !hasNext && Boolean(onAutoAdvance);
+  const onAutoAdvanceRef = useRef({ onAutoAdvance, onAutoAdvancePending });
+  // Layout effects: the workspace hides its return action in the same commit as the wait starts, so it never flashes.
+  useLayoutEffect(() => {
+    onAutoAdvanceRef.current = { onAutoAdvance, onAutoAdvancePending };
+  });
+  useLayoutEffect(() => {
+    if (!autoAdvances) return;
+    onAutoAdvanceRef.current.onAutoAdvancePending?.(true);
+    const timer = window.setTimeout(() => onAutoAdvanceRef.current.onAutoAdvance?.(), AUTO_ADVANCE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      onAutoAdvanceRef.current.onAutoAdvancePending?.(false);
+    };
+  }, [autoAdvances]);
+
   const primary =
     phase.kind === "correct"
       ? hasNext
         ? { label: "Câu tiếp theo", onClick: onNext, icon: <ChevronRight aria-hidden="true" /> }
-        : "href" in endAction
+        : autoAdvances || "href" in endAction
           ? null
           : { label: endAction.label, onClick: endAction.onClick, icon: null }
       : phase.kind === "incorrect"
@@ -303,6 +334,7 @@ export default function QuestionResponse({
                 {primary.label}
               </Button>
             ) : (
+              !autoAdvances &&
               "href" in endAction && (
                 <Button asChild size="lg">
                   <Link href={endAction.href}>

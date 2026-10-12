@@ -21,6 +21,8 @@ export const MATRIX_TOPICS = {
   faults: { slug: "d8-matrix-media-faults", title: "D8 Media lỗi hoặc thiếu" },
   // Appended last so the existing topic ids keep their values; ordered first in the chapter.
   full: { slug: "d8-matrix-full-flow", title: "D8 Bài học trọn vẹn" },
+  // LF5: cards and a memory check but no exercises, so the memory pass is the last step. Appended last for the same reason.
+  memoryOnly: { slug: "d8-matrix-memory-only", title: "D8 Từ vựng và memory check không bài tập" },
 };
 
 const COURSE_ID = id(1);
@@ -395,6 +397,27 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
     passage: "To: Project team\nFrom: Operations\n\nThe [1] for the quarterly report has moved to next Monday.\nPlease update your schedule and share drafts by Friday.\n\nThanks,\nOperations",
   });
   await addQuestion(fullPart6, fullPart6Group, 0, "Chọn từ phù hợp cho chỗ trống [1].", ["deadline", "dead", "deadly", "deadlines are"]);
+
+  // Memory-only: vocabulary and a memory check on it, no exercises (the pass is the last step of the topic).
+  checked(
+    await supabase.from("cards").insert(
+      [
+        ["invoice", "noun", "/ˈɪnvɔɪs/", "hóa đơn", "Please send the invoice by email.", "Vui lòng gửi hóa đơn qua email."],
+        ["supplier", "noun", "/səˈplaɪər/", "nhà cung cấp", "Our supplier delivers every Monday.", "Nhà cung cấp của chúng tôi giao hàng vào mỗi thứ Hai."],
+      ].map(([word, pos, phonetic, translation, example, exampleTranslation], index) => ({
+        id: next(),
+        topic_id: topicIds.memoryOnly,
+        front_content: { word, pos, phonetic },
+        back_content: { translation, example, exampleTranslation },
+        order_index: index,
+        removed_at: null,
+      })),
+    ),
+    "Create memory-only cards",
+  );
+  const onlyMemory = await addExercise("memoryOnly", 0, "Memory check", null, "memory_check");
+  await addQuestion(onlyMemory, null, 0, "Nghĩa của \"invoice\" là gì?", ["hóa đơn", "nhà cung cấp", "hạn chót"], "invoice nghĩa là hóa đơn.");
+  await addQuestion(onlyMemory, null, 1, "Nghĩa của \"supplier\" là gì?", ["nhà cung cấp", "hóa đơn", "lịch trình"], "supplier nghĩa là nhà cung cấp.");
 
   // Media faults: a missing object behind a valid reference, and a group without required audio.
   const faultPart1 = await addExercise("faults", 1, "Part 1 - Ảnh không tải được", "part1");

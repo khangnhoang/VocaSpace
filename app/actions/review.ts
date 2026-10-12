@@ -16,6 +16,7 @@ const MUTATION_ERROR = "Chưa thể đồng bộ tiến độ ôn tập.";
 
 type RawUserFlashcard = {
   id: string;
+  user_id?: string;
   card_id: string;
   fsrs_meta: unknown;
 };
@@ -88,11 +89,14 @@ async function reviewCard(
           chapter:chapters!inner (id, course_id, removed_at),
           course:courses (id, enrollments (id, user_id))
         ),
-        user_flashcards (id, card_id, fsrs_meta)
+        user_flashcards (id, user_id, card_id, fsrs_meta)
       `,
       )
       .eq("id", parsed.data.cardId)
       .eq("topic.course.enrollments.user_id", user.id)
+      // An active admin can read every learner's user_flashcards rows (f11eb22), so the embed is limited to the caller's own row;
+      // otherwise another learner's row id reaches the RPC, whose own-row UPDATE then matches nothing.
+      .eq("user_flashcards.user_id", user.id)
       .is("removed_at", null)
       .maybeSingle());
 
@@ -129,8 +133,9 @@ async function reviewCard(
       return { error: "Bạn cần ghi danh khóa học để lưu ôn tập." };
     }
 
+    // Defense in depth next to the embed filter: only the caller's own row for this card is ever used.
     const userFlashcard = (card.user_flashcards ?? []).find(
-      (item) => item.card_id === card.id,
+      (item) => item.card_id === card.id && item.user_id === user.id,
     );
     let currentCard: FSRSCard;
     if (!userFlashcard?.fsrs_meta) {

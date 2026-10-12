@@ -10,6 +10,7 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 // - Đối tượng: `submitQuestionAnswer`, `getLearningWorkspace`, RPC `d4_sync_topic_progress` (D4 thay `updateStageProgress`).
 // - Case thành công:
 //   - Trả lời đúng hết memory check thì ghi được đáp án exercise; cờ exercise do RPC suy ra; workspace báo đã qua.
+//   - LF5: giải thích memory chỉ xuất hiện trong workspace khi đáp án đã lưu của câu đó đang đúng (trước khi qua không có, sau khi qua có đủ).
 //   - Topic không có memory check giữ hành vi cũ; câu có hai option đúng thì chọn option nào trong hai đều đúng.
 // - Case thất bại:
 //   - Chưa qua thì đáp án exercise bị `MEMORY_CHECK_REQUIRED`, không có dòng mới và cờ exercise không bật.
@@ -17,7 +18,7 @@ import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 // - Bảo mật/phân quyền:
 //   - Learner tự ghi `is_correct = true` cho option sai qua Data API không mở được cổng; learner chưa ghi danh bị từ chối như Q7, kể cả khi gọi thẳng RPC đồng bộ.
 // - Invariant cần giữ: "đã qua" suy từ option đang chọn và đáp án hiện hành, không đọc `user_question_answers.is_correct`.
-// - Kết quả verify gần nhất: 6/6 passed sau D4 (2026-10-02) bằng `npm run test:integration -- __tests__/integration/memory-check-learner-gate.test.ts`.
+// - Kết quả verify gần nhất: xem lần chạy cuối của `npm run test:integration -- __tests__/integration/memory-check-learner-gate.test.ts` trên runtime cô lập 45441.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const clientHolder = vi.hoisted(() => ({ current: null as unknown }));
@@ -210,6 +211,12 @@ describe.sequential("D3 memory check learner gate", { timeout: 20_000 }, () => {
     await expect(submitQuestionAnswer(first.id, first.wrong)).resolves.toMatchObject({
       success: true, isCorrect: false, isMemoryCheckPassed: false,
     });
+    // LF5 (G2): chưa có câu nào đúng thì loader không được gửi giải thích nào, kể cả câu vừa trả lời sai.
+    const beforePass = await getLearningWorkspace(fixture.courseSlug, fixture.topicSlug);
+    expect(beforePass.status).toBe("success");
+    if (beforePass.status === "success") {
+      expect(JSON.stringify(beforePass.data.memoryCheck)).not.toContain("Giải thích nhớ");
+    }
     await expect(submitQuestionAnswer(first.id, first.right)).resolves.toMatchObject({ isCorrect: true, isMemoryCheckPassed: false });
     await expect(submitQuestionAnswer(second.id, second.right)).resolves.toMatchObject({ isCorrect: true, isMemoryCheckPassed: true });
 
@@ -219,7 +226,11 @@ describe.sequential("D3 memory check learner gate", { timeout: 20_000 }, () => {
       expect(workspace.data.isMemoryCheckPassed).toBe(true);
       expect(workspace.data.memoryCheck?.questions.map((question) => question.id)).toEqual([first.id, second.id]);
       expect(JSON.stringify(workspace.data.memoryCheck)).not.toContain("is_correct");
-      expect(JSON.stringify(workspace.data.memoryCheck)).not.toContain("Giải thích nhớ");
+      // LF5 (AC9): sau khi qua, mọi câu đều đang đúng nên mỗi câu mang giải thích của chính nó.
+      expect(workspace.data.memoryCheck?.questions.map((question) => question.explanation)).toEqual([
+        "Giải thích nhớ 1",
+        "Giải thích nhớ 2",
+      ]);
       expect(workspace.data.exercises.map((exercise) => exercise.part_type)).toEqual(["part6"]);
       expect(workspace.data.answers).toMatchObject({ [first.id]: first.right, [second.id]: second.right });
     }

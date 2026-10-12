@@ -15,7 +15,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Mục tiêu: kiểm chứng trên trình duyệt thật cổng "đã xem hết thẻ" của memory check (LF3 AC4-AC6) và dòng các bước (AC8).
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture tổng hợp tạo trong beforeAll và dọn trong afterAll.
 // - Case thành công: học hết thẻ -> memory check mở; giảng viên thêm thẻ -> trả lời bị từ chối, về Từ vựng, tải lại có thẻ mới;
-//   chấm thẻ mới -> trả lời lần đầu rồi đổi đáp án đều được ghi; dòng các bước ghi "đã xong" ngay cả khi là bước hiện tại.
+//   chấm thẻ mới -> trả lời lần đầu rồi đổi đáp án đều được ghi; dòng các bước ghi "đã xong" ngay cả khi là bước hiện tại (LF5: vào lại chủ đề thì mở thẳng bước đầu tiên còn phải làm, tức Bài tập, rồi quay lại các bước đã xong).
 // - Case phục hồi có đáp án đã lưu: học viên đã có đáp án memory check được lưu, giảng viên thêm thẻ, lần ĐỔI đáp án bị từ chối và
 //   đáp án đã lưu giữ nguyên; sau khi học thẻ mới, gửi lại thì đáp án được đổi.
 // - Case thất bại: câu trả lời bị từ chối không để lại dòng user_question_answers nào (lần đầu) hoặc không đổi dòng đã lưu (lần đổi).
@@ -165,9 +165,15 @@ test("the stage thread shows a finished step as done while it is the current ste
     await page.setViewportSize({ width, height: 900 });
     await page.goto(topicPath);
     const thread = page.getByRole("list", { name: "Các bước của bài học" });
-    // Test trước đã học hết thẻ và qua memory check; trang mở ở bước Từ vựng: bước đó vừa đang học vừa đã xong.
-    await expect(thread).toContainText("Từ vựng (đã xong, đang học)");
+    // Test trước đã học hết thẻ và qua memory check, còn bài tập chưa làm: LF5 mở thẳng bước Bài tập.
+    await expect(thread).toContainText("Bài tập (đang học)");
     await expect(thread).toContainText("Memory check (đã xong)");
+    await expectNoHorizontalOverflow(page);
+    // Quay lại một bước đã xong thì bước đó vừa đang học vừa đã xong.
+    await page.getByRole("button", { name: "Về Memory check" }).click();
+    await expect(thread).toContainText("Memory check (đã xong, đang học)");
+    await page.getByRole("button", { name: "Về Từ vựng" }).click();
+    await expect(thread).toContainText("Từ vựng (đã xong, đang học)");
     await expectNoHorizontalOverflow(page);
   }
 });

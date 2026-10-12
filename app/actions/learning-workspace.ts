@@ -394,6 +394,9 @@ function buildTopicData(
           questions: memoryCheck.questions.map((question) => ({
             id: question.id,
             content: question.content,
+            // LF5 (G2): giải thích chỉ gửi cho câu đã trả lời đúng theo đáp án hiện tại, cùng điều kiện với `answers`;
+            // nếu không, học viên đọc được đáp án trước khi làm (D3).
+            ...(memoryAnswers.has(question.id) ? { explanation: question.explanation } : {}),
             order_index: question.order_index,
             options: question.options.map((option) => ({
               id: option.id,

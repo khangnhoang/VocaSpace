@@ -233,9 +233,12 @@ async function expectWorkspaceTopic(
   await expect(
     page.getByRole("heading", { level: 1, name: expected.title }),
   ).toBeVisible();
-  // LF4: workspace chỉ xếp thẻ chưa xem. Học viên seed đã xem hết thẻ của Topic 2 nên bài đó mở ra ở màn hình kết thúc, và
-  // "Ôn lại từ vựng" dựng lại thẻ; Topic 3 còn thẻ "milestone" chưa xem nên mở thẳng vào thẻ đó.
+  // LF4: workspace chỉ xếp thẻ chưa xem. Học viên seed đã xem hết thẻ của Topic 2 và LF5 mở chủ đề ở bước đầu tiên còn phải làm,
+  // nên bài đó mở ra ở Memory check; "Về Từ vựng" cho màn hình kết thúc thẻ và "Ôn lại từ vựng" dựng lại thẻ.
+  // Topic 3 còn thẻ "milestone" chưa xem nên mở thẳng vào thẻ đó.
   if (expected.finished) {
+    await expect(page.getByRole("list", { name: "Các bước của bài học" })).toContainText("Memory check (đang học)");
+    await page.getByRole("button", { name: "Về Từ vựng" }).click();
     await expect(page.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeVisible();
     await page.getByRole("button", { name: "Ôn lại từ vựng" }).click();
   }

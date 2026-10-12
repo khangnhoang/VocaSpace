@@ -90,10 +90,11 @@ export const cardReviewRpcResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("mutation_failed") }),
 ]);
 
-// D3: optional per-topic memory check; no answer key or explanation before answering.
+// D3: optional per-topic memory check; no answer key before answering.
+// LF5: `explanation` chỉ có mặt ở câu mà đáp án đã lưu đang đúng (loader quyết định); câu khác không có khóa này.
 export const learningWorkspaceMemoryCheckSchema = z.strictObject({
   id: z.uuid(),
-  questions: z.array(QuestionSchema.omit({ explanation: true })).min(1),
+  questions: z.array(QuestionSchema).min(1),
 });
 
 export const learningWorkspaceDataSchema = z.strictObject({

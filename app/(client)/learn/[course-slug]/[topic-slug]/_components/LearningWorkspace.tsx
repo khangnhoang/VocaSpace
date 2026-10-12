@@ -26,6 +26,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
+import { resolveLandingStage } from "@/lib/learning-landing";
 import type {
   ExerciseDTO,
   FlashcardDTO,
@@ -42,6 +43,7 @@ import QuestionNavigator, { type QuestionNavigatorSection } from "./QuestionNavi
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import QuestionResponse from "./QuestionResponse";
 import StickyColumn from "./StickyColumn";
+import TopicCompletionPanel, { type CompletionReviewStage } from "./TopicCompletionPanel";
 import { arrangeMaterial } from "./exercise-arrangement";
 import {
   announceTopicProgress,
@@ -49,7 +51,7 @@ import {
   newCardsAddedMessage,
 } from "./topic-progress-feedback";
 
-type LearningStage = "flashcard" | "memory" | "exercise";
+type LearningStage = "flashcard" | "memory" | "exercise" | "complete";
 // Vị trí của bước. "Đã xong" là thuộc tính riêng (LF3 AC8) để một bước vừa đang học vừa đã xong.
 type StepState = "current" | "locked" | "upcoming";
 type StageStep = { key: LearningStage; label: string; state: StepState; done: boolean };
@@ -83,6 +85,13 @@ function exerciseSegments(exercise: ExerciseDTO | undefined): ExerciseSegment[] 
   ];
 }
 
+/** Every exercise question id of the topic, standalone and grouped. */
+function exerciseQuestionIds(exercises: ExerciseDTO[]) {
+  return exercises.flatMap((exercise) =>
+    exerciseSegments(exercise).flatMap((segment) => segment.questions.map((question) => question.id)),
+  );
+}
+
 const STEP_STATE_TEXT: Record<StepState, string> = {
   current: "đang học",
   locked: "đang khóa",
@@ -101,12 +110,17 @@ function stepStateText(step: StageStep) {
  */
 function StageThread({ steps }: { steps: StageStep[] }) {
   return (
-    <ol aria-label="Các bước của bài học" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+    // Owner Q14: one line down to 320 px. The steps never wrap, so no connector can dangle at the start of a line;
+    // gaps, connectors and the label shrink on narrow widths instead.
+    <ol
+      aria-label="Các bước của bài học"
+      className="flex min-w-0 flex-nowrap items-center gap-x-1.5 max-[360px]:gap-x-1 sm:gap-x-2"
+    >
       {steps.map((step, index) => (
         <li
           key={step.key}
           aria-current={step.state === "current" ? "step" : undefined}
-          className={`flex items-center gap-2 text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
+          className={`flex shrink-0 items-center gap-1.5 text-[13px] max-[360px]:gap-1 sm:gap-2 sm:text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
             step.state === "current"
               ? "font-bold text-slate-900"
               : step.done
@@ -115,11 +129,11 @@ function StageThread({ steps }: { steps: StageStep[] }) {
           }`}
         >
           {index > 0 && (
-            <span aria-hidden="true" className="h-px w-4 bg-slate-300 sm:w-6" />
+            <span aria-hidden="true" className="h-px w-2 bg-slate-300 max-[360px]:w-1.5 sm:w-6" />
           )}
           <span
             aria-hidden="true"
-            className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors duration-[220ms] motion-reduce:transition-none ${
+            className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold max-[360px]:size-5 transition-colors duration-[220ms] motion-reduce:transition-none ${
               step.state === "current"
                 ? "border-route bg-route text-white"
                 : step.state !== "locked" && step.done
@@ -145,6 +159,13 @@ function StageThread({ steps }: { steps: StageStep[] }) {
     </ol>
   );
 }
+
+// Owner Q14: the footer destinations are subordinate text beside a mouse or trackpad, but a touch-primary input needs a
+// visible bordered 44px target (button.md), so the border and background come from the input capability, not the width.
+const FOOTER_TOUCH_CLASS = "coarse-input:border-border coarse-input:bg-background";
+const FOOTER_GHOST_CLASS = `text-slate-700 ${FOOTER_TOUCH_CLASS}`;
+// The filled primary variants keep their action background; on touch input they replace the transparent border with a visible one.
+const FOOTER_PRIMARY_CLASS = "coarse-input:border-action";
 
 const MEMORY_LOCK_REASON =
   "Trả lời đúng hết memory check để mở khóa phần bài tập.";
@@ -179,15 +200,18 @@ export default function LearningWorkspace({
     isMemoryCheckPassed,
   } = data;
   const router = useRouter();
-  // Stage order: flashcards -> memory check (when the topic has one) -> exercises.
-  const initialStage: LearningStage =
-    flashcards.length > 0
-      ? "flashcard"
-      : memoryCheck && (!isMemoryCheckPassed || exercises.length === 0)
-        ? "memory"
-        : exercises.length > 0
-          ? "exercise"
-          : "flashcard";
+  // LF5 AC1/AC2: vào chủ đề ở bước đầu tiên còn phải làm (thứ tự: thẻ -> memory check -> bài tập), hoặc ở màn hình hoàn thành
+  // khi chủ đề đã hoàn thành. Chỉ dùng dữ liệu server đã có (G1).
+  const initialStage: LearningStage = resolveLandingStage({
+    flashcardCount: flashcards.length,
+    hasUnseenCard: data.unseenCardIds.length > 0,
+    isFlashcardCompleted: progress?.isFlashcardCompleted ?? false,
+    hasMemoryCheck: memoryCheck !== null,
+    isMemoryCheckPassed,
+    exerciseCount: exercises.length,
+    remainingExerciseQuestions: exerciseQuestionIds(exercises).filter((id) => !answers[id]).length,
+    isTopicCompleted: progress?.isTopicCompleted ?? false,
+  });
 
   const [learningStage, setLearningStage] =
     useState<LearningStage>(initialStage);
@@ -212,7 +236,22 @@ export default function LearningWorkspace({
   const [isTopicCompleted, setIsTopicCompleted] = useState(
     progress?.isTopicCompleted ?? false,
   );
-  const markTopicCompleted = () => setIsTopicCompleted(true);
+  // LF5 AC4: kết quả ghi trong phiên báo chủ đề vừa hoàn thành (`newlyCompleted`) thì giữ lại đến khi màn hình hoàn thành hiện lần đầu.
+  // Ref để callback async đọc đúng giá trị vừa đặt; state để render nút hành động của câu hỏi cuối.
+  const [pendingCompletion, setPendingCompletionState] = useState(false);
+  const pendingCompletionRef = useRef(false);
+  // LF5 Q16: a last answer's auto-advance is waiting; the return action to the completion screen would only duplicate it.
+  const [autoAdvancePending, setAutoAdvancePending] = useState(false);
+  const setPendingCompletion = (value: boolean) => {
+    pendingCompletionRef.current = value;
+    setPendingCompletionState(value);
+  };
+  // `animate`: chuỗi chuyển động chỉ chạy cho lần hiện đầu của một lần hoàn thành vừa xảy ra; `focus`: chỉ khi vào bằng thao tác.
+  const [completionEntry, setCompletionEntry] = useState({ animate: false, focus: false });
+  const markTopicCompleted = (newlyCompleted: boolean) => {
+    setIsTopicCompleted(true);
+    if (newlyCompleted) setPendingCompletion(true);
+  };
   const [isPending, startTransition] = useTransition();
   // Quyền đi tiếp (nút "Tới ..."): chỉ bật lên, không bao giờ tắt, như trước LF1.
   const [canSkipToQuiz, setCanSkipToQuiz] = useState(
@@ -238,6 +277,23 @@ export default function LearningWorkspace({
   );
   const [userAnswers, setUserAnswers] =
     useState<Record<string, string>>(answers);
+  // LF5 AC9: giải thích memory check chỉ của câu mà đáp án đã lưu đang đúng: giá trị từ loader, cộng giải thích của câu đúng
+  // trong phiên này; câu trả lời sai sau đó bỏ mục của câu đó.
+  const [memoryExplanations, setMemoryExplanations] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      (memoryCheck?.questions ?? [])
+        .filter((question) => question.explanation && answers[question.id])
+        .map((question) => [question.id, question.explanation as string]),
+    ),
+  );
+  const keepMemoryExplanation = (questionId: string, explanation?: string) =>
+    setMemoryExplanations((current) => {
+      if (explanation) return { ...current, [questionId]: explanation };
+      if (!(questionId in current)) return current;
+      const next = { ...current };
+      delete next[questionId];
+      return next;
+    });
   // Questions answered wrongly in this session and not yet answered right; only the
   // review list reads it, the server never stores a wrong attempt.
   const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
@@ -319,6 +375,13 @@ export default function LearningWorkspace({
     setLearningStage(stage);
   };
 
+  // Vào màn hình hoàn thành: dùng và xóa dấu "vừa hoàn thành", nên lần vào sau trong phiên chỉ hiện màn hình đã ổn định (AC8).
+  const goToComplete = () => {
+    setCompletionEntry({ animate: pendingCompletionRef.current, focus: true });
+    setPendingCompletion(false);
+    setLearningStage("complete");
+  };
+
   const skipToQuiz = () => goToStage("exercise");
 
   const backToFlashcard = () => goToStage("flashcard");
@@ -389,15 +452,16 @@ export default function LearningWorkspace({
         // Không có kết quả server (đồng bộ lỗi) thì hết hàng đợi vẫn coi như đã xong, như trước.
         if (!result.topicProgress) setFlashcardStageDone(true);
 
-        // LF4 AC2: lần chấm cuối vừa hoàn thành bài thì chỉ còn toast hoàn thành bài (đã hiện ở announceTopicProgress).
-        const topicJustCompleted = result.topicProgress?.newlyCompleted === true;
-        if (nextStageAfterFlashcards === "memory") {
+        // LF5 AC4: lần chấm vừa hoàn thành chủ đề thì màn hình hoàn thành thay cho màn hình kết thúc thẻ và các toast chuyển bước.
+        if (pendingCompletionRef.current) {
+          goToComplete();
+        } else if (nextStageAfterFlashcards === "memory") {
           goToStage("memory");
-          if (!topicJustCompleted) toast.success("Đã nạp xong từ vựng! Chuyển sang memory check.");
+          toast.success("Đã nạp xong từ vựng! Chuyển sang memory check.");
         } else if (nextStageAfterFlashcards === "exercise") {
           goToStage("exercise");
-          if (!topicJustCompleted) toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
-        } else if (!topicJustCompleted) {
+          toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
+        } else {
           toast.success("Đã nạp xong từ vựng!");
         }
       }
@@ -490,6 +554,11 @@ export default function LearningWorkspace({
   };
 
   const handleNextQuestion = () => {
+    // LF5 AC4: câu trả lời vừa hoàn thành chủ đề; hành động xác nhận phản hồi mở màn hình hoàn thành thay vì sang câu khác.
+    if (pendingCompletionRef.current) {
+      goToComplete();
+      return;
+    }
     if (!hasNextQuestion) return;
     setEntry({ direction: "next", focus: true });
     if (currentQuestionIndex < sortedQuestions.length - 1) {
@@ -598,6 +667,51 @@ export default function LearningWorkspace({
     arrangement !== null && (arrangement.kinds.length > 0 || arrangement.missing.length > 0);
   const isSplit = hasMaterial && arrangement.layout === "split";
   const chapterTitle = syllabus.find((chapter) => chapter.id === currentTopic.chapterId)?.title;
+
+  // LF5 AC3/G3: giá trị của màn hình hoàn thành lấy từ cùng `completedTopicIds` với thanh bên, gồm cả hoàn thành trong phiên.
+  const chapterIndex = syllabus.findIndex((chapter) => chapter.id === currentTopic.chapterId);
+  const currentChapter = syllabus[chapterIndex];
+  const chapterTopics = currentChapter?.topics ?? [];
+  const chapterCompletedCount = chapterTopics.filter((topic) => completedTopicIds.has(topic.id)).length;
+  // Chuỗi chuyển động bắt đầu từ giá trị trước khi chủ đề này hoàn thành (nó chưa được tính).
+  const countBefore = completionEntry.animate && isTopicCompleted ? 1 : 0;
+  const nextTopic = lessonNeighbors.next;
+  const nextTopicChapterIndex = nextTopic
+    ? syllabus.findIndex((chapter) => chapter.id === nextTopic.chapterId)
+    : -1;
+  const completionNext =
+    nextTopic && nextTopicChapterIndex >= 0
+      ? nextTopic.chapterId === currentTopic.chapterId
+        ? {
+            kind: "topic" as const,
+            href: `/learn/${courseSlug}/${nextTopic.slug}`,
+            unitLabel: `Chủ đề ${chapterTopics.findIndex((topic) => topic.id === nextTopic.id) + 1} · ${nextTopic.title}`,
+            detail: null,
+          }
+        : {
+            kind: "topic" as const,
+            href: `/learn/${courseSlug}/${nextTopic.slug}`,
+            unitLabel: `Chương ${nextTopicChapterIndex + 1} · ${syllabus[nextTopicChapterIndex].title}`,
+            detail: `Chủ đề 1 · ${nextTopic.title}`,
+          }
+      : { kind: "overview" as const, href: `/learn/${courseSlug}` };
+  const reviewStages: CompletionReviewStage[] = [];
+  if (flashcards.length > 0) {
+    reviewStages.push({
+      key: "flashcard",
+      label: "Từ vựng",
+      onSelect: () => {
+        restartFlashcards();
+        goToStage("flashcard");
+      },
+    });
+  }
+  if (memoryCheck) {
+    reviewStages.push({ key: "memory", label: "Memory check", onSelect: () => goToStage("memory") });
+  }
+  if (exercises.length > 0) {
+    reviewStages.push({ key: "exercise", label: "Bài tập", onSelect: () => goToStage("exercise") });
+  }
 
   // Review list: every question in learning order, numbered across the whole topic.
   const questionNumbers = new Map(
@@ -715,7 +829,9 @@ export default function LearningWorkspace({
               focusOnEntry={entry.focus}
               hasNext={hasNextQuestion}
               endAction={
-                remainingQuestions.length > 0
+                pendingCompletion
+                  ? { label: "Xem kết quả chủ đề", onClick: goToComplete }
+                  : remainingQuestions.length > 0
                   ? { label: "Làm câu còn thiếu", onClick: goToFirstRemainingQuestion }
                   : lessonNeighbors.next
                     ? {
@@ -735,6 +851,12 @@ export default function LearningWorkspace({
               onIncorrectAnswer={(questionId) =>
                 setIncorrectIds((current) => ({ ...current, [questionId]: true }))
               }
+              onAutoAdvance={
+                (pendingCompletion || isTopicCompleted) && remainingQuestions.length === 0
+                  ? goToComplete
+                  : undefined
+              }
+              onAutoAdvancePending={setAutoAdvancePending}
               onTopicCompleted={markTopicCompleted}
               onMemoryCheckRequired={returnToMemoryCheck}
             />
@@ -745,11 +867,48 @@ export default function LearningWorkspace({
   };
 
   const renderStage = () => {
-    if (flashcards.length === 0 && exercises.length === 0 && !memoryCheck) {
+    // LF5 AC2/AC3: a completed topic stays completed when its active content was removed, so the completion screen wins.
+    if (learningStage !== "complete" && flashcards.length === 0 && exercises.length === 0 && !memoryCheck) {
       return (
         <div className="text-center text-slate-600" role="status">
           <h2 className="mb-2 text-2xl font-bold">Bài học này chưa có nội dung</h2>
         </div>
+      );
+    }
+    if (learningStage === "complete") {
+      return (
+        <TopicCompletionPanel
+          topicTitle={currentTopic.title}
+          course={{
+            completed: completedTopicIds.size,
+            total: flatLessons.length,
+            previous: completedTopicIds.size - countBefore,
+          }}
+          chapter={{
+            title: currentChapter
+              ? `Chương ${chapterIndex + 1} · ${currentChapter.title}`
+              : "Chương hiện tại",
+            completed: chapterCompletedCount,
+            total: chapterTopics.length,
+            previous: chapterCompletedCount - countBefore,
+          }}
+          nextHint={
+            completionNext.kind === "topic"
+              ? completionNext.detail
+                ? `${completionNext.unitLabel} — ${completionNext.detail}`
+                : completionNext.unitLabel
+              : "Tổng quan khóa học"
+          }
+          animate={completionEntry.animate}
+          focusOnEntry={completionEntry.focus}
+          dueCount={dueCards.length}
+          onReviewDue={() => {
+            reviewDueCards();
+            goToStage("flashcard");
+          }}
+          next={completionNext}
+          reviewStages={reviewStages}
+        />
       );
     }
     if (learningStage === "memory" && memoryCheck && memoryCardsLocked) {
@@ -783,23 +942,48 @@ export default function LearningWorkspace({
             onAttemptCleared={clearAttempt}
             isPassed={memoryPassed}
             hasExercises={exercises.length > 0}
-            onCorrectAnswer={(questionId, optionId) =>
+            hasOpenExercises={exercises.length > 0 && remainingQuestions.length > 0}
+            answers={userAnswers}
+            explanations={memoryExplanations}
+            onCorrectAnswer={(questionId, optionId, explanation) => {
               setUserAnswers((current) => ({
                 ...current,
                 [questionId]: optionId,
-              }))
-            }
+              }));
+              keepMemoryExplanation(questionId, explanation);
+            }}
+            onIncorrectAnswer={(questionId) => keepMemoryExplanation(questionId)}
             onMemoryPassed={(newlyCompleted) => {
               // LF4 AC1/G2: chỉ báo ở bước chuyển từ chưa qua sang qua, theo kết quả của chính câu trả lời này; bài vừa hoàn thành
-              // thì toast hoàn thành bài đã hiện nên bỏ toast này. Dữ liệu tải trang (isMemoryCheckPassed) không bao giờ báo.
+              // thì màn hình hoàn thành thay cho toast này. Dữ liệu tải trang (isMemoryCheckPassed) không bao giờ báo.
               if (!memoryPassed && !newlyCompleted) toast.success(MEMORY_CHECK_PASSED_MESSAGE);
               setMemoryPassed(true);
             }}
             onPassed={() => {
               setMemoryPassed(true);
-              if (exercises.length > 0) goToStage("exercise");
+              // LF5 AC7: còn bài tập chưa đúng thì sang Bài tập; không thì sang màn hình hoàn thành khi vừa hoàn thành chủ đề,
+              // và nếu không thì sang bước đầu tiên còn phải làm (luật AC1).
+              if (pendingCompletionRef.current) {
+                goToComplete();
+              } else if (exercises.length > 0 && remainingQuestions.length > 0) {
+                goToStage("exercise");
+              } else {
+                const next = resolveLandingStage({
+                  flashcardCount: flashcards.length,
+                  hasUnseenCard: unseenCardIds.size > 0,
+                  isFlashcardCompleted: flashcardStageDone,
+                  hasMemoryCheck: true,
+                  isMemoryCheckPassed: true,
+                  exerciseCount: exercises.length,
+                  remainingExerciseQuestions: remainingQuestions.length,
+                  isTopicCompleted,
+                });
+                if (next === "complete") goToComplete();
+                else goToStage(next);
+              }
             }}
             onGoToExercises={() => goToStage("exercise")}
+            onAutoAdvancePending={setAutoAdvancePending}
             onTopicCompleted={markTopicCompleted}
             onCardsRequired={recoverFromCardsRequired}
           />
@@ -939,7 +1123,14 @@ export default function LearningWorkspace({
           {stageSteps.length > 0 ? <StageThread steps={stageSteps} /> : <span />}
 
           <div className="flex flex-wrap items-center gap-2">
-            {learningStage === "exercise" && memoryCheck ? (
+            {/* LF5 AC5: chủ đề đã hoàn thành và đang xem một bước khác thì có đúng một lối quay lại màn hình hoàn thành (nút "Xem kết quả chủ đề"). */}
+            {isTopicCompleted && learningStage !== "complete" && !autoAdvancePending && (
+              <Button onClick={goToComplete} variant="outline">
+                <CheckCircle2 aria-hidden="true" />
+                Xem kết quả chủ đề
+              </Button>
+            )}
+            {learningStage === "complete" ? null : learningStage === "exercise" && memoryCheck ? (
               <Button onClick={() => goToStage("memory")} variant="outline">
                 <ChevronLeft aria-hidden="true" />
                 Về Memory check
@@ -950,7 +1141,8 @@ export default function LearningWorkspace({
                 Về Từ vựng
               </Button>
             ) : null}
-            {learningStage === "flashcard" &&
+            {learningStage !== "complete" &&
+              learningStage === "flashcard" &&
               learningQueue.length > 0 &&
               !memoryCardsLocked &&
               nextStageAfterFlashcards === "memory" && (
@@ -960,6 +1152,7 @@ export default function LearningWorkspace({
                 </Button>
               )}
             {learningStage !== "exercise" &&
+              learningStage !== "complete" &&
               exercises.length > 0 &&
               (learningStage === "memory" ||
                 (canSkipToQuiz && !exercisesLocked)) && (
@@ -995,14 +1188,14 @@ export default function LearningWorkspace({
           className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-200 pt-5"
         >
           {lessonNeighbors.previous ? (
-            <Button asChild variant="ghost" size="lg" className="text-slate-700">
+            <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.previous.slug}`}>
                 <ChevronLeft aria-hidden="true" />
                 Bài trước
               </Link>
             </Button>
           ) : (
-            <Button disabled variant="ghost" size="lg">
+            <Button disabled variant="ghost" size="lg" className={FOOTER_TOUCH_CLASS}>
               <ChevronLeft aria-hidden="true" />
               Bài trước
             </Button>
@@ -1010,26 +1203,31 @@ export default function LearningWorkspace({
           {/* Completion is derived by the server (D4); once the topic is done the
               next topic becomes the primary action, or the course overview when
               this is the last topic. */}
-          {isTopicCompleted && lessonNeighbors.next ? (
-            <Button asChild size="lg">
+          {isTopicCompleted && learningStage !== "complete" && lessonNeighbors.next ? (
+            <Button asChild size="lg" className={FOOTER_PRIMARY_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
                 Bài sau
                 <ChevronRight aria-hidden="true" />
               </Link>
             </Button>
-          ) : isTopicCompleted ? (
-            <Button asChild size="lg">
+          ) : isTopicCompleted && learningStage !== "complete" ? (
+            <Button asChild size="lg" className={FOOTER_PRIMARY_CLASS}>
+              <Link href={`/learn/${courseSlug}`}>Về tổng quan khóa học</Link>
+            </Button>
+          ) : learningStage === "complete" && !lessonNeighbors.next ? (
+            // LF5 AC3: màn hình hoàn thành giữ đúng một hành động chính, nên đích cuối khóa ở chân trang là hành động phụ.
+            <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
               <Link href={`/learn/${courseSlug}`}>Về tổng quan khóa học</Link>
             </Button>
           ) : lessonNeighbors.next ? (
-            <Button asChild variant="ghost" size="lg" className="text-slate-700">
+            <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
                 Bài sau
                 <ChevronRight aria-hidden="true" />
               </Link>
             </Button>
           ) : (
-            <Button disabled variant="ghost" size="lg">
+            <Button disabled variant="ghost" size="lg" className={FOOTER_TOUCH_CLASS}>
               Bài sau
               <ChevronRight aria-hidden="true" />
             </Button>

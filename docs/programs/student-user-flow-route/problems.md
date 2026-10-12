@@ -31,6 +31,14 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: no work is scheduled. A further reduction would need a different mechanism (for example optimistic UI or moving auth validation off the critical path), which is a new Owner decision with its own plan.
 - Exit condition: the card-rating target is met on production, or the Owner accepts the measured level and closes the entry.
 
+### HEADER-001: The account dropdown loses its navigation items under reduced motion
+
+- Status: Open (found 2026-10-12 during LF5 Owner manual QA; not fixed in LF5, the fix goes in a separate PR).
+- Problem: with `prefers-reduced-motion: reduce` emulated in Chrome DevTools, the header account dropdown (`components/ui/header.tsx`, DropdownMenu) opens with only its label and `Đăng xuất`. The navigation group items (`Không gian học tập`, `Hồ sơ cá nhân`, `Quản trị hệ thống`, `Khóa học của tôi`) are missing. Turning reduced motion off restores them.
+- Evidence: Owner manual QA on 2026-10-12, signed in as `admin@gmail.com`. LF5 does not touch the header, so this is pre-existing. The root cause has not been investigated.
+- Direction: a separate PR investigates and fixes it, with a test that opens the dropdown under reduced motion and expects every destination for the role.
+- Exit condition: the dropdown shows the full destination list for each role with reduced motion on and off, and the fix is merged.
+
 ### FUTURE-OWNERSHIP-001: Ownership transfer is not available
 
 - Status: Deferred (the singular-owner invariant was closed in D1; only ownership transfer remains).
