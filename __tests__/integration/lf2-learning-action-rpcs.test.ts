@@ -627,6 +627,33 @@ describe.sequential("LF2 learning action RPCs", { timeout: 30_000 }, () => {
     });
   });
 
+  describe("an enrolled active admin, who can read every learner's user_flashcards rows", () => {
+    it("rates against their own row and leaves another learner's row untouched (QA fix)", async () => {
+      const f = await build(0);
+      const adminId = "11111111-1111-4111-8111-111111111111";
+      await insert("enrollments", { course_id: f.courseId, user_id: adminId });
+      const learnerRow = await service.from("user_flashcards").insert({
+        user_id: studentId, card_id: f.cardId, next_review_date: gone(), fsrs_meta: { reps: 9 }, last_rating: 4,
+      }).select("id").single();
+      expect(learnerRow.error).toBeNull();
+
+      const admin = await signIn("admin@gmail.com");
+      // Precondition of the bug: the admin really sees the other learner's row through the Data API.
+      const visible = await admin.from("user_flashcards").select("user_id").eq("card_id", f.cardId);
+      expect(visible.data?.map((row) => row.user_id)).toContain(studentId);
+
+      authenticated.client = admin;
+      const created = await submitCardReview(f.cardId, 3);
+      expect(created).toMatchObject({ success: true });
+      expect(await storedCard(f, adminId)).toMatchObject({ last_rating: 3 });
+      const again = await submitCardReview(f.cardId, 1);
+      expect(again).toMatchObject({ success: true });
+      expect(await storedCard(f, adminId)).toMatchObject({ last_rating: 1 });
+      expect(await storedCard(f, studentId)).toMatchObject({ id: learnerRow.data!.id, last_rating: 4, fsrs_meta: { reps: 9 } });
+      await admin.auth.signOut();
+    });
+  });
+
   it("keeps the catalog contract: owner, security mode, volatility, search_path and grants", async () => {
     const row = (name: string, schema: string) => waitForLocalPostgresQuery(
       `select pg_get_userbyid(p.proowner) || '|' || p.prosecdef::text || '|' || p.provolatile::text || '|' || coalesce(array_to_string(p.proconfig, ','), '')

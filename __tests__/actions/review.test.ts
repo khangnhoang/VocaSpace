@@ -10,10 +10,10 @@ import { createClient } from "@/utils/supabase/server";
 // - Case thành công: accessible active card có enrollment (embed trong context) tạo/cập nhật FSRS, kể cả legacy metadata, qua đúng một RPC rồi trả `topicProgress` từ kết quả RPC.
 //   - LF1: lần chấm được gửi thành `p_last_rating` cùng `p_fsrs_meta` trong một lần ghi, cho cả tạo mới (`p_user_flashcard_id` null) lẫn cập nhật (AC5).
 // - Case thất bại: malformed rating, inaccessible parent, missing enrollment, invalid metadata, RPC lỗi, kết quả sai shape và `mutation_failed` (0 dòng được ghi) trả safe failure.
-// - Bảo mật/phân quyền: missing auth, mismatched card/topic/chapter không tạo RPC; course id lấy từ topic tin cậy, không từ client; không có enrollment trong embed thì đọc lại enrollments như trước.
+// - Bảo mật/phân quyền: embed `user_flashcards` được lọc theo người gọi và chỉ dòng của chính họ được dùng (admin đọc được dòng của mọi học viên, QA fix LF5); missing auth, mismatched card/topic/chapter không tạo RPC; course id lấy từ topic tin cậy, không từ client; không có enrollment trong embed thì đọc lại enrollments như trước.
 // - Ổn định/resilience: RPC không xác nhận dòng được ghi không báo success và không có progress; progress null hoặc sai shape sau khi đã ghi vẫn `success: true` + `progressError`.
 // - Invariant cần giữ: caller chỉ gửi cardId + rating; FSRS scheduling semantics không đổi; không ghi trực tiếp bảng nào bằng Data API.
-// - Kết quả verify gần nhất: 18/18 passed (2026-10-11) bằng `npx vitest run __tests__/actions/review.test.ts`.
+// - Kết quả verify gần nhất: 21/21 passed (2026-10-12) bằng `npx vitest run __tests__/actions/review.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -25,6 +25,8 @@ const ids = {
   topic: "33333333-3333-4333-8333-333333333333",
   card: "44444444-4444-4444-8444-444444444444",
   userFlashcard: "55555555-5555-4555-8555-555555555555",
+  otherUser: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  otherUserFlashcard: "66666666-6666-4666-8666-666666666666",
 };
 
 function singleQuery(data: unknown, error: unknown = null) {
@@ -230,6 +232,7 @@ describe("submitCardReview", () => {
         user_flashcards: [
           {
             id: ids.userFlashcard,
+            user_id: ids.user,
             card_id: ids.card,
             fsrs_meta: {
               due: "2026-07-01T01:00:00.000Z",
@@ -266,7 +269,7 @@ describe("submitCardReview", () => {
     const from = mockSupabase({
       cards: singleQuery({
         ...card,
-        user_flashcards: [{ id: ids.userFlashcard, card_id: ids.card, fsrs_meta: { stability: "bad" } }],
+        user_flashcards: [{ id: ids.userFlashcard, user_id: ids.user, card_id: ids.card, fsrs_meta: { stability: "bad" } }],
       }),
     });
 
@@ -293,7 +296,7 @@ describe("submitCardReview", () => {
       const later = mockSupabase({
         cards: singleQuery({
           ...card,
-          user_flashcards: [{ id: ids.userFlashcard, card_id: ids.card, fsrs_meta: null }],
+          user_flashcards: [{ id: ids.userFlashcard, user_id: ids.user, card_id: ids.card, fsrs_meta: null }],
         }),
       });
       await submitCardReview(ids.card, rating);
@@ -307,6 +310,38 @@ describe("submitCardReview", () => {
       );
     },
   );
+
+  // An active admin can read every learner's user_flashcards rows, so the context query must be limited to the caller
+  // and the action must never pass another learner's row id to the RPC (whose own-row UPDATE would then match nothing).
+  describe("when the caller can read other learners' user_flashcards rows", () => {
+    const otherRow = { id: ids.otherUserFlashcard, user_id: ids.otherUser, card_id: ids.card, fsrs_meta: null };
+    const ownRow = { id: ids.userFlashcard, user_id: ids.user, card_id: ids.card, fsrs_meta: null };
+
+    it("limits the embedded rows to the caller in the context query", async () => {
+      const cards = singleQuery(card);
+      mockSupabase({ cards });
+      await submitCardReview(ids.card, Rating.Good);
+      expect(cards.eq).toHaveBeenCalledWith("user_flashcards.user_id", ids.user);
+    });
+
+    it("creates the caller's row instead of updating another learner's row", async () => {
+      const from = mockSupabase({ cards: singleQuery({ ...card, user_flashcards: [otherRow] }) });
+      await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({ success: true, topicProgress });
+      expect(from.rpc).toHaveBeenCalledWith(
+        "lf2_submit_card_review",
+        expect.objectContaining({ p_card_id: ids.card, p_user_flashcard_id: null }),
+      );
+    });
+
+    it("updates only the caller's own row when another learner's row comes first", async () => {
+      const from = mockSupabase({ cards: singleQuery({ ...card, user_flashcards: [otherRow, ownRow] }) });
+      await expect(submitCardReview(ids.card, Rating.Good)).resolves.toEqual({ success: true, topicProgress });
+      expect(from.rpc).toHaveBeenCalledWith(
+        "lf2_submit_card_review",
+        expect.objectContaining({ p_user_flashcard_id: ids.userFlashcard }),
+      );
+    });
+  });
 
   it("returns a safe failure, without leaking the database error, when the RPC fails", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "sensitive error" } });

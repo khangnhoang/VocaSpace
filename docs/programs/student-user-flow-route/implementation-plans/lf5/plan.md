@@ -33,7 +33,8 @@ Outcome: after this unit merges, opening a topic takes the learner straight to t
   - removing the topic-completion toast and the no-exercise `Hoàn thành memory check` button;
   - the e2e build directory;
   - LF4 closeout docs;
-  - updating tests that assume the old initial stage, the box or the toast.
+  - updating tests that assume the old initial stage, the box or the toast;
+  - QA fix (Owner decision 2026-10-12, found in Owner QA, pre-existing): `submitCardReview` limits its `user_flashcards` embed to the caller (`.eq("user_flashcards.user_id", user.id)` plus an own-row check), because an active admin can read every learner's rows and every rating by an enrolled admin failed with `Lỗi đồng bộ tiến độ học!`. No SQL change: `lf2_submit_card_review` already writes only the `auth.uid()` row.
 - Non-goals:
   - the dashboard Today Runway and the course overview (LE §2.3–2.4);
   - the footer `Bài trước` / `Bài sau` navigation, apart from rendering it subordinate while the completion screen shows (AC3);
