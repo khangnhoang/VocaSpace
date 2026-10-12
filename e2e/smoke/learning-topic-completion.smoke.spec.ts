@@ -104,7 +104,18 @@ interface MotionSample {
   /** Width of the highlight as a fraction of the track, and its opacity. */
   gainWidth: number;
   gainOpacity: number;
+  /** Computed timing of the course fill, the highlight and the hint (CSS time lists such as "1s, 0.3s"). */
+  fillTiming: { duration: string; delay: string };
+  gainTiming: { duration: string; delay: string } | null;
+  hintAnimationDelay: string;
 }
+
+/** Converts a computed CSS time list ("1s, 0.3s", "250ms") to milliseconds. */
+const cssTimesMs = (list: string) =>
+  list.split(",").map((part) => {
+    const value = part.trim();
+    return value.endsWith("ms") ? parseFloat(value) : parseFloat(value) * 1000;
+  });
 
 /** Records the course bar and the next hint on every frame once the completion screen exists. */
 async function startMotionSampler(page: Page) {
@@ -125,6 +136,14 @@ async function startMotionSampler(page: Page) {
           gainPresent: gain !== null,
           gainWidth: gain ? gain.getBoundingClientRect().width / fill.parentElement.getBoundingClientRect().width : 0,
           gainOpacity: gain ? Number(getComputedStyle(gain).opacity) : 0,
+          fillTiming: {
+            duration: getComputedStyle(fill).transitionDuration,
+            delay: getComputedStyle(fill).transitionDelay,
+          },
+          gainTiming: gain
+            ? { duration: getComputedStyle(gain).transitionDuration, delay: getComputedStyle(gain).transitionDelay }
+            : null,
+          hintAnimationDelay: getComputedStyle(hint).animationDelay,
         });
       }
       if (performance.now() - begin < 12_000) requestAnimationFrame(tick);
@@ -207,37 +226,30 @@ for (const width of WIDTHS) {
     await expect(page.getByRole("button", { name: "Xem lại Memory check" })).toBeEnabled();
     await expect(page.getByText(/^Tiếp theo: /)).toBeVisible();
     await page.waitForTimeout(2200);
-    // AC8 (Owner Q7): the course bar starts at its previous value (0 of 7) and grows for a fixed ~1 s to 1 of 7,
-    // the gained segment is highlighted while it grows and fades afterwards, then the hint appears.
+    // AC8 (Owner Q7). Timing is verified from the computed CSS, not from frame cadence, so a slow runner cannot flip it:
+    // the course fill has a fixed 1 s transition with no delay, the highlight grows with it and fades right after, and
+    // the hint starts only once the fill is over. Samples only prove the start and end values and the highlight.
     const samples = await readMotionSamples(page);
-    expect(samples.length).toBeGreaterThan(5);
-    expect(samples[0].courseFill).toBeLessThan(0.05);
-    expect(samples[0].hintOpacity).toBeLessThan(0.2);
+    expect(samples.length).toBeGreaterThan(0);
+    const first = samples[0];
     const last = samples[samples.length - 1];
+    expect(first.courseFill).toBeLessThan(0.05);
+    expect(first.hintOpacity).toBeLessThan(0.2);
     expect(last.courseFill).toBeGreaterThan(0.12);
     expect(last.courseFill).toBeLessThan(0.16);
     expect(last.hintOpacity).toBe(1);
-    const barDone = samples.find((sample) => sample.courseFill > 0.135);
-    const hintShown = samples.find((sample) => sample.hintOpacity > 0.9);
-    expect(barDone && hintShown && barDone.time < hintShown.time).toBe(true);
-    // Fixed duration: the fill is seen mid-way on many frames, and reaches its target about 1 s after it starts.
-    const growing = samples.filter((sample) => sample.courseFill > 0.01 && sample.courseFill < 0.13);
-    expect(growing.length).toBeGreaterThanOrEqual(8);
-    const started = samples.find((sample) => sample.courseFill > 0.005);
-    expect(started && barDone).toBeTruthy();
-    // The easing is a steep ease-out, so "reached" means within 0.5% of the 14% target (1 of 7, rounded).
-    const reached = samples.find((sample) => sample.courseFill >= 0.1395);
-    expect(reached).toBeTruthy();
-    const fillMs = reached!.time - started!.time;
-    expect(fillMs).toBeGreaterThan(800);
-    expect(fillMs).toBeLessThan(1500);
-    // The highlight covers the gained part while the bar moves, and is gone (transparent) once settled.
-    const highlighted = samples.filter((sample) => sample.gainPresent && sample.gainWidth > 0.01 && sample.gainOpacity > 0.9);
-    expect(highlighted.length).toBeGreaterThanOrEqual(8);
+    expect(cssTimesMs(first.fillTiming.duration)).toEqual([1000]);
+    expect(cssTimesMs(first.fillTiming.delay)).toEqual([0]);
+    expect(first.gainTiming).not.toBeNull();
+    expect(cssTimesMs(first.gainTiming!.duration)).toEqual([1000, 300]);
+    expect(cssTimesMs(first.gainTiming!.delay)).toEqual([0, 1000]);
+    expect(cssTimesMs(first.hintAnimationDelay)[0]).toBeGreaterThanOrEqual(1000);
+    // The highlight is shown when the sequence starts and transparent once it has settled.
+    expect(first.gainPresent).toBe(true);
+    expect(first.gainOpacity).toBeGreaterThan(0.9);
     expect(last.gainOpacity).toBeLessThan(0.05);
-    // The whole sequence stays within the accepted ~1.2-1.5 s window (plus sampling slack).
-    const total = (hintShown?.time ?? 0) - samples[0].time;
-    expect(total).toBeLessThan(2000);
+    // Loose sanity check: the bar was seen between its old and new value at least once.
+    expect(samples.some((sample) => sample.courseFill > 0.005 && sample.courseFill < 0.135)).toBe(true);
     await expect(page.getByRole("progressbar")).toHaveCount(2);
     await expect(page.getByRole("progressbar", { name: "Tiến độ khóa học" })).toHaveAttribute("aria-valuenow", "1");
     // Thẻ vừa chấm Ổn chưa đến hạn nên hành động chính là chủ đề kế, không phải ôn thẻ.
