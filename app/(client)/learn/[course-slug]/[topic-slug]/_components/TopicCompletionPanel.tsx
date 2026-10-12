@@ -150,10 +150,12 @@ export default function TopicCompletionPanel({
     ) : (
       <Link href={next.href}>Về tổng quan khóa học</Link>
     );
-  // Owner Q11: beside the filled `Ôn ngay` the next-topic action is a subordinate Route Blue text action on a mouse or
-  // trackpad (intrinsic width, underline on hover) and the visible outlined 44px button on touch-primary input.
+  // Owner Q11/Q12: on a mouse or trackpad the filled `Ôn ngay` and the next-topic action share one centred row and the
+  // latter is a subordinate Route Blue text action (intrinsic width, underline on hover). On touch-primary input they
+  // stack and the latter is the visible outlined 44px button. Layout and treatment use the same `coarse-input` variant
+  // so they cannot diverge: separate rows always carry a background, text-only only sits beside the primary.
   const subordinateClass =
-    "h-auto min-h-11 w-fit self-center px-1 py-2 text-base coarse-input:w-full coarse-input:self-stretch coarse-input:border-border coarse-input:bg-background coarse-input:px-5 coarse-input:text-foreground";
+    "h-auto min-h-11 w-fit px-1 py-2 text-base coarse-input:w-full coarse-input:border-border coarse-input:bg-background coarse-input:px-5 coarse-input:text-foreground";
 
   return (
     <section
@@ -248,21 +250,30 @@ export default function TopicCompletionPanel({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div
+        className={
+          dueCount > 0
+            ? "flex flex-row items-center justify-center gap-4 coarse-input:flex-col coarse-input:items-stretch coarse-input:justify-start coarse-input:gap-3"
+            : "flex flex-col gap-3"
+        }
+      >
         {dueCount > 0 ? (
           <>
-            {/* Owner Q10: a small context line over the larger action; the accessible name keeps both. */}
+            {/* Owner Q10/Q12: a small context line over the larger action, both starting at the same x inside a block the
+                button centres; the accessible name keeps both lines. */}
             <Button
               size="lg"
-              className="h-auto min-h-14 w-full flex-col gap-0.5 py-2"
+              className="h-auto min-h-14 w-fit py-2 coarse-input:w-full"
               aria-label={`Có ${dueCount} thẻ đến hạn ôn, Ôn ngay`}
               onClick={onReviewDue}
             >
-              <span aria-hidden="true" className="text-sm font-medium leading-5">
-                Có {dueCount} thẻ đến hạn ôn
-              </span>
-              <span aria-hidden="true" className="text-lg font-bold leading-6">
-                Ôn ngay
+              <span aria-hidden="true" className="flex flex-col items-start gap-0.5 text-left">
+                <span data-due-line className="text-xs font-medium leading-4 opacity-90">
+                  Có {dueCount} thẻ đến hạn ôn
+                </span>
+                <span data-due-line className="text-lg font-bold leading-6">
+                  Ôn ngay
+                </span>
               </span>
             </Button>
             <Button asChild size="lg" variant="link" className={subordinateClass}>

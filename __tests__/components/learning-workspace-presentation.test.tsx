@@ -1297,8 +1297,22 @@ describe("D8-LUI learning workspace presentation", () => {
         // Owner Q10: a small context line over the larger action; the accessible name keeps both.
         const review = within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn ôn, Ôn ngay" });
         expect(primaries()).toEqual([review]);
-        const lines = Array.from(review.querySelectorAll("span")).map((line) => line.textContent);
-        expect(lines).toEqual(["Có 1 thẻ đến hạn ôn", "Ôn ngay"]);
+        const lines = Array.from(review.querySelectorAll("[data-due-line]"));
+        expect(lines.map((line) => line.textContent)).toEqual(["Có 1 thẻ đến hạn ôn", "Ôn ngay"]);
+        // Owner Q12: the small line is the 12px caption token, and both lines sit in one left-aligned block that the
+        // button centres, so they start at the same x.
+        expect(lines[0].className).toContain("text-xs");
+        expect(lines[1].className).toContain("text-lg");
+        expect(lines[0].parentElement).toBe(lines[1].parentElement);
+        expect(lines[0].parentElement?.className).toContain("items-start");
+        expect(lines[0].parentElement?.className).toContain("text-left");
+        // Owner Q12: one centred row on a fine pointer (intrinsic widths), stacked on touch-primary input.
+        expect(review.className).toContain("w-fit");
+        expect(review.className).toContain("coarse-input:w-full");
+        const row = review.parentElement as HTMLElement;
+        expect(row.className).toContain("flex-row");
+        expect(row.className).toContain("justify-center");
+        expect(row.className).toContain("coarse-input:flex-col");
         // Owner Q11: subordinate Route Blue text on a fine pointer, the outlined 44px button on touch-primary input.
         const nextLink = within(panel()).getByRole("link", { name: "Chủ đề tiếp theo" });
         expect(nextLink.getAttribute("data-variant")).toBe("link");

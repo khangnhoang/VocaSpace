@@ -311,7 +311,7 @@ for (const width of WIDTHS) {
     // Q10: the primary action is two lines; its accessible name keeps both.
     const dueNow = page.getByRole("button", { name: "Có 1 thẻ đến hạn ôn, Ôn ngay" });
     await expect(dueNow).toBeVisible();
-    await expect(dueNow.locator("span")).toHaveText(["Có 1 thẻ đến hạn ôn", "Ôn ngay"]);
+    await expect(dueNow.locator("[data-due-line]")).toHaveText(["Có 1 thẻ đến hạn ôn", "Ôn ngay"]);
     await expectNoHorizontalOverflow(page);
     // Q11 on a mouse/trackpad (the default context): the next-topic action is subordinate Route Blue text of intrinsic
     // width with an underline on hover, whatever the viewport width.
@@ -331,6 +331,40 @@ for (const width of WIDTHS) {
           widthRatio: box.width / parent.width,
         };
       });
+    // Q12 geometry of the due-first actions: the primary, the text action and the two text lines of the primary.
+    const layout = (view: Page) =>
+      view.evaluate(() => {
+        const primary = Array.from(document.querySelectorAll("button")).find((button) =>
+          button.getAttribute("aria-label")?.startsWith("Có "),
+        ) as HTMLElement;
+        const link = Array.from(document.querySelectorAll("a")).find(
+          (anchor) => anchor.textContent === "Chủ đề tiếp theo",
+        ) as HTMLElement;
+        const row = primary.parentElement!.getBoundingClientRect();
+        const p = primary.getBoundingClientRect();
+        const l = link.getBoundingClientRect();
+        const lines = Array.from(primary.querySelectorAll("[data-due-line]")).map((line) => line.getBoundingClientRect().left);
+        return {
+          primaryWidthRatio: p.width / row.width,
+          linkWidthRatio: l.width / row.width,
+          sameRow: Math.abs(p.top + p.height / 2 - (l.top + l.height / 2)) < 2 && l.left >= p.right,
+          stacked: l.top >= p.bottom,
+          leftGap: p.left - row.left,
+          rightGap: row.right - l.right,
+          linesLeft: lines,
+          lineInset: lines[0] - p.left,
+          docOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        };
+      });
+    const side = await layout(page);
+    // Fine pointer: one row, both at intrinsic width, centred, the two lines left-aligned with each other and inset.
+    expect(side.sameRow).toBe(true);
+    expect(side.primaryWidthRatio).toBeLessThan(0.8);
+    expect(side.linkWidthRatio).toBeLessThan(0.6);
+    expect(Math.abs(side.leftGap - side.rightGap)).toBeLessThan(4);
+    expect(side.docOverflow).toBe(false);
+    expect(Math.abs(side.linesLeft[0] - side.linesLeft[1])).toBeLessThan(1);
+    expect(side.lineInset).toBeGreaterThan(8);
     const resting = await measure(subordinate);
     // The base Button keeps a transparent 1px border for stable geometry; nothing is drawn.
     expect(resting.borderColor).toBe("rgba(0, 0, 0, 0)");
@@ -371,16 +405,16 @@ for (const width of WIDTHS) {
       expect(condition).toContain("not (hover: hover)");
       expect(condition).toContain("not (pointer: fine)");
     }
-    // Keyboard focus on the text action stays visible.
+    // Keyboard focus on the text action shows a real ring: the :focus-visible state with a Route Blue ring of non-zero
+    // spread, polled across the 120 ms colour/shadow transition.
     await subordinate.focus();
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Tab");
     await expect(subordinate).toBeFocused();
-    const focusRing = await subordinate.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { boxShadow: style.boxShadow, outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth };
-    });
-    expect(focusRing.boxShadow !== "none" || (focusRing.outlineStyle !== "none" && focusRing.outlineWidth !== "0px")).toBe(true);
+    expect(await subordinate.evaluate((element) => element.matches(":focus-visible"))).toBe(true);
+    await expect
+      .poll(() => subordinate.evaluate((element) => getComputedStyle(element).boxShadow), { timeout: 2000 })
+      .toMatch(/rgb\(37, 99, 235\) 0px 0px 0px [1-9]\d*px/);
     // Q11 on touch-primary input (a second context sharing the signed-in session): the visible outlined 44px button.
     const touchContext = await browser.newContext({
       storageState: await page.context().storageState(),
@@ -392,6 +426,12 @@ for (const width of WIDTHS) {
       await touchPage.goto(page.url());
       await expect(touchPage.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
       expect(await touchPage.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(false);
+      // Q12 on touch: stacked and full width, with the two text lines still left-aligned with each other.
+      const stackedLayout = await layout(touchPage);
+      expect(stackedLayout.stacked).toBe(true);
+      expect(stackedLayout.primaryWidthRatio).toBeGreaterThan(0.95);
+      expect(stackedLayout.linkWidthRatio).toBeGreaterThan(0.95);
+      expect(Math.abs(stackedLayout.linesLeft[0] - stackedLayout.linesLeft[1])).toBeLessThan(1);
       const touchLink = await measure(touchPage.getByRole("link", { name: "Chủ đề tiếp theo" }));
       expect(touchLink.borderColor).not.toBe("rgba(0, 0, 0, 0)");
       expect(touchLink.background).not.toBe("rgba(0, 0, 0, 0)");
