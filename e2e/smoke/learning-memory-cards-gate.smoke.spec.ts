@@ -50,6 +50,7 @@ test.beforeEach(async ({ page }) => {
 
 const topicPath = `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS.full.slug}`;
 const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
+const NEW_CARDS_TOAST = "Bài học vừa có thêm 1 thẻ mới. Học xong rồi làm lại memory check nhé.";
 const FIRST_QUESTION = 'Nghĩa của "deadline" là gì?';
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -113,7 +114,10 @@ test("a card added after the page loaded sends the learner back to the flashcard
   // Server từ chối: không có câu trả lời nào được ghi, người học về Từ vựng và dữ liệu được tải lại.
   await page.getByRole("radio", { name: /hạn chót/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-  await expect(page.getByText(CARDS_REQUIRED_ERROR)).toBeVisible();
+  // Đúng một toast thông tin với số thẻ mới; không có toast lỗi và không có toast "Bạn còn N thẻ chưa học".
+  await expect(page.getByText(NEW_CARDS_TOAST)).toBeVisible();
+  await expect(page.getByText(CARDS_REQUIRED_ERROR)).toHaveCount(0);
+  await expect(page.getByText(/Bạn còn \d+ thẻ chưa học/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
   await expect(thread).toContainText("Memory check (đang khóa)");
   expect(await answeredOptionFor(FIRST_QUESTION)).toHaveLength(0);
@@ -198,7 +202,7 @@ test("a changed answer is refused while a new card is unseen and the stored answ
   await addFullFlowCard();
   await page.getByRole("radio", { name: /hạn chót/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-  await expect(page.getByText(CARDS_REQUIRED_ERROR)).toBeVisible();
+  await expect(page.getByText(NEW_CARDS_TOAST)).toBeVisible();
   await expect(thread).toContainText("Memory check (đang khóa)");
   const afterRefusal = await answeredOptionFor(FIRST_QUESTION);
   expect(afterRefusal).toHaveLength(1);

@@ -24,6 +24,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - LF3 (AC6): server từ chối với CARDS_REQUIRED (thẻ mới thêm sau khi tải trang) thì về bước Từ vựng, báo lỗi, xin server tải lại; trang đổi key theo dữ liệu thẻ nên workspace dựng lại và thẻ mới vào hàng đợi, câu trả lời không bị ghi.
 // - LF3 (AC8): khi kết quả trả lời báo memory check đã qua thì bước memory check đánh dấu đã xong ngay, bài tập mở ngay; phản hồi của câu vẫn hiện và việc chuyển sang bài tập chỉ xảy ra khi học viên bấm.
 // - LF4 (AC1): toast "Đã hoàn thành memory check!" đúng một lần ở bước chưa qua -> qua theo kết quả của chính câu trả lời; không toast khi chưa qua, khi memory check đã qua lúc tải trang, và khi chính câu trả lời đó làm bài học hoàn thành (chỉ còn toast hoàn thành bài).
+// - LF4 QA fix: sau CARDS_REQUIRED chỉ có MỘT toast thông tin "Bài học vừa có thêm N thẻ mới..." (N = số thẻ chưa xem sau khi tải lại), không toast lỗi và không toast "Bạn còn N thẻ chưa học" ở lần remount đó; tải lại không còn thẻ chưa xem thì không toast gì; lần tải trang sau (F5) báo thường lệ.
 // - Kết quả verify gần nhất: xem plan D3 §10; LF3 CP4 chạy lại toàn file (2026-10-11).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -539,7 +540,9 @@ describe("D3 memory check stage", () => {
     await answer("Đúng 1");
 
     expect(mockedSubmit).toHaveBeenCalledTimes(1);
-    expect(mockedToast.error).toHaveBeenCalledWith(CARDS_REQUIRED_ERROR);
+    // Chưa có toast nào trước khi dữ liệu tải lại (số thẻ mới chưa biết) và không bao giờ có toast lỗi.
+    expect(mockedToast.error).not.toHaveBeenCalled();
+    expect(mockedToast.info).not.toHaveBeenCalled();
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Câu nhớ 1")).toBeNull();
     expect(screen.getByRole("button", { name: "Ôn lại từ vựng" })).not.toBeNull();
@@ -558,8 +561,73 @@ describe("D3 memory check stage", () => {
     // AC6 (LF4): hàng đợi dựng lại chỉ có thẻ mới chưa xem, kèm toast số thẻ chưa học.
     expect(screen.getByText("improve")).not.toBeNull();
     expect(screen.queryByText("reliable")).toBeNull();
-    expect(mockedToast.info).toHaveBeenCalledWith("Bạn còn 1 thẻ chưa học trong bài học này");
+    // Đúng một toast với số thẻ mới; toast số thẻ chưa học thường lệ và toast lỗi đều không hiện.
+    expect(mockedToast.info).toHaveBeenCalledTimes(1);
+    expect(mockedToast.info).toHaveBeenCalledWith(
+      "Bài học vừa có thêm 1 thẻ mới. Học xong rồi làm lại memory check nhé.",
+    );
+    expect(mockedToast.error).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
+  });
+
+  it("shows no new-cards toast when the refreshed data has no unseen card, and the next plain load announces as usual", async () => {
+    const refresh = vi.fn();
+    mockedUseRouter.mockReturnValue({ refresh } as never);
+    const oldCard = {
+      id: "e0000000-0000-4000-8000-00000000000a",
+      front_content: { word: "reliable" },
+      back_content: { translation: "đáng tin cậy" },
+      audio_url: null,
+      image_url: null,
+    };
+    const newCard = { ...oldCard, id: "e0000000-0000-4000-8000-00000000000b", front_content: { word: "improve" } };
+    const { rerender, unmount } = render(
+      <LearningWorkspace
+        key="before"
+        data={workspaceData({ flashcards: [oldCard], unseenCardIds: [oldCard.id], unratedCardIds: [oldCard.id] })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    mockedReview.mockResolvedValueOnce({
+      success: true,
+      topicProgress: {
+        isFlashcardCompleted: true,
+        isExerciseCompleted: false,
+        isTopicCompleted: false,
+        isMemoryCheckPassed: false,
+        newlyCompleted: false,
+      },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+    });
+    mockedSubmit.mockResolvedValueOnce({ error: CARDS_REQUIRED_ERROR, errorCode: CARDS_REQUIRED });
+    await answer("Đúng 1");
+
+    // Tải lại không còn thẻ chưa xem (ví dụ thẻ mới bị gỡ): không có gì để báo, và không có toast lỗi.
+    rerender(
+      <LearningWorkspace
+        key="after"
+        data={workspaceData({ flashcards: [oldCard], unseenCardIds: [], unratedCardIds: [] })}
+      />,
+    );
+    expect(mockedToast.info).not.toHaveBeenCalled();
+    expect(mockedToast.error).not.toHaveBeenCalled();
+    unmount();
+
+    // Dấu đã được tiêu thụ: lần tải trang sau (như F5) báo số thẻ chưa học thường lệ.
+    render(
+      <LearningWorkspace
+        key="reload"
+        data={workspaceData({
+          flashcards: [oldCard, newCard],
+          unseenCardIds: [newCard.id],
+          unratedCardIds: [newCard.id],
+        })}
+      />,
+    );
+    expect(mockedToast.info).toHaveBeenCalledTimes(1);
+    expect(mockedToast.info).toHaveBeenCalledWith("Bạn còn 1 thẻ chưa học trong bài học này");
   });
 
   it("keeps the old flow for a topic without a memory check", () => {

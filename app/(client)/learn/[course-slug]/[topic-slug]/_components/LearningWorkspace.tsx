@@ -26,7 +26,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
-import { CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
 import type {
   ExerciseDTO,
   FlashcardDTO,
@@ -44,7 +43,11 @@ import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
 import QuestionResponse from "./QuestionResponse";
 import StickyColumn from "./StickyColumn";
 import { arrangeMaterial } from "./exercise-arrangement";
-import { announceTopicProgress, MEMORY_CHECK_PASSED_MESSAGE } from "./topic-progress-feedback";
+import {
+  announceTopicProgress,
+  MEMORY_CHECK_PASSED_MESSAGE,
+  newCardsAddedMessage,
+} from "./topic-progress-feedback";
 
 type LearningStage = "flashcard" | "memory" | "exercise";
 // Vị trí của bước. "Đã xong" là thuộc tính riêng (LF3 AC8) để một bước vừa đang học vừa đã xong.
@@ -153,6 +156,11 @@ function withoutId(ids: ReadonlySet<string>, id: string): ReadonlySet<string> {
   return next;
 }
 
+// Dấu "memory check vừa khóa lại vì có thẻ mới" mang qua lần remount do `router.refresh()` (state component mất khi key đổi).
+// Biến module (không phải sessionStorage hay URL): cùng một tab, không cần quyền truy cập trình duyệt, không đổi URL;
+// F5 xóa nó cùng với toàn bộ trang nên không bao giờ báo nhầm sau khi tải lại trang.
+const relockedTopicIds = new Set<string>();
+
 export default function LearningWorkspace({
   data,
 }: {
@@ -185,15 +193,20 @@ export default function LearningWorkspace({
     useState<LearningStage>(initialStage);
   // LF4 AC3: báo số thẻ chưa học đúng một lần lúc tải trang (cả khi remount do key đổi sau `cards_locked`), và không báo
   // khi mọi thẻ đều chưa xem (lần đầu). Ref chặn hiệu ứng chạy hai lần của StrictMode ở môi trường dev.
+  // Sau `cards_locked` chỉ báo MỘT toast "vừa có thêm N thẻ mới" (N chỉ biết sau khi tải lại) và bỏ toast số thẻ chưa học
+  // thường lệ ở lần remount đó; dấu hiệu được tiêu thụ đúng một lần, nên F5 hay lần vào sau vẫn báo như thường.
   const unseenNoticeShown = useRef(false);
   useEffect(() => {
     if (unseenNoticeShown.current) return;
     unseenNoticeShown.current = true;
     const unseenCount = data.unseenCardIds.length;
-    if (unseenCount > 0 && unseenCount < flashcards.length) {
+    const relocked = relockedTopicIds.delete(currentTopic.id);
+    if (relocked && unseenCount > 0) {
+      toast.info(newCardsAddedMessage(unseenCount));
+    } else if (unseenCount > 0 && unseenCount < flashcards.length) {
       toast.info(`Bạn còn ${unseenCount} thẻ chưa học trong bài học này`);
     }
-  }, [data.unseenCardIds.length, flashcards.length]);
+  }, [currentTopic.id, data.unseenCardIds.length, flashcards.length]);
   const [memoryPassed, setMemoryPassed] = useState(isMemoryCheckPassed);
   // Sticky on the server (G4), so it only ever turns on.
   const [isTopicCompleted, setIsTopicCompleted] = useState(
@@ -319,7 +332,8 @@ export default function LearningWorkspace({
   // `cards_locked` từ server: dữ liệu thẻ của trang đã cũ (thẻ mới thêm sau khi tải). Về bước từ vựng và xin server
   // tải lại; trang đổi `key` theo dữ liệu mới nên workspace dựng lại state, hàng đợi thẻ có thẻ mới.
   const recoverFromCardsRequired = () => {
-    toast.error(CARDS_REQUIRED_ERROR);
+    // Không toast lỗi: toast thông tin duy nhất do lần remount sau khi tải lại phát (cần số thẻ mới).
+    relockedTopicIds.add(currentTopic.id);
     goToStage("flashcard");
     router.refresh();
   };
