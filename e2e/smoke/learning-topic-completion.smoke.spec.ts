@@ -13,8 +13,8 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture tổng hợp tạo một lần trong beforeAll; mỗi test xóa tiến độ của học viên seed rồi chạy ở 375px và 1280px.
 // - Case thành công: học trọn chủ đề full-flow (thẻ, memory check, bài tập) -> không toast, màn hình hoàn thành hiện với chuỗi chuyển động (`data-motion="sequence"`);
 //   xem lại Memory check chỉ đọc (có giải thích) rồi về màn hình hoàn thành không phát lại chuỗi; tải lại mở thẳng màn hình đã ổn định (`settled`);
-//   chấm một thẻ Lại sau khi hoàn thành -> tải lại thì hành động chính của màn hình là nút hai dòng "Có 1 thẻ đến hạn ôn" / "Ôn ngay";
-//   hành động "Chủ đề tiếp theo" phụ là chữ Route Blue khi con trỏ chính xác (hover + fine pointer) và là nút viền 44px khi nhập bằng cảm ứng (độc lập với độ rộng viewport).
+//   chấm một thẻ Lại sau khi hoàn thành -> tải lại thì hành động chính của màn hình là nút hai dòng "Có 1 thẻ đến hạn" / "Ôn ngay";
+//   hành động "Chủ đề tiếp theo" phụ là nút viền toàn chiều rộng (từ 44px) xếp dưới nút chính, giống nhau ở con trỏ chính xác và cảm ứng (mỗi hành động một hàng).
 // - Case reduced motion: cùng luồng nhưng với `prefers-reduced-motion: reduce` thì màn hình hoàn thành hiện ngay ở trạng thái `settled`.
 // - Case không có bài tập: chủ đề thẻ + memory check không bài tập, qua memory check thì tự chuyển sang màn hình hoàn thành, không có nút "Mở bài tập" hay "Hoàn thành memory check".
 // - Case chưa hoàn thành: chủ đề mở ở bước đầu tiên còn phải làm (Từ vựng, rồi Memory check khi thẻ đã xong, rồi Bài tập khi memory check đã qua).
@@ -286,7 +286,7 @@ for (const width of WIDTHS) {
     await expect(page.getByText("deadline nghĩa là hạn chót.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Kiểm tra đáp án" })).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
-    await page.getByRole("button", { name: "Về màn hình hoàn thành" }).click();
+    await page.getByRole("button", { name: "Đến màn hình hoàn thành" }).click();
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
 
@@ -297,7 +297,7 @@ for (const width of WIDTHS) {
     await expect(page.locator("[data-completion-gain]")).toHaveCount(0);
     await page.getByRole("button", { name: "Xem lại Memory check" }).click();
     await expect(page.getByText("deadline nghĩa là hạn chót.")).toBeVisible();
-    await page.getByRole("button", { name: "Về màn hình hoàn thành" }).click();
+    await page.getByRole("button", { name: "Đến màn hình hoàn thành" }).click();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
 
     // Chấm một thẻ Lại sau khi hoàn thành: tải lại thì màn hình mời ôn thẻ đến hạn trước.
@@ -309,12 +309,12 @@ for (const width of WIDTHS) {
     await page.reload();
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     // Q10: the primary action is two lines; its accessible name keeps both.
-    const dueNow = page.getByRole("button", { name: "Có 1 thẻ đến hạn ôn, Ôn ngay" });
+    const dueNow = page.getByRole("button", { name: "Có 1 thẻ đến hạn, Ôn ngay" });
     await expect(dueNow).toBeVisible();
-    await expect(dueNow.locator("[data-due-line]")).toHaveText(["Có 1 thẻ đến hạn ôn", "Ôn ngay"]);
+    await expect(dueNow.locator("[data-due-line]")).toHaveText(["Có 1 thẻ đến hạn", "Ôn ngay"]);
     await expectNoHorizontalOverflow(page);
-    // Q11 on a mouse/trackpad (the default context): the next-topic action is subordinate Route Blue text of intrinsic
-    // width with an underline on hover, whatever the viewport width.
+    // Q13: one action per row in every input mode. On a mouse/trackpad (the default context, which reports a fine
+    // pointer) the next-topic action is already the full-width outlined 44px+ button under the full-width primary.
     expect(await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(true);
     const subordinate = page.getByRole("link", { name: "Chủ đề tiếp theo" });
     const measure = (link: typeof subordinate) =>
@@ -325,13 +325,11 @@ for (const width of WIDTHS) {
         return {
           borderColor: style.borderTopColor,
           background: style.backgroundColor,
-          color: style.color,
-          underline: style.textDecorationLine,
           height: box.height,
           widthRatio: box.width / parent.width,
         };
       });
-    // Q12 geometry of the due-first actions: the primary, the text action and the two text lines of the primary.
+    // Geometry of the due-first actions: the primary, the next-topic action and the two text lines of the primary.
     const layout = (view: Page) =>
       view.evaluate(() => {
         const primary = Array.from(document.querySelectorAll("button")).find((button) =>
@@ -347,65 +345,29 @@ for (const width of WIDTHS) {
         return {
           primaryWidthRatio: p.width / row.width,
           linkWidthRatio: l.width / row.width,
-          sameRow: Math.abs(p.top + p.height / 2 - (l.top + l.height / 2)) < 2 && l.left >= p.right,
           stacked: l.top >= p.bottom,
-          leftGap: p.left - row.left,
-          rightGap: row.right - l.right,
           linesLeft: lines,
           lineInset: lines[0] - p.left,
           docOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         };
       });
-    const side = await layout(page);
-    // Fine pointer: one row, both at intrinsic width, centred, the two lines left-aligned with each other and inset.
-    expect(side.sameRow).toBe(true);
-    expect(side.primaryWidthRatio).toBeLessThan(0.8);
-    expect(side.linkWidthRatio).toBeLessThan(0.6);
-    expect(Math.abs(side.leftGap - side.rightGap)).toBeLessThan(4);
-    expect(side.docOverflow).toBe(false);
-    expect(Math.abs(side.linesLeft[0] - side.linesLeft[1])).toBeLessThan(1);
-    expect(side.lineInset).toBeGreaterThan(8);
-    const resting = await measure(subordinate);
-    // The base Button keeps a transparent 1px border for stable geometry; nothing is drawn.
-    expect(resting.borderColor).toBe("rgba(0, 0, 0, 0)");
-    expect(resting.background).toBe("rgba(0, 0, 0, 0)");
-    expect(resting.color).toBe("rgb(37, 99, 235)");
-    expect(resting.underline).toBe("none");
-    expect(resting.widthRatio).toBeLessThan(0.6);
-    await subordinate.hover();
-    expect((await measure(subordinate)).underline).toBe("underline");
-    // The touch treatment must apply when EITHER capability is missing (hover without a fine pointer included), which
-    // a touch context cannot emulate: guard the generated media rule that carries the coarse-input classes.
-    const coarseMedia = await page.evaluate(() => {
-      const found: string[] = [];
-      // Tailwind may emit the media either around the class rule or nested inside it, so walk every grouping level.
-      const visit = (rules: CSSRuleList, owner: CSSRule | null) => {
-        for (const rule of Array.from(rules)) {
-          if (rule instanceof CSSMediaRule) {
-            const outer = owner instanceof CSSStyleRule && owner.selectorText.includes("coarse-input");
-            const inner = Array.from(rule.cssRules).some(
-              (child) => child instanceof CSSStyleRule && child.selectorText.includes("coarse-input"),
-            );
-            if (outer || inner) found.push(rule.conditionText);
-          }
-          if ("cssRules" in rule) visit((rule as CSSGroupingRule).cssRules, rule);
-        }
-      };
-      for (const sheet of Array.from(document.styleSheets)) {
-        try {
-          visit(sheet.cssRules, null);
-        } catch {
-          // Cross-origin sheets are not readable and do not carry the app classes.
-        }
-      }
-      return found;
-    });
-    expect(coarseMedia.length).toBeGreaterThan(0);
-    for (const condition of coarseMedia) {
-      expect(condition).toContain("not (hover: hover)");
-      expect(condition).toContain("not (pointer: fine)");
-    }
-    // Keyboard focus on the text action shows a real ring: the :focus-visible state with a Route Blue ring of non-zero
+    const expectStacked = async (view: Page, link: typeof subordinate) => {
+      const stackedLayout = await layout(view);
+      expect(stackedLayout.stacked).toBe(true);
+      expect(stackedLayout.primaryWidthRatio).toBeGreaterThan(0.95);
+      expect(stackedLayout.linkWidthRatio).toBeGreaterThan(0.95);
+      expect(stackedLayout.docOverflow).toBe(false);
+      // The two lines of the primary start at the same x, inset from the button edge.
+      expect(Math.abs(stackedLayout.linesLeft[0] - stackedLayout.linesLeft[1])).toBeLessThan(1);
+      expect(stackedLayout.lineInset).toBeGreaterThan(8);
+      const outline = await measure(link);
+      expect(outline.borderColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(outline.background).not.toBe("rgba(0, 0, 0, 0)");
+      expect(outline.height).toBeGreaterThanOrEqual(44);
+      expect(outline.widthRatio).toBeGreaterThan(0.95);
+    };
+    await expectStacked(page, subordinate);
+    // Keyboard focus on the next-topic action shows a real ring: the :focus-visible state with a Route Blue ring of non-zero
     // spread, polled across the 120 ms colour/shadow transition.
     await subordinate.focus();
     await page.keyboard.press("Shift+Tab");
@@ -415,7 +377,7 @@ for (const width of WIDTHS) {
     await expect
       .poll(() => subordinate.evaluate((element) => getComputedStyle(element).boxShadow), { timeout: 2000 })
       .toMatch(/rgb\(37, 99, 235\) 0px 0px 0px [1-9]\d*px/);
-    // Q11 on touch-primary input (a second context sharing the signed-in session): the visible outlined 44px button.
+    // Q13 on touch-primary input (a second context sharing the signed-in session): the same stacked composition.
     const touchContext = await browser.newContext({
       storageState: await page.context().storageState(),
       viewport: { width, height: 900 },
@@ -426,17 +388,8 @@ for (const width of WIDTHS) {
       await touchPage.goto(page.url());
       await expect(touchPage.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
       expect(await touchPage.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)).toBe(false);
-      // Q12 on touch: stacked and full width, with the two text lines still left-aligned with each other.
-      const stackedLayout = await layout(touchPage);
-      expect(stackedLayout.stacked).toBe(true);
-      expect(stackedLayout.primaryWidthRatio).toBeGreaterThan(0.95);
-      expect(stackedLayout.linkWidthRatio).toBeGreaterThan(0.95);
-      expect(Math.abs(stackedLayout.linesLeft[0] - stackedLayout.linesLeft[1])).toBeLessThan(1);
-      const touchLink = await measure(touchPage.getByRole("link", { name: "Chủ đề tiếp theo" }));
-      expect(touchLink.borderColor).not.toBe("rgba(0, 0, 0, 0)");
-      expect(touchLink.background).not.toBe("rgba(0, 0, 0, 0)");
-      expect(touchLink.height).toBeGreaterThanOrEqual(44);
-      expect(touchLink.widthRatio).toBeGreaterThan(0.95);
+      // Q13 on touch: the same stacked composition, so the two contexts cannot diverge.
+      await expectStacked(touchPage, touchPage.getByRole("link", { name: "Chủ đề tiếp theo" }));
     } finally {
       await touchContext.close();
     }

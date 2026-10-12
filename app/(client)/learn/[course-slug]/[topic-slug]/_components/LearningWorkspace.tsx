@@ -1106,7 +1106,7 @@ export default function LearningWorkspace({
             {isTopicCompleted && learningStage !== "complete" && (
               <Button onClick={goToComplete} variant="outline">
                 <CheckCircle2 aria-hidden="true" />
-                Về màn hình hoàn thành
+                Đến màn hình hoàn thành
               </Button>
             )}
             {learningStage === "complete" ? null : learningStage === "exercise" && memoryCheck ? (

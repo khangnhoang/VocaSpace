@@ -1294,11 +1294,11 @@ describe("D8-LUI learning workspace presentation", () => {
             data={completedTopic({ syllabus: threeTopicSyllabus(false), dueCardIds: [cardA.id, "ffffffff-ffff-4fff-8fff-ffffffffffff"] })}
           />,
         );
-        // Owner Q10: a small context line over the larger action; the accessible name keeps both.
-        const review = within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn ôn, Ôn ngay" });
+        // Owner Q10/Q13: a small context line over the larger action; the accessible name keeps both.
+        const review = within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn, Ôn ngay" });
         expect(primaries()).toEqual([review]);
         const lines = Array.from(review.querySelectorAll("[data-due-line]"));
-        expect(lines.map((line) => line.textContent)).toEqual(["Có 1 thẻ đến hạn ôn", "Ôn ngay"]);
+        expect(lines.map((line) => line.textContent)).toEqual(["Có 1 thẻ đến hạn", "Ôn ngay"]);
         // Owner Q12: the small line is the 12px caption token, and both lines sit in one left-aligned block that the
         // button centres, so they start at the same x.
         expect(lines[0].className).toContain("text-xs");
@@ -1306,20 +1306,16 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(lines[0].parentElement).toBe(lines[1].parentElement);
         expect(lines[0].parentElement?.className).toContain("items-start");
         expect(lines[0].parentElement?.className).toContain("text-left");
-        // Owner Q12: one centred row on a fine pointer (intrinsic widths), stacked on touch-primary input.
-        expect(review.className).toContain("w-fit");
-        expect(review.className).toContain("coarse-input:w-full");
-        const row = review.parentElement as HTMLElement;
-        expect(row.className).toContain("flex-row");
-        expect(row.className).toContain("justify-center");
-        expect(row.className).toContain("coarse-input:flex-col");
-        // Owner Q11: subordinate Route Blue text on a fine pointer, the outlined 44px button on touch-primary input.
+        // Small line keeps full contrast: the hierarchy comes from size and weight only (no opacity).
+        expect(lines[0].className).not.toContain("opacity");
+        // Owner Q13: stacked in every input mode, one action per row: the filled full-width primary over the
+        // full-width outline subordinate action.
+        expect(review.className).toContain("w-full");
+        expect(review.parentElement?.className).toBe("flex flex-col gap-3");
         const nextLink = within(panel()).getByRole("link", { name: "Chủ đề tiếp theo" });
-        expect(nextLink.getAttribute("data-variant")).toBe("link");
-        expect(nextLink.className).toContain("w-fit");
-        expect(nextLink.className).toContain("min-h-11");
-        expect(nextLink.className).toContain("coarse-input:border-border");
-        expect(nextLink.className).toContain("coarse-input:w-full");
+        expect(nextLink.getAttribute("data-variant")).toBe("outline");
+        expect(nextLink.className).toContain("w-full");
+        expect(nextLink.className).toContain("min-h-12");
         const footer = within(screen.getByRole("navigation", { name: "Điều hướng bài học" }));
         expect(footer.getByRole("link", { name: "Bài sau" }).getAttribute("data-variant")).toBe("ghost");
 
@@ -1340,13 +1336,13 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(footer.getByRole("link", { name: "Về tổng quan khóa học" }).getAttribute("data-variant")).toBe("ghost");
       });
 
-      it("shows the course overview as the same subordinate text action on the last topic when cards are due", () => {
+      it("shows the course overview as the same full-width outline action on the last topic when cards are due", () => {
         render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
-        const review = within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn ôn, Ôn ngay" });
+        const review = within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn, Ôn ngay" });
         expect(primaries()).toEqual([review]);
         const overview = within(panel()).getByRole("link", { name: "Về tổng quan khóa học" });
-        expect(overview.getAttribute("data-variant")).toBe("link");
-        expect(overview.className).toContain("coarse-input:border-border");
+        expect(overview.getAttribute("data-variant")).toBe("outline");
+        expect(overview.className).toContain("w-full");
       });
 
       it("keeps the completion screen for a completed topic whose active content was all removed", () => {
@@ -1407,13 +1403,13 @@ describe("D8-LUI learning workspace presentation", () => {
     describe("Xem lại and the return action (AC5)", () => {
       it("starts a full review queue from Xem lại Từ vựng, and the return action brings the screen back without replaying", () => {
         render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
-        expect(screen.queryByRole("button", { name: "Về màn hình hoàn thành" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "Đến màn hình hoàn thành" })).toBeNull();
 
         fireEvent.click(screen.getByRole("button", { name: "Xem lại Từ vựng" }));
         expect(completionHeading()).toBeNull();
         expect(screen.getByText("2 / 2")).not.toBeNull();
         // A subordinate action, not a second primary.
-        const back = screen.getByRole("button", { name: "Về màn hình hoàn thành" });
+        const back = screen.getByRole("button", { name: "Đến màn hình hoàn thành" });
         expect(back.getAttribute("data-variant")).toBe("outline");
 
         fireEvent.click(back);
@@ -1428,7 +1424,7 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
         expect(screen.getByRole("radio", { name: /Câu nhớ lựa chọn 1/ }).getAttribute("aria-checked")).toBe("true");
         expect(mockedSubmit).not.toHaveBeenCalled();
-        expect(screen.getByRole("button", { name: "Về màn hình hoàn thành" })).not.toBeNull();
+        expect(screen.getByRole("button", { name: "Đến màn hình hoàn thành" })).not.toBeNull();
       });
 
       it("opens the exercises as they already render answered questions", () => {
@@ -1517,7 +1513,7 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(chapter.className).toContain("h-2.5");
 
         fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
-        fireEvent.click(screen.getByRole("button", { name: "Về màn hình hoàn thành" }));
+        fireEvent.click(screen.getByRole("button", { name: "Đến màn hình hoàn thành" }));
         expect(panel().getAttribute("data-motion")).toBe("settled");
         expect(panel().querySelectorAll("[data-completion-gain]")).toHaveLength(0);
       });
@@ -1529,7 +1525,7 @@ describe("D8-LUI learning workspace presentation", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
         expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
-        fireEvent.click(screen.getByRole("button", { name: "Về màn hình hoàn thành" }));
+        fireEvent.click(screen.getByRole("button", { name: "Đến màn hình hoàn thành" }));
         expect(panel().getAttribute("data-motion")).toBe("settled");
       });
 
