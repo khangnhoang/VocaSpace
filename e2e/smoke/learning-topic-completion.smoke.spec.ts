@@ -93,6 +93,41 @@ async function expectNoHorizontalOverflow(page: Page) {
 const completionSection = (page: Page) => page.locator("section[aria-labelledby='topic-completion-title']");
 const stepThread = (page: Page) => page.getByRole("list", { name: "Các bước của bài học" });
 
+interface MotionSample {
+  time: number;
+  /** Course progress fill as a fraction of its track. */
+  courseFill: number;
+  /** Opacity of the "Tiếp theo" hint. */
+  hintOpacity: number;
+}
+
+/** Records the course bar and the next hint on every frame once the completion screen exists. */
+async function startMotionSampler(page: Page) {
+  await page.evaluate(() => {
+    const samples: MotionSample[] = [];
+    (window as unknown as { __motion: MotionSample[] }).__motion = samples;
+    const begin = performance.now();
+    const tick = () => {
+      const section = document.querySelector("section[aria-labelledby='topic-completion-title']");
+      const fill = section?.querySelector("[role='progressbar'] > div") as HTMLElement | null;
+      const hint = section?.querySelector("[data-completion-hint]") as HTMLElement | null;
+      if (fill?.parentElement && hint) {
+        samples.push({
+          time: performance.now(),
+          courseFill: fill.getBoundingClientRect().width / fill.parentElement.getBoundingClientRect().width,
+          hintOpacity: Number(getComputedStyle(hint).opacity),
+        });
+      }
+      if (performance.now() - begin < 12_000) requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+async function readMotionSamples(page: Page) {
+  return page.evaluate(() => (window as unknown as { __motion: MotionSample[] }).__motion);
+}
+
 async function rateCards(page: Page, words: string[]) {
   for (const word of words) {
     await expect(page.getByText(word, { exact: true })).toBeVisible();
@@ -154,9 +189,27 @@ for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await finishFullFlow(page);
 
+    await startMotionSampler(page);
     await page.getByRole("button", { name: "Xem kết quả chủ đề" }).click();
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     await expect(completionSection(page)).toHaveAttribute("data-motion", "sequence");
+    // Result text and the primary action are usable at once; only the progress and the hint are sequenced.
+    await expect(page.getByRole("link", { name: /Tiếp tục học/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xem lại Memory check" })).toBeEnabled();
+    await expect(page.getByText(/^Tiếp theo: /)).toBeVisible();
+    await page.waitForTimeout(1500);
+    // AC8 order: the course bar starts at its previous value (0 of 7) and reaches 1 of 7, then the hint appears.
+    const samples = await readMotionSamples(page);
+    expect(samples.length).toBeGreaterThan(5);
+    expect(samples[0].courseFill).toBeLessThan(0.05);
+    expect(samples[0].hintOpacity).toBeLessThan(0.2);
+    const last = samples[samples.length - 1];
+    expect(last.courseFill).toBeGreaterThan(0.12);
+    expect(last.courseFill).toBeLessThan(0.16);
+    expect(last.hintOpacity).toBe(1);
+    const barDone = samples.find((sample) => sample.courseFill > 0.12);
+    const hintShown = samples.find((sample) => sample.hintOpacity > 0.9);
+    expect(barDone && hintShown && barDone.time < hintShown.time).toBe(true);
     await expect(page.getByRole("progressbar")).toHaveCount(2);
     await expect(page.getByRole("progressbar", { name: "Tiến độ khóa học" })).toHaveAttribute("aria-valuenow", "1");
     // Thẻ vừa chấm Ổn chưa đến hạn nên hành động chính là chủ đề kế, không phải ôn thẻ.
@@ -209,9 +262,19 @@ for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await finishFullFlow(page);
 
+    await startMotionSampler(page);
     await page.getByRole("button", { name: "Xem kết quả chủ đề" }).click();
     await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     expect(await completionSection(page).getAttribute("data-motion")).toBe("settled");
+    // The final values are there from the first frame: no bar growth and no hint fade.
+    await page.waitForTimeout(300);
+    const samples = await readMotionSamples(page);
+    expect(samples.length).toBeGreaterThan(0);
+    for (const sample of samples) {
+      expect(sample.courseFill).toBeGreaterThan(0.12);
+      expect(sample.courseFill).toBeLessThan(0.16);
+      expect(sample.hintOpacity).toBe(1);
+    }
     await expect(page.getByRole("progressbar", { name: "Tiến độ khóa học" })).toHaveAttribute("aria-valuenow", "1");
     await expectNoHorizontalOverflow(page);
   });

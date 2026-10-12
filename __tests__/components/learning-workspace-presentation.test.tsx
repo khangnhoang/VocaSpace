@@ -1315,6 +1315,38 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(footer.getByRole("link", { name: "Về tổng quan khóa học" }).getAttribute("data-variant")).toBe("ghost");
       });
 
+      it("keeps the completion screen for a completed topic whose active content was all removed", () => {
+        render(
+          <LearningWorkspace
+            data={completedTopic({
+              flashcards: [],
+              unseenCardIds: [],
+              memoryCheck: null,
+              isMemoryCheckPassed: false,
+              exercises: [],
+              answers: {},
+            })}
+          />,
+        );
+        expect(completionHeading()).not.toBeNull();
+        expect(screen.queryByText("Bài học này chưa có nội dung")).toBeNull();
+        // Nothing to review, but the destination is still there as the only primary action.
+        expect(within(panel()).queryByRole("group", { name: "Xem lại các bước" })).toBeNull();
+        const overview = within(panel()).getByRole("link", { name: "Về tổng quan khóa học" });
+        expect(overview.getAttribute("href")).toBe("/learn/toeic-foundation");
+        expect(primaries()).toEqual([overview]);
+      });
+
+      it("shows the next-unit context for every kind of next step", () => {
+        // Last topic of the course: the overview.
+        const { unmount } = render(<LearningWorkspace data={completedTopic()} />);
+        expect(within(panel()).getByText("Tiếp theo: Tổng quan khóa học")).not.toBeNull();
+        unmount();
+        // A next topic in the same chapter (the chapter is not finished yet).
+        render(<LearningWorkspace data={completedTopic({ syllabus: threeTopicSyllabus(false) })} />);
+        expect(within(panel()).getByText("Tiếp theo: Chủ đề 2 · Bài hai")).not.toBeNull();
+      });
+
       it("shows course and chapter progress as separate labelled scales, and the next chapter once this chapter is finished", () => {
         render(<LearningWorkspace data={completedTopic({ syllabus: chapterEndSyllabus(true) })} />);
         const course = within(panel()).getByRole("progressbar", { name: "Tiến độ khóa học" });

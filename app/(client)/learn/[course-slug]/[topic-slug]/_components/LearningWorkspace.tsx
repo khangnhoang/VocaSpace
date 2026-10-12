@@ -659,8 +659,6 @@ export default function LearningWorkspace({
   const currentChapter = syllabus[chapterIndex];
   const chapterTopics = currentChapter?.topics ?? [];
   const chapterCompletedCount = chapterTopics.filter((topic) => completedTopicIds.has(topic.id)).length;
-  const chapterFinished = chapterTopics.length > 0 && chapterCompletedCount === chapterTopics.length;
-  const nextChapter = chapterIndex >= 0 ? syllabus[chapterIndex + 1] : undefined;
   // Chuỗi chuyển động bắt đầu từ giá trị trước khi chủ đề này hoàn thành (nó chưa được tính).
   const countBefore = completionEntry.animate && isTopicCompleted ? 1 : 0;
   const nextTopic = lessonNeighbors.next;
@@ -849,7 +847,8 @@ export default function LearningWorkspace({
   };
 
   const renderStage = () => {
-    if (flashcards.length === 0 && exercises.length === 0 && !memoryCheck) {
+    // LF5 AC2/AC3: a completed topic stays completed when its active content was removed, so the completion screen wins.
+    if (learningStage !== "complete" && flashcards.length === 0 && exercises.length === 0 && !memoryCheck) {
       return (
         <div className="text-center text-slate-600" role="status">
           <h2 className="mb-2 text-2xl font-bold">Bài học này chưa có nội dung</h2>
@@ -873,9 +872,7 @@ export default function LearningWorkspace({
             total: chapterTopics.length,
             previous: chapterCompletedCount - countBefore,
           }}
-          nextChapterHint={
-            chapterFinished && nextChapter ? `Chương ${chapterIndex + 2} · ${nextChapter.title}` : null
-          }
+          nextHint={completionNext.kind === "topic" ? completionNext.unitLabel : "Tổng quan khóa học"}
           animate={completionEntry.animate}
           focusOnEntry={completionEntry.focus}
           dueCount={dueCards.length}

@@ -21,8 +21,8 @@ interface TopicCompletionPanelProps {
     total: number;
     previous: number;
   };
-  /** Subordinate context shown once the chapter is finished and another chapter follows. */
-  nextChapterHint: string | null;
+  /** Subordinate "next unit" context (next topic, next chapter or the course overview); the only part the sequence reveals last. */
+  nextHint: string;
   /** Plays the earned-completion sequence; false for a landing on a completed topic and for every later entry. */
   animate: boolean;
   /** Moves focus to the confirmation when the learner arrived here by an action, never on page load. */
@@ -56,7 +56,7 @@ export default function TopicCompletionPanel({
   topicTitle,
   course,
   chapter,
-  nextChapterHint,
+  nextHint,
   animate,
   focusOnEntry,
   dueCount,
@@ -189,11 +189,9 @@ export default function TopicCompletionPanel({
               Đã hoàn thành chương này
             </p>
           )}
-          {nextChapterHint && (
-            <p className={`text-sm font-medium text-slate-600 ${hintMotion}`}>
-              Tiếp theo: {nextChapterHint}
-            </p>
-          )}
+          <p data-completion-hint className={`text-sm font-medium text-slate-600 ${hintMotion}`}>
+            Tiếp theo: {nextHint}
+          </p>
         </div>
       </div>
 
