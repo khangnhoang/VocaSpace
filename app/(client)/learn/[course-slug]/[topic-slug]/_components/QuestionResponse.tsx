@@ -48,14 +48,16 @@ interface QuestionResponseProps {
   hasNext: boolean;
   /**
    * What follows a correct answer when no later question exists: go back to a
-   * missing question, or leave for the next topic (or the course overview).
+   * missing question, open the completion screen of a topic this answer just
+   * completed, or leave for the next topic (or the course overview).
    */
   endAction: { label: string; onClick: () => void } | { label: string; href: string };
   onPrevious: () => void;
   onNext: () => void;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
   onIncorrectAnswer?: (questionId: string) => void;
-  onTopicCompleted?: () => void;
+  /** The server reports the topic as completed; the argument is its `newlyCompleted` (LF5 AC4). */
+  onTopicCompleted?: (newlyCompleted: boolean) => void;
   onMemoryCheckRequired?: () => void;
 }
 

@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
-import { TOPIC_COMPLETED_MESSAGE } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/topic-progress-feedback";
 import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learning-workspace";
 
 // Test plan:
@@ -18,13 +17,13 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - Loại test: component interaction test qua action boundary mock.
 // - Đối tượng: LearningWorkspace (thẻ, bài tập qua QuestionResponse) và MemoryCheckStage.
 // - AC7 (ứng viên chờ Owner duyệt): đúng thì hiện "Câu tiếp theo" (khi còn câu sau) và không tự chuyển câu; sai thì giải thích nằm tại chỗ với "Thử lại"; lỗi lưu giữ nguyên lựa chọn và không bị hiểu là đáp án sai; kết quả trễ của câu cũ không đánh dấu câu mới.
-// - Case thành công: câu standalone hiển thị trước group, không có passage và không có nhãn nhóm (group đánh số không tính phần standalone); toast hoàn thành khi server báo `newlyCompleted`.
+// - Case thành công: câu standalone hiển thị trước group, không có passage và không có nhãn nhóm (group đánh số không tính phần standalone); khi server báo `newlyCompleted` thì không còn toast hoàn thành mà màn hình hoàn thành hiện (LF5 AC4).
 // - Case thất bại: `progressError` hiện toast nhưng không chặn việc học tiếp.
 // - Ổn định/resilience: câu cuối không có "Câu tiếp theo"/"Câu sau"; trả lời đúng câu cuối khi còn câu thiếu thì CTA "Làm câu còn thiếu" đưa tới câu đầu tiên còn thiếu, khi đã đủ thì nút chính là "Bài tiếp theo" (hoặc "Về tổng quan khóa học" ở bài cuối) và không có màn hình/nút hoàn thành trung gian.
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
 // - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
-//   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính; không còn nút "Hoàn thành bài học".
-// - LF4 (AC2): chấm thẻ cuối làm bài học hoàn thành khi còn chặng sau (bài tập) thì chỉ có toast hoàn thành bài, không thêm toast chuyển bước; chưa hoàn thành thì vẫn có toast chuyển bước.
+//   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính ở các bước (còn ở màn hình hoàn thành thì là nút phụ); không còn nút "Hoàn thành bài học".
+// - LF5 (AC4): chấm thẻ cuối, trả lời câu bài tập cuối hay câu thiếu cuối, hoặc câu đúng cuối của memory check làm bài học hoàn thành thì không có toast nào (cả toast hoàn thành bài lẫn toast chuyển bước/memory check) và màn hình hoàn thành thay cho bước; câu bài tập giữ phản hồi và chỉ mở màn hình khi học viên bấm hành động xác nhận; chưa hoàn thành thì vẫn có toast chuyển bước.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/topic-completion-ui.test.tsx`).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -162,10 +161,14 @@ function successToasts() {
   return mockedToast.success.mock.calls.map(([message]) => message);
 }
 
+function completionHeading() {
+  return screen.queryByRole("heading", { name: /^Đã hoàn thành chủ đề/ });
+}
+
 describe("D4 topic completion UI", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     mockedUseRouter.mockReturnValue({ refresh: vi.fn() } as never);
   });
 
@@ -304,10 +307,11 @@ describe("D4 topic completion UI", () => {
     fireEvent.click(screen.getByRole("button", { name: "Làm câu còn thiếu" }));
 
     expect(screen.getByText("Câu đơn")).not.toBeNull();
-    expect(successToasts()).not.toContain(TOPIC_COMPLETED_MESSAGE);
+    expect(successToasts()).toEqual([]);
+    expect(completionHeading()).toBeNull();
   });
 
-  it("announces completion only when the server reports the topic newly completed", async () => {
+  it("opens the completion screen in place, with no toast, when the last answer completes the topic", async () => {
     render(
       <LearningWorkspace
         data={workspaceData({ answers: { [ids.standalone]: right(ids.standalone) } })}
@@ -322,23 +326,50 @@ describe("D4 topic completion UI", () => {
     });
     await submitExerciseAnswer("Đúng Câu nhóm A");
 
-    expect(successToasts()).toContain(TOPIC_COMPLETED_MESSAGE);
-    // The completed state shows immediately, without reloading the page.
+    // LF5: no toast; the completed state shows at once without a reload, and the learner stays on the
+    // answered question with its feedback until the action that acknowledges it.
+    expect(successToasts()).toEqual([]);
     expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
-    // This is the last topic: the last question's primary leads to the course overview, and
-    // the footer keeps its own link to the same place. The learner stays on the question.
+    expect(completionHeading()).toBeNull();
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    expect(screen.getByText("Chính xác!")).not.toBeNull();
+    // The last question's end action no longer links away: it opens the completion screen.
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    const overviewBefore = screen.getAllByRole("link", { name: "Về tổng quan khóa học" });
+    expect(overviewBefore).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
+    expect(completionHeading()?.textContent).toBe("Đã hoàn thành chủ đề “Bài một”");
+    expect(screen.queryByText("Câu nhóm A")).toBeNull();
+    // This is the last topic: the screen's primary action and the footer both lead to the overview.
     const overviewLinks = screen.getAllByRole("link", { name: "Về tổng quan khóa học" });
     expect(overviewLinks).toHaveLength(2);
     overviewLinks.forEach((link) => expect(link.getAttribute("href")).toBe("/learn/toeic-foundation"));
-    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
-    // No completion interstitial or extra completion step: the result stays on the question.
-    expect(screen.queryByRole("button", { name: "Hoàn thành bài tập" })).toBeNull();
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(screen.queryByText("Bạn đã trả lời đúng hết bài tập.")).toBeNull();
-    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Danh sách câu hỏi" })).not.toBeNull();
-    // The completion toast fired once, from the server result.
-    expect(successToasts().filter((message) => message === TOPIC_COMPLETED_MESSAGE)).toHaveLength(1);
+    expect(successToasts()).toEqual([]);
+  });
+
+  it("opens the completion screen from Câu tiếp theo when an earlier missed question completes the topic", async () => {
+    render(
+      <LearningWorkspace
+        data={workspaceData({
+          exercises: [exerciseA, exerciseB],
+          answers: { [ids.groupedA]: right(ids.groupedA), [ids.groupedB]: right(ids.groupedB) },
+        })}
+      />,
+    );
+    mockedSubmit.mockResolvedValueOnce({
+      success: true,
+      isCorrect: true,
+      topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
+    });
+    await submitExerciseAnswer("Đúng Câu đơn");
+
+    // The first question is not the last one: the acknowledging action is Câu tiếp theo.
+    expect(successToasts()).toEqual([]);
+    expect(completionHeading()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Câu tiếp theo" }));
+    expect(completionHeading()).not.toBeNull();
+    expect(screen.queryByText("Câu nhóm A")).toBeNull();
   });
 
   it("shows stored completion in the header and sidebar and promotes the next topic", () => {
@@ -390,7 +421,16 @@ describe("D4 topic completion UI", () => {
     );
     expect(nextLinks).toHaveLength(1);
     expect(nextLinks[0].getAttribute("href")).toBe("/learn/toeic-foundation/topic-two");
-    expect(nextLinks[0].getAttribute("data-variant")).toBe("default");
+    // LF5 AC3: a completed topic opens the completion screen, which owns the only primary action.
+    expect(completionHeading()).not.toBeNull();
+    expect(nextLinks[0].getAttribute("data-variant")).toBe("ghost");
+    // Reviewing a stage brings back the footer's own promotion of the next topic.
+    fireEvent.click(screen.getByRole("button", { name: "Xem lại Bài tập" }));
+    expect(completionHeading()).toBeNull();
+    const promoted = Array.from(navigation.querySelectorAll("a")).filter(
+      (link) => link.textContent === "Bài sau",
+    );
+    expect(promoted[0].getAttribute("data-variant")).toBe("default");
 
     fireEvent.click(screen.getByRole("button", { name: "Mở danh sách chương và bài học" }));
     expect(
@@ -422,7 +462,7 @@ describe("D4 topic completion UI", () => {
       "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
     );
     expect(screen.getByText("Xem lại thì của động từ.")).not.toBeNull();
-    expect(successToasts()).not.toContain(TOPIC_COMPLETED_MESSAGE);
+    expect(successToasts()).toEqual([]);
   });
 
   it("uses the card review result for completion and sync failures", async () => {
@@ -444,7 +484,10 @@ describe("D4 topic completion UI", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
     });
-    expect(successToasts()).toEqual([TOPIC_COMPLETED_MESSAGE]);
+    // LF5: the completion screen replaces both the topic toast and the finished-flashcards screen.
+    expect(successToasts()).toEqual([]);
+    expect(completionHeading()).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
     unmount();
 
     vi.clearAllMocks();
@@ -463,7 +506,7 @@ describe("D4 topic completion UI", () => {
     expect(successToasts()).toEqual(["Đã nạp xong từ vựng!"]);
   });
 
-  it("shows only the completion toast when the last card rating completes the topic with exercises still ahead", async () => {
+  it("opens the completion screen with no toast when the last card rating completes the topic with exercises still ahead", async () => {
     const card = {
       id: ids.card,
       front_content: { word: "reliable" },
@@ -482,7 +525,8 @@ describe("D4 topic completion UI", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
     });
-    expect(successToasts()).toEqual([TOPIC_COMPLETED_MESSAGE]);
+    expect(successToasts()).toEqual([]);
+    expect(completionHeading()).not.toBeNull();
     unmount();
 
     vi.clearAllMocks();
@@ -516,8 +560,16 @@ describe("D4 topic completion UI", () => {
       topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
     });
     await answerMemory();
-    expect(successToasts()).toEqual([TOPIC_COMPLETED_MESSAGE]);
+    // LF5 AC7: no toast and no button; after the feedback the workspace moves on to the completion screen by itself.
+    expect(successToasts()).toEqual([]);
     expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
+    expect(screen.getByText("Chính xác!")).not.toBeNull();
+    expect(completionHeading()).toBeNull();
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(completionHeading()).not.toBeNull();
+    expect(successToasts()).toEqual([]);
     unmount();
 
     vi.clearAllMocks();

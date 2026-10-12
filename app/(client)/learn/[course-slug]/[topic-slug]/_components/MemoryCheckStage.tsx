@@ -28,25 +28,40 @@ interface MemoryCheckStageProps {
   onAttemptSettled: (questionId: string, optionId: string, outcome: AttemptOutcome) => void;
   onAttemptCleared: (questionId: string) => void;
   isPassed: boolean;
+  /** Chủ đề có bài tập: màn hình xem lại giữ lối mở bài tập. */
   hasExercises: boolean;
-  onCorrectAnswer: (questionId: string, optionId: string) => void;
-  /** Điều hướng sau khi học viên bấm nút ở phản hồi cuối: chỉ chuyển bước, không quyết định memory check đã qua hay chưa. */
+  /**
+   * LF5 AC7: còn câu bài tập chưa đúng. Chỉ khi đó phản hồi cuối giữ nút `Mở bài tập`; nếu không, workspace tự chuyển tiếp sau phản hồi.
+   * Mặc định theo `hasExercises`.
+   */
+  hasOpenExercises?: boolean;
+  /** LF5 AC6: đáp án đã lưu theo câu, để màn hình xem lại đánh dấu đáp án đúng của học viên. */
+  answers?: Record<string, string>;
+  /** LF5 AC6/AC9: giải thích chỉ có ở câu mà đáp án đã lưu đang đúng (từ server lúc tải hoặc từ kết quả trả lời trong phiên). */
+  explanations?: Record<string, string>;
+  onCorrectAnswer: (questionId: string, optionId: string, explanation?: string) => void;
+  /** Câu trả lời sai: workspace bỏ giải thích đã giữ của câu đó (AC9). */
+  onIncorrectAnswer?: (questionId: string) => void;
+  /** Điều hướng sau phản hồi cuối (học viên bấm nút, hoặc tự chuyển khi không còn bài tập mở): chỉ chuyển bước, không quyết định memory check đã qua hay chưa. */
   onPassed: () => void;
   /**
    * Server báo memory check đã qua ngay trong kết quả của câu trả lời. Workspace đánh dấu bước "đã xong" tại đây (AC8),
    * không đợi học viên bấm tiếp; phản hồi của câu vẫn hiện cho tới khi học viên tiếp tục.
-   * `newlyCompleted` là giá trị của chính kết quả câu trả lời này (LF4 AC1): khi bài vừa hoàn thành, toast hoàn thành bài
-   * đã hiện ở `announceTopicProgress` nên workspace không hiện thêm toast memory check.
+   * `newlyCompleted` là giá trị của chính kết quả câu trả lời này (LF4 AC1): khi bài vừa hoàn thành, màn hình hoàn thành
+   * thay cho toast nên workspace không hiện toast memory check.
    */
   onMemoryPassed?: (newlyCompleted: boolean) => void;
   onGoToExercises: () => void;
-  onTopicCompleted?: () => void;
+  onTopicCompleted?: (newlyCompleted: boolean) => void;
   /**
    * The server refused the answer because the topic has a card this learner has not seen (a card added after the page
    * loaded). The workspace owns recovery: back to the flashcards and a data refresh.
    */
   onCardsRequired?: () => void;
 }
+
+// LF5 AC7: thời gian phản hồi đúng của câu cuối hiện trước khi workspace tự chuyển tiếp (không còn nút để bấm).
+const AUTO_ADVANCE_MS = 900;
 
 function sortOptions(question: QuestionDTO) {
   return question.options
@@ -68,7 +83,11 @@ export default function MemoryCheckStage({
   onAttemptCleared,
   isPassed,
   hasExercises,
+  hasOpenExercises = hasExercises,
+  answers = {},
+  explanations = {},
   onCorrectAnswer,
+  onIncorrectAnswer,
   onPassed,
   onMemoryPassed,
   onGoToExercises,
@@ -126,28 +145,79 @@ export default function MemoryCheckStage({
     if (feedbackKey) continueButtonRef.current?.focus();
   }, [feedbackKey]);
 
+  // LF5 AC7: câu đúng cuối cùng làm memory check qua mà không còn bài tập mở thì không có nút nào; workspace tự chuyển tiếp
+  // sau phản hồi. Callback mới nhất nằm trong ref để mỗi lần workspace render lại không đặt lại bộ đếm.
+  const autoAdvances = feedback?.kind === "correct" && feedback.passed && !hasOpenExercises;
+  const latestRef = useRef({ onAttemptCleared, onPassed });
+  useEffect(() => {
+    latestRef.current = { onAttemptCleared, onPassed };
+  });
+  const autoAdvanceQuestionId = autoAdvances ? currentQuestion?.id : undefined;
+  useEffect(() => {
+    if (!autoAdvanceQuestionId) return;
+    const timer = window.setTimeout(() => {
+      latestRef.current.onAttemptCleared(autoAdvanceQuestionId);
+      latestRef.current.onPassed();
+    }, AUTO_ADVANCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [autoAdvanceQuestionId]);
+
   // Khi câu trả lời vừa làm memory check qua, phản hồi của câu còn hiện (kèm nút mở bài tập) dù isPassed đã bật.
   if (isPassed && !feedback?.passed) {
+    // LF5 AC6: xem lại chỉ đọc, không ghi gì và không đổi trạng thái đã qua.
+    const reviewQuestions = questions
+      .slice()
+      .sort((left, right) => left.order_index - right.order_index);
     return (
       <section
-        aria-labelledby="memory-check-done-title"
-        className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-growth-line bg-growth-quiet p-6 text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[220ms] md:p-8"
+        aria-labelledby="memory-check-review-title"
+        className="flex w-full max-w-2xl flex-col gap-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[220ms]"
       >
-        <CheckCircle2 aria-hidden="true" className="size-10 text-growth" />
-        <h2 id="memory-check-done-title" className="text-xl font-bold text-slate-800">
-          Bạn đã trả lời đúng hết memory check
-        </h2>
-        <p className="text-slate-600">
-          {hasExercises
-            ? "Bài tập của chủ đề này đã mở."
-            : "Chủ đề này không có bài tập."}
-        </p>
+        <div className="flex flex-col gap-1">
+          <h2 id="memory-check-review-title" className="text-xl font-bold text-slate-900">
+            Xem lại Memory check
+          </h2>
+          <p className="text-sm font-medium text-slate-600">
+            {reviewQuestions.length} câu, đáp án đúng của bạn được đánh dấu.
+          </p>
+        </div>
+        <ol className="flex flex-col gap-8">
+          {reviewQuestions.map((question, index) => {
+            const headingId = `memory-review-${question.id}`;
+            const storedOptionId = answers[question.id] ?? null;
+            const explanation = explanations[question.id];
+            return (
+              <li key={question.id} className="flex flex-col gap-3">
+                <h3
+                  id={headingId}
+                  className="break-words text-lg font-bold leading-snug text-slate-900 [overflow-wrap:anywhere]"
+                >
+                  <span className="mr-2 text-slate-600">{index + 1}.</span>
+                  {question.content}
+                </h3>
+                <ChoiceGroup
+                  options={sortOptions(question)}
+                  selectedId={storedOptionId}
+                  result={storedOptionId ? "correct" : null}
+                  disabled
+                  onSelect={() => undefined}
+                  labelledBy={headingId}
+                />
+                {explanation && (
+                  <div className="flex flex-col gap-1 rounded-lg border border-growth-line bg-growth-quiet p-4 text-slate-900">
+                    <p className="flex items-center gap-2 font-bold text-growth">
+                      <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
+                      Giải thích
+                    </p>
+                    <p className="leading-relaxed">{explanation}</p>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
         {hasExercises && (
-          <Button
-            onClick={onGoToExercises}
-            size="lg"
-            className="px-8"
-          >
+          <Button onClick={onGoToExercises} size="lg" className="min-h-12 w-full sm:w-auto sm:self-start sm:px-8">
             Làm bài tập
           </Button>
         )}
@@ -197,7 +267,8 @@ export default function MemoryCheckStage({
         return;
       }
       announceTopicProgress(result, onTopicCompleted);
-      if (result.isCorrect) onCorrectAnswer(questionId, chosenId);
+      if (result.isCorrect) onCorrectAnswer(questionId, chosenId, result.explanation);
+      else onIncorrectAnswer?.(questionId);
       onAttemptSettled(questionId, chosenId, {
         kind: result.isCorrect ? "correct" : "incorrect",
         explanation: result.explanation,
@@ -306,18 +377,16 @@ export default function MemoryCheckStage({
       </div>
 
       {feedback ? (
-        <Button
-          ref={continueButtonRef}
-          onClick={advance}
-          size="lg"
-          className="min-h-12 w-full"
-        >
-          {feedback.passed
-            ? hasExercises
-              ? "Mở bài tập"
-              : "Hoàn thành memory check"
-            : "Tiếp tục"}
-        </Button>
+        autoAdvances ? null : (
+          <Button
+            ref={continueButtonRef}
+            onClick={advance}
+            size="lg"
+            className="min-h-12 w-full"
+          >
+            {feedback.passed && hasOpenExercises ? "Mở bài tập" : "Tiếp tục"}
+          </Button>
+        )
       ) : (
         <Button
           onClick={submit}
