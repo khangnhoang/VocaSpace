@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // E2E dùng thư mục build riêng (NEXT_DIST_DIR=.next-e2e) để chạy cạnh `next dev` của dev server đang mở; mặc định vẫn là .next.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   images: {
     remotePatterns: [
       {

@@ -29,5 +29,7 @@ export default defineConfig({
     url: baseURL,
     timeout: 120_000,
     reuseExistingServer: false,
+    // Build vào .next-e2e để không đụng khóa `.next/dev/lock` của `next dev` đang chạy ở cổng 3000.
+    env: { NEXT_DIST_DIR: ".next-e2e" },
   },
 });
