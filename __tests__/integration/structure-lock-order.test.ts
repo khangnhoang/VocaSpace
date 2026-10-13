@@ -17,11 +17,16 @@ import {
 // - Invariant cần giữ: khi RPC đang chờ course advisory lock thì nó chưa giữ hàng chapters/courses mà đường ghi này từng khóa trước; lock `nowait` của người giữ phải thành công (không SQLSTATE 55P03).
 // - Kết quả verify gần nhất: passed (5/5) sau migration LF7, và 5/5 fail với SQLSTATE 55P03 trên baseline, bằng `ALLOW_DB_INTEGRATION_TESTS=true npm run test:integration -- __tests__/integration/structure-lock-order.test.ts` trên runtime cô lập (API 45441).
 // - Ghi chú: trên baseline (trước migration LF7) mỗi test fail vì lock `nowait` trả SQLSTATE 55P03; rename baseline là `update chapters set title` trực tiếp, sau LF7 là RPC `rename_chapter`.
+// - Chạy baseline (G2): áp down script `supabase/rollbacks/20261013090000_lf7_structure_lock_order.down.sql` lên DB cô lập (45442) để bốn hàm về bản cũ và không còn `rename_chapter`,
+//   rồi chạy với `LF7_LOCK_ORDER_BASELINE=1` (case rename gọi `teacher.from("chapters").update({ title })` thay vì RPC). Không đặt biến này thì case rename gọi RPC `rename_chapter`
+//   và là bài test sau migration, không bị nới lỏng. Đặt biến này sau migration thì cũng fail 55P03: UPDATE trực tiếp vẫn giữ hàng chapter trước (residual đã chấp nhận ở STRUCTURE-LOCK-001).
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const PASSWORD = "123123";
+// Chỉ để chứng minh baseline: đổi lời gọi rename của case cuối sang UPDATE trực tiếp (xem ghi chú đầu file).
+const RENAME_BASELINE_DIRECT_UPDATE = process.env.LF7_LOCK_ORDER_BASELINE === "1";
 
 const USERS = {
   admin: { email: "admin@gmail.com", id: "11111111-1111-4111-8111-111111111111" },
@@ -276,19 +281,25 @@ describe("LF7 structure writes take the course advisory lock before any row lock
     expect(probe.result.data).toMatchObject({ status: "created", chapter: { title: "LF7 created chapter", order_index: 2 } });
   }, 30_000);
 
-  // Baseline (trước LF7) gọi trực tiếp `update chapters set title`; sau LF7 gọi RPC `rename_chapter`.
-  it("renames a chapter through rename_chapter for a teacher without holding the chapter row while it waits for the course lock", async () => {
+  // Sau LF7 gọi RPC `rename_chapter`; baseline (trước LF7) là `update chapters set title` trực tiếp (LF7_LOCK_ORDER_BASELINE=1).
+  it("renames a chapter (LF7: rename_chapter; baseline: direct update of chapters.title) for a teacher without holding the chapter row while it waits for the course lock", async () => {
     const fixture = await createFixture({ chapterCount: 1, topicsInFirstChapter: 0 });
     const probe = await probeLockOrder({
       courseId: fixture.courseId,
-      waitingQueryPattern: "rename_chapter",
+      waitingQueryPattern: RENAME_BASELINE_DIRECT_UPDATE ? "chapters" : "rename_chapter",
       row: { table: "chapters", id: fixture.chapterIds[0] },
-      call: () => teacher.rpc("rename_chapter", { p_chapter_id: fixture.chapterIds[0], p_title: "LF7 renamed chapter" }),
+      call: () => RENAME_BASELINE_DIRECT_UPDATE
+        ? teacher.from("chapters").update({ title: "LF7 renamed chapter" }).eq("id", fixture.chapterIds[0]).select("id, title").single()
+        : teacher.rpc("rename_chapter", { p_chapter_id: fixture.chapterIds[0], p_title: "LF7 renamed chapter" }),
     });
 
     expect(probe.sqlstate).toBeNull();
     expect(probe.result.error).toBeNull();
-    expect(probe.result.data).toMatchObject({ status: "renamed", chapter: { id: fixture.chapterIds[0], title: "LF7 renamed chapter" } });
+    expect(probe.result.data).toMatchObject(
+      RENAME_BASELINE_DIRECT_UPDATE
+        ? { id: fixture.chapterIds[0], title: "LF7 renamed chapter" }
+        : { status: "renamed", chapter: { id: fixture.chapterIds[0], title: "LF7 renamed chapter" } },
+    );
     const { data } = await service.from("chapters").select("title").eq("id", fixture.chapterIds[0]).single();
     expect(data?.title).toBe("LF7 renamed chapter");
   }, 30_000);

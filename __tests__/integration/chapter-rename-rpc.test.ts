@@ -154,6 +154,10 @@ async function renameBothWays(
   targets: { rpcChapterId: string; directChapterId: string },
   newTitle: string | null,
 ) {
+  const [rpcBefore, directBefore] = await Promise.all([
+    storedTitle(targets.rpcChapterId),
+    storedTitle(targets.directChapterId),
+  ]);
   const rpc = await caller.rpc("rename_chapter", { p_chapter_id: targets.rpcChapterId, p_title: newTitle });
   const direct = await caller.from("chapters")
     .update({ title: newTitle as string })
@@ -167,6 +171,10 @@ async function renameBothWays(
   return {
     rpc,
     direct,
+    rpcBefore,
+    directBefore,
+    rpcStored,
+    directStored,
     rpcChanged: rpcStored === newTitle,
     directChanged: directStored === newTitle,
   };
@@ -266,8 +274,8 @@ describe("rename_chapter RPC", () => {
     // RLS từ chối update trực tiếp bằng 0 dòng, không có lỗi.
     expect(outcome.direct.error).toBeNull();
     expect(outcome.direct.data).toHaveLength(0);
-    expect(outcome.rpcChanged).toBe(false);
-    expect(outcome.directChanged).toBe(false);
+    expect(outcome.rpcStored).toBe(outcome.rpcBefore);
+    expect(outcome.directStored).toBe(outcome.directBefore);
   });
 
   it("gives a global admin without membership the same result as the direct update", async () => {
@@ -280,7 +288,7 @@ describe("rename_chapter RPC", () => {
     expect(outcome.direct.error).toBeNull();
     expect(outcome.direct.data).toHaveLength(0);
     expect(outcome.rpcChanged).toBe(outcome.directChanged);
-    expect(outcome.rpcChanged).toBe(false);
+    expect(outcome.rpcStored).toBe(outcome.rpcBefore);
   });
 
   it("gives a student-role collaborator with co_owner rights the same result as the direct update", async () => {
@@ -306,8 +314,8 @@ describe("rename_chapter RPC", () => {
 
     expect(outcome.rpc.error?.message).toContain("COURSE_EDIT_FORBIDDEN");
     expect(outcome.direct.data).toHaveLength(0);
-    expect(outcome.rpcChanged).toBe(false);
-    expect(outcome.directChanged).toBe(false);
+    expect(outcome.rpcStored).toBe(outcome.rpcBefore);
+    expect(outcome.directStored).toBe(outcome.directBefore);
   });
 
   it("refuses an anonymous caller without changing the chapter", async () => {
@@ -329,8 +337,8 @@ describe("rename_chapter RPC", () => {
 
     expect(outcome.rpc.error?.message).toContain("CHAPTER_REMOVED");
     expect(outcome.direct.data).toHaveLength(0);
-    expect(outcome.rpcChanged).toBe(false);
-    expect(outcome.directChanged).toBe(false);
+    expect(outcome.rpcStored).toBe(outcome.rpcBefore);
+    expect(outcome.directStored).toBe(outcome.directBefore);
   });
 
   it("gives CHAPTER_NOT_FOUND for a chapter that does not exist", async () => {
@@ -350,8 +358,8 @@ describe("rename_chapter RPC", () => {
     expect(outcome.rpc.error?.message).toContain("TOPIC_PENDING_FROZEN");
     expect(outcome.direct.error).toBeNull();
     expect(outcome.direct.data).toHaveLength(0);
-    expect(outcome.rpcChanged).toBe(false);
-    expect(outcome.directChanged).toBe(false);
+    expect(outcome.rpcStored).toBe(outcome.rpcBefore);
+    expect(outcome.directStored).toBe(outcome.directBefore);
   });
 
   it("gives CHAPTER_TITLE_REQUIRED for a null title, where the direct update violates not null", async () => {
@@ -362,8 +370,8 @@ describe("rename_chapter RPC", () => {
 
     expect(outcome.rpc.error?.message).toContain("CHAPTER_TITLE_REQUIRED");
     expect(outcome.direct.error?.code).toBe("23502");
-    expect(outcome.rpcChanged).toBe(false);
-    expect(outcome.directChanged).toBe(false);
+    expect(outcome.rpcStored).toBe(outcome.rpcBefore);
+    expect(outcome.directStored).toBe(outcome.directBefore);
   });
 
   // Độ dài do Server Action sở hữu (Zod đếm theo UTF-16, sau trim): RPC phải lưu mọi tên app đã chấp nhận.
