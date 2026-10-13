@@ -9,14 +9,14 @@ This file was migrated to the repository template and translated to English on 2
 | Field | Value |
 | --- | --- |
 | Spec revision | [implementation-plans/lf7/plan.md](./implementation-plans/lf7/plan.md) r3, Codex plan review PASS (rounds 1–3) and Owner approval (2026-10-13) (Decision 31, Owner decisions of 2026-10-13) |
-| Current unit / checkpoint | LF7 CP1 (plan) on `fix/reorder-lock-order-and-lint-baseline` (base `971702e`) |
-| Status | Planning; no implementation. |
-| Completed evidence | LF6 and earlier units: see Milestones. |
+| Current unit / checkpoint | LF7 CP5 (docs and final verification) on `fix/reorder-lock-order-and-lint-baseline` (base `971702e`) |
+| Status | Automated checks passed; review (Codex), manual review and Owner decisions pending. |
+| Completed evidence | LF7 CP2 to CP5 local commits (see Milestones). On the isolated runtime (API 45441, DB 45442): the five AC4 deadlock tests failed on the baseline with `55P03` (inverted order) and pass after the migration; 16 `rename_chapter` tests pass; the AC5 suites pass (7 files, 93 tests). `npm run test:ci`: 1346 tests pass, plus 2 failed files that are gitignored local `test-results/*.spec.ts` leftovers (not present in CI). `npm run lint` exit 0 with 0 problems; `tsc --noEmit` has errors only under `test-results/`; the `.agents` node test files and `docs:check` pass. LF6 and earlier units: see Milestones. |
 | Accepted deviations | None for LF7. |
-| Blockers / Owner decisions | None. |
-| Next action | The implementor runs CP2 to CP5 and commits each locally; then Main reviews (Codex) and reports to the Owner. |
-| Current authority | Owner grant 2026-10-13: commit the plan and implement CP2 to CP5 with local commits on `fix/reorder-lock-order-and-lint-baseline`. No push, PR, merge, root or hosted database change. |
-| Hosted state | Latest hosted migration is `20261011120000` (LF3). LF4, LF5 and LF6 have no migration or hosted step. LF7 adds one migration; its hosted push needs a separate Owner grant. |
+| Blockers / Owner decisions | None. The Owner decides when to apply the migration to root and hosted (see Hosted state). |
+| Next action | Main reviews the LF7 diff (Codex) and reports to the Owner; the Owner decides on push, PR and the migration steps. |
+| Current authority | Owner grant 2026-10-13: local commits on `fix/reorder-lock-order-and-lint-baseline`. No push, PR, merge, root or hosted database change. |
+| Hosted state | Latest hosted migration is `20261011120000` (LF3). LF4, LF5 and LF6 have no migration or hosted step. LF7 adds migration `20261013090000_lf7_structure_lock_order.sql` (with a down script in `supabase/rollbacks/`); it is applied only to the isolated runtime so far, and applying it to root or hosted needs a separate Owner grant. |
 
 ## Milestones
 
@@ -125,3 +125,8 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-13 LF6 HEADER-001 resolved by evidence: the Owner confirmed on :3000 with reduced motion that the account dropdown shows every item on the first open and on a reopen, and the reduced-motion account-menu smoke passes for student, teacher and admin (`0323b8d`), so AC7 holds without any header change; the cause of the original 2026-10-12 report stays unknown (`0323b8d`).
 - 2026-10-13 LF6 Owner QA round 1 (plan amendment `1a1ef95`): the thread's step buttons now show a pointer cursor and a `slate-200` hover background (locked steps too; the current step stays a non-interactive span); the completion screen's `Xem lại` button, its explanation line and the thread highlight ring (and the scroll, focus and timer code behind them) are removed, and one small muted hint, `Bạn có thể di chuyển nhanh giữa các nội dung bằng cách nhấn vào nội dung tương ứng trên thanh tiến trình.`, sits under the thread and the lock-reason live region on every stage including the completion screen whenever the thread has more than one step. The hint takes the thread column's width and wraps by itself, so the one-line thread and the 44 px coarse hit area are unchanged. Component tests assert the hint on each stage, its absence for a single-step or empty topic, and its position outside and after the live region; the completion smoke asserts the pointer cursor and the hover background by computed style, the hint geometry at 375 and 320 px, and that the button, line and ring are gone, with normal and reduced motion (`b16e065`).
 - 2026-10-13 LF6 merged as a merge commit. CI run `38374060806` was green: `test:ci` 1342 tests in 101 files, `docs:check`, `build`, `production-gate` and the Vercel preview deploy; no migration and no hosted step (PR 150, `971702e`).
+- 2026-10-13 LF7 CP1: the plan (r3), Decision 31, the unit row, STRUCTURE-LOCK-001 and the LF6 merge milestone were committed after Codex PASS and Owner approval (`8641c4f`).
+- 2026-10-13 LF7 CP2 (AC1, AC2, AC4, AC5): migration `20261013090000` makes `move_topic_order`, `move_topic_to_position`, `move_chapter_order` and `create_chapter_ordered` take the course advisory lock first and adds `rename_chapter`; five AC4 deadlock tests fail on the baseline with `55P03` and pass after it, and a new `rename_chapter` suite (16 tests) matches the direct update's results (`be6bd6b`).
+- 2026-10-13 LF7 CP3 (AC3): `updateChapter` renames through `rename_chapter` with the same messages and return shape (`fca09f3`).
+- 2026-10-13 LF7 CP4 (AC6, AC7): `eslint.config.mjs` ignores three generated output folders, the 7 errors and 11 warnings in tracked files are fixed (no behaviour change; `AddExerciseDialog` media fields now read through `useWatch`, with a new component test), and CI runs `npm run lint` before the tests; the commits are `08ca4d8` and `a4485b7` (`08ca4d8`).
+- 2026-10-13 LF7 CP5 (AC8 and final verification): this docs update moves STRUCTURE-LOCK-001 and QUALITY-001 to Resolved (this commit).
