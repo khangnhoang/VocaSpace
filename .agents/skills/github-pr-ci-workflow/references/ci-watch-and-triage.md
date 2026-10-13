@@ -27,9 +27,9 @@ Rules:
 
 The repository currently has GitHub Actions CI in `.github/workflows/ci.yml` with:
 
-* `test-and-build`;
-* conditional Supabase integration tests for integration-relevant changes;
-* `production-gate`.
+* parallel jobs `changes`, `checks`, `unit` and `build`;
+* conditional Supabase jobs `integration` and `learner-integrity` for integration-relevant changes (`skipped` is expected otherwise);
+* `production-gate`, which requires every other job to succeed and the two Supabase jobs to be skipped only when `changes` did not require them.
 
 Do not rename or duplicate `production-gate` without checking the production release gate SOP and owner approval.
 
