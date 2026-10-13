@@ -72,6 +72,7 @@ Do not read every reference merely because this skill is active. Each referenced
 * Do not stage changes whose ownership is unclear.
 * Do not claim verification passed unless it ran.
 * Do not discard work with destructive Git commands without explicit approval.
+* Never create a temporary worktree whose `node_modules` is a junction or symlink to another checkout; removing it on Windows can delete the target's `node_modules`.
 
 ## Specialist escalation signals
 
