@@ -20,6 +20,9 @@ import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 import CourseReadinessIssueList from "./CourseReadinessIssueList";
 import EmptyCourseDashboard from "./EmptyCourseDashboard";
 import CollaboratorManagementDialog from "./CollaboratorManagementDialog";
+import CourseListingReviewControls, {
+  courseStatusLabels,
+} from "./CourseListingReviewControls";
 import CourseCollaborationLeaveDialog from "./CourseCollaborationLeaveDialog";
 import CourseCollaboratorSummary from "./CourseCollaboratorSummary";
 import { CoursePreviewOverviewNotice } from "./course-preview-controls";
@@ -27,15 +30,6 @@ import { CoursePreviewOverviewNotice } from "./course-preview-controls";
 interface CourseOverviewProps {
   readiness: CourseDashboardReadiness;
 }
-
-const statusLabels: Record<
-  NonNullable<CourseDashboardReadiness["course"]["status"]>,
-  string
-> = {
-  draft: "Bản nháp",
-  pending: "Chờ duyệt",
-  published: "Đã xuất bản",
-};
 
 const roleLabels: Record<CourseDashboardReadiness["role"], string> = {
   owner: "Chủ sở hữu",
@@ -54,7 +48,7 @@ function formatPrice(price: number | null) {
 }
 
 function formatStatus(status: CourseDashboardReadiness["course"]["status"]) {
-  return status ? statusLabels[status] : "Bản nháp";
+  return status ? courseStatusLabels[status] : "Bản nháp";
 }
 
 function formatOrderIndex(orderIndex: number | null) {
@@ -213,6 +207,7 @@ export default function CourseOverview({ readiness }: CourseOverviewProps) {
                     </Link>
                   </Button>
                 ) : null}
+                <CourseListingReviewControls readiness={readiness} />
               </div>
             </div>
           </div>

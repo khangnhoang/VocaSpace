@@ -45,6 +45,8 @@ function validGraph() {
       status: null,
       order_index: null,
       removed_at: null,
+      reject_message: null,
+      reviewed_at: null,
     },
     chapters: [
       {
@@ -152,6 +154,30 @@ describe("courseReadinessGraphSchema", () => {
     graph.answerOptions = [];
 
     expect(courseReadinessGraphSchema.safeParse(graph).success).toBe(true);
+  });
+
+  it("requires the review fields AD2 carries on the course", () => {
+    const graph = validGraph();
+    const { reject_message: _rejectMessage, ...courseWithoutRejectMessage } =
+      graph.course;
+    void _rejectMessage;
+
+    expect(
+      courseReadinessGraphSchema.safeParse({
+        ...graph,
+        course: courseWithoutRejectMessage,
+      }).success,
+    ).toBe(false);
+    expect(
+      courseReadinessGraphSchema.safeParse({
+        ...graph,
+        course: {
+          ...graph.course,
+          reject_message: "Cần bổ sung nội dung bài học.",
+          reviewed_at: "2026-10-14T00:00:00.000Z",
+        },
+      }).success,
+    ).toBe(true);
   });
 
   it("rejects missing required course identity fields", () => {

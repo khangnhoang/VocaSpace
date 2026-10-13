@@ -66,6 +66,8 @@ function accessRow(role: "owner" | "co_owner" | "editor" | "previewer") {
       status: "draft",
       order_index: 1,
       removed_at: null,
+      reject_message: null,
+      reviewed_at: null,
     },
   };
 }
@@ -261,6 +263,8 @@ describe("getCourseDashboardReadiness", () => {
 
     const accessCall = calls.find((call) => call.table === "course_collaborators");
     expect(accessCall?.selects[0]).toContain("courses!inner");
+    expect(accessCall?.selects[0]).toContain("reject_message");
+    expect(accessCall?.selects[0]).toContain("reviewed_at");
     expect(accessCall?.eqs).toEqual([
       ["course_id", ids.course],
       ["user_id", ids.user],
@@ -288,6 +292,36 @@ describe("getCourseDashboardReadiness", () => {
       "questions",
       "question_options",
     ]);
+  });
+
+  it("carries the review outcome of the course into the dashboard data", async () => {
+    const row = accessRow("owner");
+    const { client } = createReadinessClient({
+      course_collaborators: {
+        data: {
+          ...row,
+          courses: {
+            ...row.courses,
+            reject_message: "Nội dung bài 1 còn thiếu phần giải thích.",
+            reviewed_at: "2026-10-14T00:00:00.000Z",
+          },
+        },
+        error: null,
+      },
+    });
+    mockedCreateClient.mockResolvedValueOnce(
+      client as unknown as Awaited<ReturnType<typeof createClient>>,
+    );
+
+    const result = await getCourseDashboardReadiness(ids.course);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.course).toMatchObject({
+      reject_message: "Nội dung bài 1 còn thiếu phần giải thích.",
+      reviewed_at: "2026-10-14T00:00:00.000Z",
+    });
+    expect(result.data.publishedTopicCount).toBe(0);
   });
 
   it.each(["co_owner", "editor"] as const)(

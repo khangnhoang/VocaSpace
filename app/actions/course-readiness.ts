@@ -116,7 +116,7 @@ export async function getCourseDashboardReadiness(
       `
       role,
       courses!inner (
-        id, title, slug, description, thumbnail_url, price, status, order_index, removed_at
+        id, title, slug, description, thumbnail_url, price, status, order_index, removed_at, reject_message, reviewed_at
       )
     `,
     )

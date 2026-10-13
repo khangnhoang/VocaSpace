@@ -669,6 +669,8 @@ export function deriveCourseDashboardReadiness(
       price: graph.course.price,
       status: graph.course.status,
       order_index: graph.course.order_index,
+      reject_message: graph.course.reject_message,
+      reviewed_at: graph.course.reviewed_at,
     },
     counts: {
       chapters: activeChapters.length,
@@ -679,6 +681,9 @@ export function deriveCourseDashboardReadiness(
       questions: activeQuestions.length,
       answerOptions: activeOptions.length,
     },
+    publishedTopicCount: activeTopics.filter(
+      (topic) => topic.status === "published",
+    ).length,
     issues: orderedIssues,
     primaryCta: firstActionableIssue
       ? {
