@@ -22,5 +22,5 @@ Plan: [AR1 detail plan](./implementation-plans/ar1/plan.md). Git history is the 
 - 2026-10-14 AR1 CP2 review fix: restored the C3 and C1 conditions in `.claude/rules.md` and shortened Decision 15 (`e85dc84`).
 - 2026-10-14 AR1 CP3: Codex implementation review passed and both fresh-reader cases passed (`d0f2482`).
 - 2026-10-14 AR1 Owner addition: Memory section and Discovery wording in `.claude/rules.md` (`1302948`).
-- 2026-10-14 AR1 merged (PR 153, `d1b990b`); CP4 memory cleanup done.
+- 2026-10-14 AR1 merged and CP4 memory cleanup done (PR 153, `d1b990b`).
 - 2026-10-14 Explore rule wording: Haiku reports findings, Main verifies the critical files (this commit).
