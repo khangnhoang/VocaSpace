@@ -5,12 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDeckReviewCards } from "@/app/actions/profile";
 import { submitCardReview } from "@/app/actions/review";
 import ReviewSheet from "@/app/(client)/learn/_components/ReviewSheet";
+import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 
 // Test plan:
 // - Mục tiêu: review từng lượt chỉ tiến sau rating đã lưu; lỗi giữ đáp án và cho retry.
 // - Loại: component interaction, dialog thật; chỉ mock action để kiểm tra xử lý kết quả client.
 // - Case: loading/empty/error/retry, reveal chỉ lộ mặt hiện tại, giữ mặt đáp án khi chuyển thẻ, bốn rating, next batch khi còn thẻ, hết thẻ chỉ quay lại, warning và stale load.
 // - Resilience: cùng tick chỉ lưu một lần; pending ngăn nút đóng, Escape và outside.
+// - LF6 (AC5): bốn nút rating giữ nhãn và thứ tự, dùng đúng lớp Attention (Lại/Khó) hoặc Recall (Ổn/Dễ) từ định nghĩa dùng chung với FlashcardStage, và vẫn bị khóa khi đang lưu.
 // - Giới hạn: không chứng minh RLS/FSRS persistence; browser local kiểm tra save/reopen/focus.
 // - Verify: xem State D6 trong progress.md.
 vi.mock("@/app/actions/profile", () => ({ getDeckReviewCards: vi.fn() }));
@@ -227,5 +229,46 @@ describe("D6 review batches", () => {
     await waitFor(() => expect(screen.queryByText("Đang lưu đánh giá…")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Đóng giao diện ôn tập" }));
     expect(onComplete).toHaveBeenCalledOnce();
+  });
+});
+
+describe("LF6 rating colours (AC5)", () => {
+  // Lại/Khó mang Attention (mức nhớ khó hơn), Ổn/Dễ mang Recall; Growth và Correction không dùng cho tự đánh giá.
+  const expected: Record<string, string[]> = {
+    Lại: ["border-attention-line", "bg-attention-quiet", "text-attention"],
+    Khó: ["border-attention-line", "bg-white", "text-attention"],
+    Ổn: ["border-recall-line", "bg-white", "text-recall"],
+    Dễ: ["border-recall-line", "bg-recall-quiet", "text-recall"],
+  };
+
+  it("shows the four ratings in order with the shared Attention and Recall classes, one definition for both surfaces", async () => {
+    await openReview();
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    const labels = ["Lại", "Khó", "Ổn", "Dễ"];
+    const buttons = labels.map((name) => screen.getByRole("button", { name }));
+    expect(buttons.map((button) => button.textContent)).toEqual(labels);
+    expect(FLASHCARD_RATINGS.map(({ label }) => label)).toEqual(labels);
+    buttons.forEach((button, index) => {
+      const classes = button.className.split(/\s+/);
+      for (const token of expected[labels[index]]) expect(classes).toContain(token);
+      for (const token of FLASHCARD_RATINGS[index].className.split(/\s+/)) expect(classes).toContain(token);
+      expect(classes.some((token) => /^(hover:)?(bg|text|border)-(growth|correction)/.test(token))).toBe(false);
+    });
+    // The pair for each colour family must not mix: no Recall token on an Attention rating and vice versa.
+    expect(buttons[0].className).not.toMatch(/recall/);
+    expect(buttons[2].className).not.toMatch(/attention/);
+  });
+
+  it("keeps every rating disabled while a save is in flight", async () => {
+    const pending = deferred<{ success: true }>();
+    submit.mockReturnValueOnce(pending.promise);
+    await openReview();
+    revealAndRate("Ổn");
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    for (const name of ["Lại", "Khó", "Ổn", "Dễ"]) {
+      expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+    }
+    pending.resolve({ success: true });
+    await waitFor(() => expect(screen.queryByText("Đang lưu đánh giá…")).toBeNull());
   });
 });

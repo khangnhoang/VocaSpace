@@ -5,12 +5,6 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export interface CompletionReviewStage {
-  key: string;
-  label: string;
-  onSelect: () => void;
-}
-
 interface TopicCompletionPanelProps {
   topicTitle: string;
   /** `previous` is the value before this completion; it equals `completed` on a settled screen. */
@@ -32,7 +26,6 @@ interface TopicCompletionPanelProps {
   next:
     | { kind: "topic"; href: string; unitLabel: string; detail: string | null }
     | { kind: "overview"; href: string };
-  reviewStages: CompletionReviewStage[];
 }
 
 function prefersReducedMotion() {
@@ -102,12 +95,6 @@ function ProgressFill({ previous, completed, total, sequence, revealed, timing, 
   );
 }
 
-function reviewGridClass(count: number) {
-  if (count <= 1) return "grid grid-cols-1 gap-2";
-  if (count === 2) return "grid grid-cols-2 gap-2";
-  return "grid grid-cols-2 gap-2 sm:grid-cols-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1";
-}
-
 /**
  * LF5 AC3/AC8: the shared completion screen of a finished topic. The text, the
  * values and every action are rendered at once; only the bars move. The sequence
@@ -124,7 +111,6 @@ export default function TopicCompletionPanel({
   dueCount,
   onReviewDue,
   next,
-  reviewStages,
 }: TopicCompletionPanelProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [sequence] = useState(() => animate && !prefersReducedMotion());
@@ -279,24 +265,6 @@ export default function TopicCompletionPanel({
           </Button>
         )}
       </div>
-
-      {reviewStages.length > 0 && (
-        // Owner Q14: an equal-width grid that spans the same width as the actions above; an odd last item spans both
-        // columns on a phone, and three stages share one row from the `sm` breakpoint.
-        <div role="group" aria-label="Xem lại các bước" className={reviewGridClass(reviewStages.length)}>
-          {reviewStages.map((stage) => (
-            <Button
-              key={stage.key}
-              type="button"
-              variant="outline"
-              className="h-auto min-h-11 w-full whitespace-normal px-3 py-2 text-center"
-              onClick={stage.onSelect}
-            >
-              Xem lại {stage.label}
-            </Button>
-          ))}
-        </div>
-      )}
     </section>
   );
 }

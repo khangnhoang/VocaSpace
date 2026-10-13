@@ -8,6 +8,7 @@ import { watchBrowserConsole } from "../support/console";
 // - Loại: browser local với action/DB thật; B2 fixture kiểm tra eligibility và cardinality trước QA.
 // - Case: 0/2/51 due, hết thẻ chỉ quay lại, còn thẻ mới ôn lượt tiếp, long content, 320/375/768/1280, keyboard/focus, reduced motion.
 // - Invariant: 50 thẻ đầu hoàn tất vẫn còn lượt kế; query và FSRS giữ nguyên.
+// - LF6 (AC5/AC6): bốn nút rating mang màu Attention (Lại/Khó) hoặc Recall (Ổn/Dễ); lật thẻ 400 ms và vào thẻ 300 ms khi bình thường, không lật không animation khi reduced motion (đo computed style, hai chế độ tách riêng).
 // - Giới hạn: pending/failure/stale response nằm ở component; zoom CSS không thay thế browser zoom.
 // - Verify: xem State D6 trong progress.md.
 const credentials = { E2E_STUDENT_EMAIL: "student@gmail.com", E2E_STUDENT_PASSWORD: "123123" };
@@ -100,3 +101,41 @@ test("zero-due dashboard does not invent a review entry", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Hôm nay chưa có thẻ cần ôn" })).toBeVisible();
   } finally { await fixture.restore(); }
 });
+
+// LF6 AC6: Owner Q3, lật thẻ 400 ms và vào thẻ 300 ms; reduced motion bỏ cả hai.
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`review card flip and entry timing with ${reducedMotion} motion, rating colours by family`, async ({ page }) => {
+    const fixture = await prepareReviewSessionFixture(2, true);
+    try {
+      await page.emulateMedia({ reducedMotion });
+      await loginAsStudent(page, credentials);
+      const dialog = await open(page);
+      await dialog.getByRole("button", { name: "Hiện đáp án" }).click();
+      const timing = await dialog.locator("[data-revealed]").evaluate((card) => {
+        const flip = getComputedStyle(card);
+        const plane = getComputedStyle(card.parentElement as HTMLElement);
+        return {
+          transitionDuration: flip.transitionDuration,
+          transform: flip.transform,
+          animationName: plane.animationName,
+          animationDuration: plane.animationDuration,
+        };
+      });
+      if (reducedMotion === "reduce") {
+        expect(timing.transitionDuration).toBe("0s");
+        expect(timing.animationName).toBe("none");
+        expect(timing.transform).toBe("none");
+      } else {
+        expect(timing.transitionDuration).toBe("0.4s");
+        expect(timing.animationName).not.toBe("none");
+        expect(timing.animationDuration).toBe("0.3s");
+      }
+      // Attention (Lại, Khó) and Recall (Ổn, Dễ) read from the same definition as the workspace card.
+      const textColour = (name: string) => dialog.getByRole("button", { name, exact: true }).evaluate((el) => getComputedStyle(el).color);
+      const [again, hard, good, easy] = await Promise.all(["Lại", "Khó", "Ổn", "Dễ"].map(textColour));
+      expect(again).toBe(hard);
+      expect(good).toBe(easy);
+      expect(again).not.toBe(good);
+    } finally { await fixture.restore(); }
+  });
+}

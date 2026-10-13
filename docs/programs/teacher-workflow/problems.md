@@ -36,26 +36,6 @@ File này là nơi ghi chi tiết các vấn đề, rủi ro, follow-up và tech
 - Verification cần có: release note hoặc QA handoff xác nhận expectation mobile; không xem đây là MVP blocker.
 - Ghi chú: PR10 mobile QA hardening đã được implement và push ở commit `f22367b fix(course-workspace): harden PR10 mobile QA issues`.
 
-### PR7-ORDER-001: Chapter/topic ordering chưa có RPC atomic
-
-- Trạng thái: Đã xử lý trong PR7.
-- Phát hiện ở: PR4 structure workspace và PR7 Checkpoint 1/1B discovery.
-- Mô tả: `createChapter` và `createTopic` hiện tính `order_index` kế tiếp trong Server Action bằng `max(order_index) + 1`. Cách này không chạy trong một RPC atomic, không khóa scope sắp xếp, và không tự bảo vệ khi nhiều teacher action đồng thời đọc cùng giá trị `max`.
-- Tác động: Đây chưa nhất thiết là bug người dùng đang thấy, nhưng là khoảng hở an toàn dữ liệu. Nếu database không enforce active unique order, concurrent create/move có thể tạo duplicate active order trong cùng course/chapter.
-- Hướng xử lý: PR7 đã thêm RPC một bước cho move up/down và harden create ordering. UI gửi `id + direction` cho move; database/RPC chọn neighbor từ trạng thái DB mới nhất, khóa phạm vi cần thiết, swap trong transaction và trả kết quả ổn định. Chi tiết create hardening ở `PR7-ORDER-004`.
-- Verification: RPC integration tests, action/schema tests, component tests và smoke E2E đã cover create ordering, move thành công, first/last no-op, unauthorized actor, soft-deleted rows, duplicate/race-sensitive invariant và persisted order sau refresh/reopen.
-- Ghi chú: Append-create race không còn defer ngoài PR7; đây là deliberate scope expansion đã được implement.
-
-### PR7-ORDER-002: Chưa có active unique ordering constraint/index cho chapter/topic
-
-- Trạng thái: Đã xử lý trong PR7 local/migration; production apply đã xử lý trong session trước.
-- Phát hiện ở: PR7 Checkpoint 1/1B migration/schema audit và local DB read-only query.
-- Mô tả: Không tìm thấy unique constraint/index active-only cho `chapters(course_id, order_index)` hoặc `topics(chapter_id, order_index)`. Local DB không có duplicate active order, nhưng fixture quá nhỏ nên không chứng minh được production an toàn.
-- Tác động: Duplicate active order sẽ khiến ordering phụ thuộc tie-breaker phòng thủ. Các path không dùng cùng tie-breaker, nên behavior có thể khó đoán nếu dữ liệu bị lệch.
-- Hướng xử lý: PR7 migration thêm partial unique indexes active-only cho `chapters(course_id, order_index)` và `topics(chapter_id, order_index)`, đồng thời fail loud nếu dữ liệu active duplicate đã tồn tại thay vì renumber legacy data trong PR7.
-- Verification: local migration/RPC verification và integration tests đã chứng minh active unique invariant, soft-deleted rows không chặn active order, và move/create giữ invariant. Production apply/preflight thuộc lịch sử PR7 đã xử lý trước PR10; pass hiện tại không thêm DB gate mới.
-- Ghi chú: Topic order chỉ unique trong `chapter_id`; topic `order_index` trùng giữa các chapter là hợp lệ.
-
 ### PR7-ORDER-003: Batch full-list ordering không thuộc MVP PR7
 
 - Trạng thái: Theo dõi; quyết định MVP đã chốt.
@@ -65,59 +45,6 @@ File này là nơi ghi chi tiết các vấn đề, rủi ro, follow-up và tech
 - Hướng xử lý: PR7 dùng move up/down một bước. UI chỉ gửi `id + direction`; DB/RPC tự chọn neighbor từ latest DB state.
 - Verification cần có: tests không phụ thuộc client gửi danh sách đầy đủ; Server Action reject/ignore payload ngoài contract nếu có schema boundary.
 - Ghi chú: Batch full-list ordering để dành cho drag-and-drop hoặc bulk reorder tương lai.
-
-### PR7-ORDER-004: Create chapter/topic cần RPC atomic và parent lock
-
-- Trạng thái: Đã xử lý trong PR7.
-- Phát hiện ở: PR7 Checkpoint 2C scope correction.
-- Mô tả: `createChapter` và `createTopic` hiện tính next order trong Server Actions. Cách này không DB-atomic, không khóa parent row và có thể đọc cùng `max(order_index)` khi nhiều request tạo cùng lúc.
-- Tác động: Nếu create tiếp tục nằm ngoài transaction/RPC an toàn, partial unique index active-only có thể fail loud khi concurrent create đụng order; nếu không có unique index thì có thể sinh duplicate active order trong cùng scope.
-- Hướng xử lý: PR7 đã fix thay vì defer. Create chapter khóa parent row là course; create topic khóa parent row là chapter. RPC tính next order bằng `max(order_index) + 1`, tính theo tất cả row trong cùng scope gồm cả soft-deleted rows, rồi insert trong cùng transaction.
-- Chính sách soft-delete: Không tái sử dụng slot của row đã soft-delete. Soft-deleted rows có thể giữ `order_index` cũ để future restore an toàn hơn; move chỉ xét active rows làm visible neighbors.
-- Verification: local preflight/migration verification, RPC integration tests, action tests và smoke E2E đã cover create chapter/topic ordered path, permission/failure shapes, persisted order và không reuse soft-delete slots.
-- Ghi chú: Đây là deliberate scope expansion của PR7 để ordering safety bao phủ cả create và move.
-
-### PR7-ORDER-005: Move up/down bỏ qua row soft-delete nhưng giữ slot cũ
-
-- Trạng thái: Đã xử lý trong PR7.
-- Phát hiện ở: PR7 Checkpoint 2D edge-case clarification.
-- Mô tả: Soft-deleted chapter/topic rows là thùng rác/archive rows để future restore an toàn hơn. Move up/down chỉ được chọn nearest active sibling, không chọn nearest row bất kể `removed_at`.
-- Ví dụ topic:
-
-```text
-Active topic A: order_index = 1
-Soft-deleted topic B: order_index = 2
-Active topic C: order_index = 3
-```
-
-Visible UI chỉ hiện:
-
-```text
-A
-C
-```
-
-Khi teacher move C up, B bị bỏ qua vì là soft-deleted row; active neighbor phía trên C là A. C swap với A, còn B giữ `order_index = 2`:
-
-```text
-C active: order_index = 1
-B soft-deleted: order_index = 2
-A active: order_index = 3
-```
-
-Visible UI trở thành:
-
-```text
-C
-A
-```
-
-- Quy tắc chapter tương tự: active chapter 1, soft-deleted chapter 2, active chapter 3; khi move active chapter 3 up thì chapter 3 swap với active chapter 1, còn soft-deleted chapter 2 giữ slot cũ.
-- Future restore implication: Nếu B hoặc chapter 2 được khôi phục trong 7 ngày từ `removed_at` và slot stored order vẫn safe, visible order có thể trở thành C, B, A. Đây là hành vi có chủ ý vì PR7 giữ soft-deleted rows như thùng rác restore-safe.
-- Implementation implication: Move RPCs phải tìm nearest active sibling; không move hoặc mutate soft-deleted siblings; soft-deleted rows bị bỏ qua khi chọn visible neighbor nhưng vẫn ở table với `order_index` cũ. Create RPCs vẫn tính next order bằng `max(order_index) + 1` theo tất cả row trong cùng scope, nên không tái sử dụng hidden/deleted slots. Partial unique indexes chỉ áp dụng cho active rows.
-- Unique-index swap concern: Nếu active unique index đã tồn tại, naive two-row swap có thể vi phạm uniqueness tạm thời. Ví dụ A active order 1 và C active order 3; nếu set C thành 1 khi A vẫn là 1, partial unique index active-only có thể reject. PR7 RPC phải dùng safe swap strategy trong cùng transaction, ví dụ temporary order value hoặc một chiến lược Postgres-safe swap/renumber đã được chứng minh.
-- Verification: RPC integration tests cover move qua soft-deleted gap, leading/trailing soft-deleted rows, first/last no-op và active unique invariant cho chapter/topic; action tests cover safe error/result shape; smoke E2E cover persisted visible ordering.
-- Ghi chú: PR7 RPC dùng safe swap trong transaction để tránh temporary conflict với partial unique indexes.
 
 ### PR7-PROD-001: Production DB preflight/apply historical record
 
@@ -291,6 +218,79 @@ psql "<PRODUCTION_DATABASE_URL>" -v ON_ERROR_STOP=1 -c "<READ_ONLY_SQL>"
 - Hướng xử lý đã làm: Local Git history cho thấy PR #34 `refactor/e2e-test-support` đã merge tại `4e7e255`.
 - Verification đã có: các commit PR #34 ghi nhận helper extraction và docs update.
 - Ghi chú: Progress tracker chỉ cần nhắc ngắn khi section liên quan được chạm tiếp.
+
+### PR7-ORDER-001: Chapter/topic ordering chưa có RPC atomic
+
+- Trạng thái: Đã xử lý trong PR7.
+- Phát hiện ở: PR4 structure workspace và PR7 Checkpoint 1/1B discovery.
+- Mô tả: `createChapter` và `createTopic` hiện tính `order_index` kế tiếp trong Server Action bằng `max(order_index) + 1`. Cách này không chạy trong một RPC atomic, không khóa scope sắp xếp, và không tự bảo vệ khi nhiều teacher action đồng thời đọc cùng giá trị `max`.
+- Tác động: Đây chưa nhất thiết là bug người dùng đang thấy, nhưng là khoảng hở an toàn dữ liệu. Nếu database không enforce active unique order, concurrent create/move có thể tạo duplicate active order trong cùng course/chapter.
+- Hướng xử lý: PR7 đã thêm RPC một bước cho move up/down và harden create ordering. UI gửi `id + direction` cho move; database/RPC chọn neighbor từ trạng thái DB mới nhất, khóa phạm vi cần thiết, swap trong transaction và trả kết quả ổn định. Chi tiết create hardening ở `PR7-ORDER-004`.
+- Verification: RPC integration tests, action/schema tests, component tests và smoke E2E đã cover create ordering, move thành công, first/last no-op, unauthorized actor, soft-deleted rows, duplicate/race-sensitive invariant và persisted order sau refresh/reopen.
+- Ghi chú: Append-create race không còn defer ngoài PR7; đây là deliberate scope expansion đã được implement.
+
+### PR7-ORDER-002: Chưa có active unique ordering constraint/index cho chapter/topic
+
+- Trạng thái: Đã xử lý trong PR7 local/migration; production apply đã xử lý trong session trước.
+- Phát hiện ở: PR7 Checkpoint 1/1B migration/schema audit và local DB read-only query.
+- Mô tả: Không tìm thấy unique constraint/index active-only cho `chapters(course_id, order_index)` hoặc `topics(chapter_id, order_index)`. Local DB không có duplicate active order, nhưng fixture quá nhỏ nên không chứng minh được production an toàn.
+- Tác động: Duplicate active order sẽ khiến ordering phụ thuộc tie-breaker phòng thủ. Các path không dùng cùng tie-breaker, nên behavior có thể khó đoán nếu dữ liệu bị lệch.
+- Hướng xử lý: PR7 migration thêm partial unique indexes active-only cho `chapters(course_id, order_index)` và `topics(chapter_id, order_index)`, đồng thời fail loud nếu dữ liệu active duplicate đã tồn tại thay vì renumber legacy data trong PR7.
+- Verification: local migration/RPC verification và integration tests đã chứng minh active unique invariant, soft-deleted rows không chặn active order, và move/create giữ invariant. Production apply/preflight thuộc lịch sử PR7 đã xử lý trước PR10; pass hiện tại không thêm DB gate mới.
+- Ghi chú: Topic order chỉ unique trong `chapter_id`; topic `order_index` trùng giữa các chapter là hợp lệ.
+
+### PR7-ORDER-004: Create chapter/topic cần RPC atomic và parent lock
+
+- Trạng thái: Đã xử lý trong PR7.
+- Phát hiện ở: PR7 Checkpoint 2C scope correction.
+- Mô tả: `createChapter` và `createTopic` hiện tính next order trong Server Actions. Cách này không DB-atomic, không khóa parent row và có thể đọc cùng `max(order_index)` khi nhiều request tạo cùng lúc.
+- Tác động: Nếu create tiếp tục nằm ngoài transaction/RPC an toàn, partial unique index active-only có thể fail loud khi concurrent create đụng order; nếu không có unique index thì có thể sinh duplicate active order trong cùng scope.
+- Hướng xử lý: PR7 đã fix thay vì defer. Create chapter khóa parent row là course; create topic khóa parent row là chapter. RPC tính next order bằng `max(order_index) + 1`, tính theo tất cả row trong cùng scope gồm cả soft-deleted rows, rồi insert trong cùng transaction.
+- Chính sách soft-delete: Không tái sử dụng slot của row đã soft-delete. Soft-deleted rows có thể giữ `order_index` cũ để future restore an toàn hơn; move chỉ xét active rows làm visible neighbors.
+- Verification: local preflight/migration verification, RPC integration tests, action tests và smoke E2E đã cover create chapter/topic ordered path, permission/failure shapes, persisted order và không reuse soft-delete slots.
+- Ghi chú: Đây là deliberate scope expansion của PR7 để ordering safety bao phủ cả create và move.
+
+### PR7-ORDER-005: Move up/down bỏ qua row soft-delete nhưng giữ slot cũ
+
+- Trạng thái: Đã xử lý trong PR7.
+- Phát hiện ở: PR7 Checkpoint 2D edge-case clarification.
+- Mô tả: Soft-deleted chapter/topic rows là thùng rác/archive rows để future restore an toàn hơn. Move up/down chỉ được chọn nearest active sibling, không chọn nearest row bất kể `removed_at`.
+- Ví dụ topic:
+
+```text
+Active topic A: order_index = 1
+Soft-deleted topic B: order_index = 2
+Active topic C: order_index = 3
+```
+
+Visible UI chỉ hiện:
+
+```text
+A
+C
+```
+
+Khi teacher move C up, B bị bỏ qua vì là soft-deleted row; active neighbor phía trên C là A. C swap với A, còn B giữ `order_index = 2`:
+
+```text
+C active: order_index = 1
+B soft-deleted: order_index = 2
+A active: order_index = 3
+```
+
+Visible UI trở thành:
+
+```text
+C
+A
+```
+
+- Quy tắc chapter tương tự: active chapter 1, soft-deleted chapter 2, active chapter 3; khi move active chapter 3 up thì chapter 3 swap với active chapter 1, còn soft-deleted chapter 2 giữ slot cũ.
+- Future restore implication: Nếu B hoặc chapter 2 được khôi phục trong 7 ngày từ `removed_at` và slot stored order vẫn safe, visible order có thể trở thành C, B, A. Đây là hành vi có chủ ý vì PR7 giữ soft-deleted rows như thùng rác restore-safe.
+- Implementation implication: Move RPCs phải tìm nearest active sibling; không move hoặc mutate soft-deleted siblings; soft-deleted rows bị bỏ qua khi chọn visible neighbor nhưng vẫn ở table với `order_index` cũ. Create RPCs vẫn tính next order bằng `max(order_index) + 1` theo tất cả row trong cùng scope, nên không tái sử dụng hidden/deleted slots. Partial unique indexes chỉ áp dụng cho active rows.
+- Unique-index swap concern: Nếu active unique index đã tồn tại, naive two-row swap có thể vi phạm uniqueness tạm thời. Ví dụ A active order 1 và C active order 3; nếu set C thành 1 khi A vẫn là 1, partial unique index active-only có thể reject. PR7 RPC phải dùng safe swap strategy trong cùng transaction, ví dụ temporary order value hoặc một chiến lược Postgres-safe swap/renumber đã được chứng minh.
+- Verification: RPC integration tests cover move qua soft-deleted gap, leading/trailing soft-deleted rows, first/last no-op và active unique invariant cho chapter/topic; action tests cover safe error/result shape; smoke E2E cover persisted visible ordering.
+- Ghi chú: PR7 RPC dùng safe swap trong transaction để tránh temporary conflict với partial unique indexes.
 
 ## Vấn đề deferred / ngoài scope
 

@@ -9,6 +9,7 @@ import { Rating } from "ts-fsrs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { CARDS_REQUIRED, CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
+import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
@@ -24,13 +25,17 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Ổn định/resilience: bàn phím mũi tên đổi lựa chọn trong radiogroup; Again/Hard xếp lại cuối hàng đợi, ba thẻ cùng chấm Lại/Khó vẫn còn đủ ba thẻ (không báo xong).
 // - Mặt sau thẻ: chọn bố cục căn giữa (giống thẻ ôn D6) khi vừa khung cố định, bố cục đọc cuộn khi tràn; đo lại khi đổi kích thước; mặt active và nội dung đọc được giống nhau ở cả hai.
 // - LF1 (AC3): bước "Từ vựng" theo kết quả server cả hai chiều; sau một lần Lại, lối tắt "Tới Bài tập" vẫn còn (điều hướng không đổi) và, khi rời giai đoạn mà server vẫn báo chưa xong, dòng các bước không còn ghi "đã xong".
-// - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật và không phải điều khiển; danh sách chương mở theo yêu cầu.
+// - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật (bước hiện tại không phải nút, các bước còn lại là nút chỉ gọi đổi bước); danh sách chương mở theo yêu cầu.
 // - LF3 (AC6/AC8): bước đã xong vẫn ghi "đã xong" khi đang là bước hiện tại (cả ba bước); memory check khóa tới khi mọi thẻ có dòng của học viên (Lại/Khó cũng là đã xem), mở ngay khi thẻ cuối được chấm (kể cả khi mọi thẻ Lại/Khó và hàng đợi chưa rỗng) và không có ngoại lệ cho memory check đã qua (bài tập vẫn mở theo luật LF2); nhắc số thẻ còn cần Ổn/Dễ ngay khi đủ dòng cho mọi thẻ; về memory check đang khóa thì có panel khóa và lối về Từ vựng.
-// - LF4 (AC3/AC4/AC5/AC6): vào trang chỉ xếp thẻ chưa xem (bộ đếm theo lượt) và báo số thẻ chưa học đúng một lần (không báo khi mọi thẻ đều chưa xem, không báo hai lần dưới StrictMode); đã xem hết thì có màn hình kết thúc; lời mời "Ôn ngay N thẻ" chỉ hiện khi có thẻ đến hạn thuộc bài (id lạ bị bỏ qua), Ổn/Dễ trong phiên đưa thẻ ra và Lại/Khó đưa vào; "Ôn lại từ vựng" dựng lại toàn bộ thẻ; dòng các bước vẫn không có điều khiển; bài không có thẻ không có toast chưa học.
+// - LF4 (AC3/AC4/AC5/AC6): vào trang chỉ xếp thẻ chưa xem (bộ đếm theo lượt) và báo số thẻ chưa học đúng một lần (không báo khi mọi thẻ đều chưa xem, không báo hai lần dưới StrictMode); đã xem hết thì có màn hình kết thúc; lời mời "Ôn ngay N thẻ" chỉ hiện khi có thẻ đến hạn thuộc bài (id lạ bị bỏ qua), Ổn/Dễ trong phiên đưa thẻ ra và Lại/Khó đưa vào; "Ôn lại từ vựng" dựng lại toàn bộ thẻ; bước hiện tại của dòng các bước không phải nút; bài không có thẻ không có toast chưa học.
 // - LF4 QA fix: màn hình kết thúc có nút "Tới Memory check" cạnh "Ôn lại từ vựng" (nút chính khi không có thẻ đến hạn, thứ tự Ôn ngay -> Ôn lại -> Tới Memory check), thanh trên không lặp nút này khi hàng đợi rỗng nhưng vẫn có khi đang học thẻ; không hiện khi memory check không phải bước kế tiếp.
 // - LF5 (AC1/AC2): vào chủ đề chưa hoàn thành ở bước đầu tiên còn phải làm (thẻ chưa xem hoặc bước Từ vựng chưa xong -> memory check chưa qua -> bài tập còn câu), kể cả khi thẻ đã xem hết mà còn thẻ chưa Ổn/Dễ (màn hình kết thúc kèm lời mời Ôn ngay); chủ đề đã hoàn thành mở màn hình hoàn thành, trừ khi có thẻ mới chưa xem (Từ vựng kèm toast chưa học).
 // - LF5 (AC3): màn hình hoàn thành nêu tên chủ đề, tiến độ khóa học và chương là hai thang riêng có progressbar có nhãn, đúng một hành động chính (Ôn ngay khi có thẻ đến hạn, nếu không thì chủ đề kế hoặc tổng quan khóa học ở chủ đề cuối), chân trang thành hành động phụ, nhãn "Chủ đề N"/"Chương N" theo đơn vị kế tiếp, Xem lại chỉ liệt kê bước chủ đề có, và trạng thái từng bước giữ nguyên (không đánh dấu xong bước Từ vựng chưa xong).
 // - LF5 (AC4/AC5/AC8, G3): hoàn thành trong phiên (chấm thẻ cuối) thay màn hình kết thúc thẻ bằng màn hình hoàn thành có chuỗi chuyển động, dùng đúng giá trị thanh bên, không toast; reduced motion hiện trạng thái cuối ngay; lần vào sau trong phiên chỉ hiện màn hình ổn định; Xem lại từng bước và lối quay lại; memory check không còn đạt thì mở bước trả lời được và phục hồi khi có thẻ mới.
+// - LF6 (AC1/AC2/AC3): mỗi bước không phải bước hiện tại là một nút trong li của nó, mở đúng bước (kể cả chủ đề đã hoàn thành; Từ vựng chỉ mở hàng đợi hiện có, không dựng hàng đợi, không gọi server) và đưa focus về khung bước học; bước khóa không đổi bước mà hiện một dòng lý do ngay dưới thanh (vùng polite), giữ tên "đang khóa", tắt khi đổi bước hoặc khi khóa mở; nút có mục tiêu tối thiểu 24 px, vòng focus và 44 px trên con trỏ thô mà không đổi bố cục dòng.
+// - LF6 (AC4, Owner QA 2026-10-13): màn hình hoàn thành không còn nút "Xem lại", dòng giải thích hay vòng nổi bật; một dòng gợi ý nhỏ nằm ngay dưới thanh tiến trình ở mọi giai đoạn (cả màn hình hoàn thành) khi thanh có hơn một bước, không có khi chủ đề chỉ có một bước hoặc không có bước nào, và nằm dưới lý do khóa (vùng polite) mà không lẫn vào đó. Con trỏ tay và nền hover của các bước được đo bằng computed style trong smoke, không bằng tên lớp.
+// - LF6 (AC10): hết hàng đợi ôn thẻ đến hạn/ôn lại từ vựng có toast riêng; chủ đề đã hoàn thành (đọc lúc hết hàng, kể cả kết quả của chính lần chấm) thì về màn hình hoàn thành đã ổn định, chưa hoàn thành thì ở lại màn hình kết thúc từ vựng và không sang memory check hay bài tập; Lại/Khó xếp lại không đổi loại hàng đợi; lần chấm hoàn thành chủ đề vẫn chạy chuỗi LF5 một lần không toast; hàng đợi lúc vào trang giữ toast và bước chuyển cũ; chấm đang lưu mà rời bước không mất kết quả và không gửi hai lần.
+// - LF6 (AC5): bốn nút tự đánh giá của FlashcardStage dùng đúng lớp Attention/Recall của định nghĩa dùng chung với ReviewSheet, cùng nhãn và thứ tự.
 // - Kết quả verify gần nhất: xem lần chạy LF3 CP4 (2026-10-11) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`; LF5 CP4 (2026-10-12).
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
@@ -115,6 +120,9 @@ function exercise(
 }
 
 // LF4: mặc định là lần học đầu (mọi thẻ chưa xem) nên hàng đợi mở trang là toàn bộ thẻ; test về trạng thái đã xem truyền `unseenCardIds`.
+const THREAD_HINT =
+  "Bạn có thể di chuyển nhanh giữa các nội dung bằng cách nhấn vào nội dung tương ứng trên thanh tiến trình.";
+
 function data(overrides: Partial<LearningWorkspaceData> = {}): LearningWorkspaceData {
   const flashcards = overrides.flashcards ?? [];
   return {
@@ -163,6 +171,16 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(inertFaces[0].textContent).toContain("reliable");
       expect(screen.queryByRole("button", { name: "Hiện đáp án" })).toBeNull();
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Lại" }));
+    });
+
+    it("rates with the shared Attention and Recall classes in label order (LF6 AC5)", () => {
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      FLASHCARD_RATINGS.forEach(({ label, className }) => {
+        const classes = screen.getByRole("button", { name: label }).className.split(/\s+/);
+        for (const token of className.split(/\s+/)) expect(classes).toContain(token);
+      });
+      expect(FLASHCARD_RATINGS.map(({ label }) => label)).toEqual(["Lại", "Khó", "Ổn", "Dễ"]);
     });
 
     it("turns the same card back with the answer it just showed, then reveals the new answer", async () => {
@@ -296,7 +314,8 @@ describe("D8-LUI learning workspace presentation", () => {
       await act(async () => {
         fireEvent.click(screen.getByRole("button", { name: "Dễ" }));
       });
-      expect(flashcardStep()).toBe("Từ vựng (đã xong)");
+      // LF6 AC10: the full review ends on the finished screen (not completed topic), so the step is both current and done.
+      expect(flashcardStep()).toBe("Từ vựng (đã xong, đang học)");
     });
 
     describe("back face presentation", () => {
@@ -890,7 +909,7 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(screen.queryByRole("button", { name: /^Ôn ngay/ })).toBeNull();
       expect(screen.queryByText(/thẻ đến hạn/)).toBeNull();
       expect(mockedToast.info).not.toHaveBeenCalled();
-      // Dòng các bước vẫn chỉ là dấu hiệu, không có điều khiển.
+      // Chủ đề chỉ có một bước nên bước hiện tại là bước duy nhất và không phải nút.
       expect(
         within(screen.getByRole("list", { name: "Các bước của bài học" })).queryAllByRole("button"),
       ).toHaveLength(0);
@@ -1042,10 +1061,10 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(finishedScreen()).toBeNull();
         expect(memoryButtons()).toHaveLength(1);
 
-        // Chấm hết hàng đợi thì tự sang memory check; quay về Từ vựng lại thấy màn hình kết thúc với đúng một nút.
+        // LF6 AC10: hết hàng đợi ôn lại thì ở lại màn hình kết thúc (chủ đề chưa hoàn thành), có toast ôn lại và đúng một nút.
         for (let i = 0; i < 2; i += 1) await rate("Dễ");
-        expect(screen.getByText("Câu nhớ")).not.toBeNull();
-        fireEvent.click(screen.getAllByRole("button", { name: "Về Từ vựng" })[0]);
+        expect(screen.queryByText("Câu nhớ")).toBeNull();
+        expect(mockedToast.success).toHaveBeenCalledWith("Đã ôn lại xong từ vựng!");
         expect(finishedScreen()).not.toBeNull();
         expect(memoryButtons()).toHaveLength(1);
         expect(finishedRow().getByRole("button", { name: "Tới Memory check" })).not.toBeNull();
@@ -1360,8 +1379,8 @@ describe("D8-LUI learning workspace presentation", () => {
         );
         expect(completionHeading()).not.toBeNull();
         expect(screen.queryByText("Bài học này chưa có nội dung")).toBeNull();
-        // Nothing to review, but the destination is still there as the only primary action.
-        expect(within(panel()).queryByRole("group", { name: "Xem lại các bước" })).toBeNull();
+        // Nothing to review, but the destination is still there as the only primary action. No stage means no thread and no hint.
+        expect(screen.queryByText(THREAD_HINT)).toBeNull();
         const overview = within(panel()).getByRole("link", { name: "Về tổng quan khóa học" });
         expect(overview.getAttribute("href")).toBe("/learn/toeic-foundation");
         expect(primaries()).toEqual([overview]);
@@ -1393,21 +1412,27 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(nextLink.getAttribute("href")).toBe("/learn/toeic-foundation/topic-three");
       });
 
-      it("lists only the stages the topic has under Xem lại", () => {
+      it("offers no review button, group or explanation line on the completion screen (LF6 AC4, Owner QA)", () => {
         render(<LearningWorkspace data={data({ flashcards: [cardA], unseenCardIds: [], progress: { ...done } })} />);
-        const group = within(screen.getByRole("group", { name: "Xem lại các bước" }));
-        expect(group.getAllByRole("button").map((button) => button.textContent)).toEqual(["Xem lại Từ vựng"]);
+        expect(within(panel()).queryByRole("button", { name: "Xem lại" })).toBeNull();
+        expect(within(panel()).queryByText("Chọn một bước ở thanh tiến trình để xem lại.")).toBeNull();
+        expect(within(panel()).queryByRole("group", { name: "Xem lại các bước" })).toBeNull();
+        expect(within(panel()).queryByRole("button", { name: /^Xem lại/ })).toBeNull();
+        expect(document.querySelector("[data-thread-highlight]")).toBeNull();
       });
     });
 
     describe("Xem lại and the return action (AC5)", () => {
-      it("starts a full review queue from Xem lại Từ vựng, and the return action brings the screen back without replaying", () => {
+      it("opens the finished screen from the thread's Từ vựng step without starting a queue, and the return action brings the completion screen back without replaying (LF6 AC1)", () => {
         render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
         expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
 
-        fireEvent.click(screen.getByRole("button", { name: "Xem lại Từ vựng" }));
+        fireEvent.click(within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name: /^Từ vựng/ }));
         expect(completionHeading()).toBeNull();
-        expect(screen.getByText("2 / 2")).not.toBeNull();
+        // The queue is the empty one built on entry: the finished screen with its own actions, no counter, no server call.
+        expect(finishedScreen()).not.toBeNull();
+        expect(screen.queryByText(/^\d+ \/ \d+$/)).toBeNull();
+        expect(mockedReview).not.toHaveBeenCalled();
         // A subordinate action, not a second primary.
         const back = screen.getByRole("button", { name: "Xem kết quả chủ đề" });
         expect(back.getAttribute("data-variant")).toBe("outline");
@@ -1425,20 +1450,8 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(panel().getAttribute("data-motion")).toBe("settled");
       });
 
-      it("lays the Xem lại buttons on an equal-width grid, keeps the stage thread on one line and gives the footer a touch outline (Owner Q14)", () => {
+      it("keeps the stage thread on one line and gives the footer a touch outline (Owner Q14)", () => {
         render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
-        const group = within(panel()).getByRole("group", { name: "Xem lại các bước" });
-        // Three stages: two columns on a phone with the odd last button spanning both, three columns from `sm`.
-        expect(group.className).toContain("grid-cols-2");
-        expect(group.className).toContain("sm:grid-cols-3");
-        expect(group.className).toContain("col-span-2");
-        const reviewButtons = within(group).getAllByRole("button");
-        expect(reviewButtons).toHaveLength(3);
-        for (const button of reviewButtons) {
-          expect(button.className).toContain("w-full");
-          expect(button.className).toContain("min-h-11");
-          expect(button.getAttribute("data-variant")).toBe("outline");
-        }
         // The thread never wraps, so no connector can start a line.
         const thread = screen.getByRole("list", { name: "Các bước của bài học" });
         expect(thread.className).toContain("flex-nowrap");
@@ -1453,7 +1466,7 @@ describe("D8-LUI learning workspace presentation", () => {
 
       it("opens the passed memory check as a read-only review without writing", () => {
         render(<LearningWorkspace data={completedTopic()} />);
-        fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Memory check/ }));
 
         expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
         expect(screen.getByRole("radio", { name: /Câu nhớ lựa chọn 1/ }).getAttribute("aria-checked")).toBe("true");
@@ -1463,7 +1476,7 @@ describe("D8-LUI learning workspace presentation", () => {
 
       it("opens the exercises as they already render answered questions", () => {
         render(<LearningWorkspace data={completedTopic()} />);
-        fireEvent.click(screen.getByRole("button", { name: "Xem lại Bài tập" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Bài tập/ }));
         expect(screen.getByText("Câu một")).not.toBeNull();
         expect(screen.getByRole("radio", { name: /Câu một lựa chọn 1/ }).getAttribute("aria-checked")).toBe("true");
         expect(screen.queryByRole("button", { name: "Xác nhận đáp án" })).toBeNull();
@@ -1477,7 +1490,7 @@ describe("D8-LUI learning workspace presentation", () => {
             data={completedTopic({ isMemoryCheckPassed: false, answers: exerciseAnswers })}
           />,
         );
-        fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Memory check/ }));
         expect(screen.queryByRole("heading", { name: "Xem lại Memory check" })).toBeNull();
         expect(screen.getByText("Câu nhớ")).not.toBeNull();
 
@@ -1489,6 +1502,416 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(refresh).toHaveBeenCalledTimes(1);
         // The answer was not written; back on Từ vựng (the refresh remounts it with the new card in the queue).
         expect(finishedScreen()).not.toBeNull();
+      });
+    });
+
+    describe("clickable stage thread (LF6 AC1, AC2, AC3)", () => {
+      const inProgress = { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false };
+      const unpassedMemory = (overrides: Partial<LearningWorkspaceData> = {}) =>
+        data({
+          flashcards: [cardA, cardB],
+          unseenCardIds: [],
+          memoryCheck,
+          isMemoryCheckPassed: false,
+          exercises: [exercise("part5", {})],
+          progress: inProgress,
+          ...overrides,
+        });
+      const thread = () => within(screen.getByRole("list", { name: "Các bước của bài học" }));
+      const stepButton = (name: RegExp) => thread().getByRole("button", { name });
+      const plane = () => screen.getByRole("main");
+      const liveRegion = () => document.querySelector('[aria-live="polite"]') as HTMLElement;
+      const rateOnce = async (name: string) => {
+        fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+        mockedReview.mockResolvedValueOnce({ success: true });
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name }));
+        });
+      };
+
+      it("makes every step except the current one a native button and leaves the current step as plain text", () => {
+        render(<LearningWorkspace data={completedTopic()} />);
+        const items = thread().getAllByRole("listitem");
+        expect(items).toHaveLength(3);
+        // The completed topic lands on the completion screen, so no thread step is current: all three are buttons.
+        expect(thread().getAllByRole("button")).toHaveLength(3);
+        for (const button of thread().getAllByRole("button")) {
+          expect(button.tagName).toBe("BUTTON");
+          expect(button.getAttribute("type")).toBe("button");
+          expect(items.some((item) => item.contains(button))).toBe(true);
+        }
+
+        fireEvent.click(stepButton(/^Memory check/));
+        const current = thread()
+          .getAllByRole("listitem")
+          .find((item) => item.getAttribute("aria-current") === "step")!;
+        expect(current.textContent).toContain("Memory check");
+        expect(within(current).queryByRole("button")).toBeNull();
+        expect(thread().getAllByRole("button")).toHaveLength(2);
+        // The visual state text is unchanged by the control.
+        expect(current.textContent?.replace(/^\d/, "")).toBe("Memory check (đã xong, đang học)");
+      });
+
+      it("opens each stage of a completed topic from the thread and moves focus to the stage plane", () => {
+        render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
+
+        fireEvent.click(stepButton(/^Memory check/));
+        expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
+        expect(document.activeElement).toBe(plane());
+
+        fireEvent.click(stepButton(/^Bài tập/));
+        expect(screen.getByText("Câu một")).not.toBeNull();
+        expect(document.activeElement).toBe(plane());
+
+        // Từ vựng shows the finished screen with its own actions; no queue starts and nothing is sent.
+        fireEvent.click(stepButton(/^Từ vựng/));
+        expect(finishedScreen()).not.toBeNull();
+        expect(screen.getByRole("button", { name: "Ôn ngay 1 thẻ" })).not.toBeNull();
+        expect(screen.getByRole("button", { name: "Ôn lại từ vựng" })).not.toBeNull();
+        expect(screen.queryByText(/^\d+ \/ \d+$/)).toBeNull();
+        expect(mockedReview).not.toHaveBeenCalled();
+        expect(document.activeElement).toBe(plane());
+      });
+
+      it("opens the answerable memory stage and an exercise's empty state of a topic that is not completed, with focus on the plane", () => {
+        const { unmount } = render(<LearningWorkspace data={unpassedMemory()} />);
+        fireEvent.click(stepButton(/^Memory check/));
+        expect(screen.getByText("Câu nhớ")).not.toBeNull();
+        expect(document.activeElement).toBe(plane());
+        unmount();
+
+        render(
+          <LearningWorkspace
+            data={unpassedMemory({
+              isMemoryCheckPassed: true,
+              exercises: [exercise("part5", {}, [])],
+              progress: { ...inProgress, isFlashcardCompleted: true },
+            })}
+          />,
+        );
+        fireEvent.click(stepButton(/^Bài tập/));
+        expect(screen.getByText("Bài tập này chưa có câu hỏi để làm.")).not.toBeNull();
+        expect(document.activeElement).toBe(plane());
+      });
+
+      it("returns to Từ vựng with the current queue instead of starting or replacing one", async () => {
+        render(<LearningWorkspace data={unpassedMemory({ dueCardIds: [cardA.id, cardB.id] })} />);
+        fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 2 thẻ" }));
+        await rateOnce("Ổn");
+        expect(screen.getByText("1 / 2")).not.toBeNull();
+        expect(screen.getByText("improve", { exact: true })).not.toBeNull();
+
+        fireEvent.click(stepButton(/^Memory check/));
+        expect(screen.getByText("Câu nhớ")).not.toBeNull();
+        fireEvent.click(stepButton(/^Từ vựng/));
+
+        // Same remaining card, same counter, and the one rating was the only server call.
+        expect(screen.getByText("improve", { exact: true })).not.toBeNull();
+        expect(screen.getByText("1 / 2")).not.toBeNull();
+        expect(finishedScreen()).toBeNull();
+        expect(mockedReview).toHaveBeenCalledTimes(1);
+        expect(document.activeElement).toBe(plane());
+      });
+
+      it("explains a locked Memory check under the thread, keeps the stage and the state text, and clears the line when the gate opens", async () => {
+        render(
+          <LearningWorkspace
+            data={data({
+              flashcards: [cardA],
+              memoryCheck,
+              isMemoryCheckPassed: false,
+              exercises: [exercise("part5", {})],
+            })}
+          />,
+        );
+        const locked = stepButton(/^Memory check\s*\(đang khóa\)/);
+        expect(liveRegion().textContent).toBe("");
+
+        fireEvent.click(locked);
+        expect(liveRegion().textContent).toBe("Học hết flashcard của bài này để mở memory check. Còn 1 thẻ chưa học.");
+        // Same stage, same card; the line sits right under the thread.
+        expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
+        expect(screen.queryByText("Câu nhớ")).toBeNull();
+        expect(
+          liveRegion().previousElementSibling?.contains(screen.getByRole("list", { name: "Các bước của bài học" })),
+        ).toBe(true);
+        expect(document.activeElement).not.toBe(plane());
+
+        // Lại saves the last unseen card, which opens the gate while the stage stays: the line goes with the lock.
+        await rateOnce("Lại");
+        expect(liveRegion().textContent).toBe("");
+        expect(stepButton(/^Memory check\s*\(chưa mở\)/)).not.toBeNull();
+      });
+
+      it("explains a locked Bài tập with the memory check wording, never opens it and clears the line on a stage change", () => {
+        render(<LearningWorkspace data={unpassedMemory()} />);
+        fireEvent.click(stepButton(/^Memory check/));
+        expect(screen.getByText("Câu nhớ")).not.toBeNull();
+
+        fireEvent.click(stepButton(/^Bài tập\s*\(đang khóa\)/));
+        expect(liveRegion().textContent).toBe("Trả lời đúng hết memory check để mở khóa phần bài tập.");
+        expect(screen.getByText("Câu nhớ")).not.toBeNull();
+        expect(screen.queryByText("Câu một")).toBeNull();
+        expect(mockedToast.error).not.toHaveBeenCalled();
+
+        fireEvent.click(stepButton(/^Từ vựng/));
+        expect(liveRegion().textContent).toBe("");
+        // The line does not come back by itself when the learner returns.
+        fireEvent.click(stepButton(/^Memory check/));
+        expect(liveRegion().textContent).toBe("");
+      });
+
+      it("loses no result and sends nothing twice when the learner jumps away while a card rating on a completed topic is saving", async () => {
+        render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
+        fireEvent.click(within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn, Ôn ngay" }));
+        fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+        let settle: (value: unknown) => void = () => {};
+        mockedReview.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)) as never);
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+        });
+
+        // Away while the rating is still saving.
+        fireEvent.click(stepButton(/^Memory check/));
+        expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
+        await act(async () => {
+          settle({ success: true });
+        });
+
+        // The result landed: one call, the card left the due list, and the review ended as a due review.
+        expect(mockedReview).toHaveBeenCalledTimes(1);
+        expect(mockedReview).toHaveBeenCalledWith(cardA.id, Rating.Good);
+        expect(mockedToast.success).toHaveBeenCalledWith("Đã ôn xong thẻ đến hạn!");
+        expect(mockedToast.success).toHaveBeenCalledTimes(1);
+        expect(completionHeading()).not.toBeNull();
+        expect(within(panel()).queryByRole("button", { name: /Ôn ngay/ })).toBeNull();
+        // The flashcard queue is consistent: it is the empty one, shown as the finished screen with no due offer.
+        fireEvent.click(stepButton(/^Từ vựng/));
+        expect(finishedScreen()).not.toBeNull();
+        expect(screen.queryByRole("button", { name: /^Ôn ngay/ })).toBeNull();
+      });
+
+      it("makes every non-current step a native, focusable button, locked ones included", () => {
+        render(<LearningWorkspace data={unpassedMemory({ dueCardIds: [] })} />);
+        const buttons = thread().getAllByRole("button");
+        expect(buttons.length).toBeGreaterThanOrEqual(2);
+        for (const button of buttons) {
+          expect(button.tagName).toBe("BUTTON");
+          expect(button.getAttribute("type")).toBe("button");
+          expect((button as HTMLButtonElement).disabled).toBe(false);
+          expect(button.getAttribute("tabindex")).not.toBe("-1");
+        }
+        expect(buttons.some((button) => button.hasAttribute("data-step-locked"))).toBe(true);
+        // Target size, the 44 px touch hit area, the single line and the focus ring are CSS: the topic-completion smoke measures them.
+      });
+    });
+
+    describe("the hint under the stage thread (LF6 AC4, Owner QA 2026-10-13)", () => {
+      const hint = () => screen.queryByText(THREAD_HINT);
+      const stepButton = (name: RegExp) =>
+        within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name });
+
+      it("shows the hint on the completion screen and on every stage the learner opens from the thread", () => {
+        render(<LearningWorkspace data={completedTopic()} />);
+        expect(completionHeading()).not.toBeNull();
+        expect(hint()).not.toBeNull();
+        fireEvent.click(stepButton(/^Memory check/));
+        expect(completionHeading()).toBeNull();
+        expect(hint()).not.toBeNull();
+        fireEvent.click(stepButton(/^Bài tập/));
+        expect(completionHeading()).toBeNull();
+        expect(hint()).not.toBeNull();
+        fireEvent.click(stepButton(/^Từ vựng/));
+        expect(hint()).not.toBeNull();
+        expect(screen.getAllByText(THREAD_HINT)).toHaveLength(1);
+      });
+
+      it("shows the hint on the flashcard stage of an unfinished topic", () => {
+        render(
+          <LearningWorkspace
+            data={data({
+              flashcards: [cardA, cardB],
+              unseenCardIds: [cardA.id, cardB.id],
+              memoryCheck,
+              isMemoryCheckPassed: false,
+              exercises: [exercise("part5", {})],
+              progress: { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false },
+            })}
+          />,
+        );
+        expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
+        expect(hint()).not.toBeNull();
+      });
+
+      it("shows no hint when the topic has a single step", () => {
+        render(
+          <LearningWorkspace
+            data={data({
+              flashcards: [],
+              unseenCardIds: [],
+              memoryCheck: null,
+              isMemoryCheckPassed: false,
+              exercises: [exercise("part5", {})],
+              progress: { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false },
+            })}
+          />,
+        );
+        const list = screen.getByRole("list", { name: "Các bước của bài học" });
+        expect(within(list).queryAllByRole("listitem")).toHaveLength(1);
+        expect(hint()).toBeNull();
+      });
+
+      it("keeps the hint outside the lock-reason live region, below the reason", () => {
+        render(
+          <LearningWorkspace
+            data={data({
+              flashcards: [cardA, cardB],
+              unseenCardIds: [cardB.id],
+              memoryCheck,
+              isMemoryCheckPassed: false,
+              exercises: [exercise("part5", {})],
+              progress: { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false },
+            })}
+          />,
+        );
+        fireEvent.click(stepButton(/^Memory check/));
+        const live = document.querySelector('[aria-live="polite"]') as HTMLElement;
+        expect(live.textContent).toContain("Học hết flashcard của bài này để mở memory check.");
+        expect(live.textContent).not.toContain(THREAD_HINT);
+        expect(hint()).not.toBeNull();
+        expect(live.contains(hint())).toBe(false);
+        expect(live.compareDocumentPosition(hint() as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      });
+    });
+
+    describe("the end of a review queue (LF6 AC10)", () => {
+      const inProgress = { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false };
+      const notCompleted = (overrides: Partial<LearningWorkspaceData> = {}) =>
+        data({
+          flashcards: [cardA],
+          unseenCardIds: [],
+          dueCardIds: [cardA.id],
+          memoryCheck,
+          isMemoryCheckPassed: false,
+          exercises: [exercise("part5", {})],
+          progress: inProgress,
+          ...overrides,
+        });
+      const successToasts = () => mockedToast.success.mock.calls.map(([message]) => message);
+      async function rate(name: string, result: unknown = { success: true }) {
+        fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+        mockedReview.mockResolvedValueOnce(result as never);
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name }));
+        });
+      }
+
+      it("ends a due review on a topic that is not completed with its own toast and stays on the finished screen", async () => {
+        render(<LearningWorkspace data={notCompleted()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 1 thẻ" }));
+        await rate("Ổn");
+
+        expect(successToasts()).toEqual(["Đã ôn xong thẻ đến hạn!"]);
+        expect(finishedScreen()).not.toBeNull();
+        expect(screen.queryByText("Câu nhớ")).toBeNull();
+        expect(completionHeading()).toBeNull();
+      });
+
+      it("ends a full review on a topic that is not completed with its own toast and stays on the finished screen", async () => {
+        render(<LearningWorkspace data={notCompleted({ isMemoryCheckPassed: true, answers: memoryAnswers })} />);
+        fireEvent.click(screen.getByRole("button", { name: "Ôn lại từ vựng" }));
+        await rate("Ổn");
+
+        expect(successToasts()).toEqual(["Đã ôn lại xong từ vựng!"]);
+        expect(finishedScreen()).not.toBeNull();
+        // Neither memory check nor exercise was opened, although both are available.
+        expect(screen.queryByText("Câu một")).toBeNull();
+        expect(screen.queryByRole("heading", { name: "Xem lại Memory check" })).toBeNull();
+      });
+
+      it("returns a due review on a completed topic to the settled completion screen", async () => {
+        render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
+        fireEvent.click(within(panel()).getByRole("button", { name: "Có 1 thẻ đến hạn, Ôn ngay" }));
+        expect(completionHeading()).toBeNull();
+        await rate("Ổn");
+
+        expect(successToasts()).toEqual(["Đã ôn xong thẻ đến hạn!"]);
+        expect(completionHeading()).not.toBeNull();
+        expect(panel().getAttribute("data-motion")).toBe("settled");
+      });
+
+      it("returns a full review on a completed topic to the settled completion screen, even after a Lại requeue", async () => {
+        render(<LearningWorkspace data={completedTopic()} />);
+        fireEvent.click(within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name: /^Từ vựng/ }));
+        fireEvent.click(screen.getByRole("button", { name: "Ôn lại từ vựng" }));
+        await rate("Lại");
+        // The requeue keeps the review kind: the card comes back and nothing ends yet.
+        expect(successToasts()).toEqual([]);
+        await rate("Ổn");
+        await rate("Ổn");
+
+        expect(successToasts()).toEqual(["Đã ôn lại xong từ vựng!"]);
+        expect(completionHeading()).not.toBeNull();
+        expect(panel().getAttribute("data-motion")).toBe("settled");
+      });
+
+      it("keeps a requeued due review a due review until its last card leaves", async () => {
+        render(<LearningWorkspace data={notCompleted({ flashcards: [cardA, cardB], dueCardIds: [cardA.id, cardB.id] })} />);
+        fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 2 thẻ" }));
+        await rate("Lại");
+        await rate("Ổn");
+        expect(successToasts()).toEqual([]);
+        await rate("Ổn");
+
+        expect(successToasts()).toEqual(["Đã ôn xong thẻ đến hạn!"]);
+        expect(finishedScreen()).not.toBeNull();
+      });
+
+      it("runs the LF5 completion entry once, with neither review nor first-learning toast, when a review rating completes the topic", async () => {
+        render(<LearningWorkspace data={notCompleted()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 1 thẻ" }));
+        await rate("Ổn", { success: true, topicProgress: { ...doneProgress } });
+
+        expect(successToasts()).toEqual([]);
+        expect(completionHeading()).not.toBeNull();
+        expect(panel().getAttribute("data-motion")).toBe("sequence");
+      });
+
+      it("reads a completion confirmed by the last result of a review started on a topic that was not completed, and lands on the settled screen", async () => {
+        render(<LearningWorkspace data={notCompleted()} />);
+        fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 1 thẻ" }));
+        fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+        let settle: (value: unknown) => void = () => {};
+        mockedReview.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)) as never);
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+        });
+        // The rating started on a topic that was not completed; the stored result says it is, without `newlyCompleted`.
+        await act(async () => {
+          settle({ success: true, topicProgress: { ...doneProgress, newlyCompleted: false } });
+        });
+
+        expect(successToasts()).toEqual(["Đã ôn xong thẻ đến hạn!"]);
+        expect(completionHeading()).not.toBeNull();
+        expect(panel().getAttribute("data-motion")).toBe("settled");
+      });
+
+      it("keeps the first-learning toasts and stage moves for the queue built on page entry", async () => {
+        render(
+          <LearningWorkspace
+            data={data({
+              flashcards: [cardA],
+              memoryCheck,
+              isMemoryCheckPassed: false,
+              exercises: [exercise("part5", {})],
+              progress: inProgress,
+            })}
+          />,
+        );
+        await rate("Ổn");
+
+        expect(successToasts()).toEqual(["Đã nạp xong từ vựng! Chuyển sang memory check."]);
+        expect(screen.getByText("Câu nhớ")).not.toBeNull();
       });
     });
 
@@ -1546,7 +1969,7 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(course.className).toContain("h-2.5");
         expect(chapter.className).toContain("h-2.5");
 
-        fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Memory check/ }));
         fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
         expect(panel().getAttribute("data-motion")).toBe("settled");
         expect(panel().querySelectorAll("[data-completion-gain]")).toHaveLength(0);
@@ -1557,7 +1980,7 @@ describe("D8-LUI learning workspace presentation", () => {
         await completeWithLastCard();
         expect(panel().getAttribute("data-motion")).toBe("sequence");
 
-        fireEvent.click(screen.getByRole("button", { name: "Xem lại Memory check" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Memory check/ }));
         expect(screen.getByRole("heading", { name: "Xem lại Memory check" })).not.toBeNull();
         fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
         expect(panel().getAttribute("data-motion")).toBe("settled");

@@ -24,7 +24,8 @@
 
 .recallPlane {
   perspective: 1100px;
-  animation: card-enter 220ms var(--review-ease);
+  /* Owner Q3 (LF6 AC6): vào thẻ 300 ms, ngoại lệ cục bộ của trần chuyển động không gian 240 ms. */
+  animation: card-enter 300ms var(--review-ease);
 }
 
 .card {
@@ -32,7 +33,8 @@
   display: grid;
   min-height: 340px;
   transform-style: preserve-3d;
-  transition: transform 240ms var(--review-ease);
+  /* Owner Q3 (LF6 AC6): lật thẻ 400 ms, cùng giá trị với FlashcardStage. */
+  transition: transform 400ms var(--review-ease);
 }
 .card[data-revealed="true"] { transform: rotateY(180deg); }
 
@@ -66,12 +68,6 @@
 .word { font-size: clamp(40px, 6vw, 64px); line-height: 1.12; letter-spacing: -.03em; }
 .meaning { color: var(--review-recall); font-size: clamp(24px, 3vw, 32px); line-height: 1.35; }
 .support { color: var(--review-secondary); }
-.rating {
-  border-color: #64748b;
-  background: #fff;
-  color: var(--review-ink);
-}
-.rating:hover { border-color: var(--review-route); background: var(--route-quiet); color: var(--review-route); }
 .completion { background: linear-gradient(145deg, #fff 40%, #f0fdf4); }
 .completionIcon {
   color: var(--review-success);

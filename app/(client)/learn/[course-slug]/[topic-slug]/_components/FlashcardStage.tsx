@@ -2,6 +2,7 @@
 "use client";
 import React, { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { Button } from "@/components/ui/button";
+import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 import { FlashcardDTO } from "@/lib/schemas/learn";
 import { Rating } from "ts-fsrs";
 
@@ -16,31 +17,6 @@ interface FlashcardStageProps {
 }
 
 type CardBack = FlashcardDTO["back_content"];
-
-// Recall difficulty only: Attention for the harder ratings, Recall for the easier
-// ones. It is not a correct/incorrect signal, so Growth and Correction stay unused.
-const RATINGS = [
-  {
-    rating: Rating.Again,
-    label: "Lại",
-    className: "border-attention-line bg-attention-quiet text-attention hover:bg-attention-quiet hover:border-attention",
-  },
-  {
-    rating: Rating.Hard,
-    label: "Khó",
-    className: "border-attention-line bg-white text-attention hover:bg-attention-quiet hover:border-attention",
-  },
-  {
-    rating: Rating.Good,
-    label: "Ổn",
-    className: "border-recall-line bg-white text-recall hover:bg-recall-quiet hover:border-recall",
-  },
-  {
-    rating: Rating.Easy,
-    label: "Dễ",
-    className: "border-recall-line bg-recall-quiet text-recall hover:bg-recall-quiet hover:border-recall",
-  },
-] as const;
 
 const CENTERED = "group-data-[variant=centered]/back";
 
@@ -178,7 +154,7 @@ export default function FlashcardStage({
             moves when the card changes. Content that does not fit scrolls inside its face. */}
         <div
           data-flashcard-box=""
-          className={`grid h-[19rem] grid-rows-[minmax(0,1fr)] [transform-style:preserve-3d] transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] sm:h-[21rem] lg:h-[23rem] motion-reduce:transition-none motion-reduce:[transform:none] ${
+          className={`grid h-[19rem] grid-rows-[minmax(0,1fr)] [transform-style:preserve-3d] transition-transform duration-[400ms] ease-[cubic-bezier(0.2,0,0,1)] sm:h-[21rem] lg:h-[23rem] motion-reduce:transition-none motion-reduce:[transform:none] ${
             isFlipped ? "[transform:rotateY(180deg)]" : ""
           }`}
         >
@@ -239,7 +215,7 @@ export default function FlashcardStage({
           </Button>
         ) : (
           <div className="grid grid-cols-4 gap-2 sm:gap-3">
-            {RATINGS.map(({ rating, label, className }, index) => (
+            {FLASHCARD_RATINGS.map(({ rating, label, className }, index) => (
               <Button
                 key={label}
                 ref={index === 0 ? firstRatingRef : undefined}

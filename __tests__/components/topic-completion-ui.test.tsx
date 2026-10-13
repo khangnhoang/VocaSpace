@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,6 +25,7 @@ import { AUTO_ADVANCE_MS } from "@/app/(client)/learn/[course-slug]/[topic-slug]
 // - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
 //   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính ở các bước (còn ở màn hình hoàn thành thì là nút phụ); không còn nút "Hoàn thành bài học".
 // - LF5 (AC4): chấm thẻ cuối, trả lời câu bài tập cuối hay câu thiếu cuối, hoặc câu đúng cuối của memory check làm bài học hoàn thành thì không có toast nào (cả toast hoàn thành bài lẫn toast chuyển bước/memory check) và màn hình hoàn thành thay cho bước; câu bài tập cuối giữ phản hồi rồi (Q15) tự mở màn hình hoàn thành sau AUTO_ADVANCE_MS mà không có nút kết thúc, còn câu thiếu cuối (hoặc câu chưa phải cuối) vẫn dùng hành động xác nhận; lối quay lại `Xem kết quả chủ đề` ẩn trong lúc chờ (Q16); chưa hoàn thành thì vẫn có toast chuyển bước.
+// - LF6 (AC1, tương tác LF5): rời câu bài tập cuối bằng thanh tiến trình trong lúc chờ tự chuyển thì đồng hồ cũ không kéo học viên sang màn hình hoàn thành, không gửi lần hai, và lần vào đầu tiên từ "Xem kết quả chủ đề" vẫn chạy chuỗi.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/topic-completion-ui.test.tsx`).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -367,7 +368,7 @@ describe("D4 topic completion UI", () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Xem lại Bài tập" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Bài tập/ }));
     next();
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
     mockedSubmit.mockResolvedValueOnce({
@@ -408,6 +409,50 @@ describe("D4 topic completion UI", () => {
     expect(completionHeading()).not.toBeNull();
   });
 
+  it("does not pull the learner back after leaving an exercise by the thread during the completion wait", async () => {
+    const card = {
+      id: "e0000000-0000-4000-8000-00000000000a",
+      front_content: { word: "reliable" },
+      back_content: { translation: "đáng tin cậy" },
+      audio_url: null,
+      image_url: null,
+    };
+    render(
+      <LearningWorkspace
+        data={workspaceData({
+          flashcards: [card],
+          answers: { [ids.standalone]: right(ids.standalone) },
+        })}
+      />,
+    );
+    const threadStep = (name: RegExp) =>
+      within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name });
+    // The card still needs Ổn or Dễ, so the learner lands on Từ vựng and opens the exercises from the thread.
+    fireEvent.click(threadStep(/^Bài tập/));
+    next();
+    mockedSubmit.mockResolvedValueOnce({
+      success: true,
+      isCorrect: true,
+      topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
+    });
+    await submitExerciseAnswer("Đúng Câu nhóm A");
+    expect(screen.getByText("Chính xác!")).not.toBeNull();
+
+    fireEvent.click(threadStep(/^Từ vựng/));
+    act(() => {
+      vi.advanceTimersByTime(AUTO_ADVANCE_MS * 2);
+    });
+    // The wait ended with the unmounted question: the learner stays where they went and nothing was sent twice.
+    expect(completionHeading()).toBeNull();
+    expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
+    expect(mockedSubmit).toHaveBeenCalledTimes(1);
+    expect(mockedToast.success).not.toHaveBeenCalled();
+
+    // The pending completion survived and plays its sequence on the first entry.
+    fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
+    expect(completionHeading()?.closest("section")?.getAttribute("data-motion")).toBe("sequence");
+  });
+
   it("keeps the timer cleared and the return action visible when the learner stays on another question", async () => {
     render(
       <LearningWorkspace
@@ -441,7 +486,7 @@ describe("D4 topic completion UI", () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Xem lại Bài tập" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Bài tập/ }));
     next();
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
     // The footer and the end action both lead to the overview; the end action is still there.
@@ -530,7 +575,7 @@ describe("D4 topic completion UI", () => {
     expect(completionHeading()).not.toBeNull();
     expect(nextLinks[0].getAttribute("data-variant")).toBe("ghost");
     // Reviewing a stage brings back the footer's own promotion of the next topic.
-    fireEvent.click(screen.getByRole("button", { name: "Xem lại Bài tập" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Bài tập/ }));
     expect(completionHeading()).toBeNull();
     const promoted = Array.from(navigation.querySelectorAll("a")).filter(
       (link) => link.textContent === "Bài sau",

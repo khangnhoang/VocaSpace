@@ -6,6 +6,9 @@ import { loginAsStudent, loginAsTeacher } from "../support/auth";
 // - Loại: browser local với tài khoản seed; không mock dropdown hoặc quyền từ Header.
 // - Case: học viên, teacher, admin; đóng bằng Escape, mở lại, mobile và khách.
 // - Giới hạn: membership/invitation variants được kiểm tra ở component; không kiểm tra production.
+// - HEADER-001 (reduced motion): case riêng bên dưới là guard cho kết quả quan sát được của AC7. Nó đã PASS trên baseline
+//   `8defedd` (Chromium headless, Chrome, CDP/`emulateMedia`, mở lần đầu, mở lại, bật reduce khi menu đang mở), nên chưa
+//   tái hiện được lỗi Owner thấy trên Chrome :3000; không dùng nó để đóng HEADER-001.
 // - Verify: xem State D6 trong progress.md.
 for (const role of ["student", "teacher", "admin"] as const) {
   test(`${role} account menu opens on first click and after navigation`, async ({ page }) => {
@@ -41,6 +44,42 @@ for (const role of ["student", "teacher", "admin"] as const) {
     await expect(sheet.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(sheet).not.toBeVisible();
+  });
+}
+
+// HEADER-001: dưới prefers-reduced-motion, menu desktop phải liệt kê đúng các mục như khi có motion
+// (lần mở đầu và mở lại sau khi đóng). Danh sách kỳ vọng theo getAccountMenuState của từng seed role.
+const REDUCED_MOTION_ITEMS = {
+  student: ["Không gian học tập", "Hồ sơ cá nhân", "Đăng xuất"],
+  teacher: ["Không gian học tập", "Hồ sơ cá nhân", "Khóa học của tôi", "Đăng xuất"],
+  admin: ["Không gian học tập", "Hồ sơ cá nhân", "Quản trị hệ thống", "Khóa học của tôi", "Đăng xuất"],
+} as const;
+
+for (const role of ["student", "teacher", "admin"] as const) {
+  test(`${role} account menu lists its items under reduced motion on first open and reopen`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    if (role === "teacher") {
+      await loginAsTeacher(page, { E2E_TEACHER_EMAIL: "teacher@gmail.com", E2E_TEACHER_PASSWORD: "123123" });
+    } else {
+      await loginAsStudent(page, { E2E_STUDENT_EMAIL: `${role}@gmail.com`, E2E_STUDENT_PASSWORD: "123123" });
+    }
+    const trigger = page.getByRole("button", { name: "Mở menu tài khoản", exact: true });
+    const menu = page.getByRole("menu");
+    const expectedItems = REDUCED_MOTION_ITEMS[role];
+
+    for (const attempt of ["first open", "reopen"]) {
+      await trigger.click();
+      await expect(menu, attempt).toBeVisible();
+      await expect(menu.getByRole("menuitem"), attempt).toHaveText([...expectedItems]);
+      for (const name of expectedItems) {
+        const item = menu.getByRole("menuitem", { name });
+        await expect(item, `${attempt}: ${name}`).toBeVisible();
+        await expect(item, `${attempt}: ${name} opacity`).toHaveCSS("opacity", "1");
+      }
+      await page.keyboard.press("Escape");
+      await expect(menu).not.toBeVisible();
+    }
   });
 }
 
