@@ -8,7 +8,7 @@ Three rules below are standing Owner permissions that apply without asking again
 
 - Standing permission: run a Codex review on your own for every plan and for the main implementation. Loop fix and resume until PASS; ask the Owner only when a finding needs a new decision.
 - Small fixes during Owner QA (copy, layout, styling) get no Codex round. Any other Codex call happens only when the Owner asks.
-- Use `codex exec`, not an MCP server. Default review: `codex exec - -m gpt-6.1-sol -c model_reasoning_effort='"high"' -c sandbox_mode='"read-only"' -o <out> < <prompt>`, main session only. Add Codex subagents (default `medium`) only when the Owner asks for multi-agent.
+- Use `codex exec`, not an MCP server. Default review: `codex exec - -m gpt-6.1-sol -c model_reasoning_effort='"high"' -c sandbox_mode='"read-only"' -o <out> < <prompt>`, main session only. Add Codex subagents only when the Owner asks for multi-agent; they use `gpt-6.1-sol` at effort `medium` unless the Owner names another model or effort.
 - A new task or review target gets a fresh session; use `codex exec resume <id>` only for later rounds of the same task. Resume does not keep the first round's flags, so repeat `-m`, effort and sandbox on every resume and check the log header.
 - If a Codex app thread holds the writer (`thread-store conflict`), give the Owner the round prompt to paste there instead of resuming.
 
@@ -18,9 +18,9 @@ Three rules below are standing Owner permissions that apply without asking again
 
 ## Implementation
 
-- Give an approved plan with no open decision to one `sonnet-high-implementor` session for all checkpoints; with no approved plan or an open decision, ask the Owner first. The handoff grants local commits only.
-- Send corrections and later checkpoints to the same session with SendMessage; do not start a subagent or an independent review per checkpoint.
-- Main does not edit product code or tests, even for small QA fixes.
+- When the Owner hands a plan to Sonnet (orchestrator mode), dispatch one `sonnet-high-implementor` session for all checkpoints. Do this only for an approved plan with no open decision; otherwise ask the Owner first. The handoff grants local commits only.
+- Send corrections and later checkpoints to the same session with SendMessage; do not start a subagent or an independent review per checkpoint. Reviews or evidence that the plan or a skill requires (for example a fresh-reader round) still run at their checkpoint.
+- While an implementor owns the plan, Main does not edit product code or tests, even for small QA fixes.
 
 ## Discovery
 
