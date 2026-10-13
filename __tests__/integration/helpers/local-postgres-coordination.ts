@@ -11,6 +11,9 @@ type PsqlExit = { code: number | null; signal: NodeJS.Signals | null };
 
 export type LocalPostgresTransaction = {
   pid: number;
+  // Chạy một câu lệnh trong transaction đang mở. Lỗi của câu lệnh được bắt trong savepoint ngầm của khối DO,
+  // nên transaction vẫn sống: `sqlstate` là mã SQLSTATE của lỗi, hoặc null khi câu lệnh thành công.
+  run: (statement: string) => Promise<{ sqlstate: string | null }>;
   finish: (command: "COMMIT" | "ROLLBACK") => Promise<void>;
 };
 
@@ -58,8 +61,34 @@ export async function beginLocalPostgresTransaction(
       throw new Error(`Local PostgreSQL session returned an invalid backend PID: ${readyLine}`);
     }
 
+    let statementSequence = 0;
     return {
       pid,
+      run: async (statement) => {
+        if (finished || exit) throw new Error("Local PostgreSQL session is already closed.");
+        if (statement.includes("$local_pg_sql$")) throw new Error("Statement must not contain the reserved dollar-quote tag.");
+        const marker = `LOCAL_PG_STATEMENT_RESULT|${++statementSequence}|`;
+        child.stdin.write(
+          `do $local_pg_run$ begin execute $local_pg_sql$${statement}$local_pg_sql$; ` +
+          `perform set_config('voca.local_pg_statement_sqlstate', 'OK', true); ` +
+          `exception when others then perform set_config('voca.local_pg_statement_sqlstate', sqlstate, true); end $local_pg_run$;\n` +
+          `select '${marker}' || current_setting('voca.local_pg_statement_sqlstate');\n`,
+        );
+        const deadline = Date.now() + COORDINATION_TIMEOUT_MS;
+        while (Date.now() < deadline) {
+          const resultLine = stdout.split(/\r?\n/).find((line) => line.startsWith(marker));
+          if (resultLine) {
+            const sqlstate = resultLine.slice(marker.length);
+            return { sqlstate: sqlstate === "OK" ? null : sqlstate };
+          }
+          if (exit || spawnError) {
+            const detail = stderr.trim();
+            throw new Error(`Local PostgreSQL session exited during a statement.${detail ? ` ${detail}` : ""}`);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        throw new Error("Timed out waiting for the local PostgreSQL statement result.");
+      },
       finish: async (command) => {
         if (finished) return;
         if (exit) {
