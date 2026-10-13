@@ -189,6 +189,7 @@ declare
   v_course public.courses%rowtype;
   -- Cắt khoảng trắng hai đầu như `.trim()` của rejectCourseSchema (cả tab và xuống dòng).
   v_reason text := regexp_replace(coalesce(p_reason, ''), '^\s+|\s+$', '', 'g');
+  v_reason_length integer;
 begin
   if v_actor is null then raise exception 'AUTH_REQUIRED'; end if;
 
@@ -206,7 +207,12 @@ begin
   if v_course.status is distinct from 'pending'::public.item_status or v_course.submitted_at is null then
     raise exception 'COURSE_REVIEW_STATE_INVALID';
   end if;
-  if char_length(v_reason) < 10 or char_length(v_reason) > 1000 then
+  -- Độ dài tính theo đơn vị UTF-16 như `.min(10).max(1000)` của Zod: ký tự ngoài BMP (4 byte UTF-8,
+  -- ví dụ emoji) chiếm 2 đơn vị, còn char_length chỉ đếm 1.
+  select char_length(v_reason) + count(*) filter (where octet_length(ch) = 4)
+    into v_reason_length
+  from regexp_split_to_table(v_reason, '') as ch;
+  if v_reason_length < 10 or v_reason_length > 1000 then
     raise exception 'COURSE_REJECT_REASON_INVALID';
   end if;
 

@@ -131,6 +131,29 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
     },
   );
 
+  it("shows a busy label and blocks a second submit while the request is pending", async () => {
+    let resolveSubmit: (value: unknown) => void = () => {};
+    mocks.submitCourseReview.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSubmit = resolve;
+      }),
+    );
+    render(<CourseOverview readiness={makeReadiness({ chapters })} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Gửi duyệt" }));
+
+    const busy = (await screen.findByRole("button", {
+      name: "Đang gửi duyệt...",
+    })) as HTMLButtonElement;
+    expect(busy.disabled).toBe(true);
+    expect(busy.getAttribute("aria-busy")).toBe("true");
+    fireEvent.click(busy);
+    expect(mocks.submitCourseReview).toHaveBeenCalledTimes(1);
+
+    resolveSubmit({ success: true, data: { course_id: courseId, status: "pending" } });
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+  });
+
   it("disables submit with a hint while no topic is published", () => {
     render(
       <CourseOverview
@@ -182,6 +205,30 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
     expect(mocks.withdrawCourseReview).toHaveBeenCalledWith({ courseId });
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Đã rút yêu cầu duyệt.");
+  });
+
+  it("shows a busy label in the confirm dialog while the withdraw is pending", async () => {
+    let resolveWithdraw: (value: unknown) => void = () => {};
+    mocks.withdrawCourseReview.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveWithdraw = resolve;
+      }),
+    );
+    render(
+      <CourseOverview readiness={makeReadiness({ status: "pending", chapters })} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Rút yêu cầu duyệt" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Rút yêu cầu" }));
+
+    const busy = (await screen.findByRole("button", {
+      name: "Đang rút...",
+    })) as HTMLButtonElement;
+    expect(busy.disabled).toBe(true);
+    expect(busy.getAttribute("aria-busy")).toBe("true");
+
+    resolveWithdraw({ success: true, data: { course_id: courseId, status: "draft" } });
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
   });
 
   it("does not withdraw when the confirm dialog is cancelled", async () => {

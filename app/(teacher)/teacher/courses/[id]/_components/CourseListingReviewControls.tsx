@@ -83,17 +83,18 @@ export default function CourseListingReviewControls({
             type="button"
             disabled={isPending || !hasPublishedTopic}
             aria-busy={isPending}
+            size="lg"
             onClick={() =>
               void run(submitCourseReview, "Đã gửi khóa học để duyệt.")
             }
-            className="h-auto min-h-10 w-full whitespace-normal bg-[#3B82F6] px-3 py-2 text-center leading-5 text-white hover:bg-[#2563EB]"
+            className="w-full"
           >
             {isPending ? (
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : (
               <Send className="size-4" aria-hidden="true" />
             )}
-            Gửi duyệt
+            {isPending ? "Đang gửi duyệt..." : "Gửi duyệt"}
           </Button>
           {!hasPublishedTopic ? (
             <p className="text-xs leading-5 text-slate-500">
@@ -108,9 +109,10 @@ export default function CourseListingReviewControls({
           <Button
             type="button"
             variant="outline"
+            size="lg"
             disabled={isPending}
             onClick={() => setIsConfirmOpen(true)}
-            className="h-auto min-h-10 w-full whitespace-normal bg-white px-3 py-2 text-center leading-5"
+            className="w-full"
           >
             <Undo2 className="size-4" aria-hidden="true" />
             Rút yêu cầu duyệt

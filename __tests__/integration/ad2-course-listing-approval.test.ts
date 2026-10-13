@@ -25,7 +25,7 @@ import {
 // - Ổn định/resilience:
 //   - giữ course advisory lock từ psql: approve đang chờ khóa thấy course đã bị rút (COURSE_REVIEW_STATE_INVALID); submit đang chờ khóa thấy co_owner đã bị hạ xuống editor (COURSE_SUBMIT_FORBIDDEN); cả hai không đổi course.
 // - Invariant cần giữ: chỉ bốn RPC (hoặc service role) đổi status/review; mọi kiểm tra người gọi và trạng thái chạy sau khóa course; lời gọi bị từ chối không đổi hàng nào.
-// - Kết quả verify gần nhất: passed (62 test) trên runtime E2E cô lập (API 45441) bằng `npm run test:integration -- __tests__/integration/ad2-course-listing-approval.test.ts`.
+// - Kết quả verify gần nhất: passed (66 test) trên runtime E2E cô lập (API 45441) bằng `npm run test:integration -- __tests__/integration/ad2-course-listing-approval.test.ts`.
 // - Ghi chú: AUTH_REQUIRED không gọi được qua Data API vì anon không có quyền execute (chỉ có 42501); nhánh đó là kiểm tra auth.uid() đầu mỗi RPC.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -445,6 +445,24 @@ describe("AD2 reject_course_review", () => {
       expect((await reject(admin, courseId, ` ${reason} `)).error).toBeNull();
       expect((await readCourse(courseId)).reject_message).toBe(reason);
     }
+  });
+
+  // Zod đếm đơn vị UTF-16, nên emoji (ngoài BMP) tính 2: SQL phải chấp nhận/từ chối đúng cùng ranh giới.
+  it.each([
+    ["5 emoji (10 UTF-16 units)", "😀".repeat(5)],
+    ["500 emoji (1000 UTF-16 units)", "😀".repeat(500)],
+  ])("accepts %s and stores it trimmed", async (_label, reason) => {
+    const { courseId } = await createCourse({ status: "pending" });
+    expect((await reject(admin, courseId, ` ${reason} `)).error).toBeNull();
+    expect((await readCourse(courseId)).reject_message).toBe(reason);
+  });
+
+  it.each([
+    ["4 emoji and 1 character (9 UTF-16 units)", `${"😀".repeat(4)}a`],
+    ["500 emoji and 1 character (1001 UTF-16 units)", `${"😀".repeat(500)}a`],
+  ])("refuses %s with COURSE_REJECT_REASON_INVALID and changes nothing", async (_label, reason) => {
+    const { courseId } = await createCourse({ status: "pending" });
+    await expectRefused(() => reject(admin, courseId, reason), "COURSE_REJECT_REASON_INVALID", courseId);
   });
 
   it.each([

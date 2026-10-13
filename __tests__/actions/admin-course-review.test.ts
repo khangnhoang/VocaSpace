@@ -88,7 +88,28 @@ describe("admin course review Server Actions", () => {
     expect(
       await rejectCourseReview({ courseId, rejectMessage: "a".repeat(1001) }),
     ).toEqual({ error: "Lý do từ chối không được vượt quá 1000 ký tự." });
+    // Emoji tính 2 đơn vị UTF-16: ranh giới này phải khớp RPC (xem integration test).
+    expect(
+      await rejectCourseReview({ courseId, rejectMessage: `${"😀".repeat(4)}a` }),
+    ).toEqual({ error: "Lý do từ chối phải có ít nhất 10 ký tự." });
+    expect(
+      await rejectCourseReview({ courseId, rejectMessage: `${"😀".repeat(500)}a` }),
+    ).toEqual({ error: "Lý do từ chối không được vượt quá 1000 ký tự." });
     expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("passes reasons at the astral bounds to the RPC unchanged", async () => {
+    for (const rejectMessage of ["😀".repeat(5), "😀".repeat(500)]) {
+      const rpc = installClient({ data: { course_id: courseId, status: "draft" } });
+
+      expect(await rejectCourseReview({ courseId, rejectMessage: ` ${rejectMessage} ` })).toMatchObject({
+        success: true,
+      });
+      expect(rpc).toHaveBeenCalledWith("reject_course_review", {
+        p_course_id: courseId,
+        p_reason: rejectMessage,
+      });
+    }
   });
 
   describe.each(actions)("$name", ({ run, rpcName, rpcArgs }) => {
