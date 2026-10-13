@@ -44,10 +44,10 @@ vi.mock("next/navigation", () => ({
 // - Mục tiêu: kiểm tra Server Actions PR7 là boundary validate input, gọi RPC ordering, kiểm tra authoring permission, unavailable context, và lỗi read không fail-open.
 // - Loại test: action/unit với Supabase mock.
 // - Đối tượng: getChaptersByCourseId (kèm số bài học D2), createChapter, moveChapterOrder, updateChapter, deleteChapter/hide_chapter, restoreChapter/restore_chapter_ordered, createTopic, moveTopicOrder, updateTopic, deleteTopic, deleteTopicFromBuilder, verifyTopicAuthoringContext, getCourseStats, getTopicsByChapterId.
-// - Case thành công: create/move/hide/restore gọi RPC ordering/lifecycle; update dùng object payload hợp lệ; Builder delete redirect server-side sau revalidate.
+// - Case thành công: create/rename/move/hide/restore gọi RPC ordering/lifecycle (rename qua `rename_chapter`, tên được trim và giữ giới hạn 3-100 ở Zod); update dùng object payload hợp lệ; Builder delete redirect server-side sau revalidate.
 // - Case thất bại: payload sai bị reject trước auth/DB; topic không tạo trong chapter inactive/sai course; unavailable topic không bị log như unexpected error; stats/list query failures trả lỗi thay vì dữ liệu giả.
 // - Bảo mật/phân quyền: danh sách chương và số bài học chỉ đọc sau khi có course membership; topic read guard phải yêu cầu active course membership trước khi đọc context topic và phân biệt forbidden với query failure.
-// - Ổn định/resilience: action trả lỗi an toàn cho RPC error và shape không hợp lệ.
+// - Ổn định/resilience: action trả lỗi an toàn cho RPC error và shape không hợp lệ. Rename map TOPIC_PENDING_FROZEN/CHAPTER_NOT_FOUND/CHAPTER_REMOVED/COURSE_EDIT_FORBIDDEN sang thông báo chương hiện có và không revalidate khi lỗi.
 // - Kéo-thả: moveTopicToPosition validate UUID/anchor null trước auth, chỉ gửi id + anchor cho RPC, map TOPIC_ORDER_STALE và shape lỗi.
 // - Invariant cần giữ: client không gửi order_index hay creator; Server Action chỉ chuyển id + direction cho move RPC và id cho lifecycle RPC.
 // - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts`.
@@ -159,16 +159,6 @@ function mockCreateClient(client: unknown) {
   mockedCreateClient.mockResolvedValueOnce(
     client as Awaited<ReturnType<typeof createClient>>,
   );
-}
-
-function updateQuery(data: Record<string, unknown>) {
-  return {
-    update: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    is: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data, error: null }),
-  };
 }
 
 function activeChapterQuery(found = true) {
@@ -284,8 +274,8 @@ describe("course structure actions", () => {
     expect(result.error).toBe("Không thể lưu chương. Vui lòng thử lại.");
   });
 
-  it("updates chapters and hides them through their trusted lifecycle RPC", async () => {
-    const chapterUpdate = updateQuery({
+  it("renames chapters through the rename RPC and hides them through their trusted lifecycle RPC", async () => {
+    const renamed = {
       id: chapterId,
       course_id: courseId,
       title: "Updated",
@@ -293,13 +283,24 @@ describe("course structure actions", () => {
       created_at: "2026-06-15T00:00:00.000Z",
       updated_at: "2026-06-15T00:00:00.000Z",
       removed_at: null,
-    });
-    mockCreateClient(authClient({ chapters: [chapterUpdate] }));
+    };
+    const renameClient = authClient(
+      {},
+      { data: { status: "renamed", course_id: courseId, chapter: renamed }, error: null },
+    );
+    mockCreateClient(renameClient);
 
     const updateResult = await updateChapter({ chapterId, title: " Updated " });
 
     expect(updateResult.success).toBe(true);
-    expect(chapterUpdate.update).toHaveBeenCalledWith({ title: "Updated" });
+    expect(updateResult.message).toBe("Đã cập nhật chương.");
+    expect(updateResult.data).toEqual(renamed);
+    expect(renameClient.rpc).toHaveBeenCalledWith("rename_chapter", {
+      p_chapter_id: chapterId,
+      p_title: "Updated",
+    });
+    expect(renameClient.from).not.toHaveBeenCalled();
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(getCourseStructurePath(courseId));
 
     const hideResult = {
       status: "hidden",
@@ -316,6 +317,75 @@ describe("course structure actions", () => {
       p_chapter_id: chapterId,
       p_unmark_topic_ids: [],
     });
+  });
+
+  it("trims chapter titles and enforces the 3 to 100 character rule before the rename RPC", async () => {
+    const tooShort = await updateChapter({ chapterId, title: "  ab  " });
+    const tooLong = await updateChapter({ chapterId, title: "x".repeat(101) });
+
+    expect(tooShort.error).toBe("Tên chương phải có ít nhất 3 ký tự");
+    expect(tooLong.error).toBe("Tên chương không được quá 100 ký tự");
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+
+    const renamed = (title: string) => ({
+      id: chapterId,
+      course_id: courseId,
+      title,
+      order_index: 1,
+      created_at: "2026-06-15T00:00:00.000Z",
+      updated_at: "2026-06-15T00:00:00.000Z",
+      removed_at: null,
+    });
+    const shortestClient = authClient(
+      {},
+      { data: { status: "renamed", course_id: courseId, chapter: renamed("abc") }, error: null },
+    );
+    mockCreateClient(shortestClient);
+    const shortest = await updateChapter({ chapterId, title: "  abc  " });
+
+    const longestTitle = "y".repeat(100);
+    const longestClient = authClient(
+      {},
+      { data: { status: "renamed", course_id: courseId, chapter: renamed(longestTitle) }, error: null },
+    );
+    mockCreateClient(longestClient);
+    const longest = await updateChapter({ chapterId, title: ` ${longestTitle} ` });
+
+    expect(shortest.success).toBe(true);
+    expect(shortestClient.rpc).toHaveBeenCalledWith("rename_chapter", { p_chapter_id: chapterId, p_title: "abc" });
+    expect(longest.success).toBe(true);
+    expect(longestClient.rpc).toHaveBeenCalledWith("rename_chapter", { p_chapter_id: chapterId, p_title: longestTitle });
+  });
+
+  it("maps rename RPC failures to the existing chapter messages without revalidating", async () => {
+    const cases = [
+      ["TOPIC_PENDING_FROZEN", "Chương có bài học đang chờ duyệt; hãy xử lý quy trình duyệt trước khi thay đổi chương."],
+      ["CHAPTER_NOT_FOUND", "Chương không còn khả dụng trong cấu trúc khóa học."],
+      ["CHAPTER_REMOVED", "Chương không còn khả dụng trong cấu trúc khóa học."],
+      ["COURSE_EDIT_FORBIDDEN", "Bạn không có quyền chỉnh sửa chương của khóa học này."],
+    ] as const;
+
+    for (const [code, message] of cases) {
+      mockCreateClient(authClient({}, { data: null, error: { code: "P0001", message: code } }));
+
+      const result = await updateChapter({ chapterId, title: "Renamed chapter" });
+
+      expect(result.error).toBe(message);
+      expect(result.success).not.toBe(true);
+    }
+    expect(mockedRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed rename RPC payloads", async () => {
+    mockCreateClient(
+      authClient({}, { data: { status: "failed", course_id: courseId }, error: null }),
+    );
+
+    const result = await updateChapter({ chapterId, title: "Renamed chapter" });
+
+    expect(result.success).not.toBe(true);
+    expect(result.error).toBe("Không thể lưu chương. Vui lòng thử lại.");
+    expect(mockedRevalidatePath).not.toHaveBeenCalled();
   });
 
   it("restores chapters through the ordered restore RPC", async () => {

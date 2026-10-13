@@ -54,6 +54,12 @@ type CreateChapterRpcResult = {
   chapter: ChapterRpcRow;
 };
 
+type RenameChapterRpcResult = {
+  status: "renamed";
+  course_id: string;
+  chapter: ChapterRpcRow;
+};
+
 type MoveChapterRpcResult = {
   status: "moved" | "noop";
   reason?: "already_first" | "already_last";
@@ -348,18 +354,22 @@ export async function updateChapter(rawInput: ChapterUpdateInput) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Vui lòng đăng nhập lại." };
 
-  const { data, error } = await supabase
-    .from("chapters")
-    .update({ title: input.title })
-    .eq("id", input.chapterId)
-    .is("removed_at", null)
-    .select("id, course_id, title, order_index, created_at, updated_at, removed_at")
-    .single();
+  const { data: rpcResult, error } = await supabase.rpc("rename_chapter", {
+    p_chapter_id: input.chapterId,
+    p_title: input.title,
+  });
 
   if (error) {
     console.error("[CHAPTER UPDATE ERROR]:", error);
-    return { error: mapChapterMutationError(error.code) };
+    return { error: mapChapterOrderingRpcError(error) };
   }
+
+  const result = rpcResult as RenameChapterRpcResult | null;
+  if (!result || result.status !== "renamed" || !result.chapter) {
+    console.error("[CHAPTER UPDATE RPC SHAPE ERROR]:", rpcResult);
+    return { error: "Không thể lưu chương. Vui lòng thử lại." };
+  }
+  const data = result.chapter;
 
   revalidateCourseStructure(data.course_id);
   return {
