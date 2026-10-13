@@ -46,6 +46,8 @@ function baseGraph(): CourseReadinessGraph {
       status: "draft",
       order_index: 1,
       removed_at: null,
+      reject_message: null,
+      reviewed_at: null,
     },
     chapters: [],
     topics: [],
@@ -292,6 +294,45 @@ describe("deriveCourseDashboardReadiness", () => {
         type: "course_structure",
         href: `/teacher/courses/${ids.course}/structure?from=dashboard&issue=chapter_has_no_topics&targetType=chapter&target=${ids.chapterA}`,
       },
+    });
+  });
+
+  it("counts only active published topics in active chapters for the listing review gate", () => {
+    const graph = baseGraph();
+    addChapter(graph, ids.chapterA, 1);
+    addChapter(graph, ids.chapterB, 2, "2026-06-05T00:00:00.000Z");
+    addTopic(graph, ids.topicA, ids.chapterA, 1);
+    addTopic(graph, ids.topicB, ids.chapterA, 2);
+    addTopic(graph, "33333333-3333-4333-8333-333333333335", ids.chapterA, 3);
+    addTopic(graph, "33333333-3333-4333-8333-333333333336", ids.chapterA, 4, "2026-06-05T00:00:00.000Z");
+    addTopic(graph, "33333333-3333-4333-8333-333333333337", ids.chapterB, 1);
+    // topicA published (counts); topicB pending and the third draft (do not count);
+    // the fourth is published but soft-deleted; the fifth is published but in a removed chapter.
+    graph.topics[0].status = "published";
+    graph.topics[1].status = "pending";
+    graph.topics[3].status = "published";
+    graph.topics[4].status = "published";
+
+    expect(deriveCourseDashboardReadiness(graph).publishedTopicCount).toBe(1);
+  });
+
+  it("reports zero published topics for a course without any", () => {
+    const graph = baseGraph();
+    addChapter(graph, ids.chapterA, 1);
+    addTopic(graph, ids.topicA, ids.chapterA, 1);
+
+    expect(deriveCourseDashboardReadiness(graph).publishedTopicCount).toBe(0);
+    expect(deriveCourseDashboardReadiness(baseGraph()).publishedTopicCount).toBe(0);
+  });
+
+  it("passes the last review outcome through to the dashboard course", () => {
+    const graph = baseGraph();
+    graph.course.reject_message = "Nội dung bài 1 còn thiếu phần giải thích.";
+    graph.course.reviewed_at = "2026-10-14T00:00:00.000Z";
+
+    expect(deriveCourseDashboardReadiness(graph).course).toMatchObject({
+      reject_message: "Nội dung bài 1 còn thiếu phần giải thích.",
+      reviewed_at: "2026-10-14T00:00:00.000Z",
     });
   });
 

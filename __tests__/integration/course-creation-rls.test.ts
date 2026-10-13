@@ -22,7 +22,7 @@ import { randomUUID } from "node:crypto";
 // - Invariant cần giữ:
 //   - can_view_course_basic tiếp tục là nguồn sự thật duy nhất cho SELECT visibility.
 //   - mỗi course chỉ có một owner; co_owner vẫn là membership đặc quyền hợp lệ.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration`.
+// - Kết quả verify gần nhất: passed (9 test) trên runtime E2E cô lập (API 45441) bằng `npm run test:integration -- __tests__/integration/course-creation-rls.test.ts`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -56,7 +56,8 @@ function assertSafeIntegrationEnv() {
     );
   }
 
-  if (!SUPABASE_URL.startsWith("http://127.0.0.1:45321")) {
+  const url = new URL(SUPABASE_URL);
+  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !["45321", "45441"].includes(url.port)) {
     throw new Error(
       `Chặn test DB integration vì Supabase URL không phải local: ${SUPABASE_URL}`,
     );

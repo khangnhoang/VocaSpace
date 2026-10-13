@@ -4,14 +4,6 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ## Open
 
-### ADMIN-002: Course members can publish a course with a direct table update
-
-- Status: Open (2026-10-13).
-- Problem: `authenticated` has table-level `UPDATE` on `courses` (`20260609114505_remote_schema.sql:2019`), which covers `status`, `submitted_at`, `reviewed_at`, `reviewed_by` and `reject_message`, and the `Courses - Staff Update Secured` policy (`20260915100000_d1_trusted_lifecycle.sql:478-482`) allows any owner, co-owner or editor (`has_course_authoring_access`). So a course member can set `status = 'published'` from the browser and the course appears in the public catalog without any review. The app itself has no publish path: no RPC or action sets a course to `published`.
-- Evidence: privileges and the policy read on the root DB and, read-only, on hosted (2026-10-13); the catalog lists only `status = 'published'` courses (`20260710182617_public_course_read_model.sql:30`). Inferred from grants and policy; not reproduced with a client call yet.
-- Direction: AD2 (Owner decisions 3 to 5).
-- Exit condition: a client table update of those columns is refused for every signed-in role, with integration tests; they change only through the AD2 lifecycle RPCs, the existing `moderate_platform_content`, or trusted service-role paths.
-
 ### ADMIN-003: The admin dashboard shows invented numbers
 
 - Status: Open (2026-10-13).
@@ -33,3 +25,4 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 One line each: ID, status, one-line outcome. Details stay in Git.
 
 - ADMIN-001 Resolved (2026-10-13, AD1): every `/admin` page is gated to active admins (signed-out to `/login?reason=signin_required`, others to the 404 page), the sidebar lists only the two existing pages, and the mock `/admin/courses` screen returns 404 until AD3.
+- ADMIN-002 Resolved (2026-10-14, AD2, in the repository; hosted after the Owner applies the migration): `authenticated` has no table-level `UPDATE` on `courses` and column `UPDATE` only on `title, slug, description, price, thumbnail_url, removed_at`, so a direct update of `status` or the review fields is refused for every signed-in role (66 role-matrix tests in `ad2-course-listing-approval.test.ts` on the isolated runtime), and a course reaches `published` only through the `approve_course_review` RPC of an active admin.

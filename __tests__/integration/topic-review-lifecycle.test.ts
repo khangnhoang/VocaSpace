@@ -18,7 +18,7 @@ import { randomUUID } from "node:crypto";
 //   - Last-reviewer safety, published demotion rollback và request/delete race được kiểm tra trên local transaction boundary.
 // - Invariant cần giữ:
 //   - Không có topic pending thiếu required content; moderation không masquerade thành review rejection.
-// - Kết quả verify gần nhất: passed (31 test) bằng `npm.cmd run test:integration -- __tests__/integration/topic-review-lifecycle.test.ts`.
+// - Kết quả verify gần nhất: passed (35 test) trên runtime E2E cô lập (API 45441) bằng `npm run test:integration -- __tests__/integration/topic-review-lifecycle.test.ts`.
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -44,7 +44,8 @@ function assertSafeEnvironment() {
   if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true") {
     throw new Error("Set ALLOW_DB_INTEGRATION_TESTS=true for local integration tests.");
   }
-  if (!SUPABASE_URL.startsWith("http://127.0.0.1:45321")) {
+  const url = new URL(SUPABASE_URL);
+  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !["45321", "45441"].includes(url.port)) {
     throw new Error(`Refusing non-local Supabase URL: ${SUPABASE_URL}`);
   }
 }

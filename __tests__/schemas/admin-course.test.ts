@@ -56,6 +56,17 @@ describe("admin course validation", () => {
     ).toThrow("Lý do từ chối phải có ít nhất 10 ký tự.");
   });
 
+  // Ranh giới độ dài tính theo đơn vị UTF-16 (emoji = 2); RPC reject_course_review phải khớp (integration test).
+  it("counts astral characters as two UTF-16 units at the rejection reason bounds", () => {
+    const parse = (rejectMessage: string) =>
+      rejectCourseSchema.safeParse({ courseId: validCourseId, rejectMessage });
+
+    expect(parse("😀".repeat(5)).success).toBe(true);
+    expect(parse(`${"😀".repeat(4)}a`).success).toBe(false);
+    expect(parse("😀".repeat(500)).success).toBe(true);
+    expect(parse(`${"😀".repeat(500)}a`).success).toBe(false);
+  });
+
   it("limits search query length and trims filter input", () => {
     expect(
       adminCourseFilterSchema.parse({

@@ -48,6 +48,11 @@ import type { FullExercise } from "@/lib/schemas/exercise";
 
 vi.mock("server-only", () => ({}));
 
+// CourseListingReviewControls (client) dùng useRouter; static render không có app router.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+
 // Test plan:
 // - Mục tiêu: kiểm tra route contract, Structure chapter roles và vị trí các affordance quản lý Preview.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
@@ -171,6 +176,8 @@ const readiness: CourseDashboardReadiness = {
     price: 0,
     status: "draft",
     order_index: 3,
+    reject_message: null,
+    reviewed_at: null,
   },
   counts: {
     chapters: 2,
@@ -181,6 +188,7 @@ const readiness: CourseDashboardReadiness = {
     questions: 8,
     answerOptions: 24,
   },
+  publishedTopicCount: 5,
   issues: [],
   primaryCta: {
     id: `primary:course:${courseId}:structure`,

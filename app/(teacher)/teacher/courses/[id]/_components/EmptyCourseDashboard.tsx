@@ -6,6 +6,9 @@ import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 import CollaboratorManagementDialog from "./CollaboratorManagementDialog";
 import CourseCollaborationLeaveDialog from "./CourseCollaborationLeaveDialog";
 import CourseCollaboratorSummary from "./CourseCollaboratorSummary";
+import CourseListingReviewControls, {
+  courseStatusLabels,
+} from "./CourseListingReviewControls";
 
 interface EmptyCourseDashboardProps {
   readiness: CourseDashboardReadiness;
@@ -39,6 +42,9 @@ export default function EmptyCourseDashboard({
             <Layers3 className="size-7" />
           </div>
           <p className="mt-5 text-sm font-bold text-blue-700">Khóa học mới</p>
+          <span className="mt-2 inline-block rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-blue-700">
+            {courseStatusLabels[course.status ?? "draft"]}
+          </span>
           <h1 className="mx-auto mt-2 max-w-2xl wrap-break-word text-2xl font-bold text-slate-950 sm:text-3xl">
             {course.title}
           </h1>
@@ -55,6 +61,9 @@ export default function EmptyCourseDashboard({
               />
             ) : null}
             <CourseCollaborationLeaveDialog courseId={course.id} actorRole={readiness.role} />
+          </div>
+          <div className="mx-auto mt-6 max-w-sm text-left">
+            <CourseListingReviewControls readiness={readiness} />
           </div>
           <div className="mt-6 flex flex-col items-stretch justify-center gap-2 sm:flex-row">
             <Button

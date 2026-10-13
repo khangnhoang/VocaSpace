@@ -31,4 +31,6 @@ export const submitCourseReviewSchema = z.object({
   courseId: z.string().uuid("ID khóa học không hợp lệ."),
 });
 
+export type AcceptCourseInput = z.infer<typeof acceptCourseSchema>;
 export type RejectCourseInput = z.infer<typeof rejectCourseSchema>;
+export type SubmitCourseReviewInput = z.infer<typeof submitCourseReviewSchema>;

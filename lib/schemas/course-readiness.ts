@@ -33,6 +33,9 @@ export const courseReadinessCourseSchema = z.strictObject({
   status: courseStatusSchema.nullable(),
   order_index: nullableOrderIndexSchema,
   removed_at: nullableTimestampSchema,
+  // AD2: lý do từ chối gần nhất của admin; dashboard hiển thị cho owner/co_owner.
+  reject_message: z.string().nullable(),
+  reviewed_at: nullableTimestampSchema,
 });
 
 export const courseReadinessChapterSchema = z.strictObject({
@@ -268,6 +271,8 @@ export const courseDashboardReadinessSchema = z.strictObject({
   course: courseReadinessCourseSchema.omit({ removed_at: true }),
   role: courseMemberRoleSchema,
   counts: courseReadinessCountsSchema,
+  // AD2: số bài đã xuất bản còn hoạt động trong chương còn hoạt động; điều kiện để gửi duyệt khóa học.
+  publishedTopicCount: z.number().int().nonnegative(),
   issues: z.array(courseReadinessIssueSchema),
   primaryCta: courseReadinessPrimaryCtaSchema,
 });
