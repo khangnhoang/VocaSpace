@@ -74,14 +74,24 @@ describe("admin gate status check targets", () => {
     expect(deleteUser).toHaveBeenCalledTimes(1);
   });
 
-  it("ignores a user that was never created but fails on any other delete error", async () => {
+  it("ignores only the user_not_found error of a user that was never created", async () => {
     const deleteUser = vi
       .fn()
-      .mockResolvedValueOnce({ error: { status: 404, message: "User not found" } })
-      .mockResolvedValueOnce({ error: { status: 500, message: "database down" } });
+      .mockResolvedValue({ error: { status: 404, code: "user_not_found", message: "User not found" } });
     createClient.mockReturnValue({ auth: { admin: { deleteUser } } });
 
     await expect(removeRevocableAdmin(isolated)).resolves.toBeUndefined();
-    await expect(removeRevocableAdmin(isolated)).rejects.toThrow(/database down/);
+  });
+
+  it.each([
+    ["a 500 whose message mentions not found", { status: 500, code: "unexpected_failure", message: "Required database object not found" }],
+    ["a 404 without the user_not_found code", { status: 404, code: "not_found", message: "User not found" }],
+    ["a 404 with no code", { status: 404, message: "User not found" }],
+    ["a plain delete failure", { status: 500, code: "unexpected_failure", message: "database down" }],
+  ])("fails the cleanup on %s", async (_label, error) => {
+    const deleteUser = vi.fn().mockResolvedValue({ error });
+    createClient.mockReturnValue({ auth: { admin: { deleteUser } } });
+
+    await expect(removeRevocableAdmin(isolated)).rejects.toThrow(/Cannot delete the admin gate fixture user/);
   });
 });

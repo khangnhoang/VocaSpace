@@ -82,7 +82,9 @@ export async function revokeAdminRole(env = process.env) {
 export async function removeRevocableAdmin(env = process.env) {
   const supabase = isolatedAdmin(env);
   const { error } = await supabase.auth.admin.deleteUser(adminGateFixture.userId);
-  if (error && error.status !== 404 && !/not.?found/i.test(error.message)) {
+  // GoTrue phân loại lỗi bằng `code`; trên runtime 45441 deleteUser với UUID không tồn tại trả 404 / `user_not_found`.
+  // Chỉ code này nghĩa là "user không tồn tại"; mọi lỗi khác (kể cả 404 khác code hay message có chữ not found) phải ném.
+  if (error && error.code !== "user_not_found") {
     throw new Error(`Cannot delete the admin gate fixture user: ${error.message}`);
   }
 }
