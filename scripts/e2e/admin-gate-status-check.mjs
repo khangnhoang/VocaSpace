@@ -1,10 +1,13 @@
 // Kiểm tra status HTTP của document /admin trên build production (AD1 AC2): `next dev` không đại diện cho streaming/status của bản build.
 // Cách chạy: build + start với NEXT_DIST_DIR=.next-e2e trên cổng 3100 trỏ vào runtime Supabase cô lập (45441), rồi
-//   E2E_BASE_URL=http://127.0.0.1:3100 node scripts/e2e/admin-gate-status-check.mjs
+//   E2E_BASE_URL=http://127.0.0.1:3100 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:45441 E2E_SUPABASE_WORKDIR=.e2e-runtime node scripts/e2e/admin-gate-status-check.mjs
+// Script từ chối chạy nếu app không ở loopback:3100 hoặc Supabase khai báo không phải runtime cô lập 45441 (G5).
 // Script đăng nhập bằng trình duyệt (tài khoản seed) rồi gửi request document không theo redirect để đọc status thật.
 import { chromium } from "@playwright/test";
+import { assertIsolatedAdminGateTargets } from "./admin-gate-fixture.mjs";
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100";
+assertIsolatedAdminGateTargets(process.env, baseURL);
 const NOT_FOUND_TEXT = "Không tìm thấy trang";
 const ADMIN_SHELL_TEXT = "Menu Quản Trị";
 const failures = [];

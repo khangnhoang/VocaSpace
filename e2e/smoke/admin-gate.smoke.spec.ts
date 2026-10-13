@@ -14,7 +14,7 @@ import { loginAsStudent, loginAsTeacher } from "../support/auth";
 //   - Khách vào /admin/user-management và /admin/courses bị chuyển về /login?reason=signin_required (redirect thắng 404).
 //   - Student và teacher vào /admin và /admin/user-management nhận trang not-found, không có sidebar/nội dung admin.
 //   - Admin vào /admin/courses, /admin/stats, /admin/settings (route đã gỡ) cũng nhận trang not-found.
-// - Bảo mật/phân quyền: admin bị thu quyền khi đang ở /admin rồi bấm sidebar (điều hướng client, không reload) vẫn nhận 404 vì mỗi page tự kiểm tra (AC3).
+// - Bảo mật/phân quyền: admin bị thu quyền khi đang ở /admin rồi bấm "Quản lý User", và khi đang ở /admin/user-management rồi bấm "Dashboard" (điều hướng client, không reload) vẫn nhận 404 vì mỗi page tự kiểm tra (AC3).
 // - Ghi chú giới hạn:
 //   - Spec chạy trên `next dev`; status 404 của document trên build production được kiểm bằng script riêng
 //     (scripts/e2e/admin-gate-status-check.mjs).
@@ -94,21 +94,39 @@ test("admin gets the not-found page on the removed course, stats and settings ro
   }
 });
 
-test("admin who loses the role gets the not-found page on the next client navigation without a reload", async ({
-  page,
-}) => {
-  const credentials = await prepareRevocableAdmin();
-  try {
-    await loginAsStudent(page, credentials);
-    await page.goto("/admin");
-    await expect(page.getByText("Tổng quan Quản trị")).toBeVisible();
+// Mỗi hướng điều hướng client kiểm tra page đích tự gọi requireAdminPage(): layout admin đang mount nên không được tin (AC3).
+const REVOCATION_CASES = [
+  { from: "/admin", visible: "Tổng quan Quản trị", link: "Quản lý User" },
+  { from: "/admin/user-management", visible: "Thông tin người dùng", link: "Dashboard" },
+] as const;
 
-    await revokeAdminRole();
+for (const { from, visible, link } of REVOCATION_CASES) {
+  test(`admin who loses the role on ${from} gets the not-found page on the ${link} client navigation without a reload`, async ({
+    page,
+  }) => {
+    let failed = false;
+    try {
+      const credentials = await prepareRevocableAdmin();
+      await loginAsStudent(page, credentials);
+      await page.goto(from);
+      await expect(page.getByText(visible)).toBeVisible();
 
-    // Không page.goto/reload: layout admin vẫn đang mount, nên chỉ kiểm tra theo từng page mới chặn được (AC3).
-    await page.locator('[data-slot="sidebar-content"]').getByRole("link", { name: "Quản lý User" }).click();
-    await expectNotFoundWithoutAdminShell(page);
-  } finally {
-    await removeRevocableAdmin();
-  }
-});
+      await revokeAdminRole();
+
+      // Không page.goto/reload: layout admin vẫn đang mount, nên chỉ kiểm tra theo từng page mới chặn được (AC3).
+      await page.locator('[data-slot="sidebar-content"]').getByRole("link", { name: link }).click();
+      await expectNotFoundWithoutAdminShell(page);
+    } catch (error) {
+      failed = true;
+      throw error;
+    } finally {
+      // Dọn luôn chạy, kể cả khi chuẩn bị dở dang; lỗi dọn làm test fail nhưng không che lỗi gốc của test.
+      try {
+        await removeRevocableAdmin();
+      } catch (cleanupError) {
+        if (!failed) throw cleanupError;
+        console.error(cleanupError);
+      }
+    }
+  });
+}

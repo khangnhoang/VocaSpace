@@ -140,7 +140,7 @@ export default function UsermanagementPage() {
 
       <UserStats stats={stats} />
 
-      <UserTable 
+      <UserTable
         searchQuery={searchQuery} onSearchChange={handleSearchChange}
         roleFilter={roleFilter} onRoleChange={handleRoleChange}
         isLoadingData={isLoadingData} paginatedUsers={paginatedUsers}
@@ -148,12 +148,12 @@ export default function UsermanagementPage() {
         setCurrentPage={setCurrentPage} openEditForm={openEditForm} openDeleteConfirm={openDeleteConfirm}
       />
 
-      <UserFormModal 
+      <UserFormModal
         isOpen={isFormOpen} setIsOpen={setIsFormOpen} editingUserId={editingUserId}
         form={form} onSubmitForm={onSubmitForm} isSubmitting={isSubmitting}
       />
 
-      <DeleteConfirmModal 
+      <DeleteConfirmModal
         isOpen={isDeleteModalOpen} setIsOpen={setIsDeleteModalOpen}
         userToDelete={userToDelete} setUserToDelete={setUserToDelete}
         handleConfirmDelete={handleConfirmDelete} isSubmitting={isSubmitting}
