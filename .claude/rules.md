@@ -25,7 +25,7 @@ Three rules below are standing Owner permissions that apply without asking again
 ## Discovery
 
 - Standing permission: for multi-dimension discovery, fan out several narrow parallel `Explore` subagents with `model: "haiku"` without asking. Skip it for small work.
-- Haiku only locates code. Main synthesizes the results, reads the critical files, verifies claims and writes the plan. A `Workflow` script still needs an explicit Owner opt-in.
+- Haiku reads the code and reports findings with `file:line` evidence; its output is advisory. Main synthesizes the reports, reads only the critical files to verify key claims, and writes the plan, so Main keeps the key facts without spending context on broad search. A `Workflow` script still needs an explicit Owner opt-in.
 
 ## CI
 
