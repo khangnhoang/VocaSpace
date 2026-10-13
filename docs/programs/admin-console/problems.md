@@ -4,14 +4,6 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ## Open
 
-### ADMIN-001: `/admin` pages are not gated
-
-- Status: Open (2026-10-13).
-- Problem: anyone, signed in or not, can open `/admin`, `/admin/courses` and `/admin/user-management`. `app/admin/layout.tsx` has no role check and `utils/supabase/middleware.ts` only guards teacher and profile routes. Real data stays behind the role checks inside `getAdminDashboardData` and the `requireAdmin` actions in `app/actions/user.ts`, but `/admin/courses` is a client page of mock data with no check at all. The sidebar also links to `/admin/stats` and `/admin/settings`, which do not exist.
-- Evidence: `app/admin/layout.tsx:5-22`, `utils/supabase/middleware.ts:45-62`, `components/ui/admin-sidebar.tsx:29-30` at `b6720ec`.
-- Direction: AD1.
-- Exit condition: a signed-out visitor and a non-admin are sent away from every `/admin` page, with tests, and the sidebar has no dead link.
-
 ### ADMIN-002: Course members can publish a course with a direct table update
 
 - Status: Open (2026-10-13).
@@ -39,3 +31,5 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git.
+
+- ADMIN-001 Resolved (2026-10-13, AD1): every `/admin` page is gated to active admins (signed-out to `/login?reason=signin_required`, others to the 404 page), the sidebar lists only the two existing pages, and the mock `/admin/courses` screen returns 404 until AD3.
