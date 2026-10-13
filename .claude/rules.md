@@ -25,7 +25,7 @@ Three rules below are standing Owner permissions that apply without asking again
 ## Discovery
 
 - Standing permission: for multi-dimension discovery, fan out several narrow parallel `Explore` subagents with `model: "haiku"` without asking. Skip it for small work.
-- Haiku only locates code. Main reads the critical files, verifies claims and decides. A `Workflow` script still needs an explicit Owner opt-in.
+- Haiku only locates code. Main synthesizes the results, reads the critical files, verifies claims and writes the plan. A `Workflow` script still needs an explicit Owner opt-in.
 
 ## CI
 
@@ -36,3 +36,8 @@ Three rules below are standing Owner permissions that apply without asking again
 - Use it only when a TypeSafe key and the `typesafe-ai` skill are available; otherwise skip it.
 - Only for bulk, narrow judgments (about 20 or more items with the same question); not for review verdicts, plan decisions or single items. Output is advisory per `AGENTS.md` rule 5.
 - Never send secrets, `.env*` contents, real user data or hosted DB rows. Do not install third-party Jev plugins unless the Owner asks.
+
+## Memory
+
+- Claude memory holds only unit state, facts about the Owner, machine observations and evaluation notes; delete a unit's state when the unit closes.
+- A new durable working rule goes to its owner (`AGENTS.md`, this file or the owning skill) as a separate `chore(agent-rules): …` commit on the next PR. Until that PR exists, keep it in memory marked "pending move" and delete it once committed.
