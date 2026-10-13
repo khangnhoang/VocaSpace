@@ -1,8 +1,12 @@
 import AdminSidebar from "@/components/ui/admin-sidebar";
 import AdminHeader from "@/components/ui/admin-header";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { requireAdminPage } from "@/lib/auth/admin-access";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Chặn trước khi render sidebar/header: người không phải admin nhận trang 404, không thấy khung admin (AD1 AC2).
+  await requireAdminPage();
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-[#0F172A] font-sans dark">

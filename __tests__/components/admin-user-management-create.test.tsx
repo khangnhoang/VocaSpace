@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import UsermanagementPage from "@/app/admin/user-management/page";
+import UsermanagementPage from "@/app/admin/user-management/_components/UserManagementClient";
 import { createUserByAdmin, getAllUsers } from "@/app/actions/user";
 
 vi.mock("@/app/actions/user", () => ({
@@ -21,7 +21,7 @@ const mockedCreateUserByAdmin = vi.mocked(createUserByAdmin);
 // Test plan:
 // - Mục tiêu: A5 AC5 — form "Thêm người dùng" xử lý đúng kết quả của createUserByAdmin, nhất là khi tài khoản đã tạo nhưng vai trò/mail lỗi.
 // - Loại test: component page trong jsdom (RTL), mock Server Action và toast.
-// - Đối tượng: app/admin/user-management/page.tsx (onSubmitForm) cùng UserFormModal thật.
+// - Đối tượng: app/admin/user-management/_components/UserManagementClient.tsx (onSubmitForm; AD1 chuyển file này khỏi page.tsx) cùng UserFormModal thật.
 // - Case thành công: tạo thành công thì toast.success, tải lại danh sách và đóng form.
 // - Case thất bại:
 //   - Lỗi trước khi tạo tài khoản (không có accountCreated): toast.error, form còn mở, danh sách không tải lại.

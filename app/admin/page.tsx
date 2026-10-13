@@ -5,8 +5,12 @@ import AnalyticsCharts from "./_components/analytics-charts";
 import RecentActivities from "./_components/recent-activities";
 import { AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { requireAdminPage } from "@/lib/auth/admin-access";
 
 export default async function AdminDashboardPage() {
+  // Layout có thể được giữ nguyên khi điều hướng client, nên trang tự kiểm tra lại (AD1 AC3).
+  await requireAdminPage();
+
   // Gọi API Server Action trực tiếp trên môi trường Server bảo mật tuyệt đối
   const { data, error } = await getAdminDashboardData();
 
