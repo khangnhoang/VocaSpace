@@ -100,7 +100,7 @@ export async function signUpUser(formData: FormData) {
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
     // Đẩy ảnh lên bucket tên là 'avatars' trong Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('avatars')
       .upload(fileName, avatarFile);
 

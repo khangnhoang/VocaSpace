@@ -22,6 +22,17 @@ vi.mock("sonner", () => ({
 // Mock scrollIntoView and focus
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
+// Test plan:
+// - Mục tiêu: kiểm tra form tạo bài tập TOEIC lưu đúng payload cho nhóm câu hỏi (Part 7) và câu hỏi đơn (Part 5), và field media của nhóm hiển thị đúng giá trị đang nhập.
+// - Loại test: component/form interaction với Server Action createExercise được mock.
+// - Đối tượng: AddExerciseDialog (React Hook Form, useFieldArray, useWatch cho media của từng nhóm).
+// - Case thành công: lưu Part 7 và Part 5 với nhánh không dùng vắng mặt trong payload; mở lại dialog sau khi lưu; URL ảnh của nhóm nhập vào hiện đúng trong field và không lẫn sang nhóm thêm sau đó.
+// - Case thất bại: không áp dụng ở file này (validation schema có test riêng ở __tests__/schemas).
+// - Bảo mật/phân quyền: không áp dụng (UI gọi action đã mock; quyền kiểm tra ở Server Action).
+// - Ổn định/resilience: reset form khi mở lại dialog không giữ dữ liệu cũ.
+// - Invariant cần giữ: payload chỉ chứa nhánh groups hoặc questions đang dùng; giá trị media field luôn bằng giá trị form của đúng nhóm.
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/components/add-exercise-dialog.test.tsx`.
+
 describe("AddExerciseDialog validation and authoring", () => {
   const topicId = "topic-1111-2222-3333";
 
@@ -220,5 +231,30 @@ describe("AddExerciseDialog validation and authoring", () => {
     expect(secondCallPayload.part_type).toBe("part5");
     expect(secondCallPayload.groups).toBeUndefined();
     expect(secondCallPayload.questions).toHaveLength(1);
+  });
+
+  it("shows the group image URL typed into its media field and keeps it out of a group added afterwards", async () => {
+    const { container } = render(
+      <AddExerciseDialog
+        isOpen={true}
+        setIsOpen={vi.fn()}
+        topicId={topicId}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    const imageInput = () =>
+      container.ownerDocument.querySelector<HTMLInputElement>('input[name="groups.0.image_url"]');
+    fireEvent.change(imageInput()!, {
+      target: { value: "https://example.com/group-one.png" },
+    });
+    await waitFor(() => expect(imageInput()!.value).toBe("https://example.com/group-one.png"));
+
+    fireEvent.click(screen.getByRole("button", { name: /Thêm nhóm câu hỏi/ }));
+
+    await waitFor(() =>
+      expect(container.ownerDocument.querySelector<HTMLInputElement>('input[name="groups.1.image_url"]')?.value).toBe(""),
+    );
+    expect(imageInput()!.value).toBe("https://example.com/group-one.png");
   });
 });

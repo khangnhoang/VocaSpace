@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     let verifiedData;
     try {
       verifiedData = await payosService.webhooks.verify(webhookPayload);
-    } catch (signatureError) {
+    } catch {
       return NextResponse.json({ message: "Chữ ký webhook không hợp lệ. Giao dịch bị từ chối." }, { status: 401 });
     }
 
@@ -105,10 +105,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: "Trạng thái phản hồi không xác định từ hệ thống lõi." }, { status: 500 });
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("🚨 [PAYOS_WEBHOOK_ERROR]:", error);
     return NextResponse.json(
-      { message: "Xử lý nội bộ webhook thất bại.", error: error?.message || "Internal Server Error" },
+      { message: "Xử lý nội bộ webhook thất bại.", error: (error as { message?: string } | null | undefined)?.message || "Internal Server Error" },
       { status: 500 }
     );
   }

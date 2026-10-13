@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import CourseOverview from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverview";
 import CourseOverviewError from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverviewError";
-import DeletedChaptersModal from "@/app/(teacher)/teacher/courses/[id]/_components/DeletedChaptersModal";
 import DashboardIssueNotice from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardIssueNotice";
 import DashboardReturnFeedback from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardReturnFeedback";
 import BackButton from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/BackButton";

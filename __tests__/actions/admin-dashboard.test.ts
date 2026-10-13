@@ -62,7 +62,16 @@ const MOCK_PROFILES_LIST = [
 // ============================================================================
 // HELPER MOCK SUPABASE: Xử lý thông minh luồng Promise.all song song
 // ============================================================================
-const createMockSupabase = (overrides: any = {}) => {
+type MockSupabaseOverrides = {
+  hasUser?: boolean;
+  profileData?: unknown;
+  coursesBusinessError?: { message: string };
+  coursesData?: unknown;
+  enrollmentsData?: unknown;
+};
+type MockQueryChain = Record<string, ReturnType<typeof vi.fn>>;
+
+const createMockSupabase = (overrides: MockSupabaseOverrides = {}) => {
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -71,7 +80,7 @@ const createMockSupabase = (overrides: any = {}) => {
       }),
     },
     from: vi.fn((tableName: string) => {
-      const chain: any = {
+      const chain: MockQueryChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         is: vi.fn().mockReturnThis(),
@@ -112,7 +121,7 @@ const createMockSupabase = (overrides: any = {}) => {
 
       return chain;
     }),
-  } as any;
+  } as unknown as Awaited<ReturnType<typeof createClient>>;
 };
 
 // ============================================================================

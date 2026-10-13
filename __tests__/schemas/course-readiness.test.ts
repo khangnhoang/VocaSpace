@@ -156,7 +156,9 @@ describe("courseReadinessGraphSchema", () => {
 
   it("rejects missing required course identity fields", () => {
     const graph = validGraph();
-    const { title: _title, ...courseWithoutTitle } = graph.course;
+    const courseWithoutTitle = Object.fromEntries(
+      Object.entries(graph.course).filter(([key]) => key !== "title"),
+    );
 
     const result = courseReadinessGraphSchema.safeParse({
       ...graph,

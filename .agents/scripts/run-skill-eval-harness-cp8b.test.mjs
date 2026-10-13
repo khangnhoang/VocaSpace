@@ -12,7 +12,6 @@ import assert from "node:assert/strict";
 import {
   existsSync,
   mkdtempSync,
-  mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
@@ -26,7 +25,6 @@ import { fileURLToPath } from "node:url";
 import { canonicalJson, canonicalJsonLine, sha256Bytes, sha256Canonical } from "./lib/skill-evals/artifact-schema-v1.mjs";
 import {
   HarnessError,
-  assertHarnessArtifact,
   createHarnessArtifact,
   routeArtifactVersion,
 } from "./lib/skill-evals/harness-schema-v2.mjs";
@@ -942,10 +940,6 @@ function listFiles(directory, base = directory) {
 
 function quarantineFile(root, plan, item) {
   return join(root, "quarantine", plan.task_id, plan.plan_sha256, item.item_id, item.relative_path.split("/").at(-1));
-}
-
-function objectPath(root, hash) {
-  return join(root, "objects", hash.slice(0, 2), hash, "artifact.json");
 }
 
 async function createShadowFixture(suffix) {

@@ -1,19 +1,21 @@
 // lib/discounts/discount-pricing.ts
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 type ResolveDiscountPricingParams = {
-  supabaseAdmin: any;
+  supabaseAdmin: SupabaseClient;
   courseId: string;
   couponCode?: string | null;
   coursePrice: number;
 };
 
 type ReserveDiscountUsageParams = {
-  supabaseAdmin: any;
+  supabaseAdmin: SupabaseClient;
   discountId: string;
 };
 
 type ReleaseReservedDiscountParams = {
-  supabaseAdmin: any;
+  supabaseAdmin: SupabaseClient;
   discountId: string | null | undefined;
 };
 
