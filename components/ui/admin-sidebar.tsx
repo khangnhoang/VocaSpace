@@ -11,13 +11,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import {
-  LayoutDashboard,
-  Users,
-  BookOpen,
-  Settings,
-  BarChart,
-} from "lucide-react";
+import { LayoutDashboard, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG DẪN
@@ -25,9 +19,6 @@ import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG D�
 const menuItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Quản lý User", url: "/admin/user-management", icon: Users },
-  { title: "Quản lý Khóa học", url: "/admin/courses", icon: BookOpen },
-  { title: "Thống kê & Doanh thu", url: "/admin/stats", icon: BarChart },
-  { title: "Cài đặt hệ thống", url: "/admin/settings", icon: Settings },
 ];
 
 export default function AdminSidebar() {
@@ -57,8 +48,10 @@ export default function AdminSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => {
                 // TÍNH TOÁN TRẠNG THÁI ACTIVE
+                // /admin là gốc của mọi trang admin nên chỉ active khi khớp chính xác, không active ở /admin/user-management.
                 const isActive =
-                  pathname === item.url || pathname.startsWith(`${item.url}/`);
+                  pathname === item.url ||
+                  (item.url !== "/admin" && pathname.startsWith(`${item.url}/`));
 
                 return (
                   <SidebarMenuItem key={item.title}>
