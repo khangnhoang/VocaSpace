@@ -21,7 +21,16 @@ This file was migrated to the repository templates and translated to English on 
 - Problem: the full-lint command cannot be used as a green repository-wide gate. The remaining errors are in test, action, webhook and discount files outside any unit diff; D1 did not create them.
 - Evidence: (2026-09-15; found at the B1.7 release gate on 2026-07-11) `npm run lint` returned 7 errors and 13 warnings repository-wide, in `__tests__/actions/admin-dashboard.test.ts`, `app/api/webhook/payos/route.ts` and `lib/discounts/discount-pricing.ts`. D1 targeted lint passed with 0 errors and 2 pre-existing warnings in `AddExerciseDialog.tsx`.
 - Direction: keep targeted lint green for each workstream's files and do not fix or mask baseline errors inside unrelated units; a separate follow-up PR fixes the existing errors and warnings and restores `npm run lint` as a green gate without weakening the ESLint configuration.
+- Update (2026-10-13): LF7 (Decision 31) is that follow-up: it ignores three gitignored output folders, fixes the tracked-file errors and warnings, and adds `npm run lint` to CI with errors blocking and warnings not.
 - Exit condition: full lint on an updated base reports 0 errors and the warning policy is reconciled.
+
+### STRUCTURE-LOCK-001: Course structure writes take their locks in two different orders
+
+- Status: Open (found 2026-10-13 while planning LF7; earlier noted only as a deferred follow-up after UI-4).
+- Problem: topic moves lock the chapter row before the course advisory lock, and chapter move, chapter create and chapter rename lock a row before the course advisory lock taken by `d1_guard_chapter_mutation`, while `hide_chapter`, `restore_chapter_ordered` and `create_topic_ordered` take the course advisory lock first. Two concurrent writes on the same course can deadlock; Postgres aborts one with `40P01` and the teacher sees an error.
+- Evidence: static reading of the latest definitions, listed in the [LF7 plan](./implementation-plans/lf7/plan.md) section 2; no test races these paths yet.
+- Direction: LF7 (Decision 31) moves every app structure write to the course-first order and adds a regression test per path; a direct client title update outside the app keeps the old order (accepted residual).
+- Exit condition: LF7 AC1 to AC5 pass.
 
 ### PERF-ACTION-001: LF2 missed the card-rating and answer latency targets in production
 
