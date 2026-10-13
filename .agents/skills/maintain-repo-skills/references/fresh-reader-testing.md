@@ -34,6 +34,10 @@ For a repository-routing or governance-comprehension case, the bounded package n
 
 List the supplied files in the observation. Instruction-bounded context is not filesystem isolation. Call the executor isolated only when the environment actually prevents access beyond the approved package or disables the relevant tools.
 
+## Order against implementation review
+
+Run fresh-reader cases only on a candidate that has passed the implementation review. When a review fix changes skill text, rerun only the cases that cover the changed rule.
+
 ## Execute read-only
 
 Ask the reader to explain the decision or produce the bounded behavior. Do not authorize repository edits, Git mutation, remote access, model calls, production access, database changes, or destructive actions merely to create evidence.

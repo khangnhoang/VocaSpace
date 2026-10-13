@@ -55,6 +55,10 @@ These rules apply to all repository work. `docs/agent-loops.md` and routed skill
 
 When the owner communicates in Vietnamese, write updates and reports in natural, easy-to-understand Vietnamese, including common report headings and terms. Preserve exact technical literals and evidence such as code identifiers, commands, file paths, branches, commit messages, PR titles, schema fields, machine-readable values, exact errors, and familiar technical terms when translation would reduce clarity. A language instruction in the owner's current task takes precedence.
 
+## User-data disclosure
+
+A change that adds user data, adds a new read path that shows user data to other people, or adds a third party or tracker updates the `/privacy` page (and `/terms` when relevant) in the same PR. Legal wording changes need Owner approval.
+
 ## Agent lifecycle loops
 
 Before acting on any repository task, read `docs/agent-loops.md` and apply its Universal Lightweight Preflight before choosing discovery depth.

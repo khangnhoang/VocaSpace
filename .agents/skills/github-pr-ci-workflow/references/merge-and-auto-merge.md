@@ -29,3 +29,5 @@ Also verify from available GitHub CLI output:
 * risk is clear and acceptable under the owner's current instruction.
 
 If any check is inconclusive, do not merge. Report what could not be verified.
+
+When a merge is granted, use `gh pr merge <n> --merge`. Do not squash or rebase unless the owner asks for that method.
