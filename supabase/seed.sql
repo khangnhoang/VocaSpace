@@ -742,13 +742,14 @@ values
     '2026-07-01 04:00:00+00',
     null
   ),
+  -- AD2: giữ slug cũ nhưng status là draft; course pending hợp lệ phải có submitted_at, test tự dựng khi cần.
   (
     'b2000000-0000-4000-8000-000000000005',
     'B2 QA - Course pending bị ẩn',
     'b2-qa-hidden-pending',
     'Course pending có enrollment nhưng không được xuất hiện trên learner dashboard.',
     290000,
-    'pending',
+    'draft',
     105,
     '2026-07-01 05:00:00+00',
     '2026-07-01 05:00:00+00',
