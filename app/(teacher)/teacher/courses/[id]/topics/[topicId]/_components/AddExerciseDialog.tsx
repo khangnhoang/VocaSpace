@@ -230,6 +230,10 @@ export default function AddExerciseDialog({
     control: form.control,
     name: "part_type",
   });
+  const watchedGroups = useWatch({
+    control: form.control,
+    name: "groups",
+  });
   const visibleGroupContextFields = getToeicVisibleGroupContextFields(partType || "");
   const showGroupPassage = visibleGroupContextFields.includes("passage_text");
   const showGroupAudio = visibleGroupContextFields.includes("audio_url");
@@ -773,7 +777,7 @@ export default function AddExerciseDialog({
                             type="audio"
                             label="Audio"
                             inputName={`groups.${gIndex}.audio_url`}
-                            value={form.watch(`groups.${gIndex}.audio_url`) || ""}
+                            value={watchedGroups?.[gIndex]?.audio_url || ""}
                             error={
                               form.formState.errors.groups?.[gIndex]?.audio_url
                                 ?.message
@@ -795,7 +799,7 @@ export default function AddExerciseDialog({
                             type="image"
                             label="Hình ảnh"
                             inputName={`groups.${gIndex}.image_url`}
-                            value={form.watch(`groups.${gIndex}.image_url`) || ""}
+                            value={watchedGroups?.[gIndex]?.image_url || ""}
                             error={
                               form.formState.errors.groups?.[gIndex]?.image_url
                                 ?.message

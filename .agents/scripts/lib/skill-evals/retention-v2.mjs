@@ -16,12 +16,11 @@ import {
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import { canonicalJson, parseStrictJson, sha256Bytes, sha256Canonical } from "./artifact-schema-v1.mjs";
-import { HarnessError, assertHarnessArtifact, validateArtifactGraph } from "./harness-schema-v2.mjs";
+import { HarnessError, validateArtifactGraph } from "./harness-schema-v2.mjs";
 import {
   listStoredArtifacts,
   loadRunManifest,
   loadTaskManifest,
-  readArtifactObject,
   readAttemptPhases,
   readJournal,
   readRuntimeSnapshot,

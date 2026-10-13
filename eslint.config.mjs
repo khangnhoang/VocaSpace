@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Gitignored build and test output; linting it only adds noise.
+    ".next-e2e/**",
+    "test-results/**",
+    ".playwright-cli/**",
   ]),
 ]);
 

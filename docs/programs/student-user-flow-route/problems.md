@@ -15,14 +15,6 @@ This file was migrated to the repository templates and translated to English on 
 - Update (2026-10-09): D8-LUI (Decision 24) changes only semantic colors on `/learn`; hierarchy, density, card height and responsive rhythm are not revisited by it, so this entry stays open.
 - Exit condition: that polish task is delivered.
 
-### QUALITY-001: The repository-wide lint baseline is not green
-
-- Status: Open.
-- Problem: the full-lint command cannot be used as a green repository-wide gate. The remaining errors are in test, action, webhook and discount files outside any unit diff; D1 did not create them.
-- Evidence: (2026-09-15; found at the B1.7 release gate on 2026-07-11) `npm run lint` returned 7 errors and 13 warnings repository-wide, in `__tests__/actions/admin-dashboard.test.ts`, `app/api/webhook/payos/route.ts` and `lib/discounts/discount-pricing.ts`. D1 targeted lint passed with 0 errors and 2 pre-existing warnings in `AddExerciseDialog.tsx`.
-- Direction: keep targeted lint green for each workstream's files and do not fix or mask baseline errors inside unrelated units; a separate follow-up PR fixes the existing errors and warnings and restores `npm run lint` as a green gate without weakening the ESLint configuration.
-- Exit condition: full lint on an updated base reports 0 errors and the warning policy is reconciled.
-
 ### PERF-ACTION-001: LF2 missed the card-rating and answer latency targets in production
 
 - Status: Open (found 2026-10-11 after the LF2 production measurement; the Owner decided not to do further card latency work in LF3, LF3 plan Q4).
@@ -91,3 +83,5 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - PREVIEW-001 — Resolved 2026-10-11: the Owner marked a topic as Preview from the teacher side, opened it with another not-enrolled account on production and finished it (end screen "Tiến độ không được lưu" with the enroll call to action); this counts as the eligible Preview journey on top of the 2026-10-08 and 2026-10-09 read-only and guest observations (LF3 plan Q3).
 - LEARNING-INTEGRITY-001 — Resolved 2026-10-11: L1 (PR 142, `a92f371`) is on hosted with its catalog 23/23 identical to local and every FK validated, and a rolled-back hosted allow/deny smoke returned 12/12 expected results with no leftover rows; observations from the LF3 rollout session, recorded in the 2026-10-11 LF3 closeout milestone of [progress.md](./progress.md) (code: PR 147, `ad224f1`).
 - PERF-RLS-001 — Resolved 2026-10-11: per-parent content read checks and the folded topic read check (LF3, PR 147, `ad224f1`) remove the scan of `topics` from the hosted single-question `question_options` plan, the read-boundary matrix passes unchanged, local calls of `private.q7_can_read_topic` fell 32→4 and 5885→853, and the production topic page median fell 1418→651 ms; action reads were measured locally only, accepted by the Owner on 2026-10-12 (LF4 plan §1.4 Q4); hosted and production figures are recorded in the 2026-10-11 LF3 closeout milestone of [progress.md](./progress.md).
+- QUALITY-001 — Resolved 2026-10-13: `npm run lint` is green (0 errors and 0 warnings) after three generated output folders were ignored and the tracked-file errors and warnings were fixed, and CI now runs it; the warning policy was reconciled by fixing every warning rather than tolerating them (LF7, `08ca4d8`, `a4485b7`).
+- STRUCTURE-LOCK-001 — Resolved 2026-10-13: every app structure write takes the course advisory lock first (topic moves, chapter move and create, chapter rename through `rename_chapter`) and an AC4 regression test per path passes on the isolated runtime after failing with `55P03` on the baseline; migration `20261013090000` is not yet applied to root or hosted, and a direct client title update outside the app keeps the old order (accepted residual) (LF7, `be6bd6b`, `fca09f3`).
