@@ -289,6 +289,7 @@ describe("rename_chapter RPC", () => {
     expect(outcome.direct.data).toHaveLength(0);
     expect(outcome.rpcChanged).toBe(outcome.directChanged);
     expect(outcome.rpcStored).toBe(outcome.rpcBefore);
+    expect(outcome.directStored).toBe(outcome.directBefore);
   });
 
   it("gives a student-role collaborator with co_owner rights the same result as the direct update", async () => {
