@@ -9,14 +9,14 @@ This file was migrated to the repository template and translated to English on 2
 | Field | Value |
 | --- | --- |
 | Spec revision | [implementation-plans/lf7/plan.md](./implementation-plans/lf7/plan.md) r3, Codex plan review PASS (rounds 1–3) and Owner approval (2026-10-13) (Decision 31, Owner decisions of 2026-10-13) |
-| Current unit / checkpoint | LF7 CP5 (docs and final verification) on `fix/reorder-lock-order-and-lint-baseline` (base `971702e`) |
-| Status | Automated checks passed; review (Codex), manual review and Owner decisions pending. |
-| Completed evidence | LF7 CP2 to CP5 local commits (see Milestones). On the isolated runtime (API 45441, DB 45442): the five AC4 deadlock tests failed on the baseline with `55P03` (inverted order; baseline run with the down script applied and `LF7_LOCK_ORDER_BASELINE=1`, which makes the rename case a direct `update chapters set title`) and pass after the migration; 16 `rename_chapter` tests pass; the AC5 suites pass (7 files, 93 tests). `npm run test:ci`: 1346 tests pass, plus 2 failed files that are gitignored local `test-results/*.spec.ts` leftovers (not present in CI). `npm run lint` exit 0 with 0 problems; `tsc --noEmit` has errors only under `test-results/`; the `.agents` node test files and `docs:check` pass. LF6 and earlier units: see Milestones. |
+| Current unit / checkpoint | None active. LF7 is merged and rolled out. |
+| Status | LF7 merged (PR 151, `b6720ec`) and completed. |
+| Completed evidence | LF7: CI green on PR 151 (lint, unit, integration and build); see Milestones for the unit evidence. LF6 and earlier units: see Milestones. |
 | Accepted deviations | None for LF7. |
-| Blockers / Owner decisions | None. The Owner decides when to apply the migration to root and hosted (see Hosted state). |
-| Next action | Main reviews the LF7 diff (Codex) and reports to the Owner; the Owner decides on push, PR and the migration steps. |
-| Current authority | Owner grant 2026-10-13: local commits on `fix/reorder-lock-order-and-lint-baseline`. No push, PR, merge, root or hosted database change. |
-| Hosted state | Latest hosted migration is `20261011120000` (LF3). LF4, LF5 and LF6 have no migration or hosted step. LF7 adds migration `20261013090000_lf7_structure_lock_order.sql` (with a down script in `supabase/rollbacks/`); it is applied only to the isolated runtime so far, and applying it to root or hosted needs a separate Owner grant. |
+| Blockers / Owner decisions | None. |
+| Next action | None in this program; the Owner chooses the next unit. |
+| Current authority | No implementation, commit, push, PR, merge or database authority is granted in this program. |
+| Hosted state | Latest hosted migration is `20261013090000` (LF7), pushed on 2026-10-13 after CI was green and before the merge, and verified read-only: listed on remote, `rename_chapter` present with execute for `authenticated` only, and the advisory lock taken before the first `FOR UPDATE` in all five functions. Root (API 45321) has it too since 2026-10-13. |
 
 ## Milestones
 
@@ -131,4 +131,5 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-13 LF7 CP4 (AC6, AC7): `eslint.config.mjs` ignores three generated output folders, the 7 errors and 11 warnings in tracked files are fixed (no behaviour change; `AddExerciseDialog` media fields now read through `useWatch`, with a new component test), and CI runs `npm run lint` before the tests; the commits are `08ca4d8` and `a4485b7` (`08ca4d8`).
 - 2026-10-13 LF7 CP5 (AC8 and final verification): this docs update moves STRUCTURE-LOCK-001 and QUALITY-001 to Resolved (`c6695e2`).
 - 2026-10-13 LF7 review round 1 (evidence only): the rename AC4 case now names both calls and a documented `LF7_LOCK_ORDER_BASELINE=1` switch reproduces the direct-update baseline (down script applied, `rename_chapter` absent: 5 of 5 fail with `55P03`); the migration was re-applied and the AC4 and AC5 suites pass again (7 files, 93 tests); refused rename cases now assert the exact stored title (`379d903`).
-- 2026-10-13 LF7 review round 2 (Codex PASS): the global admin rename case also asserts the exact stored title of the direct-update chapter (this commit).
+- 2026-10-13 LF7 review round 2 (Codex PASS): the global admin rename case also asserts the exact stored title of the direct-update chapter (`6987ac0`).
+- 2026-10-13 LF7 merged after CI was green; migration `20261013090000` pushed to hosted and verified before the merge, then applied to root (PR 151, `b6720ec`).

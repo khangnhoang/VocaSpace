@@ -49,6 +49,14 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: keep the initial DTO narrow and add deeper payment history only when the product need is clear. Verification needed: behavior of pending, paid, cancelled, expired and failed states.
 - Exit condition: the product need is clear and a payment unit with its data and query boundary is delivered.
 
+### GRANT-001: Two chapter RPCs are executable by `anon` on hosted
+
+- Status: Open (2026-10-13, Owner: record now, fix in a later hardening PR).
+- Problem: on hosted, `anon` has execute on `create_chapter_ordered` and `move_chapter_order`. Their migrations only revoke from `public` (`20260630090000_course_structure_ordering_rpc.sql:549-559`, `20260924100000_d2_chapter_creator_authority.sql:574-577`), so the default privilege for `anon` stays; LF7 did not change these grants.
+- Evidence: read-only `has_function_privilege('anon', …)` on hosted, 2026-10-13, after the LF7 push; `rename_chapter`, `move_topic_order` and `move_topic_to_position` return false for `anon`.
+- Direction: both functions check the caller inside, so a signed-out visitor cannot change data; a later hardening migration revokes execute from `anon` and adds a grant test.
+- Exit condition: `anon` has no execute on either function on hosted, with a test that asserts it.
+
 ## Resolved
 
 One line each. Details stay in Git (`git show eb36618:docs/refactors/student-user-flow-route/problems.md`) and in the cited PR.
