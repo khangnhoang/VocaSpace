@@ -1,0 +1,25 @@
+name: Setup dependencies
+description: Install Node.js, the pinned npm version and the project dependencies.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: 20
+        cache: npm
+
+    - name: Setup npm
+      shell: bash
+      run: npm install --global npm@11.6.2
+
+    - name: Show runtime versions
+      shell: bash
+      run: |
+        node --version
+        npm --version
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
