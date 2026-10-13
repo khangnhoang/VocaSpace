@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type Ref } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -109,23 +109,16 @@ function stepStateText(step: StageStep) {
 // Khung của một bước: dùng chung cho bước hiện tại (không điều khiển) và nút của các bước còn lại để bố cục không đổi.
 const STEP_BODY_CLASS = "flex items-center gap-1.5 max-[360px]:gap-1 sm:gap-2";
 
-// Mục tiêu bấm của bước: tối thiểu 24px; trên thiết bị cảm ứng vùng bấm cao 44px nhờ phần tử ảo trong suốt nên dòng không đổi bố cục.
-const STEP_BUTTON_CLASS = `${STEP_BODY_CLASS} relative -mx-1 min-h-6 rounded-md px-1 text-left transition-colors duration-[220ms] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route motion-reduce:transition-none coarse-input:after:absolute coarse-input:after:inset-x-0 coarse-input:after:top-1/2 coarse-input:after:h-11 coarse-input:after:-translate-y-1/2`;
+// Mục tiêu bấm của bước: con trỏ tay và nền hover rõ hơn nền trang (Owner QA 2026-10-13); tối thiểu 24px; trên thiết bị cảm ứng vùng bấm cao 44px nhờ phần tử ảo trong suốt nên dòng không đổi bố cục.
+const STEP_BUTTON_CLASS = `${STEP_BODY_CLASS} relative -mx-1 min-h-6 cursor-pointer rounded-md px-1 text-left transition-colors duration-[220ms] hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route motion-reduce:transition-none coarse-input:after:absolute coarse-input:after:inset-x-0 coarse-input:after:top-1/2 coarse-input:after:h-11 coarse-input:after:-translate-y-1/2`;
 
 // LF6: ghi chú thông báo khóa của thanh tiến trình, lấy từ cùng nguồn chữ với màn hình khóa.
 const cardsLockedReason = (unseenCount: number) =>
   `Học hết flashcard của bài này để mở memory check. Còn ${unseenCount} thẻ chưa học.`;
 
-// Vòng nổi bật của thanh tiến trình sau "Xem lại": hiện rồi tắt bằng token chuyển trạng thái 220 ms, tổng cộng khoảng 1 s.
-const THREAD_HIGHLIGHT_MS = 780;
-
-function prefersReducedMotion() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
+// LF6 AC4 (Owner QA 2026-10-13): một dòng gợi ý nhỏ dưới thanh tiến trình thay cho nút "Xem lại" của màn hình hoàn thành.
+const THREAD_HINT =
+  "Bạn có thể di chuyển nhanh giữa các nội dung bằng cách nhấn vào nội dung tương ứng trên thanh tiến trình.";
 
 /**
  * Progress thread of the stages this topic really has. It reports state with words and icons. Every step except the
@@ -136,17 +129,13 @@ function StageThread({
   steps,
   onSelect,
   lockReason,
-  highlighted,
-  rootRef,
 }: {
   steps: StageStep[];
   onSelect: (step: StageStep) => void;
   lockReason: string | null;
-  highlighted: boolean;
-  rootRef: Ref<HTMLDivElement>;
 }) {
   return (
-    <div ref={rootRef} className="flex min-w-0 scroll-my-4 flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <div className="relative">
         {/* Owner Q14: one line down to 320 px. The steps never wrap, so no connector can dangle at the start of a line;
             gaps, connectors and the label shrink on narrow widths instead. */}
@@ -213,19 +202,18 @@ function StageThread({
             );
           })}
         </ol>
-        <span
-          aria-hidden="true"
-          data-thread-highlight=""
-          data-active={highlighted}
-          className={`pointer-events-none absolute -inset-1.5 rounded-lg ring-2 ring-route transition-opacity duration-[220ms] motion-reduce:transition-none ${
-            highlighted ? "opacity-100" : "opacity-0"
-          }`}
-        />
       </div>
       {/* Vùng thông báo luôn có mặt trong DOM để lời giải thích bước khóa được đọc khi xuất hiện. */}
       <div aria-live="polite">
         {lockReason && <p className="text-sm font-medium text-slate-700">{lockReason}</p>}
       </div>
+      {/* Dòng gợi ý nằm dưới lý do khóa; `w-0 min-w-full` giữ độ rộng bằng cột của thanh để dòng tự xuống hàng và không đẩy
+          cụm hành động bên phải hay làm tràn ngang ở 320px. Không có gì để chuyển khi chủ đề chỉ có một bước. */}
+      {steps.length > 1 && (
+        <p data-thread-hint="" className="w-0 min-w-full text-xs leading-5 text-slate-500">
+          {THREAD_HINT}
+        </p>
+      )}
     </div>
   );
 }
@@ -414,11 +402,8 @@ export default function LearningWorkspace({
   const [queueKind, setQueueKind] = useState<QueueKind>("first");
   // LF6 AC2: bước bị khóa vừa được bấm; lời giải thích chỉ hiện khi khóa đó vẫn còn và học viên chưa đổi bước.
   const [lockNotice, setLockNotice] = useState<"memory" | "exercise" | null>(null);
-  // LF6 AC1/AC4: yêu cầu đưa focus về khung bước học sau khi bước mới đã dựng xong; điểm nổi bật tạm thời của thanh tiến trình.
+  // LF6 AC1: yêu cầu đưa focus về khung bước học sau khi bước mới đã dựng xong.
   const [planeFocusRequest, setPlaneFocusRequest] = useState(0);
-  const [threadHighlighted, setThreadHighlighted] = useState(false);
-  const threadRef = useRef<HTMLDivElement>(null);
-  const highlightTimer = useRef<number | undefined>(undefined);
 
   const flatLessons = useMemo(
     () => syllabus.flatMap((chapter) => chapter.topics),
@@ -732,8 +717,6 @@ export default function LearningWorkspace({
     if (plane.getBoundingClientRect().top < 0) plane.scrollIntoView?.({ block: "start" });
   }, [planeFocusRequest]);
 
-  useEffect(() => () => window.clearTimeout(highlightTimer.current), []);
-
   const exerciseQuestionCount = exerciseQuestionPositions.length;
   // Bước "Từ vựng" chỉ hiện đã xong khi server báo xong và không còn thẻ nào chưa Ổn/Dễ (LF3 AC6/AC8).
   const flashcardStepDone = flashcardStageDone && unratedCardIds.size === 0;
@@ -779,23 +762,6 @@ export default function LearningWorkspace({
       : lockNotice === "exercise" && exercisesLocked
         ? MEMORY_LOCK_REASON
         : null;
-
-  // LF6 AC4: "Xem lại" của màn hình hoàn thành chỉ chỉ ra thanh tiến trình: cuộn tới, focus nút đầu tiên dùng được và
-  // làm nổi bật ngắn. Dưới reduced motion cuộn tức thì và không làm nổi bật.
-  const showStageThread = () => {
-    const thread = threadRef.current;
-    if (!thread) return;
-    const reduceMotion = prefersReducedMotion();
-    thread.scrollIntoView?.({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
-    const target =
-      thread.querySelector<HTMLButtonElement>("button:not([data-step-locked])") ??
-      thread.querySelector<HTMLButtonElement>("button");
-    target?.focus({ preventScroll: true });
-    if (reduceMotion) return;
-    window.clearTimeout(highlightTimer.current);
-    setThreadHighlighted(true);
-    highlightTimer.current = window.setTimeout(() => setThreadHighlighted(false), THREAD_HIGHLIGHT_MS);
-  };
 
   // Đã đủ dòng cho mọi thẻ (memory check mở) nhưng còn thẻ chưa Ổn/Dễ: bước Từ vựng chưa xong, nói rõ còn bao nhiêu thẻ.
   // Hiện bất cứ lúc nào điều kiện đó đúng, kể cả khi hàng đợi thẻ còn thẻ Lại/Khó phải học lại.
@@ -1032,7 +998,6 @@ export default function LearningWorkspace({
             goToStage("flashcard");
           }}
           next={completionNext}
-          onReview={stageSteps.length > 0 ? showStageThread : undefined}
         />
       );
     }
@@ -1248,8 +1213,6 @@ export default function LearningWorkspace({
               steps={stageSteps}
               onSelect={selectStep}
               lockReason={lockReason}
-              highlighted={threadHighlighted}
-              rootRef={threadRef}
             />
           ) : (
             <span />

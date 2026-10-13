@@ -31,14 +31,6 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: no work is scheduled. A further reduction would need a different mechanism (for example optimistic UI or moving auth validation off the critical path), which is a new Owner decision with its own plan.
 - Exit condition: the card-rating target is met on production, or the Owner accepts the measured level and closes the entry.
 
-### HEADER-001: The account dropdown loses its navigation items under reduced motion
-
-- Status: Open (found 2026-10-12 during LF5 Owner manual QA; LF6 could not reproduce it and left it open, see Evidence).
-- Problem: with `prefers-reduced-motion: reduce` emulated in Chrome DevTools, the header account dropdown (`components/ui/header.tsx`, DropdownMenu) opens with only its label and `Đăng xuất`. The navigation group items (`Không gian học tập`, `Hồ sơ cá nhân`, `Quản trị hệ thống`, `Khóa học của tôi`) are missing. Turning reduced motion off restores them.
-- Evidence: Owner manual QA on 2026-10-12, signed in as `admin@gmail.com`. LF5 does not touch the header, so this is pre-existing. LF6 CP2 reproduction attempt (2026-10-13, isolated runtime, port 3100): `e2e/smoke/account-menu.smoke.spec.ts` now opens the account menu under emulated `prefers-reduced-motion: reduce` for the student, teacher and admin seeded roles, on the first open and on a reopen, and expects every destination for the role; it passes on the unmodified header, so the defect was not reproduced and no header change was made. Untested hypotheses: state specific to the Owner's `next dev` on :3000 (HMR or stale client state), an OS-level reduced-motion setting rather than the DevTools emulation, or a transient dev-server state. The D6 CP2 attempt at a blank first open also could not reproduce it.
-- Direction: needs a reproduction from the Owner (browser, how reduced motion is set, URL and account) before a fix; the LF6 reduced-motion smoke stays as the regression guard once a cause is found.
-- Exit condition: the dropdown shows the full destination list for each role with reduced motion on and off, and the fix is merged.
-
 ### FUTURE-OWNERSHIP-001: Ownership transfer is not available
 
 - Status: Deferred (the singular-owner invariant was closed in D1; only ownership transfer remains).
@@ -89,6 +81,7 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - E2E-001 — Resolved 2026-10-07: co-owner/draft fixtures with D1/D2 provenance, current teacher routes and public syllabus expectations restore the four affected specs in two full local smoke runs; AUTH-010 remains open and this correction is local only.
 
 - FUTURE-REVIEW-001 — Resolved 2026-10-13: a dedicated review route is not needed (Owner, 2026-10-12; `FEAT-005` Dropped), and the motion and colour notes of 2026-10-08 are delivered by LF6 AC5 (shared rating colours) and AC6 (400 ms flip, 300 ms entry); merge pending, see [progress.md](./progress.md).
+- HEADER-001 — Resolved 2026-10-13 (not reproducible on the current code, no header change): the Owner's manual check on :3000 with reduced motion showed every account-menu item on the first open and on a reopen, and the reduced-motion account-menu smoke passes for the student, teacher and admin roles (`0323b8d`); the root cause of the original 2026-10-12 report is unknown, and the smoke stays as the regression guard (LF6 AC7, merge pending, see [progress.md](./progress.md)).
 - STUDENT-004 — Resolved 2026-10-09: the review-session completion and return correction (existing due counts for next-batch eligibility, congratulation on exhaustion, `Quay lại`, no empty reload) was verified on the zero/2/51-card journeys, accepted by the Owner on 2026-10-08 and merged in L1 (PR 142, `a92f371`); optional motion/color polish stays in FUTURE-REVIEW-001.
 - STUDENT-008 — Resolved 2026-10-09: CSS owns the dashboard column placement with one DOM tree, so desktop no longer flashes a narrow layout before hydration; responsive loading evidence recorded and merged in L1 (PR 142, `a92f371`).
 - NAVIGATION-001 — Resolved 2026-10-08: mobile/desktop account destinations, logout and keyboard close/focus parity merged in F1 (PR 139, `ee46176`); D6 CP2 names the avatar and verifies first-open/navigation/reopen on seeded roles. The reported blank first-open was not reproduced; no mount fix is claimed.

@@ -33,7 +33,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - LF5 (AC3): màn hình hoàn thành nêu tên chủ đề, tiến độ khóa học và chương là hai thang riêng có progressbar có nhãn, đúng một hành động chính (Ôn ngay khi có thẻ đến hạn, nếu không thì chủ đề kế hoặc tổng quan khóa học ở chủ đề cuối), chân trang thành hành động phụ, nhãn "Chủ đề N"/"Chương N" theo đơn vị kế tiếp, Xem lại chỉ liệt kê bước chủ đề có, và trạng thái từng bước giữ nguyên (không đánh dấu xong bước Từ vựng chưa xong).
 // - LF5 (AC4/AC5/AC8, G3): hoàn thành trong phiên (chấm thẻ cuối) thay màn hình kết thúc thẻ bằng màn hình hoàn thành có chuỗi chuyển động, dùng đúng giá trị thanh bên, không toast; reduced motion hiện trạng thái cuối ngay; lần vào sau trong phiên chỉ hiện màn hình ổn định; Xem lại từng bước và lối quay lại; memory check không còn đạt thì mở bước trả lời được và phục hồi khi có thẻ mới.
 // - LF6 (AC1/AC2/AC3): mỗi bước không phải bước hiện tại là một nút trong li của nó, mở đúng bước (kể cả chủ đề đã hoàn thành; Từ vựng chỉ mở hàng đợi hiện có, không dựng hàng đợi, không gọi server) và đưa focus về khung bước học; bước khóa không đổi bước mà hiện một dòng lý do ngay dưới thanh (vùng polite), giữ tên "đang khóa", tắt khi đổi bước hoặc khi khóa mở; nút có mục tiêu tối thiểu 24 px, vòng focus và 44 px trên con trỏ thô mà không đổi bố cục dòng.
-// - LF6 (AC4): màn hình hoàn thành chỉ có một nút "Xem lại" cùng một dòng giải thích; bấm thì cuộn thanh tiến trình vào (tức thì dưới reduced motion), focus nút đầu tiên dùng được và bật rồi tắt vòng nổi bật khoảng 1 s (không có dưới reduced motion); chủ đề không có bước nào thì không có nút lẫn dòng.
+// - LF6 (AC4, Owner QA 2026-10-13): màn hình hoàn thành không còn nút "Xem lại", dòng giải thích hay vòng nổi bật; một dòng gợi ý nhỏ nằm ngay dưới thanh tiến trình ở mọi giai đoạn (cả màn hình hoàn thành) khi thanh có hơn một bước, không có khi chủ đề chỉ có một bước hoặc không có bước nào, và nằm dưới lý do khóa (vùng polite) mà không lẫn vào đó. Con trỏ tay và nền hover của các bước được đo bằng computed style trong smoke, không bằng tên lớp.
 // - LF6 (AC10): hết hàng đợi ôn thẻ đến hạn/ôn lại từ vựng có toast riêng; chủ đề đã hoàn thành (đọc lúc hết hàng, kể cả kết quả của chính lần chấm) thì về màn hình hoàn thành đã ổn định, chưa hoàn thành thì ở lại màn hình kết thúc từ vựng và không sang memory check hay bài tập; Lại/Khó xếp lại không đổi loại hàng đợi; lần chấm hoàn thành chủ đề vẫn chạy chuỗi LF5 một lần không toast; hàng đợi lúc vào trang giữ toast và bước chuyển cũ; chấm đang lưu mà rời bước không mất kết quả và không gửi hai lần.
 // - LF6 (AC5): bốn nút tự đánh giá của FlashcardStage dùng đúng lớp Attention/Recall của định nghĩa dùng chung với ReviewSheet, cùng nhãn và thứ tự.
 // - Kết quả verify gần nhất: xem lần chạy LF3 CP4 (2026-10-11) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`; LF5 CP4 (2026-10-12).
@@ -120,6 +120,9 @@ function exercise(
 }
 
 // LF4: mặc định là lần học đầu (mọi thẻ chưa xem) nên hàng đợi mở trang là toàn bộ thẻ; test về trạng thái đã xem truyền `unseenCardIds`.
+const THREAD_HINT =
+  "Bạn có thể di chuyển nhanh giữa các nội dung bằng cách nhấn vào nội dung tương ứng trên thanh tiến trình.";
+
 function data(overrides: Partial<LearningWorkspaceData> = {}): LearningWorkspaceData {
   const flashcards = overrides.flashcards ?? [];
   return {
@@ -1376,9 +1379,8 @@ describe("D8-LUI learning workspace presentation", () => {
         );
         expect(completionHeading()).not.toBeNull();
         expect(screen.queryByText("Bài học này chưa có nội dung")).toBeNull();
-        // Nothing to review, but the destination is still there as the only primary action.
-        expect(within(panel()).queryByRole("button", { name: "Xem lại" })).toBeNull();
-        expect(within(panel()).queryByText("Chọn một bước ở thanh tiến trình để xem lại.")).toBeNull();
+        // Nothing to review, but the destination is still there as the only primary action. No stage means no thread and no hint.
+        expect(screen.queryByText(THREAD_HINT)).toBeNull();
         const overview = within(panel()).getByRole("link", { name: "Về tổng quan khóa học" });
         expect(overview.getAttribute("href")).toBe("/learn/toeic-foundation");
         expect(primaries()).toEqual([overview]);
@@ -1410,13 +1412,13 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(nextLink.getAttribute("href")).toBe("/learn/toeic-foundation/topic-three");
       });
 
-      it("shows one Xem lại button and one explanation line instead of a button per stage (LF6 AC4)", () => {
+      it("offers no review button, group or explanation line on the completion screen (LF6 AC4, Owner QA)", () => {
         render(<LearningWorkspace data={data({ flashcards: [cardA], unseenCardIds: [], progress: { ...done } })} />);
-        const review = within(panel()).getByRole("button", { name: "Xem lại" });
-        expect(review.getAttribute("data-variant")).toBe("outline");
-        expect(within(panel()).getByText("Chọn một bước ở thanh tiến trình để xem lại.")).not.toBeNull();
+        expect(within(panel()).queryByRole("button", { name: "Xem lại" })).toBeNull();
+        expect(within(panel()).queryByText("Chọn một bước ở thanh tiến trình để xem lại.")).toBeNull();
         expect(within(panel()).queryByRole("group", { name: "Xem lại các bước" })).toBeNull();
-        expect(within(panel()).queryByRole("button", { name: /^Xem lại .+/ })).toBeNull();
+        expect(within(panel()).queryByRole("button", { name: /^Xem lại/ })).toBeNull();
+        expect(document.querySelector("[data-thread-highlight]")).toBeNull();
       });
     });
 
@@ -1448,11 +1450,8 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(panel().getAttribute("data-motion")).toBe("settled");
       });
 
-      it("gives Xem lại an equal-width touch target, keeps the stage thread on one line and gives the footer a touch outline (Owner Q14)", () => {
+      it("keeps the stage thread on one line and gives the footer a touch outline (Owner Q14)", () => {
         render(<LearningWorkspace data={completedTopic({ dueCardIds: [cardA.id] })} />);
-        const review = within(panel()).getByRole("button", { name: "Xem lại" });
-        expect(review.className).toContain("w-full");
-        expect(review.className).toContain("min-h-11");
         // The thread never wraps, so no connector can start a line.
         const thread = screen.getByRole("list", { name: "Các bước của bài học" });
         expect(thread.className).toContain("flex-nowrap");
@@ -1707,75 +1706,81 @@ describe("D8-LUI learning workspace presentation", () => {
       });
     });
 
-    describe("Xem lại on the completion screen points at the thread (LF6 AC4)", () => {
-      const scrollIntoView = vi.fn();
-      const highlight = () => document.querySelector("[data-thread-highlight]") as HTMLElement;
-      const threadButtons = () =>
-        within(screen.getByRole("list", { name: "Các bước của bài học" })).getAllByRole("button");
-      const reduceMotion = () => {
-        const original = window.matchMedia;
-        window.matchMedia = ((query: string) => ({
-          matches: query.includes("prefers-reduced-motion"),
-          media: query,
-          addEventListener: () => undefined,
-          removeEventListener: () => undefined,
-        })) as unknown as typeof window.matchMedia;
-        return () => {
-          window.matchMedia = original;
-        };
-      };
+    describe("the hint under the stage thread (LF6 AC4, Owner QA 2026-10-13)", () => {
+      const hint = () => screen.queryByText(THREAD_HINT);
+      const stepButton = (name: RegExp) =>
+        within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name });
 
-      beforeEach(() => {
-        scrollIntoView.mockClear();
-        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
-      });
-      afterEach(() => {
-        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
-      });
-
-      it("scrolls the thread into view smoothly, focuses its first enabled button and shows then removes a ring", () => {
+      it("shows the hint on the completion screen and on every stage the learner opens from the thread", () => {
         render(<LearningWorkspace data={completedTopic()} />);
-        expect(highlight().getAttribute("data-active")).toBe("false");
-
-        fireEvent.click(within(panel()).getByRole("button", { name: "Xem lại" }));
-        expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", behavior: "smooth" });
-        expect(document.activeElement).toBe(threadButtons()[0]);
-        // The ring shows and lasts about a second in total; that it only fades (no movement) is measured in the smoke.
-        expect(highlight().getAttribute("data-active")).toBe("true");
-        // The completion screen stays where it was.
         expect(completionHeading()).not.toBeNull();
-        act(() => {
-          vi.advanceTimersByTime(700);
-        });
-        expect(highlight().getAttribute("data-active")).toBe("true");
-        act(() => {
-          vi.advanceTimersByTime(100);
-        });
-        expect(highlight().getAttribute("data-active")).toBe("false");
+        expect(hint()).not.toBeNull();
+        fireEvent.click(stepButton(/^Memory check/));
+        expect(completionHeading()).toBeNull();
+        expect(hint()).not.toBeNull();
+        fireEvent.click(stepButton(/^Bài tập/));
+        expect(completionHeading()).toBeNull();
+        expect(hint()).not.toBeNull();
+        fireEvent.click(stepButton(/^Từ vựng/));
+        expect(hint()).not.toBeNull();
+        expect(screen.getAllByText(THREAD_HINT)).toHaveLength(1);
       });
 
-      it("skips the smooth scroll and the ring under reduced motion but still moves focus", () => {
-        const restore = reduceMotion();
-        try {
-          render(<LearningWorkspace data={completedTopic()} />);
-          fireEvent.click(within(panel()).getByRole("button", { name: "Xem lại" }));
-          expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", behavior: "auto" });
-          expect(document.activeElement).toBe(threadButtons()[0]);
-          expect(highlight().getAttribute("data-active")).toBe("false");
-        } finally {
-          restore();
-        }
+      it("shows the hint on the flashcard stage of an unfinished topic", () => {
+        render(
+          <LearningWorkspace
+            data={data({
+              flashcards: [cardA, cardB],
+              unseenCardIds: [cardA.id, cardB.id],
+              memoryCheck,
+              isMemoryCheckPassed: false,
+              exercises: [exercise("part5", {})],
+              progress: { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false },
+            })}
+          />,
+        );
+        expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
+        expect(hint()).not.toBeNull();
       });
 
-      it("focuses the first stage the topic has when Từ vựng is not one of them", () => {
-        render(<LearningWorkspace data={completedTopic({ flashcards: [], dueCardIds: [], unseenCardIds: [] })} />);
-        fireEvent.click(within(panel()).getByRole("button", { name: "Xem lại" }));
-        const buttons = threadButtons();
-        expect(buttons.map((button) => button.textContent?.replace(/^\d/, ""))).toEqual([
-          "Memory check (đã xong)",
-          "Bài tập (đã xong)",
-        ]);
-        expect(document.activeElement).toBe(buttons[0]);
+      it("shows no hint when the topic has a single step", () => {
+        render(
+          <LearningWorkspace
+            data={data({
+              flashcards: [],
+              unseenCardIds: [],
+              memoryCheck: null,
+              isMemoryCheckPassed: false,
+              exercises: [exercise("part5", {})],
+              progress: { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false },
+            })}
+          />,
+        );
+        const list = screen.getByRole("list", { name: "Các bước của bài học" });
+        expect(within(list).queryAllByRole("listitem")).toHaveLength(1);
+        expect(hint()).toBeNull();
+      });
+
+      it("keeps the hint outside the lock-reason live region, below the reason", () => {
+        render(
+          <LearningWorkspace
+            data={data({
+              flashcards: [cardA, cardB],
+              unseenCardIds: [cardB.id],
+              memoryCheck,
+              isMemoryCheckPassed: false,
+              exercises: [exercise("part5", {})],
+              progress: { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false },
+            })}
+          />,
+        );
+        fireEvent.click(stepButton(/^Memory check/));
+        const live = document.querySelector('[aria-live="polite"]') as HTMLElement;
+        expect(live.textContent).toContain("Học hết flashcard của bài này để mở memory check.");
+        expect(live.textContent).not.toContain(THREAD_HINT);
+        expect(hint()).not.toBeNull();
+        expect(live.contains(hint())).toBe(false);
+        expect(live.compareDocumentPosition(hint() as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       });
     });
 

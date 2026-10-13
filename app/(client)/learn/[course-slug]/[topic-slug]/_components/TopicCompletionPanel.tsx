@@ -26,8 +26,6 @@ interface TopicCompletionPanelProps {
   next:
     | { kind: "topic"; href: string; unitLabel: string; detail: string | null }
     | { kind: "overview"; href: string };
-  /** Points the learner at the stage thread; undefined when the topic has no stage to review (no button, no hint). */
-  onReview?: () => void;
 }
 
 function prefersReducedMotion() {
@@ -113,7 +111,6 @@ export default function TopicCompletionPanel({
   dueCount,
   onReviewDue,
   next,
-  onReview,
 }: TopicCompletionPanelProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [sequence] = useState(() => animate && !prefersReducedMotion());
@@ -268,18 +265,6 @@ export default function TopicCompletionPanel({
           </Button>
         )}
       </div>
-
-      {onReview && (
-        // LF6 AC4 (LF5 Q9): one outline action that draws attention to the stage thread, plus a line saying what to do there.
-        <div className="flex flex-col items-center gap-2">
-          <Button type="button" variant="outline" className="h-auto min-h-11 w-full px-3 py-2" onClick={onReview}>
-            Xem lại
-          </Button>
-          <p className="text-center text-sm font-medium text-slate-600">
-            Chọn một bước ở thanh tiến trình để xem lại.
-          </p>
-        </div>
-      )}
     </section>
   );
 }
