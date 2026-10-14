@@ -24,6 +24,16 @@ The public/user-facing homepage should eventually move away from the current sli
 
 This is a future homepage surface direction, not a global Product Language layout rule. A future surface specification must reconcile it with the actual homepage content, route behavior, responsive composition, accessibility, performance, asset ownership, and current implementation before any code change.
 
+## Floating sheet direction
+
+(Owner, 2026-10-14.) Side panels built on `components/ui/sheet.tsx` should become a floating panel instead of a full-height drawer stuck to the screen edge:
+
+- about 80–90% of the viewport height;
+- all four corners rounded; and
+- inset from the right edge (and top and bottom) instead of touching it.
+
+The trigger case is the learner course outline sheet "Duyệt chương học" (`app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace.tsx`); the AD3 admin course summary (`app/admin/courses/_components/course-summary-sheet.tsx`) uses the same default sheet. The Owner wants a component design for it, like `components/button.md`, as a shared sheet variant rather than a one-off restyle. Future work owns the exact sizes, small-screen behavior, motion, focus and the migration of existing sheets.
+
 ## Learning streak direction
 
 Learning Experience may later use a compact learning-streak metric as supporting context when the runtime owns truthful learning-history data. Current UI-2 work must omit streak rather than derive it from topic completion, flashcard review dates, or other proxy signals.

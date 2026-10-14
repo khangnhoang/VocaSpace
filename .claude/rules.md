@@ -31,6 +31,10 @@ Three rules below are standing Owner permissions that apply without asking again
 
 - Standing permission: when told to wait for CI, run `gh pr checks <n> --watch --interval 30` in the foreground; do not end the turn to wait for app events.
 
+## Auto mode
+
+- When auto mode denies an action the Owner seems to have asked for, treat the grant as not explicit enough: ask with AskUserQuestion, naming the exact command and target, and run it only after the Owner approves. Do not retry it unchanged or drop the step silently.
+
 ## Jev (TypeSafe), optional
 
 - Use it only when a TypeSafe key and the `typesafe-ai` skill are available; otherwise skip it.

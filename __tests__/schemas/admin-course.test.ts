@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   acceptCourseSchema,
   adminCourseFilterSchema,
+  adminCourseSummarySchema,
+  moderateCourseSchema,
   rejectCourseSchema,
   submitCourseReviewSchema,
 } from "@/lib/schemas/admin-course";
@@ -67,23 +69,92 @@ describe("admin course validation", () => {
     expect(parse(`${"😀".repeat(500)}a`).success).toBe(false);
   });
 
-  it("limits search query length and trims filter input", () => {
-    expect(
-      adminCourseFilterSchema.parse({
-        status: "pending",
-        q: "  toeic  ",
-        page: "2",
-        pageSize: "20",
-      }),
-    ).toMatchObject({
-      status: "pending",
+  it("defaults the filter to the pending tab, page 1 and an empty search", () => {
+    expect(adminCourseFilterSchema.parse({})).toEqual({ status: "pending", q: "", page: 1 });
+  });
+
+  it("accepts every tab, trims the search and coerces the page", () => {
+    for (const status of ["pending", "published", "draft", "all", "removed"] as const) {
+      expect(adminCourseFilterSchema.parse({ status }).status).toBe(status);
+    }
+    expect(adminCourseFilterSchema.parse({ status: "published", q: "  toeic  ", page: "2" })).toEqual({
+      status: "published",
       q: "toeic",
       page: 2,
-      pageSize: 20,
+    });
+    expect(adminCourseFilterSchema.parse({ q: "a".repeat(100) }).q).toHaveLength(100);
+  });
+
+  it("falls back to the defaults for invalid filter parameters instead of throwing", () => {
+    expect(adminCourseFilterSchema.parse({ status: "archived" }).status).toBe("pending");
+    expect(adminCourseFilterSchema.parse({ status: ["all", "draft"] }).status).toBe("pending");
+    expect(adminCourseFilterSchema.parse({ q: "a".repeat(101) }).q).toBe("");
+    for (const page of ["0", "-3", "abc", "1.5", "", ["2", "3"], "99999999999999999999"]) {
+      expect(adminCourseFilterSchema.parse({ page }).page).toBe(1);
+    }
+    expect(adminCourseFilterSchema.parse({ status: "bad", q: "x".repeat(200), page: "0" })).toEqual({
+      status: "pending",
+      q: "",
+      page: 1,
+    });
+  });
+
+  it("does not take page size or ordering from the URL", () => {
+    expect(adminCourseFilterSchema.parse({ pageSize: "100", sort: "oldest" })).toEqual({
+      status: "pending",
+      q: "",
+      page: 1,
+    });
+  });
+
+  it("requires a valid course id for the summary", () => {
+    expect(adminCourseSummarySchema.parse({ courseId: validCourseId })).toEqual({ courseId: validCourseId });
+    expect(adminCourseSummarySchema.safeParse({ courseId: "not-a-uuid" }).success).toBe(false);
+    expect(adminCourseSummarySchema.safeParse({}).success).toBe(false);
+  });
+
+  describe("moderateCourseSchema", () => {
+    const reason = "Nội dung vi phạm quy định cộng đồng.";
+
+    it("accepts demote and takedown with a trimmed reason", () => {
+      for (const action of ["demote", "takedown"] as const) {
+        expect(moderateCourseSchema.parse({ courseId: validCourseId, action, reason: `  ${reason}  ` })).toEqual({
+          courseId: validCourseId,
+          action,
+          reason,
+        });
+      }
     });
 
-    expect(() =>
-      adminCourseFilterSchema.parse({ q: "a".repeat(101) }),
-    ).toThrow("Từ khóa tìm kiếm không được vượt quá 100 ký tự.");
+    it("rejects a bad uuid and any other action", () => {
+      expect(moderateCourseSchema.safeParse({ courseId: "x", action: "demote", reason }).success).toBe(false);
+      for (const action of ["invalidate_review", "restore", "", undefined]) {
+        expect(moderateCourseSchema.safeParse({ courseId: validCourseId, action, reason }).success).toBe(false);
+      }
+    });
+
+    it("bounds the reason at 10 and 2000 characters after trimming", () => {
+      const parse = (value: string) =>
+        moderateCourseSchema.safeParse({ courseId: validCourseId, action: "takedown", reason: value });
+
+      expect(parse("a".repeat(9)).success).toBe(false);
+      expect(parse(`   ${"a".repeat(9)}   `).success).toBe(false);
+      expect(parse("a".repeat(10)).success).toBe(true);
+      expect(parse("a".repeat(2000)).success).toBe(true);
+      expect(parse(`  ${"a".repeat(2000)}  `).success).toBe(true);
+      expect(parse("a".repeat(2001)).success).toBe(false);
+    });
+
+    it("ignores a client-sent target type instead of passing it through", () => {
+      const parsed = moderateCourseSchema.parse({
+        courseId: validCourseId,
+        action: "demote",
+        reason,
+        targetType: "topic",
+        targetId: "ignored",
+      });
+
+      expect(parsed).toEqual({ courseId: validCourseId, action: "demote", reason });
+    });
   });
 });

@@ -10,11 +10,11 @@ import { revalidatePath } from "next/cache";
 // - Mục tiêu: kiểm tra Server Actions admin duyệt / từ chối khóa học (AD2 AC9) chỉ validate input, dùng session của người gọi và map lỗi an toàn.
 // - Loại test: action/unit với Supabase client giả.
 // - Đối tượng: approveCourseReview và rejectCourseReview.
-// - Case thành công: gọi đúng RPC (reject truyền lý do đã trim); revalidate overview, structure, danh sách giáo viên và /courses; trả `{ success, data }`.
+// - Case thành công: gọi đúng RPC (reject truyền lý do đã trim); revalidate /admin/courses (AD3 AC8), overview, structure, danh sách giáo viên và /courses; trả `{ success, data }`.
 // - Case thất bại: input sai (id, lý do ngắn hoặc dài) bị chặn trước khi tạo client; chưa đăng nhập không gọi RPC; mỗi mã lỗi RPC ra đúng thông báo tiếng Việt.
 // - Bảo mật/phân quyền: action không giữ quyền riêng; quyền admin đang hoạt động do RPC kiểm tra (xem ad2-course-listing-approval integration).
 // - Ổn định/resilience: lỗi RPC lạ không lộ nội dung database; lỗi RPC không revalidate.
-// - Ghi chú: chưa có màn hình admin gọi các action này, màn hình đến ở AD3.
+// - Ghi chú: màn hình gọi các action này là /admin/courses (AD3).
 // - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/admin-course-review.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -127,6 +127,7 @@ describe("admin course review Server Actions", () => {
 
       expect(await run()).toEqual({ success: true, data });
       expect(rpc).toHaveBeenCalledWith(rpcName, rpcArgs);
+      expect(mockedRevalidatePath).toHaveBeenCalledWith("/admin/courses");
       expect(mockedRevalidatePath).toHaveBeenCalledWith(`/teacher/courses/${courseId}`);
       expect(mockedRevalidatePath).toHaveBeenCalledWith(`/teacher/courses/${courseId}/structure`);
       expect(mockedRevalidatePath).toHaveBeenCalledWith("/(teacher)/teacher/courses");

@@ -1,19 +1,19 @@
 # Progress — Admin console
 
-Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Git history is the final evidence when documents disagree.
+Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future features: [future-features.md](./future-features.md). Git history is the final evidence when documents disagree.
 
 ## State
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [plan.md](./plan.md) r2 (master plan, Owner-approved 2026-10-13); AD2 [detail plan](./implementation-plans/ad2/plan.md) r3, Codex plan review PASS (round 3, two minor fixes applied); Owner approval 2026-10-14 |
-| Current unit / checkpoint | AD2 merged; AD3 not started |
-| Status | AD2 delivered: PR 155 merged with CI green after the hosted migration was pushed and verified. The root runtime (45321) has the AD2 migration. AD3 has no detail plan yet. |
-| Completed evidence | AD2 verification on the isolated runtime (API 45441) and the Codex reviews are in the AD2 milestones and the PR 155 description: `ad2-course-listing-approval.test.ts` 66/66, upgrade rehearsal from `20261013090000`, `npm run test:ci`, lint, build and docs checks; Codex plan review PASS round 3, implementation review PASS round 2. Hosted, after `supabase db push` of `20261014120000` on 2026-10-14 with an Owner grant, read-only: courses 3 draft, 4 published (1 removed), no pending; the four review RPCs are executable by `authenticated` only (not `anon` or `service_role`); `ad2_course_has_published_topic` is executable by no API role; `anon` and `authenticated` have no table-level `UPDATE` on `courses`, and `authenticated` has column `UPDATE` only on `title`, `slug`, `description`, `price`, `thumbnail_url`, `removed_at`. Root runtime (45321): `supabase migration up --local` applied `20261014120000` on 2026-10-14 at the Owner's request; no pending course, `submit_course_review` executable by `authenticated`. |
-| Accepted deviations | None. |
-| Blockers / Owner decisions | None open. AD2 decisions of 2026-10-14 are in the detail plan §1.4. |
-| Next action | AD3 (`/admin/courses`) detail plan when the Owner asks |
-| Current authority | None open. AD2 grants were consumed by the merge of PR 155. |
+| Spec revision | [plan.md](./plan.md) r2 (master plan, Owner-approved 2026-10-13); AD3 [detail plan](./implementation-plans/ad3/plan.md) r4, Codex plan review round 1 FAIL (four findings), round 2 FAIL (three findings), round 3 PASS on r3, round 4 PASS on r4 (no-brief decision, ADMIN-005); Owner approval 2026-10-14 |
+| Current unit / checkpoint | AD3 Owner QA (privacy wording approved) |
+| Status | AD3 implementation complete on `feat/admin-course-screen`; the `/privacy` wording and date are Owner-approved (2026-10-14); awaiting Owner manual QA (plan §4.1). AD2 is delivered (PR 155) and the root runtime (45321) has its migration. |
+| Completed evidence | AD3 CP4: `e2e/admin/admin-course-review.spec.ts` (approve, reject, demote) and the AD1 gate specs/status check updated for `/admin/courses`: 12 Playwright tests pass on the isolated runtime, production status check passes. AD3 CP3: `/admin/courses` screen (list, tabs, search, paging, summary panel, approve/reject/demote/takedown dialogs) with 32 component tests, rendered at 375 and 1280 px on the isolated production build with no horizontal overflow. AD3 CP2: unit tests for the schema, search escaping, moderation/summary actions and active-admin helper pass; `__tests__/integration/ad3-admin-course-read.test.ts` passes (21 tests) on the isolated runtime (API 45441). Earlier units: see Milestones. |
+| Accepted deviations | AD3 ships `/admin/courses` without a design brief (Owner, 2026-10-14; ADMIN-005). |
+| Blockers / Owner decisions | None open. AD3 decisions of 2026-10-14 are in the detail plan §1.4 (the `/privacy` wording itself needs Owner approval in the PR). |
+| Next action | Owner manual QA (§4.1), then push/PR on Owner grant. |
+| Current authority | Owner, 2026-10-14: plan approved, CP1 commit, implementation by `sonnet-high-implementor` with local commits only. No push, PR, merge, root or hosted write. |
 
 ## Milestones
 
@@ -30,4 +30,17 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Git history 
 - 2026-10-14 AD2 CP4: ADMIN-002 resolved in the repository, final verification run (`a0e22d8`).
 - 2026-10-14 AD2 correction round 1: `reject_course_review` counts the reason in UTF-16 units like `rejectCourseSchema` (astral boundaries tested in SQL, schema and action), review controls use the default `Button` styling with a busy label (`b94eab9`).
 - 2026-10-14 AD2 Codex implementation review: round 1 FAIL on `a0e22d8`, round 2 PASS on `b94eab9`; progress records the review and the TypeScript result (`c6cae6a`).
-- 2026-10-14 AD2 merged with CI green after the hosted migration push and read-only verification (PR 155, `8c537b6`); root runtime migrated (this commit).
+- 2026-10-14 AD2 merged with CI green after the hosted migration push and read-only verification (PR 155, `8c537b6`); root runtime migrated (`1556ef6`).
+- 2026-10-14 AD3 detail plan r4 approved by the Owner after Codex plan review PASS (round 4) (`2c474ac`).
+- 2026-10-14 AD3 CP2 server side: admin course list/summary read module, `moderateCourse` and `getAdminCourseSummary` actions, active-admin helper, escaped search (`17b90f4`).
+- 2026-10-14 AD3 CP3 course screen: `/admin/courses` page, client components, sidebar item, mock components removed (`95cf9ca`).
+- 2026-10-14 AD3 CP4 e2e: admin course review spec, AD1 gate specs and production status check cover `/admin/courses` (`ff69562`).
+- 2026-10-14 AD3 CP5 `/privacy` sentence on admin course review access and closeout (`8ab9d75`).
+- 2026-10-14 AD3 correction round 1: literal `*` search via `imatch`, focus returns to the opener on close (AC9), State refreshed (`e2ee3db`).
+- 2026-10-14 AD3 correction round 2: focus goes into the open summary panel when the opener disappears; Vietnamese case folding covered on both search paths (`dd99f7d`).
+- 2026-10-14 Owner approved the `/privacy` wording ("họ sẽ xem được tên tác giả"); legal last-updated date set to 14/10/2026 (`2425d17`).
+- 2026-10-14 Owner QA fix: the shared toaster uses the dark theme on `/admin` and `/admin/*` routes, light elsewhere (`430d475`).
+- 2026-10-14 Owner QA fix: the admin sidebar logo links to the home page (`4e274ce`).
+- 2026-10-14 Owner QA change: course search runs as the admin types (300 ms debounce, `router.replace`, Enter applies at once) (`c1b04f6`).
+- 2026-10-14 Owner QA change: the course list pagination has a "Đến trang" input to jump to a page (`51476d2`).
+- 2026-10-14 Owner QA fix: the course list pagination is one compact control, previous/next arrows around an editable current-page input with the total (`db6d3b7`).

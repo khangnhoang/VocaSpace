@@ -14,12 +14,13 @@ import {
   getTeacherCourseListRouteFileRevalidationPath,
 } from "@/lib/course-authoring/routes";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
+import { ADMIN_COURSES_PATH } from "@/lib/admin/routes";
 
 type RpcError = { code?: string; message?: string };
 type RpcResult = { course_id?: string; status?: string };
 
 // Admin duyệt / từ chối khóa học đang chờ. Quyền admin, trạng thái và lý do do RPC kiểm tra;
-// action chỉ validate input và dịch lỗi sang thông báo an toàn. Màn hình admin đến ở AD3.
+// action chỉ validate input và dịch lỗi sang thông báo an toàn. Màn hình gọi các action này là /admin/courses (AD3).
 function mapAdminCourseReviewError(error?: RpcError | null) {
   const text = `${error?.code ?? ""} ${error?.message ?? ""}`;
   if (text.includes("AUTH_REQUIRED")) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
@@ -32,6 +33,7 @@ function mapAdminCourseReviewError(error?: RpcError | null) {
 }
 
 function revalidateCourseReview(result: RpcResult | null) {
+  revalidatePath(ADMIN_COURSES_PATH);
   if (!result?.course_id) return;
   revalidatePath(getCourseOverviewPath(result.course_id));
   revalidatePath(getCourseStructurePath(result.course_id));

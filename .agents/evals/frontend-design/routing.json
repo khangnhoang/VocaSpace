@@ -19,7 +19,7 @@
           {
             "context_id": "admin-dialog",
             "source_type": "repository_file",
-            "path": "app/admin/courses/_components/reject-course-dialog.tsx"
+            "path": "app/admin/courses/_components/course-action-dialog.tsx"
           },
           {
             "context_id": "scenario",
@@ -92,7 +92,7 @@
           {
             "context_id": "admin-dialog",
             "source_type": "repository_file",
-            "path": "app/admin/courses/_components/reject-course-dialog.tsx"
+            "path": "app/admin/courses/_components/course-action-dialog.tsx"
           },
           {
             "context_id": "shared-dialog",

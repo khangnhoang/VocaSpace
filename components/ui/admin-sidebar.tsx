@@ -11,7 +11,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users } from "lucide-react";
+import { BookOpen, LayoutDashboard, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG DẪN
@@ -19,6 +19,7 @@ import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG D�
 const menuItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Quản lý User", url: "/admin/user-management", icon: Users },
+  { title: "Quản lý khóa học", url: "/admin/courses", icon: BookOpen },
 ];
 
 export default function AdminSidebar() {
@@ -28,14 +29,20 @@ export default function AdminSidebar() {
     <Sidebar className="border-r border-slate-800">
       <SidebarHeader className="p-4">
         <div className="flex items-center px-2">
-          {/* Logo gradient: độ tương phản thấp nhất (#2F6FF0 trên #0F172A) là 3,96:1, đạt ngưỡng 3:1 */}
-          <Image
-            src="/brand/vocaspace-logo.svg"
-            alt="VocaSpace"
-            width={587}
-            height={117}
-            className="h-[30px] w-auto"
-          />
+          {/* Logo dẫn về trang chủ như header công khai; alt="VocaSpace" là tên truy cập của liên kết. Vòng focus sáng để thấy rõ trên nền #0F172A. */}
+          <Link
+            href="/"
+            className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-slate-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F172A]"
+          >
+            {/* Logo gradient: độ tương phản thấp nhất (#2F6FF0 trên #0F172A) là 3,96:1, đạt ngưỡng 3:1 */}
+            <Image
+              src="/brand/vocaspace-logo.svg"
+              alt="VocaSpace"
+              width={587}
+              height={117}
+              className="h-[30px] w-auto"
+            />
+          </Link>
         </div>
       </SidebarHeader>
 
