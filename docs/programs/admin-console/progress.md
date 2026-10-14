@@ -6,14 +6,14 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [plan.md](./plan.md) r2 (master plan, Owner-approved 2026-10-13); AD3 [detail plan](./implementation-plans/ad3/plan.md) r4, Codex plan review round 1 FAIL (four findings), round 2 FAIL (three findings), round 3 PASS on r3, round 4 PASS on r4 (no-brief decision, ADMIN-005); Owner approval 2026-10-14 |
-| Current unit / checkpoint | AD3 Owner QA (privacy wording approved) |
-| Status | AD3 implementation complete on `feat/admin-course-screen`; the `/privacy` wording and date are Owner-approved (2026-10-14); awaiting Owner manual QA (plan §4.1). AD2 is delivered (PR 155) and the root runtime (45321) has its migration. |
-| Completed evidence | AD3 CP4: `e2e/admin/admin-course-review.spec.ts` (approve, reject, demote) and the AD1 gate specs/status check updated for `/admin/courses`: 12 Playwright tests pass on the isolated runtime, production status check passes. AD3 CP3: `/admin/courses` screen (list, tabs, search, paging, summary panel, approve/reject/demote/takedown dialogs) with 32 component tests, rendered at 375 and 1280 px on the isolated production build with no horizontal overflow. AD3 CP2: unit tests for the schema, search escaping, moderation/summary actions and active-admin helper pass; `__tests__/integration/ad3-admin-course-read.test.ts` passes (21 tests) on the isolated runtime (API 45441). Earlier units: see Milestones. |
-| Accepted deviations | AD3 ships `/admin/courses` without a design brief (Owner, 2026-10-14; ADMIN-005). |
-| Blockers / Owner decisions | None open. AD3 decisions of 2026-10-14 are in the detail plan §1.4 (the `/privacy` wording itself needs Owner approval in the PR). |
-| Next action | Owner manual QA (§4.1), then push/PR on Owner grant. |
-| Current authority | Owner, 2026-10-14: plan approved, CP1 commit, implementation by `sonnet-high-implementor` with local commits only. No push, PR, merge, root or hosted write. |
+| Spec revision | [plan.md](./plan.md) r2 (master plan, Owner-approved 2026-10-13); AD7 [detail plan](./implementation-plans/ad7/plan.md) r1, conditional Owner acceptance after independent review PASS (2026-10-15). |
+| Current unit / checkpoint | AD7 planning on `fix/admin-user-hardening`. |
+| Status | AD7 plan drafted; implementation not started. AD3 merged in PR 157 (`0b50278`); fresh deployment or production QA was not performed during this reconciliation. |
+| Completed evidence | Source/migration discovery on `0b50278`, including Luna-requested DB and application exploration; `main`, `origin/main` and the new AD7 branch matched after fetch and fast-forward pull on 2026-10-15. Planning checks: `npm run docs:check` has 0 structure violations and 1 baseline broken link (0 new); `git diff --check` clean. A local Zod probe confirmed UUID letter case is preserved, informing the self-role guard. Historical AD3 implementation/QA evidence is retained in its milestone commits below; no AD7 product or database tests have run. |
+| Accepted deviations | None for AD7. |
+| Blockers / Owner decisions | Independent plan review PASS pending. Owner chose on 2026-10-15 to lock only Role for self-edit and retain name, username and phone edits (AD7 §1.4). |
+| Next action | Independent gpt-6.1-sol/high plan review, correct/review until PASS, then commit the accepted plan and implement. |
+| Current authority | Owner, 2026-10-15: plan review/correction until PASS without the default two-round cap, then plan commit and implementation; local commits authorized throughout the task. No push, PR, merge, root or hosted write grant. |
 
 ## Milestones
 
@@ -44,3 +44,4 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 - 2026-10-14 Owner QA change: course search runs as the admin types (300 ms debounce, `router.replace`, Enter applies at once) (`c1b04f6`).
 - 2026-10-14 Owner QA change: the course list pagination has a "Đến trang" input to jump to a page (`51476d2`).
 - 2026-10-14 Owner QA fix: the course list pagination is one compact control, previous/next arrows around an editable current-page input with the total (`db6d3b7`).
+- 2026-10-14 AD3 merged; the 2026-10-15 planning reconciliation confirmed the merge ancestry, without a fresh deployment or production-QA claim (PR 157, `0b50278`).
