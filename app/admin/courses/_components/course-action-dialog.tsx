@@ -118,6 +118,8 @@ type CourseActionDialogProps = {
   kind: CourseActionKind;
   course: AdminCourseListRow;
   onClose: () => void;
+  // Radix trả focus khi dialog đóng; caller chặn mặc định và đặt focus về nút đã mở.
+  onCloseAutoFocus: (event: Event) => void;
   // Gọi sau khi server xác nhận thành công; caller đóng dialog và làm mới danh sách.
   onDone: () => void;
 };
@@ -127,7 +129,7 @@ type CourseActionDialogProps = {
  * Mount mới cho mỗi lần mở (caller dùng key) nên lý do cũ không lọt sang lần sau; khi server từ chối, lý do và dialog được giữ
  * nguyên để sửa rồi thử lại. Danh sách được làm mới sau mỗi lần server từ chối vì dòng trên màn hình có thể đã cũ (AD3 G5).
  */
-export function CourseActionDialog({ kind, course, onClose, onDone }: CourseActionDialogProps) {
+export function CourseActionDialog({ kind, course, onClose, onCloseAutoFocus, onDone }: CourseActionDialogProps) {
   const router = useRouter();
   const config = actionConfigs[kind];
   const [reason, setReason] = useState("");
@@ -179,6 +181,7 @@ export function CourseActionDialog({ kind, course, onClose, onDone }: CourseActi
     <Dialog open onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={!isSubmitting}
+        onCloseAutoFocus={onCloseAutoFocus}
         className="dark max-h-[calc(100dvh-2rem)] overflow-y-auto border border-slate-700 bg-[#111827] text-slate-200 shadow-2xl shadow-black sm:max-w-[520px]"
       >
         <DialogHeader>

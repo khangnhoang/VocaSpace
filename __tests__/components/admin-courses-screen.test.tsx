@@ -49,6 +49,7 @@ vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: mocks.to
 // - Ổn định/resilience: nút xác nhận hiện nhãn đang xử lý và chỉ gửi một lần dù bấm hai lần; không thể đóng dialog khi đang gửi.
 // - Invariant cần giữ: không giá trị nào trên màn hình là dữ liệu giả; hành động hủy bỏ không thể hoàn tác (gỡ) luôn nêu hậu quả trước khi xác nhận.
 // - Kết quả verify gần nhất: xem milestone AD3 CP3 trong progress.md (`npx vitest run __tests__/components/admin-courses-screen.test.tsx`).
+// - Focus (AC9): hủy dialog trả focus về nút đã mở (cả khi mở từ panel), đóng panel trả về nút tóm tắt, nút đã mất thì về tiêu đề danh sách, sau thành công về tiêu đề danh sách.
 // - Ghi chú: bố cục 375/1280 px, tương phản và thứ tự focus trên màn hình thật nằm ở QA thủ công của Owner (plan §4.1).
 
 function makeRow(overrides: Partial<AdminCourseListRow> = {}): AdminCourseListRow {
@@ -577,5 +578,73 @@ describe("demote and takedown", () => {
     fireEvent.click(screen.getByRole("button", { name: "Gỡ khóa học Khóa đang bán" }));
     dialog = await screen.findByRole("dialog", { name: "Gỡ khóa học" });
     expect((within(dialog).getByLabelText("Lý do gỡ khóa học") as HTMLTextAreaElement).value).toBe("");
+  });
+});
+
+describe("focus return after closing a panel or dialog (AC9)", () => {
+  const summaryName = "Khóa học TOEIC cơ bản, xem tóm tắt";
+  const approveName = "Duyệt khóa học Khóa học TOEIC cơ bản";
+
+  it("returns focus to the row button when a dialog is cancelled", async () => {
+    renderScreen(makeData([makeRow()]));
+    const opener = screen.getByRole("button", { name: approveName });
+
+    fireEvent.click(opener);
+    const dialog = await screen.findByRole("dialog", { name: "Duyệt khóa học này?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hủy bỏ" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it("returns focus to the summary button when the panel is closed", async () => {
+    renderScreen(makeData([makeRow()]));
+    const opener = screen.getByRole("button", { name: summaryName });
+
+    fireEvent.click(opener);
+    const panel = await screen.findByRole("dialog", { name: "Khóa học TOEIC cơ bản" });
+    fireEvent.keyDown(panel, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it("returns focus to the panel button when a dialog opened from the panel is cancelled", async () => {
+    renderScreen(makeData([makeRow()]));
+
+    fireEvent.click(screen.getByRole("button", { name: summaryName }));
+    const panel = await screen.findByRole("dialog", { name: "Khóa học TOEIC cơ bản" });
+    const panelButton = within(panel).getByRole("button", { name: approveName });
+    fireEvent.click(panelButton);
+    const dialog = await screen.findByRole("dialog", { name: "Duyệt khóa học này?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hủy bỏ" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Duyệt khóa học này?" })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(panelButton));
+    expect(screen.getByRole("dialog", { name: "Khóa học TOEIC cơ bản" })).toBeTruthy();
+  });
+
+  it("falls back to the results heading when the opener left the list while the dialog was open", async () => {
+    const { rerender } = renderScreen(makeData([makeRow()]));
+
+    fireEvent.click(screen.getByRole("button", { name: approveName }));
+    const dialog = await screen.findByRole("dialog", { name: "Duyệt khóa học này?" });
+    rerender(<AdminCoursesClient filter={defaultFilter} data={makeData([])} error={null} />);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hủy bỏ" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2 })));
+  });
+
+  it("moves focus to the results heading after a confirmed action instead of the button that opened it", async () => {
+    mocks.approveCourseReview.mockResolvedValue({ success: true, data: {} });
+    renderScreen(makeData([makeRow()]));
+
+    fireEvent.click(screen.getByRole("button", { name: approveName }));
+    const dialog = await screen.findByRole("dialog", { name: "Duyệt khóa học này?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Duyệt khóa học" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2 })));
   });
 });

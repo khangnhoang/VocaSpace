@@ -44,20 +44,54 @@ export default function AdminCoursesClient({ filter, data, error }: AdminCourses
   const [summaryCourse, setSummaryCourse] = useState<AdminCourseListRow | null>(null);
   const [activeAction, setActiveAction] = useState<ActiveAction | null>(null);
   const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
+  // Phần tử đã mở panel/dialog: dialog và panel mở từ state (không có Radix Trigger) nên focus được trả về đây khi đóng (AD3 AC9).
+  const summaryOpenerRef = useRef<HTMLElement | null>(null);
+  const actionOpenerRef = useRef<HTMLElement | null>(null);
+  // Sau khi server xác nhận, dòng vừa xử lý có thể rời tab nên focus về tiêu đề danh sách thay vì nút đã mở.
+  const returnToHeadingRef = useRef(false);
 
-  const startAction = (kind: CourseActionKind, course: AdminCourseListRow) => setActiveAction({ kind, course });
+  // Nút vừa được bấm (bắt ở pha capture, kể cả nút trong dialog/panel qua portal): Safari và Firefox trên macOS không focus nút khi bấm
+  // nên document.activeElement không đáng tin để biết "nút đã mở".
+  const lastClickedButtonRef = useRef<HTMLElement | null>(null);
 
-  // Server đã xác nhận: đóng dialog và panel, làm mới danh sách. Dòng vừa xử lý có thể biến mất khỏi tab, và Radix trả focus
-  // về nút đã mở (nay không còn) trong một timeout ngay sau khi đóng, nên focus tiêu đề danh sách được đặt sau đó để không rơi về <body>.
+  const rememberOpener = (ref: { current: HTMLElement | null }) => {
+    ref.current =
+      lastClickedButtonRef.current ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    returnToHeadingRef.current = false;
+  };
+
+  const openSummary = (course: AdminCourseListRow) => {
+    rememberOpener(summaryOpenerRef);
+    setSummaryCourse(course);
+  };
+
+  const startAction = (kind: CourseActionKind, course: AdminCourseListRow) => {
+    rememberOpener(actionOpenerRef);
+    setActiveAction({ kind, course });
+  };
+
+  // Chặn Radix trả focus mặc định (về <body> vì không có Trigger) và tự đặt: nút đã mở nếu còn trong DOM, nếu không thì tiêu đề danh sách.
+  const restoreFocus = (event: Event, opener: { current: HTMLElement | null }) => {
+    event.preventDefault();
+    const target = !returnToHeadingRef.current && opener.current?.isConnected ? opener.current : resultsHeadingRef.current;
+    target?.focus();
+  };
+
+  // Server đã xác nhận: đóng dialog và panel rồi làm mới danh sách; focus về tiêu đề danh sách qua restoreFocus.
   const finishAction = () => {
+    returnToHeadingRef.current = true;
     setActiveAction(null);
     setSummaryCourse(null);
     router.refresh();
-    window.setTimeout(() => resultsHeadingRef.current?.focus(), 50);
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+    <div
+      className="mx-auto flex w-full max-w-7xl flex-col gap-5"
+      onClickCapture={(event) => {
+        lastClickedButtonRef.current = event.target instanceof Element ? event.target.closest("button") : null;
+      }}
+    >
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-white">Quản lý khóa học</h1>
         <p className="text-sm text-slate-300">
@@ -87,7 +121,7 @@ export default function AdminCoursesClient({ filter, data, error }: AdminCourses
           <EmptyState filter={filter} data={data} />
         ) : (
           <>
-            <AdminCourseTable courses={data.rows} onOpenSummary={setSummaryCourse} onAction={startAction} />
+            <AdminCourseTable courses={data.rows} onOpenSummary={openSummary} onAction={startAction} />
             <AdminCoursePagination filter={filter} data={data} />
           </>
         )}
@@ -96,6 +130,7 @@ export default function AdminCoursesClient({ filter, data, error }: AdminCourses
       <CourseSummarySheet
         course={summaryCourse}
         onClose={() => setSummaryCourse(null)}
+        onCloseAutoFocus={(event) => restoreFocus(event, summaryOpenerRef)}
         onAction={startAction}
       />
 
@@ -105,6 +140,7 @@ export default function AdminCoursesClient({ filter, data, error }: AdminCourses
           kind={activeAction.kind}
           course={activeAction.course}
           onClose={() => setActiveAction(null)}
+          onCloseAutoFocus={(event) => restoreFocus(event, actionOpenerRef)}
           onDone={finishAction}
         />
       ) : null}
