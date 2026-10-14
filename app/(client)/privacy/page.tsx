@@ -60,6 +60,10 @@ export default function PrivacyPage() {
           tác viên có tài khoản học viên.
         </p>
         <p>
+          Khi quản trị viên VocaSpace duyệt, hạ về bản nháp hoặc gỡ một khoá học, họ xem được tên tác giả và nội dung của
+          khoá học đó.
+        </p>
+        <p>
           Chúng tôi không bán dữ liệu của bạn, không dùng dữ liệu để quảng cáo và không theo dõi hành vi của bạn trên
           các trang web khác.
         </p>
