@@ -83,7 +83,7 @@ export default function UserTable({
                 {user.joinDate}
               </div>
               <div className="md:w-[20%] flex items-center justify-end gap-2">
-                <button onClick={() => openEditForm(user)} className="p-2 cursor-pointer text-slate-400 hover:text-cyan-400 hover:bg-cyan-400/10 rounded-lg transition-all"><Pencil size={18} /></button>
+                <button aria-label={`Chỉnh sửa ${user.name}`} onClick={() => openEditForm(user)} className="p-2 cursor-pointer text-slate-400 hover:text-cyan-400 hover:bg-cyan-400/10 rounded-lg transition-all"><Pencil size={18} /></button>
                 <button onClick={() => openDeleteConfirm(user)} className="p-2 cursor-pointer text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-all"><Trash2 size={18} /></button>
               </div>
             </div>

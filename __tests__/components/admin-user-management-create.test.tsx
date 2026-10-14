@@ -47,7 +47,7 @@ beforeEach(() => {
 describe("admin user management create form", () => {
   it("closes the form and reloads the list after a successful create", async () => {
     mockedCreateUserByAdmin.mockResolvedValue({ success: true, message: "Đã tạo tài khoản và gửi email đặt mật khẩu" });
-    render(<UsermanagementPage />);
+    render(<UsermanagementPage currentAdminId="11111111-1111-4111-8111-111111111111" />);
 
     await openFormAndSubmit();
 
@@ -58,7 +58,7 @@ describe("admin user management create form", () => {
 
   it("keeps the form open and does not reload when the account was not created", async () => {
     mockedCreateUserByAdmin.mockResolvedValue({ error: "Database error creating new user" });
-    render(<UsermanagementPage />);
+    render(<UsermanagementPage currentAdminId="11111111-1111-4111-8111-111111111111" />);
 
     await openFormAndSubmit();
 
@@ -70,7 +70,7 @@ describe("admin user management create form", () => {
   it("closes the form and reloads the list when the account exists but the mail or role step failed", async () => {
     const message = 'Đã tạo tài khoản nhưng chưa gửi được email đặt mật khẩu. Hãy nhờ người dùng chọn "Quên mật khẩu?" ở trang đăng nhập.';
     mockedCreateUserByAdmin.mockResolvedValue({ error: message, accountCreated: true });
-    render(<UsermanagementPage />);
+    render(<UsermanagementPage currentAdminId="11111111-1111-4111-8111-111111111111" />);
 
     await openFormAndSubmit();
 
