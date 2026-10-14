@@ -41,4 +41,5 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 - 2026-10-14 Owner approved the `/privacy` wording ("họ sẽ xem được tên tác giả"); legal last-updated date set to 14/10/2026 (`2425d17`).
 - 2026-10-14 Owner QA fix: the shared toaster uses the dark theme on `/admin` and `/admin/*` routes, light elsewhere (`430d475`).
 - 2026-10-14 Owner QA fix: the admin sidebar logo links to the home page (`4e274ce`).
-- 2026-10-14 Owner QA change: course search runs as the admin types (300 ms debounce, `router.replace`, Enter applies at once) (this commit).
+- 2026-10-14 Owner QA change: course search runs as the admin types (300 ms debounce, `router.replace`, Enter applies at once) (`c1b04f6`).
+- 2026-10-14 Owner QA change: the course list pagination has a "Đến trang" input to jump to a page (this commit).
