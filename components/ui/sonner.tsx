@@ -1,12 +1,21 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
-const Toaster = ({ theme = "light", ...props }: ToasterProps) => {
+// Toaster duy nhất nằm ở root layout, ngoài wrapper `.dark` của /admin, nên theme được chọn theo route:
+// /admin và /admin/* dùng nền tối, mọi route khác giữ nền sáng. Prop `theme` truyền vào luôn thắng.
+const isAdminPath = (pathname: string | null) =>
+  pathname === "/admin" || (pathname?.startsWith("/admin/") ?? false)
+
+const Toaster = ({ theme, ...props }: ToasterProps) => {
+  const pathname = usePathname()
+  const resolvedTheme = theme ?? (isAdminPath(pathname) ? "dark" : "light")
+
   return (
     <Sonner
-      theme={theme}
+      theme={resolvedTheme}
       className="toaster group"
       icons={{
         success: (
