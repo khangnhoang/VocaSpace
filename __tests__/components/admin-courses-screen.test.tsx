@@ -42,7 +42,7 @@ vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: mocks.to
 // - Case thành công:
 //   - hàng hiện tên, slug, chủ sở hữu, giá, trạng thái, mốc thời gian; "—" khi thiếu; lý do từ chối chỉ trên bản nháp; tab Đã gỡ không có nút.
 //   - tab là liên kết giữ `q`, có số đếm và aria-current; phân trang theo liên kết.
-//   - nhảy tới trang: ô "Đến trang" có nhãn và tổng số trang, hợp lệ (1..tổng) điều hướng giữ status và q, trang 1 bỏ `page`; 0, vượt tổng, rỗng, 2.5, số âm, ký hiệu mũ không điều hướng và báo lỗi bằng aria-invalid/aria-describedby; đồng bộ theo URL; ẩn khi chỉ có một trang.
+//   - phân trang gọn `‹ [5] / 22 ›`: mũi tên có tên truy cập và href đúng; số trang hiện tại là ô nhập, Enter với số hợp lệ (1..tổng) điều hướng giữ status và q, trang 1 bỏ `page`; 0, vượt tổng, rỗng, 2.5, số âm, ký hiệu mũ không điều hướng và báo lỗi bằng aria-invalid/aria-describedby; blur và Escape trả về trang hiện tại; đồng bộ theo URL; một trang chỉ hiện "1 / 1".
 //   - tìm kiếm trực tiếp: gõ cập nhật `q` bằng router.replace sau 300 ms (một lần, đúng cụm cuối, về trang 1, giữ tab); Enter áp ngay; ô trống bỏ `q`; cùng cụm thì không điều hướng; ô nhập giữ giá trị và focus khi URL về muộn, đồng bộ theo URL khi đổi từ bên ngoài; timer bị hủy khi đổi tab hoặc unmount.
 //   - panel tóm tắt tải dàn bài qua getAdminCourseSummary, hiện chương, bài học, trạng thái từng bài và số bài đã xuất bản.
 //   - duyệt, từ chối, hạ, gỡ gọi đúng action với đúng tham số, toast thành công, đóng dialog, làm mới danh sách.
@@ -258,9 +258,8 @@ describe("tabs, search and paging", () => {
 
     const pager = screen.getByRole("navigation", { name: "Phân trang" });
     expect(pager.textContent).toContain("Hiển thị 21–40 trong tổng số 55 khóa học");
-    expect(pager.textContent).toContain("Trang 2 / 3");
-    expect(within(pager).getByRole("link", { name: /Trước/ }).getAttribute("href")).toBe("/admin/courses?q=toeic");
-    expect(within(pager).getByRole("link", { name: /Sau/ }).getAttribute("href")).toBe("/admin/courses?q=toeic&page=3");
+    expect(within(pager).getByRole("link", { name: "Trang trước" }).getAttribute("href")).toBe("/admin/courses?q=toeic");
+    expect(within(pager).getByRole("link", { name: "Trang sau" }).getAttribute("href")).toBe("/admin/courses?q=toeic&page=3");
   });
 });
 
@@ -586,45 +585,72 @@ describe("demote and takedown", () => {
   });
 });
 
-describe("jump to a page", () => {
+describe("compact pagination control", () => {
   const manyRows = (count: number) =>
     Array.from({ length: count }, (_, index) =>
       makeRow({ id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`, title: `Khóa ${index}` }),
     );
+  const pagedData = (page: number, totalPages = 27) =>
+    makeData(manyRows(20), { page, totalPages, total: totalPages * 20 });
   const renderPaged = (page: number, filter: Partial<AdminCourseFilter> = {}) =>
-    renderScreen(makeData(manyRows(20), { page, totalPages: 27, total: 540 }), {
-      filter: { status: "published", q: "toeic", page, ...filter },
-    });
-  const pageInput = () => screen.getByLabelText("Đến trang") as HTMLInputElement;
-  const go = (value: string) => {
+    renderScreen(pagedData(page), { filter: { status: "published", q: "toeic", page, ...filter } });
+  const pageInput = () => screen.getByRole("textbox", { name: /^Trang hiện tại/ }) as HTMLInputElement;
+  const enter = (value: string) => {
     fireEvent.change(pageInput(), { target: { value } });
-    fireEvent.click(screen.getByRole("button", { name: "Đi" }));
+    fireEvent.submit(pageInput().closest("form")!);
   };
 
-  it("has an accessible label, shows the total and starts on the current page", () => {
+  it("shows previous, the current page as an input, the total and next in one group", () => {
     renderPaged(5);
 
     const pager = screen.getByRole("navigation", { name: "Phân trang" });
-    expect(within(pager).getByRole("spinbutton", { name: "Đến trang" })).toBe(pageInput());
+    expect(within(pager).getByRole("link", { name: "Trang trước" }).getAttribute("href")).toBe(
+      "/admin/courses?status=published&q=toeic&page=4",
+    );
+    expect(within(pager).getByRole("link", { name: "Trang sau" }).getAttribute("href")).toBe(
+      "/admin/courses?status=published&q=toeic&page=6",
+    );
     expect(pageInput().value).toBe("5");
     expect(pager.textContent).toContain("/ 27");
+    // Mô tả của ô nhập gồm tổng số trang.
+    const describedBy = pageInput().getAttribute("aria-describedby")!;
+    expect(document.getElementById(describedBy)?.textContent).toBe("trên tổng số 27 trang");
   });
 
-  it("navigates to a valid page and keeps the status and the search term", () => {
+  it("has no Go button, no visible label and no duplicated page text", () => {
+    renderPaged(5);
+
+    const pager = screen.getByRole("navigation", { name: "Phân trang" });
+    expect(within(pager).queryByRole("button", { name: "Đi" })).toBeNull();
+    expect(pager.textContent).not.toContain("Đến trang");
+    expect(pager.textContent).not.toMatch(/Trang \d+ \/ \d+/);
+  });
+
+  it("disables previous on the first page and next on the last page", () => {
+    const { unmount } = renderPaged(1);
+    expect((screen.getByRole("button", { name: "Trang trước" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("link", { name: "Trang sau" })).toBeTruthy();
+    unmount();
+
+    renderPaged(27);
+    expect((screen.getByRole("button", { name: "Trang sau" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("link", { name: "Trang trước" })).toBeTruthy();
+  });
+
+  it("navigates on Enter to a valid page and keeps the status and the search term", () => {
     renderPaged(1);
 
-    go("12");
+    enter("12");
 
     expect(mocks.push).toHaveBeenCalledTimes(1);
     expect(mocks.push).toHaveBeenCalledWith("/admin/courses?status=published&q=toeic&page=12");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("goes to the last page, and Enter submits too", () => {
+  it("goes to the last page", () => {
     renderPaged(3);
 
-    fireEvent.change(pageInput(), { target: { value: "27" } });
-    fireEvent.submit(pageInput().closest("form")!);
+    enter("27");
 
     expect(mocks.push).toHaveBeenCalledWith("/admin/courses?status=published&q=toeic&page=27");
   });
@@ -632,7 +658,7 @@ describe("jump to a page", () => {
   it("drops page from the URL for page 1", () => {
     renderPaged(4);
 
-    go("1");
+    enter("1");
 
     expect(mocks.push).toHaveBeenCalledWith("/admin/courses?status=published&q=toeic");
   });
@@ -642,20 +668,20 @@ describe("jump to a page", () => {
     (value) => {
       renderPaged(4);
 
-      go(value);
+      enter(value);
 
       expect(mocks.push).not.toHaveBeenCalled();
       const alert = screen.getByRole("alert");
       expect(alert.textContent).toBe("Nhập số nguyên từ 1 đến 27.");
       expect(pageInput().getAttribute("aria-invalid")).toBe("true");
-      expect(pageInput().getAttribute("aria-describedby")).toBe(alert.id);
+      expect(pageInput().getAttribute("aria-describedby")).toContain(alert.id);
     },
   );
 
   it("clears the error once the value is edited", () => {
     renderPaged(4);
 
-    go("99");
+    enter("99");
     expect(screen.getByRole("alert")).toBeTruthy();
     fireEvent.change(pageInput(), { target: { value: "9" } });
 
@@ -663,16 +689,39 @@ describe("jump to a page", () => {
     expect(pageInput().getAttribute("aria-invalid")).toBeNull();
   });
 
+  it("reverts to the current page on blur without navigating", () => {
+    renderPaged(4);
+
+    fireEvent.change(pageInput(), { target: { value: "12" } });
+    fireEvent.blur(pageInput());
+    expect(pageInput().value).toBe("4");
+
+    enter("99");
+    fireEvent.blur(pageInput());
+    expect(pageInput().value).toBe("4");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
+
+  it("reverts to the current page on Escape without navigating", () => {
+    renderPaged(4);
+
+    fireEvent.change(pageInput(), { target: { value: "12" } });
+    fireEvent.keyDown(pageInput(), { key: "Escape" });
+
+    expect(pageInput().value).toBe("4");
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
+
   it("follows the current page when the URL changes", () => {
     const view = renderPaged(4);
-    fireEvent.change(pageInput(), { target: { value: "99" } });
-    go("99");
+    enter("99");
     expect(screen.getByRole("alert")).toBeTruthy();
 
     view.rerender(
       <AdminCoursesClient
         filter={{ ...defaultFilter, status: "published", q: "toeic", page: 5 }}
-        data={makeData(manyRows(20), { page: 5, totalPages: 27, total: 540 })}
+        data={pagedData(5)}
         error={null}
       />,
     );
@@ -681,11 +730,13 @@ describe("jump to a page", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("is not offered when there is only one page", () => {
+  it("shows only 1 / 1 with no input and no arrows when there is a single page", () => {
     renderScreen(makeData([makeRow()]));
 
-    expect(screen.queryByLabelText("Đến trang")).toBeNull();
-    expect(screen.getByRole("navigation", { name: "Phân trang" }).textContent).toContain("Trang 1 / 1");
+    const pager = screen.getByRole("navigation", { name: "Phân trang" });
+    expect(within(pager).queryByRole("textbox")).toBeNull();
+    expect(within(pager).queryByRole("link")).toBeNull();
+    expect(pager.textContent).toContain("1 / 1");
   });
 });
 
