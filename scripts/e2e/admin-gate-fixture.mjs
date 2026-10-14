@@ -39,7 +39,7 @@ export function assertIsolatedAdminGateTargets(env = process.env, baseURL = "") 
   }
 }
 
-function isolatedAdmin(env) {
+export function isolatedAdmin(env) {
   isolatedUrl(env);
   return createSupabaseAdmin(env);
 }
