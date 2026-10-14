@@ -49,6 +49,8 @@ export default function AdminCoursesClient({ filter, data, error }: AdminCourses
   const actionOpenerRef = useRef<HTMLElement | null>(null);
   // Sau khi server xác nhận, dòng vừa xử lý có thể rời tab nên focus về tiêu đề danh sách thay vì nút đã mở.
   const returnToHeadingRef = useRef(false);
+  // Nội dung panel tóm tắt khi đang mở (null khi đóng): nơi nhận focus nếu nút đã mở biến mất trong lúc panel còn mở.
+  const summaryContentRef = useRef<HTMLDivElement>(null);
 
   // Nút vừa được bấm (bắt ở pha capture, kể cả nút trong dialog/panel qua portal): Safari và Firefox trên macOS không focus nút khi bấm
   // nên document.activeElement không đáng tin để biết "nút đã mở".
@@ -70,10 +72,13 @@ export default function AdminCoursesClient({ filter, data, error }: AdminCourses
     setActiveAction({ kind, course });
   };
 
-  // Chặn Radix trả focus mặc định (về <body> vì không có Trigger) và tự đặt: nút đã mở nếu còn trong DOM, nếu không thì tiêu đề danh sách.
+  // Chặn Radix trả focus mặc định (về <body> vì không có Trigger) và tự đặt: nút đã mở nếu còn trong DOM; nếu nút đã biến mất
+  // (ví dụ panel tải xong và đổi trạng thái khóa học) thì vào chính panel khi panel còn mở (phần danh sách phía sau bị aria-hidden);
+  // chỉ khi không còn lớp modal nào mới về tiêu đề danh sách.
   const restoreFocus = (event: Event, opener: { current: HTMLElement | null }) => {
     event.preventDefault();
-    const target = !returnToHeadingRef.current && opener.current?.isConnected ? opener.current : resultsHeadingRef.current;
+    const openerStillThere = !returnToHeadingRef.current && opener.current?.isConnected ? opener.current : null;
+    const target = openerStillThere ?? (returnToHeadingRef.current ? null : summaryContentRef.current) ?? resultsHeadingRef.current;
     target?.focus();
   };
 
@@ -129,6 +134,7 @@ export default function AdminCoursesClient({ filter, data, error }: AdminCourses
 
       <CourseSummarySheet
         course={summaryCourse}
+        contentRef={summaryContentRef}
         onClose={() => setSummaryCourse(null)}
         onCloseAutoFocus={(event) => restoreFocus(event, summaryOpenerRef)}
         onAction={startAction}

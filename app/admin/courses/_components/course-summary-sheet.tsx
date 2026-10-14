@@ -25,17 +25,20 @@ type CourseSummarySheetProps = {
   // null = đóng. Hàng của danh sách đã có đủ metadata nên phần đầu panel hiện ngay, chỉ dàn bài là tải từ server.
   course: AdminCourseListRow | null;
   onClose: () => void;
+  // Ref tới nội dung panel để caller đặt focus vào panel khi nút đã mở không còn.
+  contentRef: React.Ref<HTMLDivElement>;
   // Radix trả focus khi panel đóng; caller chặn mặc định và đặt focus về nút đã mở.
   onCloseAutoFocus: (event: Event) => void;
   onAction: (kind: CourseActionKind, course: AdminCourseListRow) => void;
 };
 
-export function CourseSummarySheet({ course, onClose, onCloseAutoFocus, onAction }: CourseSummarySheetProps) {
+export function CourseSummarySheet({ course, onClose, contentRef, onCloseAutoFocus, onAction }: CourseSummarySheetProps) {
   // Chỉ mount khi có khóa học: SheetContent luôn có SheetTitle (tên khóa học) và state tải dàn bài reset theo từng khóa học.
   if (!course) return null;
   return (
     <Sheet open onOpenChange={(open) => (open ? undefined : onClose())}>
       <SheetContent
+        ref={contentRef}
         side="right"
         onCloseAutoFocus={onCloseAutoFocus}
         className="dark w-full gap-0 border-slate-700 bg-[#111827] p-0 text-slate-200 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"

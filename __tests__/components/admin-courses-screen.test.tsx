@@ -624,6 +624,27 @@ describe("focus return after closing a panel or dialog (AC9)", () => {
     expect(screen.getByRole("dialog", { name: "Khóa học TOEIC cơ bản" })).toBeTruthy();
   });
 
+  it("keeps focus inside the open panel when its action button disappears after the summary loads", async () => {
+    let resolveSummary: (value: unknown) => void = () => undefined;
+    mocks.getAdminCourseSummary.mockReturnValue(new Promise((resolve) => (resolveSummary = resolve)));
+    renderScreen(makeData([makeRow()]));
+
+    fireEvent.click(screen.getByRole("button", { name: summaryName }));
+    const panel = await screen.findByRole("dialog", { name: "Khóa học TOEIC cơ bản" });
+    fireEvent.click(within(panel).getByRole("button", { name: approveName }));
+    const dialog = await screen.findByRole("dialog", { name: "Duyệt khóa học này?" });
+
+    // Phản hồi muộn cho thấy khóa học đã là bản nháp: panel không còn nút duyệt (nút đã mở dialog biến mất).
+    resolveSummary({ success: true, data: { ...outline, course: { ...outline.course, status: "draft" } } });
+    await waitFor(() => expect(within(panel).queryByRole("button", { name: approveName })).toBeNull());
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Hủy bỏ" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Duyệt khóa học này?" })).toBeNull());
+    await waitFor(() => expect(panel.contains(document.activeElement)).toBe(true));
+    expect(document.getElementById("admin-course-results")).not.toBe(document.activeElement);
+  });
+
   it("falls back to the results heading when the opener left the list while the dialog was open", async () => {
     const { rerender } = renderScreen(makeData([makeRow()]));
 

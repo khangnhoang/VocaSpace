@@ -343,6 +343,23 @@ describe("AD3 listAdminCourses with an admin session", () => {
     expect(data.rows.map((row) => row.id)).toEqual([exact]);
   });
 
+  it.each([
+    ["ilike (no star)", "đề", "ĐỀ"],
+    ["imatch (with a star)", "đề*", "ĐỀ*"],
+  ])("folds Vietnamese letter case on the %s path", async (_label, query, upperTitle) => {
+    const token = newToken();
+    const [upper, lower] = await createCourses([
+      { title: `${token} ${upperTitle} thi` },
+      { title: `${token} ${upperTitle.toLowerCase()} luyện` },
+      { title: `${token} DE thi không dấu` },
+      { title: `${token} sách khác` },
+    ]);
+
+    const data = await readList(admin, { q: `${token} ${query}` });
+    expect(data.rows.map((row) => row.id).sort()).toEqual([upper, lower].sort());
+    expect(data.counts.all).toBe(2);
+  });
+
   it("shows a null owner name when the owner profile is removed instead of failing the list", async () => {
     const token = newToken();
     const [withOwner, withRemovedOwner] = await createCourses([
