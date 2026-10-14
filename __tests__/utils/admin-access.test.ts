@@ -12,12 +12,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/utils/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
-import { requireAdminPage } from "@/lib/auth/admin-access";
+import { getActiveAdminUserId, requireAdminPage } from "@/lib/auth/admin-access";
 
 // Test plan:
 // - Mục tiêu: AD1 AC2/AC3/G1 — helper requireAdminPage chỉ cho admin đang hoạt động đi tiếp, mọi trường hợp khác gọi notFound().
 // - Loại test: unit trên helper server; mock Supabase client và notFound() (notFound thật ném lỗi để dừng render).
-// - Đối tượng: requireAdminPage trong lib/auth/admin-access.ts.
+// - Đối tượng: requireAdminPage và getActiveAdminUserId (helper không ném dùng chung với Server Action của AD3) trong lib/auth/admin-access.ts.
 // - Case thành công: admin đang hoạt động trả về user id.
 // - Case thất bại (đều notFound): không có user, lỗi auth, lỗi đọc profile, không có dòng profile còn hoạt động
 //   (admin đã bị gỡ: removed_at khác null nên không khớp bộ lọc), student, teacher.
@@ -91,5 +91,31 @@ describe("requireAdminPage", () => {
     await expect(requireAdminPage()).rejects.toThrow(NOT_FOUND);
 
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+});
+
+// Server Action của màn hình admin (AD3) dùng helper không ném để từ chối bằng `{ error }` thay vì 404; quy tắc phải y hệt requireAdminPage.
+describe("getActiveAdminUserId", () => {
+  it("returns the admin id for an active admin without calling notFound", async () => {
+    const supabase = mockSupabase({ profile: { data: { role: "admin" }, error: null } });
+    const client = await mocks.createClient();
+
+    await expect(getActiveAdminUserId(client)).resolves.toBe("user-1");
+
+    expect(supabase.is).toHaveBeenCalledWith("removed_at", null);
+    expect(mocks.notFound).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a signed-out visitor", { user: null }],
+    ["an auth error", { authError: { message: "invalid JWT" } }],
+    ["a missing active profile row (removed admin)", { profile: { data: null, error: { message: "0 rows" } } }],
+    ["a student", { profile: { data: { role: "student" }, error: null } }],
+  ] as const)("returns null for %s", async (_label, options) => {
+    mockSupabase(options);
+    const client = await mocks.createClient();
+
+    await expect(getActiveAdminUserId(client)).resolves.toBeNull();
+    expect(mocks.notFound).not.toHaveBeenCalled();
   });
 });
