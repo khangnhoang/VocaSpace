@@ -47,15 +47,17 @@ type CourseRow = {
 
 /**
  * Escape một cụm tìm kiếm thành điều kiện `.or(...)` trên title và slug để mọi ký tự được so khớp đúng nghĩa đen (AD3 G3).
- * Hai lớp: (1) `\`, `%`, `_` cho LIKE; (2) bọc dấu nháy kép và escape `\`, `"` theo quy tắc giá trị của PostgREST,
- * nhờ đó `,`, `(`, `)` không tách hay đóng điều kiện `or`. PostgREST còn đổi `*` thành `%` trong like/ilike,
- * nên `*` được thay bằng `_` (khớp ký tự `*`, và cả một ký tự bất kỳ) thay vì trở thành wildcard nhiều ký tự.
+ * Mặc định dùng `ilike`: escape `\`, `%`, `_` cho LIKE rồi bọc dấu nháy kép và escape `\`, `"` theo quy tắc giá trị của
+ * PostgREST, nhờ đó `,`, `(`, `)` không tách hay đóng điều kiện `or`.
+ * PostgREST đổi mọi `*` thành `%` trong like/ilike và không có cách escape, nên với cụm chứa `*` chuyển sang `imatch`
+ * (regex không phân biệt hoa thường, khớp chuỗi con) với mọi ký tự đặc biệt của regex được escape; `imatch` không đổi `*`.
  */
 export function buildCourseSearchFilter(q: string): string {
-  const likeEscaped = q.replace(/[\\%_]/g, (char) => `\\${char}`).replace(/\*/g, "_");
-  const pattern = `%${likeEscaped}%`;
-  const quoted = `"${pattern.replace(/[\\"]/g, (char) => `\\${char}`)}"`;
-  return `title.ilike.${quoted},slug.ilike.${quoted}`;
+  const useRegex = q.includes("*");
+  const operator = useRegex ? "imatch" : "ilike";
+  const escaped = useRegex ? q.replace(/[\\^$.|?*+()[\]{}]/g, "\\$&") : `%${q.replace(/[\\%_]/g, "\\$&")}%`;
+  const quoted = `"${escaped.replace(/[\\"]/g, (char) => `\\${char}`)}"`;
+  return `title.${operator}.${quoted},slug.${operator}.${quoted}`;
 }
 
 function ownerNameOf(row: CourseRow): string | null {

@@ -302,16 +302,45 @@ describe("AD3 listAdminCourses with an admin session", () => {
     },
   );
 
-  it("treats the star as a single-character wildcard, never a multi-character one", async () => {
+  it("matches the star literally: a decoy with another character in its place is excluded", async () => {
     const token = newToken();
-    const [literal, farAway] = await createCourses([
+    const [literal] = await createCourses([
       { title: `${token} a*b` },
+      { title: `${token} aXb` },
       { title: `${token} aXXXb` },
+      { title: `${token} ab` },
     ]);
 
     const data = await readList(admin, { q: `${token} a*b` });
-    expect(data.rows.map((row) => row.id)).toContain(literal);
-    expect(data.rows.map((row) => row.id)).not.toContain(farAway);
+    expect(data.rows.map((row) => row.id)).toEqual([literal]);
+    expect(data.counts.all).toBe(1);
+  });
+
+  it("does not match every course when the term is only a star", async () => {
+    const token = newToken();
+    const [starred] = await createCourses([
+      { title: `${token} có dấu * trong tên` },
+      { title: `${token} không có dấu sao` },
+    ]);
+
+    // Kết quả toàn cục có thể gồm course ngoài fixture; mọi dòng trả về và mọi đếm phải chứa dấu sao thật.
+    const data = await readList(admin, { q: "*", status: "all", page: 1 });
+    expect(data.rows.length).toBeGreaterThan(0);
+    for (const row of data.rows) expect(`${row.title} ${row.slug}`).toContain("*");
+    expect(data.rows.map((row) => row.id)).toContain(starred);
+    expect(data.counts.all).toBeLessThan((await readList(admin, { q: "", status: "all" })).counts.all);
+  });
+
+  it.each(["*.", "*(", "*[", "*|", "*\\", "*^$"])("treats the regex metacharacters next to a star literally in %j", async (suffix) => {
+    const token = newToken();
+    const [exact] = await createCourses([
+      { title: `${token} x${suffix}y` },
+      { title: `${token} xAy` },
+      { title: `${token} xyyy` },
+    ]);
+
+    const data = await readList(admin, { q: `${token} x${suffix}y` });
+    expect(data.rows.map((row) => row.id)).toEqual([exact]);
   });
 
   it("shows a null owner name when the owner profile is removed instead of failing the list", async () => {

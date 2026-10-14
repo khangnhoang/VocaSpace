@@ -9,6 +9,7 @@ import { buildCourseSearchFilter } from "@/lib/admin/course-list";
 // - Loại test: unit trên hàm thuần; hành vi khớp thật trên database nằm ở integration ad3-admin-course-read.
 // - Đối tượng: buildCourseSearchFilter.
 // - Case thành công: văn bản thường thành hai điều kiện ilike bọc nháy kép; `%`, `_`, `\` được escape cho LIKE rồi escape lại cho giá trị bọc nháy.
+// - Case có `*`: PostgREST đổi `*` thành `%` trong ilike, nên dùng imatch với regex đã escape hết ký tự đặc biệt.
 // - Case thất bại/hostile: `,`, `(`, `)` và `"` luôn nằm trong giá trị bọc nháy nên không thêm hay đóng điều kiện `or`.
 // - Invariant cần giữ: chuỗi filter luôn gồm đúng hai điều kiện title/slug, bất kể nội dung q.
 // - Kết quả verify gần nhất: xem milestone AD3 CP2 trong progress.md (`npx vitest run __tests__/utils/admin-course-search-filter.test.ts`).
@@ -34,7 +35,11 @@ describe("buildCourseSearchFilter", () => {
     );
   });
 
-  it("maps the PostgREST star wildcard to a single-character LIKE wildcard", () => {
-    expect(buildCourseSearchFilter("a*b")).toBe(raw`title.ilike."%a_b%",slug.ilike."%a_b%"`);
+  it("switches to a regex match with every regex metacharacter escaped when the term contains a star", () => {
+    expect(buildCourseSearchFilter("a*b")).toBe(raw`title.imatch."a\\*b",slug.imatch."a\\*b"`);
+    expect(buildCourseSearchFilter("*")).toBe(raw`title.imatch."\\*",slug.imatch."\\*"`);
+    expect(buildCourseSearchFilter("a*.(b)|")).toBe(
+      raw`title.imatch."a\\*\\.\\(b\\)\\|",slug.imatch."a\\*\\.\\(b\\)\\|"`,
+    );
   });
 });
