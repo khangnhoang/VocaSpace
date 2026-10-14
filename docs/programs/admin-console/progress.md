@@ -7,9 +7,9 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 | Field | Value |
 | --- | --- |
 | Spec revision | [plan.md](./plan.md) r2 (master plan, Owner-approved 2026-10-13); AD3 [detail plan](./implementation-plans/ad3/plan.md) r4, Codex plan review round 1 FAIL (four findings), round 2 FAIL (three findings), round 3 PASS on r3, round 4 PASS on r4 (no-brief decision, ADMIN-005); Owner approval 2026-10-14 |
-| Current unit / checkpoint | AD3 CP3 (screen) |
+| Current unit / checkpoint | AD3 CP4 (E2E and AD1 gate update) |
 | Status | AD3 detail plan r4 approved and committed on `feat/admin-course-screen`; implementation handed to one `sonnet-high-implementor` session for CP2–CP5. AD2 is delivered (PR 155) and the root runtime (45321) has its migration. |
-| Completed evidence | AD3 CP2: unit tests for the schema, search escaping, moderation/summary actions and active-admin helper pass; `__tests__/integration/ad3-admin-course-read.test.ts` passes (21 tests) on the isolated runtime (API 45441). Earlier units: see Milestones. |
+| Completed evidence | AD3 CP3: `/admin/courses` screen (list, tabs, search, paging, summary panel, approve/reject/demote/takedown dialogs) with 32 component tests, rendered at 375 and 1280 px on the isolated production build with no horizontal overflow. AD3 CP2: unit tests for the schema, search escaping, moderation/summary actions and active-admin helper pass; `__tests__/integration/ad3-admin-course-read.test.ts` passes (21 tests) on the isolated runtime (API 45441). Earlier units: see Milestones. |
 | Accepted deviations | AD3 ships `/admin/courses` without a design brief (Owner, 2026-10-14; ADMIN-005). |
 | Blockers / Owner decisions | None open. AD3 decisions of 2026-10-14 are in the detail plan §1.4 (the `/privacy` wording itself needs Owner approval in the PR). |
 | Next action | CP2: schemas, read module, `getAdminCourseSummary`, `moderateCourse`, active-admin helper, tests |
@@ -32,4 +32,5 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 - 2026-10-14 AD2 Codex implementation review: round 1 FAIL on `a0e22d8`, round 2 PASS on `b94eab9`; progress records the review and the TypeScript result (`c6cae6a`).
 - 2026-10-14 AD2 merged with CI green after the hosted migration push and read-only verification (PR 155, `8c537b6`); root runtime migrated (`1556ef6`).
 - 2026-10-14 AD3 detail plan r4 approved by the Owner after Codex plan review PASS (round 4) (`2c474ac`).
-- 2026-10-14 AD3 CP2 server side: admin course list/summary read module, `moderateCourse` and `getAdminCourseSummary` actions, active-admin helper, escaped search (this commit).
+- 2026-10-14 AD3 CP2 server side: admin course list/summary read module, `moderateCourse` and `getAdminCourseSummary` actions, active-admin helper, escaped search (`17b90f4`).
+- 2026-10-14 AD3 CP3 course screen: `/admin/courses` page, client components, sidebar item, mock components removed (this commit).

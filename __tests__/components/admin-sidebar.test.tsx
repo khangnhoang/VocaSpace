@@ -14,8 +14,9 @@ vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname }));
 // - Loại test: component render trong jsdom (RTL), không mock dữ liệu.
 // - Đối tượng: AdminSidebar (components/ui/admin-sidebar.tsx).
 // - Case thành công: có ảnh alt="VocaSpace" trỏ tới logo gradient trong public/brand; menu quản trị chỉ còn 2 mục có route thật
-//   (AD1 AC5: Dashboard, Quản lý User); Dashboard chỉ active ở /admin, Quản lý User active ở /admin/user-management và đường dẫn con.
-// - Case thất bại: các mục không có route (Khóa học, Thống kê & Doanh thu, Cài đặt hệ thống) không còn trong menu.
+//   (AD1 AC5, AD3 AC1: Dashboard, Quản lý User, Quản lý khóa học theo đúng thứ tự); Dashboard chỉ active ở /admin,
+//   Quản lý User và Quản lý khóa học active ở route của mình và đường dẫn con.
+// - Case thất bại: các mục chưa có route (Thống kê & Doanh thu, Cài đặt hệ thống) không có trong menu.
 // - Bảo mật/phân quyền: không áp dụng (phân quyền admin nằm ở layout/Server Action).
 // - Ổn định/resilience: không áp dụng.
 // - Invariant cần giữ: logo là ảnh từ public/brand, không còn tiêu đề chữ thay logo.
@@ -68,7 +69,7 @@ describe("AdminSidebar", () => {
     expect(screen.queryByRole("heading", { name: "VocaSpace" })).toBeNull();
   });
 
-  it("lists exactly the two admin links that have a page", () => {
+  it("lists exactly the three admin links that have a page", () => {
     renderSidebar();
 
     const links = screen
@@ -77,8 +78,9 @@ describe("AdminSidebar", () => {
     expect(links).toEqual([
       ["Dashboard", "/admin"],
       ["Quản lý User", "/admin/user-management"],
+      ["Quản lý khóa học", "/admin/courses"],
     ]);
-    for (const name of ["Quản lý Khóa học", "Thống kê & Doanh thu", "Cài đặt hệ thống"]) {
+    for (const name of ["Thống kê & Doanh thu", "Cài đặt hệ thống"]) {
       expect(screen.queryByRole("link", { name })).toBeNull();
     }
   });
@@ -87,6 +89,8 @@ describe("AdminSidebar", () => {
     ["/admin", "Dashboard"],
     ["/admin/user-management", "Quản lý User"],
     ["/admin/user-management/some-sub-path", "Quản lý User"],
+    ["/admin/courses", "Quản lý khóa học"],
+    ["/admin/courses/some-sub-path", "Quản lý khóa học"],
   ])("marks only the matching link active on %s", (pathname, activeName) => {
     navigation.pathname = pathname;
     renderSidebar();

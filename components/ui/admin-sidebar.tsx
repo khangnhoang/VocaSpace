@@ -11,7 +11,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users } from "lucide-react";
+import { BookOpen, LayoutDashboard, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG DẪN
@@ -19,6 +19,7 @@ import { usePathname } from "next/navigation"; // IMPORT HOOK LẤY ĐƯỜNG D�
 const menuItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Quản lý User", url: "/admin/user-management", icon: Users },
+  { title: "Quản lý khóa học", url: "/admin/courses", icon: BookOpen },
 ];
 
 export default function AdminSidebar() {
