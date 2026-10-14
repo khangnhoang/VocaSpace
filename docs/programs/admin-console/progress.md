@@ -6,13 +6,13 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [plan.md](./plan.md) r2 (master plan, Owner-approved 2026-10-13); AD7 [detail plan](./implementation-plans/ad7/plan.md) r1, conditional Owner acceptance after independent review PASS (2026-10-15). |
-| Current unit / checkpoint | AD7 planning on `fix/admin-user-hardening`. |
-| Status | AD7 plan drafted; implementation not started. AD3 merged in PR 157 (`0b50278`); fresh deployment or production QA was not performed during this reconciliation. |
-| Completed evidence | Source/migration discovery on `0b50278`, including Luna-requested DB and application exploration; `main`, `origin/main` and the new AD7 branch matched after fetch and fast-forward pull on 2026-10-15. Planning checks: `npm run docs:check` has 0 structure violations and 1 baseline broken link (0 new); `git diff --check` clean. A local Zod probe confirmed UUID letter case is preserved, informing the self-role guard. Historical AD3 implementation/QA evidence is retained in its milestone commits below; no AD7 product or database tests have run. |
-| Accepted deviations | None for AD7. |
-| Blockers / Owner decisions | Independent plan review PASS pending. Owner chose on 2026-10-15 to lock only Role for self-edit and retain name, username and phone edits (AD7 §1.4). |
-| Next action | Independent gpt-6.1-sol/high plan review, correct/review until PASS, then commit the accepted plan and implement. |
+| Spec revision | [plan.md](./plan.md) r2 (master plan, Owner-approved 2026-10-13); AD7 [detail plan](./implementation-plans/ad7/plan.md) r1, accepted under the Owner's review-PASS condition (2026-10-15). |
+| Current unit / checkpoint | AD7 CP1–CP3 complete locally on `fix/admin-user-hardening`; delivery and rollout remain separate. |
+| Status | AD7 implementation committed at `648c6a8` after independent implementation review PASS (candidate r2, correction round 1, same Reviewer). Round 0 found one CI-routing issue, now resolved. Accepted plan commit: `fe66cdc`. No AD7 root/hosted rollout has run. |
+| Completed evidence | Isolated rebuild includes `20261015090000`; focused unit/schema/form checks: 6 files / 66 tests passed; SQL/Storage/action and affected A5/AD2/AD3/D1 integration: 6 files / 179 tests passed on API 45441. Browser AD7: 5 passed (1280/375/320px self-edit, other-account role change, removed-admin failure with preserved input and fresh-page 404); existing admin gate: 9 passed. Screenshots inspected with no horizontal overflow. Scoped TypeScript excluding ignored `test-results` passes; full TypeScript remains blocked by two pre-existing broken imports in `test-results/l1-native-zoom-current/probe.spec.ts` (2026-10-09). Planning docs checks: 0 structure violations, 1 baseline broken link, 0 new; diff whitespace clean. |
+| Accepted deviations | No product deviation. CI auto-discovery would run AD7 against the root API 45321 and fail its isolated-target guard; AD7 is now excluded from that job and included in the existing isolated API 45441 job, preserving the guard and test coverage. After the isolated reset, Kong returned Auth 502 until the isolated gateway was restarted; browser checks then reused the reset runtime. Fresh server requests are denied after removal; a route prefetched while authorized may remain cached, outside the plan's immediate-cancellation claim. |
+| Blockers / Owner decisions | No unresolved AD7 implementation or review finding. Full TypeScript has the pre-existing ignored-probe failures noted above. Full unit/build, remote CI and root/hosted rollout remain unverified; Owner production acceptance is not claimed. |
+| Next action | Report the completed local checkpoint. On separately authorized delivery, run remote CI and the plan's rollout/catalog/runtime checks; keep ADMIN-004 open until that evidence exists. Actual Vitest discovery confirms AD7 excluded from root and included on isolated. |
 | Current authority | Owner, 2026-10-15: plan review/correction until PASS without the default two-round cap, then plan commit and implementation; local commits authorized throughout the task. No push, PR, merge, root or hosted write grant. |
 
 ## Milestones
@@ -45,3 +45,5 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 - 2026-10-14 Owner QA change: the course list pagination has a "Đến trang" input to jump to a page (`51476d2`).
 - 2026-10-14 Owner QA fix: the course list pagination is one compact control, previous/next arrows around an editable current-page input with the total (`db6d3b7`).
 - 2026-10-14 AD3 merged; the 2026-10-15 planning reconciliation confirmed the merge ancestry, without a fresh deployment or production-QA claim (PR 157, `0b50278`).
+- 2026-10-15 AD7 plan r1 passed independent review and was committed under the Owner's conditional acceptance and implementation/local-commit grant (`fe66cdc`).
+- 2026-10-15 AD7 CP1–CP3 implemented and reviewed: round 0 required the isolated CI-routing correction; same-Reviewer round 1 passed with no remaining findings. Active-admin SQL/Storage boundaries, canonical-UUID self-role guard, self-edit UI and tests committed locally; root/hosted rollout and remote delivery remain separate (`648c6a8`).
