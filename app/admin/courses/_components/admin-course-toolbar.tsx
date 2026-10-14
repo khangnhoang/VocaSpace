@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,25 +36,84 @@ type AdminCourseToolbarProps = {
 };
 
 // Tab và tìm kiếm đều là URL (AD3 AC3): tab là liên kết thật, tìm kiếm là form GET nên hoạt động cả khi chưa hydrate.
+// Khi đã hydrate, gõ vào ô tìm kiếm cập nhật `q` trong URL sau SEARCH_DEBOUNCE_MS (router.replace, không thêm lịch sử); Enter áp ngay.
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_MAX_LENGTH = 100;
+
 export function AdminCourseToolbar({ filter, counts }: AdminCourseToolbarProps) {
   const router = useRouter();
-  // Remount khi q trong URL đổi (ví dụ "Xóa tìm kiếm") để ô nhập luôn khớp URL.
-  return (
-    <SearchAndTabs key={filter.q} filter={filter} counts={counts} onSearch={(href) => router.push(href)} />
-  );
-}
-
-function SearchAndTabs({
-  filter,
-  counts,
-  onSearch,
-}: AdminCourseToolbarProps & { onSearch: (href: string) => void }) {
   const [draft, setDraft] = useState(filter.q);
+  // `own` là các cụm tìm kiếm trang này đã gửi lên URL mà URL chưa phản ánh hết. Khi `filter.q` đổi thành một cụm trong danh sách này
+  // thì đó là hệ quả của chính người dùng đang gõ (không ghi đè ô nhập, kể cả khi URL về muộn hoặc bị bỏ qua một bước);
+  // đổi thành giá trị khác (Xóa tìm kiếm, Back/Forward, liên kết tab) thì ô nhập đồng bộ theo URL.
+  const [sync, setSync] = useState<{ seenQ: string; own: string[] }>({ seenQ: filter.q, own: [] });
+  const timerRef = useRef<number | null>(null);
+  const latestRef = useRef<{ draft: string; apply: (value: string) => void } | null>(null);
+
+  if (filter.q !== sync.seenQ) {
+    const ownIndex = sync.own.indexOf(filter.q);
+    if (ownIndex >= 0) {
+      setSync({ seenQ: filter.q, own: sync.own.slice(ownIndex + 1) });
+    } else {
+      setSync({ seenQ: filter.q, own: [] });
+      setDraft(filter.q);
+    }
+  }
+
+  // Cụm đã yêu cầu gần nhất (kể cả khi URL chưa kịp đổi): so với nó để không điều hướng lặp và để URL cuối luôn là cụm gõ sau cùng.
+  const requestedTerm = sync.own.length > 0 ? sync.own[sync.own.length - 1] : filter.q;
+
+  const apply = (value: string) => {
+    // Cụm mới luôn quay về trang 1 (buildAdminCoursesHref bỏ `page`) và giữ tab hiện tại; rỗng thì bỏ `q`.
+    const term = value.trim().slice(0, SEARCH_MAX_LENGTH);
+    if (term === requestedTerm) return;
+    setSync((current) => ({ ...current, own: [...current.own, term] }));
+    router.replace(buildAdminCoursesHref({ status: filter.status, q: term }));
+  };
+
+  // Timer luôn gọi bản apply và ô nhập mới nhất, nên không điều hướng theo closure cũ.
+  useEffect(() => {
+    latestRef.current = { draft, apply };
+  });
+
+  const cancelTimer = () => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  // Hủy timer đang chờ khi rời trang hoặc khi tab đổi để timer cũ không điều hướng về sau.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [filter.status]);
+
+  const handleChange = (value: string) => {
+    setDraft(value);
+    cancelTimer();
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      const latest = latestRef.current;
+      if (latest) latest.apply(latest.draft);
+    }, SEARCH_DEBOUNCE_MS);
+  };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // Tìm kiếm mới luôn quay về trang 1 của tab hiện tại.
-    onSearch(buildAdminCoursesHref({ status: filter.status, q: draft.trim().slice(0, 100) }));
+    cancelTimer();
+    apply(draft);
+  };
+
+  // Chuyển tab: bỏ cụm đang chờ gõ dở và đưa ô nhập về đúng URL.
+  const handleTabClick = () => {
+    cancelTimer();
+    setSync((current) => ({ ...current, own: [] }));
+    setDraft(filter.q);
   };
 
   return (
@@ -76,8 +135,8 @@ function SearchAndTabs({
             type="search"
             name="q"
             value={draft}
-            maxLength={100}
-            onChange={(event) => setDraft(event.target.value)}
+            maxLength={SEARCH_MAX_LENGTH}
+            onChange={(event) => handleChange(event.target.value)}
             aria-label="Tìm khóa học theo tên hoặc slug"
             placeholder="Tìm theo tên hoặc slug..."
             className="h-10 border-slate-500 bg-[#0B1120] pl-10 text-sm text-slate-100 placeholder:text-slate-400 focus-visible:border-route focus-visible:ring-route/50"
@@ -108,6 +167,7 @@ function SearchAndTabs({
                 <Link
                   href={buildAdminCoursesHref({ status: tab, q: filter.q })}
                   aria-current={isCurrent ? "page" : undefined}
+                  onClick={handleTabClick}
                   className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3.5 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 focus-visible:ring-offset-[#111827] ${
                     isCurrent
                       ? "border-slate-500 bg-[#1E293B] text-white"

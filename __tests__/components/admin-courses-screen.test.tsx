@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminCoursesClient from "@/app/admin/courses/_components/admin-courses-client";
 import type {
@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   getAdminCourseSummary: vi.fn(),
   refresh: vi.fn(),
   push: vi.fn(),
+  replace: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
 }));
@@ -30,7 +31,7 @@ vi.mock("@/app/actions/admin-course-moderation", () => ({
   getAdminCourseSummary: mocks.getAdminCourseSummary,
 }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: mocks.refresh, push: mocks.push }),
+  useRouter: () => ({ refresh: mocks.refresh, push: mocks.push, replace: mocks.replace }),
 }));
 vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError } }));
 
@@ -40,7 +41,8 @@ vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: mocks.to
 // - Đối tượng: AdminCoursesClient và các con (toolbar, bảng, phân trang, panel tóm tắt, dialog hành động).
 // - Case thành công:
 //   - hàng hiện tên, slug, chủ sở hữu, giá, trạng thái, mốc thời gian; "—" khi thiếu; lý do từ chối chỉ trên bản nháp; tab Đã gỡ không có nút.
-//   - tab là liên kết giữ `q`, có số đếm và aria-current; tìm kiếm đẩy URL về trang 1 của tab hiện tại; phân trang theo liên kết.
+//   - tab là liên kết giữ `q`, có số đếm và aria-current; phân trang theo liên kết.
+//   - tìm kiếm trực tiếp: gõ cập nhật `q` bằng router.replace sau 300 ms (một lần, đúng cụm cuối, về trang 1, giữ tab); Enter áp ngay; ô trống bỏ `q`; cùng cụm thì không điều hướng; ô nhập giữ giá trị và focus khi URL về muộn, đồng bộ theo URL khi đổi từ bên ngoài; timer bị hủy khi đổi tab hoặc unmount.
 //   - panel tóm tắt tải dàn bài qua getAdminCourseSummary, hiện chương, bài học, trạng thái từng bài và số bài đã xuất bản.
 //   - duyệt, từ chối, hạ, gỡ gọi đúng action với đúng tham số, toast thành công, đóng dialog, làm mới danh sách.
 // - Case thất bại: empty từng tab, empty khi tìm kiếm có nút xóa, trang vượt quá trang cuối, lỗi tải danh sách có thử lại, lỗi tải panel có thử lại,
@@ -79,6 +81,8 @@ function makeData(rows: AdminCourseListRow[], overrides: Partial<AdminCourseList
     ...overrides,
   };
 }
+
+const searchbox = () => screen.getByRole("searchbox", { name: "Tìm khóa học theo tên hoặc slug" });
 
 const defaultFilter: AdminCourseFilter = { status: "pending", q: "", page: 1 };
 
@@ -223,15 +227,15 @@ describe("tabs, search and paging", () => {
     ]);
   });
 
-  it("submits a trimmed search to page 1 of the current tab", () => {
+  it("applies a trimmed search on Enter to page 1 of the current tab at once, with replace and no history entry", () => {
     renderScreen(makeData([makeRow()], { page: 3, totalPages: 3 }), { filter: { status: "draft", page: 3 } });
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Tìm khóa học theo tên hoặc slug" }), {
-      target: { value: "  100% off  " },
-    });
+    fireEvent.change(searchbox(), { target: { value: "  100% off  " } });
     fireEvent.click(screen.getByRole("button", { name: "Tìm kiếm" }));
 
-    expect(mocks.push).toHaveBeenCalledWith("/admin/courses?status=draft&q=100%25+off");
+    expect(mocks.replace).toHaveBeenCalledTimes(1);
+    expect(mocks.replace).toHaveBeenCalledWith("/admin/courses?status=draft&q=100%25+off");
+    expect(mocks.push).not.toHaveBeenCalled();
   });
 
   it("offers a clear-search link only while a search is active", () => {
@@ -578,6 +582,143 @@ describe("demote and takedown", () => {
     fireEvent.click(screen.getByRole("button", { name: "Gỡ khóa học Khóa đang bán" }));
     dialog = await screen.findByRole("dialog", { name: "Gỡ khóa học" });
     expect((within(dialog).getByLabelText("Lý do gỡ khóa học") as HTMLTextAreaElement).value).toBe("");
+  });
+});
+
+describe("live search", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const type = (value: string) => fireEvent.change(searchbox(), { target: { value } });
+  const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+
+  it("does not navigate before 300 ms, then replaces the URL once with q and no page", () => {
+    renderScreen(makeData([makeRow()]), { filter: { page: 2 } });
+
+    type("toeic");
+    wait(299);
+    expect(mocks.replace).not.toHaveBeenCalled();
+
+    wait(1);
+    expect(mocks.replace).toHaveBeenCalledTimes(1);
+    expect(mocks.replace).toHaveBeenCalledWith("/admin/courses?q=toeic");
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
+
+  it("turns rapid typing into one navigation with the final term", () => {
+    renderScreen(makeData([makeRow()]));
+
+    for (const value of ["t", "to", "toe", "toeic"]) {
+      type(value);
+      wait(100);
+    }
+    wait(300);
+
+    expect(mocks.replace).toHaveBeenCalledTimes(1);
+    expect(mocks.replace).toHaveBeenCalledWith("/admin/courses?q=toeic");
+  });
+
+  it("applies Enter immediately and cancels the pending debounce", () => {
+    renderScreen(makeData([makeRow()]));
+
+    type("toeic");
+    fireEvent.submit(searchbox().closest("form")!);
+    expect(mocks.replace).toHaveBeenCalledTimes(1);
+
+    wait(1000);
+    expect(mocks.replace).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes q when the input is cleared, and keeps the status tab", () => {
+    renderScreen(makeData([makeRow()]), { filter: { status: "published", q: "toeic" } });
+
+    type("   ");
+    wait(300);
+
+    expect(mocks.replace).toHaveBeenCalledWith("/admin/courses?status=published");
+  });
+
+  it("keeps the status tab when applying a term", () => {
+    renderScreen(makeData([makeRow()]), { filter: { status: "removed" } });
+
+    type("abc");
+    wait(300);
+
+    expect(mocks.replace).toHaveBeenCalledWith("/admin/courses?status=removed&q=abc");
+  });
+
+  it("does not navigate when the trimmed term equals the current q", () => {
+    renderScreen(makeData([makeRow()]), { filter: { q: "toeic" } });
+
+    type("  toeic ");
+    wait(300);
+    fireEvent.submit(searchbox().closest("form")!);
+
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate again for the same term typed back after an applied one", () => {
+    renderScreen(makeData([makeRow()]));
+
+    type("ab");
+    wait(300);
+    type("abc");
+    type("ab");
+    wait(300);
+
+    // "ab" đã được yêu cầu rồi (URL có thể chưa kịp đổi), nên gõ lại đúng cụm đó không điều hướng thêm.
+    expect(mocks.replace).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the typed value and the focus when the URL catches up with the debounced term", () => {
+    const view = renderScreen(makeData([makeRow()]));
+    const input = searchbox();
+    input.focus();
+
+    type("toe");
+    wait(300);
+    // Gõ tiếp trong lúc URL chưa kịp về, rồi URL về với cụm cũ "toe".
+    type("toeic ");
+    view.rerender(<AdminCoursesClient filter={{ ...defaultFilter, q: "toe" }} data={makeData([makeRow()])} error={null} />);
+
+    expect(searchbox()).toBe(input);
+    expect((input as HTMLInputElement).value).toBe("toeic ");
+    expect(document.activeElement).toBe(input);
+
+    wait(300);
+    expect(mocks.replace).toHaveBeenLastCalledWith("/admin/courses?q=toeic");
+  });
+
+  it("follows the URL when it changes from outside, such as the clear-search link or Back", () => {
+    const view = renderScreen(makeData([makeRow()]), { filter: { q: "toeic" } });
+    expect((searchbox() as HTMLInputElement).value).toBe("toeic");
+
+    view.rerender(<AdminCoursesClient filter={{ ...defaultFilter, q: "" }} data={makeData([makeRow()])} error={null} />);
+    expect((searchbox() as HTMLInputElement).value).toBe("");
+
+    view.rerender(<AdminCoursesClient filter={{ ...defaultFilter, q: "ielts" }} data={makeData([makeRow()])} error={null} />);
+    expect((searchbox() as HTMLInputElement).value).toBe("ielts");
+  });
+
+  it("drops a pending term when the tab changes, so a stale timer cannot navigate", () => {
+    renderScreen(makeData([makeRow()]));
+
+    type("toeic");
+    fireEvent.click(screen.getByRole("link", { name: /^Đã xuất bản/ }));
+    wait(1000);
+
+    expect(mocks.replace).not.toHaveBeenCalled();
+    expect((searchbox() as HTMLInputElement).value).toBe("");
+  });
+
+  it("does not navigate after the screen unmounts", () => {
+    const view = renderScreen(makeData([makeRow()]));
+
+    type("toeic");
+    view.unmount();
+    wait(1000);
+
+    expect(mocks.replace).not.toHaveBeenCalled();
   });
 });
 
