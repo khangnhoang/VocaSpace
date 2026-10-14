@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminSidebar from "@/components/ui/admin-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -40,6 +40,13 @@ beforeAll(() => {
   });
 });
 
+// Link của menu nằm trong sidebar-content; logo ở header là một link riêng về trang chủ.
+function menuLinks() {
+  const content = document.querySelector<HTMLElement>('[data-slot="sidebar-content"]');
+  if (!content) throw new Error("sidebar-content not found");
+  return within(content).getAllByRole("link");
+}
+
 function renderSidebar() {
   return render(
     <TooltipProvider>
@@ -69,12 +76,20 @@ describe("AdminSidebar", () => {
     expect(screen.queryByRole("heading", { name: "VocaSpace" })).toBeNull();
   });
 
+  it("links the logo to the home page", () => {
+    renderSidebar();
+
+    const link = screen.getByRole("link", { name: "VocaSpace" });
+    expect(link.getAttribute("href")).toBe("/");
+    expect(within(link).getByRole("img", { name: "VocaSpace" }).getAttribute("src")).toContain("vocaspace-logo.svg");
+    // Logo không thuộc menu quản trị và không nhận trạng thái đang chọn.
+    expect(link.getAttribute("data-active")).toBeNull();
+  });
+
   it("lists exactly the three admin links that have a page", () => {
     renderSidebar();
 
-    const links = screen
-      .getAllByRole("link")
-      .map((link) => [link.textContent, link.getAttribute("href")]);
+    const links = menuLinks().map((link) => [link.textContent, link.getAttribute("href")]);
     expect(links).toEqual([
       ["Dashboard", "/admin"],
       ["Quản lý User", "/admin/user-management"],
@@ -95,8 +110,7 @@ describe("AdminSidebar", () => {
     navigation.pathname = pathname;
     renderSidebar();
 
-    const active = screen
-      .getAllByRole("link")
+    const active = menuLinks()
       .filter((link) => link.getAttribute("data-active") === "true")
       .map((link) => link.textContent);
     expect(active).toEqual([activeName]);

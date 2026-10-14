@@ -29,14 +29,20 @@ export default function AdminSidebar() {
     <Sidebar className="border-r border-slate-800">
       <SidebarHeader className="p-4">
         <div className="flex items-center px-2">
-          {/* Logo gradient: độ tương phản thấp nhất (#2F6FF0 trên #0F172A) là 3,96:1, đạt ngưỡng 3:1 */}
-          <Image
-            src="/brand/vocaspace-logo.svg"
-            alt="VocaSpace"
-            width={587}
-            height={117}
-            className="h-[30px] w-auto"
-          />
+          {/* Logo dẫn về trang chủ như header công khai; alt="VocaSpace" là tên truy cập của liên kết. Vòng focus sáng để thấy rõ trên nền #0F172A. */}
+          <Link
+            href="/"
+            className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-slate-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F172A]"
+          >
+            {/* Logo gradient: độ tương phản thấp nhất (#2F6FF0 trên #0F172A) là 3,96:1, đạt ngưỡng 3:1 */}
+            <Image
+              src="/brand/vocaspace-logo.svg"
+              alt="VocaSpace"
+              width={587}
+              height={117}
+              className="h-[30px] w-auto"
+            />
+          </Link>
         </div>
       </SidebarHeader>
 
