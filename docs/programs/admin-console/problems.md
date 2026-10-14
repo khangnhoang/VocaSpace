@@ -20,6 +20,14 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 - Direction: AD7.
 - Exit condition: a removed admin has no admin power in SQL or actions, and an admin cannot change their own role, with tests.
 
+### ADMIN-005: Admin screens have no accepted design
+
+- Status: Open (2026-10-14).
+- Problem: `docs/ui-design-system-and-review/index.md` has no Admin screen-type design and no admin surface brief; the dark-only Admin direction is only a future direction (`docs/ui-design-system-and-review/future-features.md`). Admin pages follow the existing dark admin shell and the short `frontend-design` Admin reference. The design lifecycle asks for a brief for a new surface (`docs/ui-design-system-and-review/plan.md:75`, `:81`).
+- Evidence: AD3 ships `/admin/courses` without a brief, by Owner decision of 2026-10-14 (AD3 detail plan §1.4); the Owner reviews the running screen.
+- Direction: a later frontend design pass (Admin screen-type design, then a redesign of the admin pages against it).
+- Exit condition: an Owner-accepted Admin design is listed in the design index and the admin pages are reviewed against it.
+
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git.
