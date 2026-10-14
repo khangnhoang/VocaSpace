@@ -7,12 +7,12 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 | Field | Value |
 | --- | --- |
 | Spec revision | [plan.md](./plan.md) r2 (master plan, Owner-approved 2026-10-13); AD3 [detail plan](./implementation-plans/ad3/plan.md) r4, Codex plan review round 1 FAIL (four findings), round 2 FAIL (three findings), round 3 PASS on r3, round 4 PASS on r4 (no-brief decision, ADMIN-005); Owner approval 2026-10-14 |
-| Current unit / checkpoint | AD3 correction round 2 done (Codex implementation review round 2) |
-| Status | AD3 implementation complete on `feat/admin-course-screen`; awaiting Codex re-review, Owner manual QA (plan §4.1) and Owner approval of the `/privacy` wording and date. AD2 is delivered (PR 155) and the root runtime (45321) has its migration. |
+| Current unit / checkpoint | AD3 Owner QA (privacy wording approved) |
+| Status | AD3 implementation complete on `feat/admin-course-screen`; the `/privacy` wording and date are Owner-approved (2026-10-14); awaiting Owner manual QA (plan §4.1). AD2 is delivered (PR 155) and the root runtime (45321) has its migration. |
 | Completed evidence | AD3 CP4: `e2e/admin/admin-course-review.spec.ts` (approve, reject, demote) and the AD1 gate specs/status check updated for `/admin/courses`: 12 Playwright tests pass on the isolated runtime, production status check passes. AD3 CP3: `/admin/courses` screen (list, tabs, search, paging, summary panel, approve/reject/demote/takedown dialogs) with 32 component tests, rendered at 375 and 1280 px on the isolated production build with no horizontal overflow. AD3 CP2: unit tests for the schema, search escaping, moderation/summary actions and active-admin helper pass; `__tests__/integration/ad3-admin-course-read.test.ts` passes (21 tests) on the isolated runtime (API 45441). Earlier units: see Milestones. |
 | Accepted deviations | AD3 ships `/admin/courses` without a design brief (Owner, 2026-10-14; ADMIN-005). |
 | Blockers / Owner decisions | None open. AD3 decisions of 2026-10-14 are in the detail plan §1.4 (the `/privacy` wording itself needs Owner approval in the PR). |
-| Next action | Codex re-review (round 3) of `2c474ac..HEAD`; Owner manual QA (§4.1); Owner approves the `/privacy` wording and date; then PR. |
+| Next action | Owner manual QA (§4.1), then push/PR on Owner grant. |
 | Current authority | Owner, 2026-10-14: plan approved, CP1 commit, implementation by `sonnet-high-implementor` with local commits only. No push, PR, merge, root or hosted write. |
 
 ## Milestones
@@ -37,4 +37,5 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 - 2026-10-14 AD3 CP4 e2e: admin course review spec, AD1 gate specs and production status check cover `/admin/courses` (`ff69562`).
 - 2026-10-14 AD3 CP5 `/privacy` sentence on admin course review access and closeout (`8ab9d75`).
 - 2026-10-14 AD3 correction round 1: literal `*` search via `imatch`, focus returns to the opener on close (AC9), State refreshed (`e2ee3db`).
-- 2026-10-14 AD3 correction round 2: focus goes into the open summary panel when the opener disappears; Vietnamese case folding covered on both search paths (this commit).
+- 2026-10-14 AD3 correction round 2: focus goes into the open summary panel when the opener disappears; Vietnamese case folding covered on both search paths (`dd99f7d`).
+- 2026-10-14 Owner approved the `/privacy` wording ("họ sẽ xem được tên tác giả"); legal last-updated date set to 14/10/2026 (this commit).
