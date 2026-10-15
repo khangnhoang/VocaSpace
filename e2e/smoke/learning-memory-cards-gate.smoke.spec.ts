@@ -27,6 +27,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 //   (b') màn hình kết thúc có đúng một nút "Tới Memory check" cùng hàng với hai nút kia;
 //   (c) giảng viên thêm thẻ, tải lại thì chỉ thẻ mới được xếp. Nửa ngày giờ FSRS của AC5 kiểm ở tầng action, không kiểm ở trình duyệt.
 // - LF6 (AC2/AC3): bước khóa của thanh tiến trình là nút; bấm Memory check khi còn thẻ chưa xem hiện lý do ngay dưới thanh, bấm Bài tập hiện lý do memory check, cả hai không đổi bước; dưới ngữ cảnh cảm ứng thật ở 375 và 320 px mọi bước kể cả bước khóa cao >= 44 px, thanh vẫn một dòng và các vùng bấm không chồng nhau.
+// - LF8: đánh giá lưu nền nên trước mỗi lần tải lại ở case LF4 (a) và (b) smoke chờ dòng "Đang lưu…" biến mất.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint LF3 CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-memory-cards-gate.smoke.spec.ts`).
 
 // Hai test dùng chung một lần seed và test sau đọc trạng thái do test trước để lại.
@@ -310,10 +311,12 @@ for (const width of [375, 1280]) {
       await expect(page.getByText(word, { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Hiện đáp án" }).click();
       await page.getByRole("button", { name: rating, exact: true }).click();
-      // Thẻ kế tiếp chỉ hiện sau khi server đã ghi dòng chấm.
+      // LF8: thẻ kế tiếp hiện ngay; việc ghi dòng chấm chạy nền (xem savesDrained).
       await expect(nextVisible).toBeVisible();
     };
     const unseenToast = (count: number) => page.getByText(`Bạn còn ${count} thẻ chưa học trong bài học này`);
+    // LF8: đánh giá lưu nền; trước khi tải lại phải chờ dòng "Đang lưu…" biến mất (hàng đợi lưu đã cạn).
+    const savesDrained = () => expect(page.getByRole("status").filter({ hasText: "Đang lưu…" })).toHaveCount(0);
 
     // Lần đầu mọi thẻ đều chưa xem: đủ 4 thẻ và không có toast chưa học.
     await expect(counter(4, 4)).toBeVisible();
@@ -322,6 +325,7 @@ for (const width of [375, 1280]) {
     // (a) Chấm hai thẻ đầu Dễ rồi tải lại: chỉ còn hai thẻ chưa xem và có toast.
     await rate("schedule", "Dễ", page.getByText("deadline", { exact: true }));
     await rate("deadline", "Dễ", page.getByText("approve", { exact: true }));
+    await savesDrained();
     await page.reload();
     await expect(counter(2, 2)).toBeVisible();
     await expect(page.getByText("approve", { exact: true })).toBeVisible();
@@ -331,6 +335,7 @@ for (const width of [375, 1280]) {
     // (b) Thẻ "approve" chấm Lại, thẻ "available" chấm Dễ; mọi thẻ đã xem nên tải lại thì vào màn hình kết thúc.
     await rate("approve", "Lại", page.getByText("available", { exact: true }));
     await rate("available", "Dễ", page.getByText("approve", { exact: true }));
+    await savesDrained();
     await page.reload();
     await expect(finishedHeading).toBeVisible();
     await expect(page.getByText("Bạn có 1 thẻ đến hạn thuộc bài học này")).toBeVisible();

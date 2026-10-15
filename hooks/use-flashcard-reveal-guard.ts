@@ -9,10 +9,15 @@ import { useCallback, useEffect, useRef, type MouseEvent } from "react";
  */
 export function useFlashcardRevealGuard(cardKey: string | undefined, isFlipped: boolean) {
   const pointerDowns = useRef(0);
-  const shownAt = useRef(0);
+  // -1: thẻ đầu của lần mount chưa có cử chỉ trước đó nào, nên click đầu tiên (kể cả click được React phát lại sau hydrate,
+  // không kèm pointerdown) vẫn được nhận như trước LF8. Effect chạy lại do Strict Mode không đổi giá trị này.
+  const shownAt = useRef(-1);
   const ratingTaken = useRef(false);
+  const lastShown = useRef({ cardKey, isFlipped });
 
   useEffect(() => {
+    if (lastShown.current.cardKey === cardKey && lastShown.current.isFlipped === isFlipped) return;
+    lastShown.current = { cardKey, isFlipped };
     // Mỗi thẻ mới hoặc mỗi lần đổi mặt đánh dấu mốc pointerdown hiện tại; lật sang mặt đáp án mở lại một lần chấm.
     shownAt.current = pointerDowns.current;
     if (isFlipped) ratingTaken.current = false;

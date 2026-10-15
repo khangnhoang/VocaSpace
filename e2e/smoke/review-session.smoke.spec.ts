@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { prepareReviewSessionFixture } from "../../scripts/e2e/review-session-fixture.mjs";
 import { loginAsStudent } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
@@ -9,10 +9,13 @@ import { watchBrowserConsole } from "../support/console";
 // - Case: 0/2/51 due, hết thẻ chỉ quay lại, còn thẻ mới ôn lượt tiếp, long content, 320/375/768/1280, keyboard/focus, reduced motion.
 // - Invariant: 50 thẻ đầu hoàn tất vẫn còn lượt kế; query và FSRS giữ nguyên.
 // - LF6 (AC5/AC6): bốn nút rating mang màu Attention (Lại/Khó) hoặc Recall (Ổn/Dễ); lật thẻ 400 ms và vào thẻ 300 ms khi bình thường, không lật không animation khi reduced motion (đo computed style, hai chế độ tách riêng).
+// - LF8: đánh giá lưu nền nên smoke chờ dòng "Đang lưu…" của hộp thoại biến mất trước khi đọc DB.
 // - Giới hạn: pending/failure/stale response nằm ở component; zoom CSS không thay thế browser zoom.
 // - Verify: xem State D6 trong progress.md.
 const credentials = { E2E_STUDENT_EMAIL: "student@gmail.com", E2E_STUDENT_PASSWORD: "123123" };
 const firstId = "b2500000-0000-4000-8000-000000000001";
+// LF8: đánh giá lưu nền; chờ dòng "Đang lưu…" biến mất (hàng đợi lưu đã cạn) trước khi đọc DB hoặc tải lại.
+const savesDrained = (dialog: Locator) => expect(dialog.getByRole("status").filter({ hasText: "Đang lưu…" })).toHaveCount(0);
 async function open(page: Page) {
   await page.goto("/learn");
   const trigger = page.getByRole("button", { name: "Ôn ngay", exact: true });
@@ -44,6 +47,7 @@ for (const width of [320, 375, 768, 1280]) {
       expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       await dialog.getByRole("button", { name: "Ổn", exact: true }).press("Enter");
       await expect(dialog.getByText("Đã xử lý 1/2 thẻ trong lượt")).toBeVisible();
+      await savesDrained(dialog);
       await fixture.assertSaved(firstId);
       await expect(reveal).toBeFocused();
       await page.keyboard.press("Escape");
@@ -80,6 +84,7 @@ test("a 51-card workload completes only the 50-card batch and fetches the remain
       await expect(dialog.getByText(`Đã xử lý ${done + 1}/50 thẻ trong lượt`)).toBeVisible();
     }
     await expect(dialog.getByRole("heading", { name: "Đã hoàn tất lượt này" })).toBeVisible();
+    await savesDrained(dialog);
     expect(await fixture.dueCount()).toBe(1);
     await dialog.getByRole("button", { name: "Ôn lượt tiếp theo" }).click();
     await expect(dialog.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeVisible();
@@ -88,6 +93,7 @@ test("a 51-card workload completes only the 50-card batch and fetches the remain
     await expect(dialog.getByText("Đã xử lý 1/1 thẻ trong lượt")).toBeVisible();
     await expect(dialog.getByRole("heading", { name: "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." })).toBeVisible();
     await expect(dialog.getByRole("button", { name: /Ôn lượt tiếp|Tải lại lượt ôn/ })).toHaveCount(0);
+    await savesDrained(dialog);
     expect(await fixture.dueCount()).toBe(0);
   } finally { await fixture.restore(); }
 });

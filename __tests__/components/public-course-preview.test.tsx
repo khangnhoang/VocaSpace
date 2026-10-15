@@ -165,6 +165,12 @@ describe("public course Preview experience", () => {
     expect(mocks.getFirstTopic).not.toHaveBeenCalled();
   });
 
+  it("reveals the first card for a click that has no pointerdown, such as an event replayed after hydration (LF8 AC7)", () => {
+    renderPreview();
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 1 });
+    expect(screen.getByRole("button", { name: "Lại" })).toBeTruthy();
+  });
+
   it("keeps card ratings local and evaluates an exercise through the stateless Preview Action", async () => {
     mocks.answer.mockResolvedValue({
       status: "success",

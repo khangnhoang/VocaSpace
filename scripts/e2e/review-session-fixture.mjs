@@ -78,8 +78,14 @@ export async function prepareReviewSessionFixture(count = 2, longContent = false
       return rows.length;
     },
     async assertSaved(cardId) {
-      const row = checked(await supabase.from("user_flashcards").select("fsrs_meta, next_review_date").eq("user_id", studentId).eq("card_id", cardId).single(), "Read saved review");
-      if (row.fsrs_meta.reps !== 4 || Date.parse(row.next_review_date) <= Date.now()) throw new Error("Expected one persisted rating and a future due date.");
+      // LF8: đánh giá lưu nền nên bản ghi có thể đến sau thao tác giao diện; thăm dò tới hạn thay vì đọc một lần.
+      const deadline = Date.now() + 15_000;
+      for (;;) {
+        const row = checked(await supabase.from("user_flashcards").select("fsrs_meta, next_review_date").eq("user_id", studentId).eq("card_id", cardId).single(), "Read saved review");
+        if (row.fsrs_meta.reps === 4 && Date.parse(row.next_review_date) > Date.now()) return;
+        if (Date.now() > deadline) throw new Error("Expected one persisted rating and a future due date.");
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
     },
   };
 }
