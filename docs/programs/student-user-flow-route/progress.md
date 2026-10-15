@@ -8,15 +8,15 @@ This file was migrated to the repository template and translated to English on 2
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [implementation-plans/lf7/plan.md](./implementation-plans/lf7/plan.md) r3, Codex plan review PASS (rounds 1–3) and Owner approval (2026-10-13) (Decision 31, Owner decisions of 2026-10-13) |
-| Current unit / checkpoint | None active. LF7 is merged and rolled out. |
-| Status | LF7 merged (PR 151, `b6720ec`) and completed. |
-| Completed evidence | LF7: CI green on PR 151 (lint, unit, integration and build); see Milestones for the unit evidence. LF6 and earlier units: see Milestones. |
-| Accepted deviations | None for LF7. |
+| Spec revision | [implementation-plans/lf8/plan.md](./implementation-plans/lf8/plan.md) r5, approved by the Owner's workflow instruction of 2026-10-16 (implement once the plan review passes) (Decision 32, Owner decisions of 2026-10-16) |
+| Current unit / checkpoint | LF8 CP1 (not started). |
+| Status | LF8 plan r5 on branch `perf/instant-card-rating` from `main` `090ddda`; plan reviews r1 to r4 REVISE, r5 PASS (2026-10-16). |
+| Completed evidence | None for LF8. LF7 and earlier units: see Milestones. |
+| Accepted deviations | None for LF8. |
 | Blockers / Owner decisions | None. |
-| Next action | None in this program; the Owner chooses the next unit. |
-| Current authority | No implementation, commit, push, PR, merge or database authority is granted in this program. |
-| Hosted state | Latest hosted migration is `20261013090000` (LF7), pushed on 2026-10-13 after CI was green and before the merge, and verified read-only: listed on remote, `rename_chapter` present with execute for `authenticated` only, and the advisory lock taken before the first `FOR UPDATE` in all five functions. Root (API 45321) has it too since 2026-10-13. |
+| Next action | Implement CP1 to CP4, then an independent implementation review looped until PASS; then push the branch. |
+| Current authority | Owner, 2026-10-16: implement LF8 with local commits throughout; push `perf/instant-card-rating` only after the implementation review passes. No PR, merge or hosted database authority. |
+| Hosted state | Latest hosted migration in this program is `20261013090000` (LF7). LF8 has no migration. |
 
 ## Milestones
 
