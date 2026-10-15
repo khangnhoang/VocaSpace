@@ -37,7 +37,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - LF6 (AC4, Owner QA 2026-10-13): màn hình hoàn thành không còn nút "Xem lại", dòng giải thích hay vòng nổi bật; một dòng gợi ý nhỏ nằm ngay dưới thanh tiến trình ở mọi giai đoạn (cả màn hình hoàn thành) khi thanh có hơn một bước, không có khi chủ đề chỉ có một bước hoặc không có bước nào, và nằm dưới lý do khóa (vùng polite) mà không lẫn vào đó. Con trỏ tay và nền hover của các bước được đo bằng computed style trong smoke, không bằng tên lớp.
 // - LF6 (AC10): hết hàng đợi ôn thẻ đến hạn/ôn lại từ vựng có toast riêng; chủ đề đã hoàn thành (đọc lúc hết hàng, kể cả kết quả của chính lần chấm) thì về màn hình hoàn thành đã ổn định, chưa hoàn thành thì ở lại màn hình kết thúc từ vựng và không sang memory check hay bài tập; Lại/Khó xếp lại không đổi loại hàng đợi; lần chấm hoàn thành chủ đề vẫn chạy chuỗi LF5 một lần không toast; hàng đợi lúc vào trang giữ toast và bước chuyển cũ; chấm đang lưu mà rời bước không mất kết quả và không gửi hai lần.
 // - LF6 (AC5): bốn nút tự đánh giá của FlashcardStage dùng đúng lớp Attention/Recall của định nghĩa dùng chung với ReviewSheet, cùng nhãn và thứ tự.
-// - LF8 (AC1-AC7): chấm thẻ hiện thẻ kế ngay khi `submitCardReview` còn treo; lưu từng lần một theo thứ tự (kể cả Lại trên hàng đợi một thẻ); giá trị suy ra từ server (khóa memory check, bước Từ vựng xong) chỉ đổi khi lần lưu thành công; lỗi thử lại một lần rồi đưa thẻ về cuối hàng đợi, không chèn lại thẻ đã nằm trong hàng đợi, và hủy "lên cò" cuối hàng đợi; cuối hàng đợi chờ lưu xong (trạng thái đang lưu, rồi toast/bước chuyển một lần); hàng đợi rỗng lúc tải không chạy logic cuối hàng đợi; dòng "Đang lưu…" role=status chỉ có khi còn lần lưu chờ và hiện ở mọi bước; `beforeunload` khi còn chờ; tải lại do thẻ mới chờ lưu xong; hai lần bấm chấm cùng tick chỉ gửi một lần; nút lật bỏ qua click thuộc cử chỉ cũ hoặc lần bấm thứ hai (`detail > 1`) nhưng nhận phím và click sau pointerdown mới; unmount không làm rơi lần chấm đang chờ.
+// - LF8 (AC1-AC7): chấm thẻ hiện thẻ kế ngay khi `submitCardReview` còn treo; lưu từng lần một theo thứ tự (kể cả Lại trên hàng đợi một thẻ); giá trị suy ra từ server (khóa memory check, bước Từ vựng xong) chỉ đổi khi lần lưu thành công; lỗi thử lại một lần rồi đưa thẻ về cuối hàng đợi, không chèn lại thẻ đã nằm trong hàng đợi hoặc khi lần chấm sau của chính thẻ còn chờ, và hủy "lên cò" cuối hàng đợi; cuối hàng đợi chờ lưu xong (trạng thái đang lưu, rồi toast/bước chuyển một lần); hàng đợi rỗng lúc tải không chạy logic cuối hàng đợi; dòng "Đang lưu…" role=status chỉ có khi còn lần lưu chờ và hiện ở mọi bước; `beforeunload` khi còn chờ; tải lại do thẻ mới chờ lưu xong; hai lần bấm chấm cùng tick chỉ gửi một lần; nút lật bỏ qua click thuộc cử chỉ cũ hoặc lần bấm thứ hai (`detail > 1`) nhưng nhận phím và click sau pointerdown mới; unmount không làm rơi lần chấm đang chờ.
 // - Kết quả verify gần nhất: xem lần chạy LF3 CP4 (2026-10-11) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`; LF5 CP4 (2026-10-12).
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
@@ -2223,6 +2223,42 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(mockedToast.error).toHaveBeenCalledTimes(1);
       expect(screen.getByText("1 / 1")).not.toBeNull();
       expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
+    });
+
+    it("does not put a failed card back when a later rating of the same card is still pending, and the queue end runs once (AC4, AC5)", async () => {
+      const first = held();
+      mockedReview
+        .mockReturnValueOnce(first.promise)
+        .mockResolvedValueOnce({ error: "fail" })
+        .mockResolvedValueOnce({ success: true });
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      reveal();
+      await rateNow("Lại");
+      // Lại shows the same card again; its second rating waits behind the first save in the chain.
+      expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
+      reveal();
+      await rateNow("Ổn");
+      expect(mockedReview).toHaveBeenCalledTimes(1);
+
+      // The first save fails twice (first try and the retry after the delay); the second rating then saves.
+      await settleSave(first, { error: "fail" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS);
+      });
+
+      expect(mockedReview.mock.calls.map(([cardId, rating]) => [cardId, rating])).toEqual([
+        [cardA.id, Rating.Again],
+        [cardA.id, Rating.Again],
+        [cardA.id, Rating.Good],
+      ]);
+      expect(mockedToast.error).toHaveBeenCalledTimes(1);
+      expect(mockedToast.error).toHaveBeenCalledWith('Chưa lưu được đánh giá thẻ "reliable".');
+      // Not requeued: the queue stays empty, the end ran once and the finished screen is shown.
+      expect(screen.queryByText("1 / 1")).toBeNull();
+      expect(screen.queryByText("Đang lưu kết quả các thẻ…")).toBeNull();
+      expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
+      expect(mockedToast.success).toHaveBeenCalledTimes(1);
+      expect(mockedToast.success).toHaveBeenCalledWith("Đã nạp xong từ vựng!");
     });
 
     it("waits for the saves before the queue-end logic, shows a saving state meanwhile, and runs the logic once (AC5)", async () => {

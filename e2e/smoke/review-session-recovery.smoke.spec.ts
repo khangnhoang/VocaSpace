@@ -7,7 +7,7 @@ import { watchBrowserConsole } from "../support/console";
 // - Mục tiêu: D6 phục hồi sau lỗi transport, không chuyển thẻ chưa lưu; thao tác touch thật trên màn hình hẹp.
 // - Loại: browser với Next/action/Supabase thật; chỉ abort một request trước dispatch để tạo lỗi client.
 // - Thành công: thử lại tải/lưu ghi đúng một lần, đóng/mở/reload giữ persistence; touch không cần hover.
-// - Thất bại: tải mất mạng giữ error/retry; lưu mất mạng hai lần (lần đầu và lần thử lại) xếp thẻ lại cuối hàng đợi kèm lời báo, due count không đổi (LF8).
+// - Thất bại: tải mất mạng giữ error/retry; lưu mất mạng hai lần (lần đầu và lần thử lại) xếp thẻ lại cuối hàng đợi kèm lời báo, due count không đổi (LF8); sau khi tải lại, thẻ đã lưu không quay lại còn thẻ bị xếp lại và chưa lưu hiện lại.
 // - Phân quyền: student canonical trên runtime E2E 45441; không mock thành công hay thay dữ liệu hosted.
 // - Invariant: thẻ chưa lưu quay lại hàng đợi (không mất), nút dùng được sau lỗi, chờ dòng "Đang lưu…" biến mất trước khi đọc DB hoặc tải lại, layout không tràn ngang.
 // - Zoom native đã thử bằng probe riêng nhưng chưa xác minh được; Owner kiểm tra 200% sau.
@@ -58,6 +58,9 @@ test("load/save transport failures retry, and an unsaved rating puts its card ba
     await page.reload();
     await page.getByRole("button", { name: "Ôn ngay", exact: true }).click();
     await expect(dialog.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeVisible();
+    // Thẻ đã lưu ("progress") không quay lại; thẻ bị xếp lại và chưa lưu ("deterministic") hiện lại.
+    await expect(dialog.getByText("progress", { exact: true })).toHaveCount(0);
+    await expect(dialog.getByText("deterministic", { exact: true })).toBeVisible();
   } finally { await fixture.restore(); }
 });
 

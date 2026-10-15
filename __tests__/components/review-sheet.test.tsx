@@ -13,7 +13,7 @@ import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 // - Loại: component interaction, dialog thật; chỉ mock action để kiểm tra xử lý kết quả client.
 // - Case: loading/empty/error/retry, reveal chỉ lộ mặt hiện tại, giữ mặt đáp án khi chuyển thẻ, bốn rating, next batch khi còn thẻ, hết thẻ chỉ quay lại, warning và stale load.
 // - Resilience: cùng tick chỉ nhận một lần chấm; đóng, Escape và bấm ra ngoài chờ lưu xong rồi mới đóng.
-// - LF8 (AC1-AC7): thẻ kế tiếp hiện trước khi lưu xong, một lần gọi; lưu lần lượt theo thứ tự; lỗi thử lại một lần rồi xếp thẻ lại kèm lời báo; hàng đợi rỗng chờ lưu xong rồi mới hoàn tất ("Đang lưu kết quả các thẻ…"); dòng trạng thái "Đang lưu…" chỉ có khi còn đang lưu; lỗi cuối hủy lệnh đóng đang chờ; nút chấm không bị khóa; click của cử chỉ trước hoặc lần click thứ hai của bấm đúp không lật thẻ kế tiếp; beforeunload khi còn đang lưu.
+// - LF8 (AC1-AC7): thẻ kế tiếp hiện trước khi lưu xong, một lần gọi; lưu lần lượt theo thứ tự; lỗi thử lại một lần rồi xếp thẻ lại kèm lời báo (không xếp lại khi lần chấm sau của chính thẻ còn chờ); hàng đợi rỗng chờ lưu xong rồi mới hoàn tất ("Đang lưu kết quả các thẻ…"); dòng trạng thái "Đang lưu…" chỉ có khi còn đang lưu; lỗi cuối hủy lệnh đóng đang chờ; nút chấm không bị khóa; click của cử chỉ trước hoặc lần click thứ hai của bấm đúp không lật thẻ kế tiếp; beforeunload khi còn đang lưu.
 // - LF6 (AC5): bốn nút rating giữ nhãn và thứ tự, dùng đúng lớp Attention (Lại/Khó) hoặc Recall (Ổn/Dễ) từ định nghĩa dùng chung với FlashcardStage, và không bị khóa khi đang lưu (LF8).
 // - Giới hạn: không chứng minh RLS/FSRS persistence; browser local kiểm tra save/reopen/focus. Lỗi của thế hệ hàng đợi đã bị thay chỉ báo cho người học, không có test ở tầng component (không thể xảy ra khi đóng phải chờ lưu xong).
 // - Verify: xem State D6 trong progress.md.
@@ -286,6 +286,32 @@ describe("D6 review batches", () => {
     fireEvent.click(screen.getByRole("button", { name: "Đóng giao diện ôn tập" }));
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
   });
+  it("does not put a failed card back when a later rating of the same card is still pending, and completes once (AC4, AC5)", async () => {
+    const first = deferred<{ error: string }>();
+    const second = deferred<{ success: true }>();
+    submit.mockReturnValueOnce(first.promise as never).mockResolvedValueOnce({ error: "Lưu thất bại" }).mockReturnValueOnce(second.promise);
+    const { onComplete } = await openReview();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    // Lại puts the card back; its second rating (Ổn) waits behind the first save in the chain.
+    revealAndRate("Lại");
+    revealAndRate("Ổn");
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(submit).toHaveBeenCalledOnce();
+    // The first save fails twice (first try and the retry after the delay); the second rating then starts.
+    await act(async () => { first.resolve({ error: "Lưu thất bại" }); await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS); });
+    vi.useRealTimers();
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(3));
+    expect(submit.mock.calls.map(([cardId, rating]) => [cardId, rating])).toEqual([[card.id, 1], [card.id, 1], [card.id, 3]]);
+    expect(screen.getByRole("alert").textContent).toBe('Chưa lưu được đánh giá thẻ "reliable".');
+    // Not requeued: the queue stays empty and the end is still armed, waiting for the second save.
+    expect(screen.getByText("Đang lưu kết quả các thẻ…")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Hiện đáp án" })).toBeNull();
+    expect(onComplete).not.toHaveBeenCalled();
+    await act(async () => { second.resolve({ success: true }); });
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(submit).toHaveBeenCalledTimes(3);
+  });
   it("does not reveal the next card for a click of the previous gesture or the second click of a double tap (AC7)", async () => {
     getDeck.mockResolvedValue(deck([card, card2], 2));
     await openReview();
@@ -369,7 +395,7 @@ describe("D6 review batches", () => {
     await waitFor(() => expect(screen.queryByText("Đang lưu…")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Đóng giao diện ôn tập" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(onComplete).toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalledOnce();
   });
 });
 
