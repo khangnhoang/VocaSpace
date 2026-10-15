@@ -6,10 +6,10 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ### ADMIN-003: The admin dashboard shows invented numbers
 
-- Status: Open (2026-10-13).
+- Status: AD4 implementation reviewed and local browser QA passed within the observed scope; Owner accepted the running `/admin` UI and the unrun real screen-reader QA exception on 2026-10-16. Hosted AD4 is applied and read-only verified. Stays open for merge/production acceptance and the unfinished shell header search; current evidence is tracked in progress.
 - Problem: the revenue trend is total revenue times fixed fractions (`app/actions/admin-dashboard.ts:130-138`); revenue is enrolments times the current price, not paid amounts (`:86-89`); four trend lines in `app/admin/_components/stats-cards.tsx:19-43` are hard-coded text; the period select, "Xem tất cả" and the header search do nothing.
-- Evidence: files above at `b6720ec`.
-- Direction: AD4.
+- Evidence: files above at `b6720ec`. AD4 replaced them: revenue, trend and counts come from `admin_dashboard_summary()`, the trend strings, period select and "Xem tất cả" are gone; the header search in `components/ui/admin-header.tsx` is shell code outside AD4 and still does nothing.
+- Direction: AD4 local review, Owner UI acceptance and hosted rollout are complete; merge and production QA remain pending. The header search belongs to the admin shell redesign (ADMIN-005).
 - Exit condition: every number on the dashboard is computed from real data with a stated definition, and controls without behaviour are removed or wired.
 
 ### ADMIN-004: Admin checks ignore removed admins and allow self role change
@@ -23,11 +23,11 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ### ADMIN-005: Admin screens have no accepted design
 
-- Status: Open (2026-10-14). The Admin screen-type design was accepted on 2026-10-15; the admin pages are not yet redesigned against it.
-- Problem: the Admin screen-type design is accepted and listed in `docs/ui-design-system-and-review/index.md` (`docs/ui-design-system-and-review/screen-types/admin-business-operations.md`); the design lifecycle writes no per-page brief. The three admin pages (`/admin`, `/admin/courses`, `/admin/user-management`) still follow the earlier dark admin shell and have not been redesigned or reviewed against that design.
+- Status: Open (2026-10-14). The Admin screen-type design was accepted on 2026-10-15; AD4 rebuilt the dashboard body and the Owner accepted its running UI on 2026-10-16. The shell and other admin screens remain unfinished.
+- Problem: the Admin screen-type design is accepted and listed in `docs/ui-design-system-and-review/index.md` (`docs/ui-design-system-and-review/screen-types/admin-business-operations.md`); the design lifecycle writes no per-page brief. The shared shell, `/admin/courses` and `/admin/user-management` still follow the earlier implementation and have not completed the redesign and Owner acceptance. Dashboard body acceptance does not establish whole-shell or program-wide design conformance.
 - Evidence: AD3 ships `/admin/courses` without a brief, by Owner decision of 2026-10-14 (AD3 detail plan §1.4); the Owner reviews the running screen.
 - Owner QA of AD3 (2026-10-14): the admin pages look poor. The likely causes are the plain default admin shell and the Admin reference ranking polish low. The live course search works but feels abrupt: typing, then a visible jump, then the results. Fix it with the redesign, not in AD3.
-- Direction: the design half is done (the screen-type section now uses a shared design per screen type instead of per-page briefs, and the Admin screen-type design is accepted). A later frontend change redesigns the admin pages against it, including the as-you-type search region, the dashboard charts and the users-list row actions, and the Owner reviews the running screens.
+- Direction: the accepted screen-type design and the Owner-accepted AD4 dashboard body are in place. Later frontend work addresses the shell, the as-you-type course-search region and the users-list row actions, followed by Owner review of those running surfaces.
 - Exit condition: the admin pages are reviewed against the accepted Admin design (listed in the design index since 2026-10-15).
 
 ## Resolved

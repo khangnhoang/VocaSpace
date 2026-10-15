@@ -31,6 +31,10 @@ Three rules below are standing Owner permissions that apply without asking again
 
 - Standing permission: when told to wait for CI, run `gh pr checks <n> --watch --interval 30` in the foreground; do not end the turn to wait for app events.
 
+## Cloud sessions
+
+- Run `scripts/dev/cloud-isolated-db.sh` only in a cloud session (`CLAUDE_CODE_REMOTE=true`) whose task needs the local DB; it starts the isolated runtime (API 45441) and prints the test env.
+
 ## Auto mode
 
 - When auto mode denies an action the Owner seems to have asked for, treat the grant as not explicit enough: ask with AskUserQuestion, naming the exact command and target, and run it only after the Owner approves. Do not retry it unchanged or drop the step silently.
