@@ -128,10 +128,10 @@ Manual QA: none of the runtime; the Owner's review of the Admin candidate in CP3
 | Field | Value |
 | --- | --- |
 | Spec revision | This plan r1 |
-| Current unit / checkpoint | CP2 |
-| Status | in progress: plan approved by the Owner (2026-10-15) and committed as CP1 |
-| Completed evidence | Branch `docs/screen-type-design` from `main` at `fea4f47` (2026-10-15). Codex plan review (`gpt-6.1-sol`, high, read-only): round 1 FAIL (4 Required, 1 Suggestion, 1 Nit, all fixed), round 2 PASS. `npm run docs:check`: 0 structure violations, 0 new broken links |
+| Current unit / checkpoint | CP3 |
+| Status | in progress: CP1 and CP2 committed locally; CP3 Admin candidate in preparation |
+| Completed evidence | Branch `docs/screen-type-design` from `main` at `fea4f47` (2026-10-15). Codex plan review (`gpt-6.1-sol`, high, read-only): round 1 FAIL (4 Required, 1 Suggestion, 1 Nit, all fixed), round 2 PASS. `npm run docs:check`: 0 structure violations, 0 new broken links. CP2: lifecycle steps 2–5, `index.md` header and note, and the homepage sentence in `future-features.md` rewritten; contradiction read across the lifecycle, `index.md` and `frontend-design` §Design sources found none; grep found no current rule source requiring a brief for a new page (`frontend-design` `SKILL.md` wording is CP4); `npm run docs:check` and `git diff --check` pass |
 | Accepted deviations | none |
 | Blockers / Owner decisions | Owner acceptance of the Admin candidate in CP3; Owner grant for the CP4 fresh-reader check |
-| Next action | Main implements CP2 |
+| Next action | Draft the Admin candidate for CP3 and report it to Main for the Owner |
 | Current authority | Owner, 2026-10-15: plan r1 approved; commit CP1 and implement CP2–CP4 on this branch with local commits only. Push, PR and the CP4 fresh-reader check are not granted |

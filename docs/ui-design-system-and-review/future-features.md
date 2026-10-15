@@ -22,7 +22,7 @@ The public/user-facing homepage should eventually move away from the current sli
 - one secondary call to action; and
 - VocaSpace-specific content rather than generic SaaS presentation.
 
-This is a future homepage surface direction, not a global Product Language layout rule. A future surface specification must reconcile it with the actual homepage content, route behavior, responsive composition, accessibility, performance, asset ownership, and current implementation before any code change.
+This is a future homepage surface direction, not a global Product Language layout rule. The homepage plan must reconcile it with the actual homepage content, route behavior, responsive composition, accessibility, performance, asset ownership, and current implementation before any code change.
 
 ## Floating sheet direction
 
