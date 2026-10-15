@@ -14,7 +14,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ### ADMIN-004: Admin checks ignore removed admins and allow self role change
 
-- Status: Implemented and independently reviewed PASS locally in AD7 (`648c6a8`, 2026-10-15); root/hosted rollout and remote CI pending.
+- Status: Implemented and independently reviewed PASS in AD7 (`648c6a8`, 2026-10-15); CI passed on `f1805b6`, hosted migration `20261015090000` applied and catalog verified before merge in PR 158. Hosted write-based runtime probes and Owner production acceptance remain unverified; root migration is outside this rollout grant.
 - Problem: `is_admin()` (`20260609114505_remote_schema.sql:593-598`), the admin branch of `can_view_course_basic` and the admin check in `moderate_platform_content` look only at `role = 'admin'`, not `removed_at`; `updateUserByAdmin` (`app/actions/user.ts:115-133`) lets an admin change their own role.
 - Evidence: files above at `b6720ec`.
 - Direction: AD7.
