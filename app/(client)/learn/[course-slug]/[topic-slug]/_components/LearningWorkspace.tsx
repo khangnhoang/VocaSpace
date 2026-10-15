@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,11 +11,11 @@ import {
   ChevronRight,
   ListTodo,
   Lock,
+  Loader2,
   RotateCcw,
 } from "lucide-react";
 import { Rating } from "ts-fsrs";
 import { toast } from "sonner";
-import { submitCardReview } from "@/app/actions/review";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -25,6 +25,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  useCardReviewQueue,
+  type CardReviewRequest,
+  type CardReviewSuccess,
+} from "@/hooks/use-card-review-queue";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
 import { resolveLandingStage } from "@/lib/learning-landing";
 import type {
@@ -313,7 +318,6 @@ export default function LearningWorkspace({
     setIsTopicCompleted(true);
     if (newlyCompleted) setPendingCompletion(true);
   };
-  const [isPending, startTransition] = useTransition();
   // Quyền đi tiếp (nút "Tới ..."): chỉ bật lên, không bao giờ tắt, như trước LF1.
   const [canSkipToQuiz, setCanSkipToQuiz] = useState(
     progress?.isFlashcardCompleted ?? false,
@@ -387,6 +391,26 @@ export default function LearningWorkspace({
   // Số thẻ của lượt ôn hiện tại: bộ đếm "còn X / Y" và thanh tiến độ tính theo lượt, không theo cả bài.
   const [queueTotal, setQueueTotal] = useState(learningQueue.length);
   const [isFlipped, setIsFlipped] = useState(false);
+  // LF8: bản sao ref của hàng đợi để mọi lần chấm và lần xếp lại đọc/ghi đúng hàng đợi mới nhất, kể cả khi nhiều lần chấm chồng nhau (G2).
+  const queueRef = useRef(learningQueue);
+  const updateQueue = (next: FlashcardDTO[]) => {
+    queueRef.current = next;
+    setLearningQueue(next);
+  };
+  // LF8 G4: thế hệ của hàng đợi, đổi mỗi khi `startQueue` thay hàng đợi; lần lưu lỗi của thế hệ cũ không được chèn thẻ vào hàng đợi mới.
+  const queueGenerationRef = useRef(0);
+  // LF8 AC5: hết hàng đợi chỉ "lên cò" khi một lần chấm làm rỗng hàng đợi của thế hệ hiện tại (không lên cò lúc tải với hàng đợi rỗng, LF4).
+  // Ref để callback async đọc đúng; state để hiện trạng thái đang lưu thay cho màn hình kết thúc.
+  const armedGenerationRef = useRef<number | null>(null);
+  const [queueEndArmed, setQueueEndArmed] = useState(false);
+  const setArmedGeneration = (generation: number | null) => {
+    armedGenerationRef.current = generation;
+    setQueueEndArmed(generation !== null);
+  };
+  // Số lần chấm đang chờ theo thẻ: lần lưu lỗi chỉ xếp lại thẻ khi không còn lần chấm sau của chính thẻ đó đang chờ.
+  const pendingByCardRef = useRef(new Map<string, number>());
+  // Lần lưu thành công gần nhất: dùng cho nhánh dự phòng "không có topicProgress" của cuối hàng đợi (AC5).
+  const lastSavedRef = useRef<{ generation: number; hadProgress: boolean } | null>(null);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -472,11 +496,14 @@ export default function LearningWorkspace({
     // Không toast lỗi: toast thông tin duy nhất do lần remount sau khi tải lại phát (cần số thẻ mới).
     relockedTopicIds.add(currentTopic.id);
     goToStage("flashcard");
-    router.refresh();
+    // LF8 AC6: chờ các lần chấm đang lưu xong rồi mới tải lại, để lần remount không làm rơi lần chấm hay đưa lại thẻ đang lưu dở.
+    whenSavesDrained(() => router.refresh());
   };
 
   const startQueue = (cards: FlashcardDTO[], kind: QueueKind) => {
-    setLearningQueue(cards);
+    queueGenerationRef.current += 1;
+    setArmedGeneration(null);
+    updateQueue(cards);
     setQueueTotal(cards.length);
     setQueueKind(kind);
     setIsFlipped(false);
@@ -488,66 +515,109 @@ export default function LearningWorkspace({
   const dueCards = flashcards.filter((card) => dueCardIds.has(card.id));
   const reviewDueCards = () => startQueue(dueCards, "due");
 
+  // LF8: chấm thẻ chỉ đổi thứ tự hàng đợi ngay; mọi giá trị suy ra từ server chỉ đổi khi lần lưu của chính lần chấm đó thành công.
   const handleRateCard = (rating: Rating) => {
-    const currentCard = learningQueue[0];
+    const currentCard = queueRef.current[0];
     if (!currentCard) return;
+    const generation = queueGenerationRef.current;
 
-    startTransition(async () => {
-      const result = await submitCardReview(currentCard.id, rating);
-      if (result?.error) {
-        toast.error("Lỗi đồng bộ tiến độ học!");
-        return;
-      }
-      announceTopicProgress(result, markTopicCompleted);
-      // Lần chấm đã ghi: thẻ này đã xem; Ổn/Dễ thì xong, Lại/Khó thì chưa (lần chấm gần nhất quyết định, như server).
-      setUnseenCardIds((current) => withoutId(current, currentCard.id));
-      setUnratedCardIds((current) =>
-        rating === Rating.Good || rating === Rating.Easy
-          ? withoutId(current, currentCard.id)
-          : new Set(current).add(currentCard.id),
-      );
-      setDueCardIds((current) =>
-        rating === Rating.Good || rating === Rating.Easy
-          ? withoutId(current, currentCard.id)
-          : new Set(current).add(currentCard.id),
-      );
-      if (result.topicProgress?.isFlashcardCompleted) setCanSkipToQuiz(true);
-      // Kết quả server thắng theo cả hai chiều chỉ với dấu "đã xong" của StageThread.
-      if (result.topicProgress) setFlashcardStageDone(result.topicProgress.isFlashcardCompleted);
+    pendingByCardRef.current.set(currentCard.id, (pendingByCardRef.current.get(currentCard.id) ?? 0) + 1);
+    const nextQueue = queueRef.current.slice(1);
+    if (rating === Rating.Again || rating === Rating.Hard) nextQueue.push(currentCard);
+    updateQueue(nextQueue);
+    setIsFlipped(false);
+    enqueueSave({ cardId: currentCard.id, rating, generation });
 
-      const newQueue = [...learningQueue.slice(1)];
-      if (rating === Rating.Again || rating === Rating.Hard) {
-        newQueue.push(currentCard);
-      }
-      setLearningQueue(newQueue);
-      setIsFlipped(false);
-
-      if (newQueue.length === 0) {
-        setCanSkipToQuiz(true);
-        // Không có kết quả server (đồng bộ lỗi) thì hết hàng đợi vẫn coi như đã xong, như trước.
-        if (!result.topicProgress) setFlashcardStageDone(true);
-
-        // LF5 AC4: lần chấm vừa hoàn thành chủ đề thì màn hình hoàn thành thay cho màn hình kết thúc thẻ và các toast chuyển bước.
-        if (pendingCompletionRef.current) {
-          goToComplete();
-        } else if (queueKind !== "first") {
-          // LF6 AC10: ôn thẻ đến hạn hay ôn lại từ vựng không phải lần học đầu nên không báo "đã nạp" và không đẩy sang bước
-          // khác. Chủ đề đã hoàn thành (đọc lúc hết hàng đợi, kể cả kết quả của chính lần chấm này) thì về màn hình hoàn thành
-          // đã ổn định; nếu chưa thì ở lại màn hình kết thúc từ vựng.
-          toast.success(queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
-          if (topicCompletedRef.current) goToComplete();
-        } else if (nextStageAfterFlashcards === "memory") {
-          goToStage("memory");
-          toast.success("Đã nạp xong từ vựng! Chuyển sang memory check.");
-        } else if (nextStageAfterFlashcards === "exercise") {
-          goToStage("exercise");
-          toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
-        } else {
-          toast.success("Đã nạp xong từ vựng!");
-        }
-      }
-    });
+    if (nextQueue.length === 0) {
+      setArmedGeneration(generation);
+      whenSavesDrained(() => runQueueEndRef.current(generation));
+    }
   };
+
+  const settlePendingCard = (cardId: string) => {
+    const left = (pendingByCardRef.current.get(cardId) ?? 1) - 1;
+    if (left > 0) pendingByCardRef.current.set(cardId, left);
+    else pendingByCardRef.current.delete(cardId);
+    return left;
+  };
+
+  const handleCardSaved = (request: CardReviewRequest, result: CardReviewSuccess) => {
+    settlePendingCard(request.cardId);
+    announceTopicProgress(result, markTopicCompleted);
+    // Lần chấm đã ghi: thẻ này đã xem; Ổn/Dễ thì xong, Lại/Khó thì chưa (lần chấm gần nhất quyết định, như server).
+    const passed = request.rating === Rating.Good || request.rating === Rating.Easy;
+    setUnseenCardIds((current) => withoutId(current, request.cardId));
+    setUnratedCardIds((current) =>
+      passed ? withoutId(current, request.cardId) : new Set(current).add(request.cardId),
+    );
+    setDueCardIds((current) =>
+      passed ? withoutId(current, request.cardId) : new Set(current).add(request.cardId),
+    );
+    if (result.topicProgress?.isFlashcardCompleted) setCanSkipToQuiz(true);
+    // Kết quả server thắng theo cả hai chiều chỉ với dấu "đã xong" của StageThread.
+    if (result.topicProgress) setFlashcardStageDone(result.topicProgress.isFlashcardCompleted);
+    lastSavedRef.current = { generation: request.generation, hadProgress: Boolean(result.topicProgress) };
+  };
+
+  // Lưu lỗi sau một lần thử lại: không đổi giá trị suy ra từ server. Thẻ quay lại cuối hàng đợi hiện tại (trừ khi đã nằm trong đó
+  // hoặc lần chấm sau của chính thẻ còn đang chờ), và hàng đợi không còn rỗng nên cuối hàng đợi hết "lên cò" (G4, AC4).
+  const handleCardSaveFailed = (request: CardReviewRequest) => {
+    const card = flashcards.find((candidate) => candidate.id === request.cardId);
+    const later = settlePendingCard(request.cardId);
+    const word = card?.front_content?.word ?? "";
+    const base = `Chưa lưu được đánh giá thẻ "${word}".`;
+    if (!card || request.generation !== queueGenerationRef.current) {
+      toast.error(base);
+      return;
+    }
+    const queued = queueRef.current.some((candidate) => candidate.id === card.id);
+    if (!queued && later > 0) {
+      toast.error(base);
+      return;
+    }
+    if (!queued) updateQueue([...queueRef.current, card]);
+    setArmedGeneration(null);
+    toast.error(`${base} Thẻ được xếp lại để bạn chấm lại.`);
+  };
+
+  const { enqueue: enqueueSave, whenDrained: whenSavesDrained, pendingCount: pendingSaves } =
+    useCardReviewQueue({ onSaved: handleCardSaved, onFailed: handleCardSaveFailed });
+
+  // Quyết định cuối hàng đợi chạy một lần cho mỗi lần "lên cò", khi mọi lần lưu đã xong, và đọc `queueKind`,
+  // `nextStageAfterFlashcards` và các ref hoàn thành đúng lúc này (G3). Chạy bất kể học viên đang ở bước nào, như trước.
+  const runQueueEnd = (generation: number) => {
+    if (armedGenerationRef.current !== generation) return;
+    setArmedGeneration(null);
+    setCanSkipToQuiz(true);
+    // Không có kết quả server (không lần lưu nào của lượt này thành công, hoặc lần cuối không có topicProgress) thì hết hàng đợi
+    // vẫn coi như đã xong, như trước.
+    const lastSaved = lastSavedRef.current;
+    if (!lastSaved || lastSaved.generation !== generation || !lastSaved.hadProgress) setFlashcardStageDone(true);
+
+    // LF5 AC4: lần chấm vừa hoàn thành chủ đề thì màn hình hoàn thành thay cho màn hình kết thúc thẻ và các toast chuyển bước.
+    if (pendingCompletionRef.current) {
+      goToComplete();
+    } else if (queueKind !== "first") {
+      // LF6 AC10: ôn thẻ đến hạn hay ôn lại từ vựng không phải lần học đầu nên không báo "đã nạp" và không đẩy sang bước
+      // khác. Chủ đề đã hoàn thành (đọc lúc hết hàng đợi, kể cả kết quả của chính lần chấm này) thì về màn hình hoàn thành
+      // đã ổn định; nếu chưa thì ở lại màn hình kết thúc từ vựng.
+      toast.success(queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
+      if (topicCompletedRef.current) goToComplete();
+    } else if (nextStageAfterFlashcards === "memory") {
+      goToStage("memory");
+      toast.success("Đã nạp xong từ vựng! Chuyển sang memory check.");
+    } else if (nextStageAfterFlashcards === "exercise") {
+      goToStage("exercise");
+      toast.success("Đã nạp xong từ vựng! Chuyển sang bài tập.");
+    } else {
+      toast.success("Đã nạp xong từ vựng!");
+    }
+  };
+  // Callback của hàng đợi lưu chạy sau render hiện tại nên phải gọi bản mới nhất của hàm trên, không phải bản của lúc chấm.
+  const runQueueEndRef = useRef(runQueueEnd);
+  useEffect(() => {
+    runQueueEndRef.current = runQueueEnd;
+  });
 
   const currentExercise: ExerciseDTO | undefined =
     exercises[currentExerciseIndex];
@@ -1094,6 +1164,15 @@ export default function LearningWorkspace({
       );
     }
     if (learningStage === "flashcard") {
+      // LF8 AC5: hàng đợi vừa rỗng do một lần chấm mà còn lần lưu đang chờ thì hiện trạng thái đang lưu thay cho màn hình kết thúc.
+      if (learningQueue.length === 0 && queueEndArmed) {
+        return (
+          <section className="mx-auto flex max-w-md flex-col items-center gap-3 py-8 text-center">
+            <Loader2 aria-hidden="true" className="size-8 text-recall motion-safe:animate-spin" />
+            <p className="text-lg font-semibold text-slate-900">Đang lưu kết quả các thẻ…</p>
+          </section>
+        );
+      }
       if (learningQueue.length === 0) {
         return (
           <section
@@ -1141,7 +1220,6 @@ export default function LearningWorkspace({
           isFlipped={isFlipped}
           setIsFlipped={setIsFlipped}
           handleRateCard={handleRateCard}
-          isPending={isPending}
         />
       );
     }
@@ -1270,7 +1348,7 @@ export default function LearningWorkspace({
         <main
           ref={planeRef}
           tabIndex={-1}
-          className="min-w-0 scroll-mt-4 rounded-2xl outline-none border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
+          className="relative min-w-0 scroll-mt-4 rounded-2xl outline-none border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
         >
           <div
             key={`${learningStage}:${exercisesLocked}`}
@@ -1278,6 +1356,16 @@ export default function LearningWorkspace({
           >
             {renderStage()}
           </div>
+          {/* LF8 AC5b: ngoài vùng bước (có `key`) nên không bị dựng lại khi đổi bước, và đặt tuyệt đối ở góc nên không làm dịch bố cục.
+              Phần tử `role="status"` chỉ có mặt khi còn lần lưu đang chờ. */}
+          {pendingSaves > 0 && (
+            <p
+              role="status"
+              className="pointer-events-none absolute bottom-2 right-4 text-xs font-medium text-slate-600"
+            >
+              Đang lưu…
+            </p>
+          )}
         </main>
 
         <nav

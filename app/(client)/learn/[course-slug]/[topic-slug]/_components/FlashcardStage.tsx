@@ -2,6 +2,7 @@
 "use client";
 import React, { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { Button } from "@/components/ui/button";
+import { useFlashcardRevealGuard } from "@/hooks/use-flashcard-reveal-guard";
 import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 import { FlashcardDTO } from "@/lib/schemas/learn";
 import { Rating } from "ts-fsrs";
@@ -13,7 +14,6 @@ interface FlashcardStageProps {
   isFlipped: boolean;
   setIsFlipped: (val: boolean) => void;
   handleRateCard: (rating: Rating) => void;
-  isPending: boolean;
 }
 
 type CardBack = FlashcardDTO["back_content"];
@@ -89,7 +89,6 @@ export default function FlashcardStage({
   isFlipped,
   setIsFlipped,
   handleRateCard,
-  isPending,
 }: FlashcardStageProps) {
   // Like the D6 review card, one physical card turns over and turns back: after a
   // confirmed rating it keeps showing the answer it just revealed while it comes
@@ -101,6 +100,8 @@ export default function FlashcardStage({
   const hasInteracted = useRef(false);
   const backFaceRef = useRef<HTMLDivElement>(null);
   const backContentRef = useRef<HTMLDivElement>(null);
+  // LF8 AC7: nút chấm không còn bị khóa khi đang lưu; mỗi lần lật chỉ nhận một lần chấm và nút lật bỏ qua cú bấm đúp.
+  const guard = useFlashcardRevealGuard(currentCard?.id, isFlipped);
   const back = isFlipped
     ? currentCard?.back_content
     : (previousBack ?? currentCard?.back_content);
@@ -148,7 +149,10 @@ export default function FlashcardStage({
     totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
 
   return (
-    <div className="flex w-full min-w-0 flex-col items-center font-sans">
+    <div
+      onPointerDownCapture={guard.onPointerDownCapture}
+      className="flex w-full min-w-0 flex-col items-center font-sans"
+    >
       <div className="w-full max-w-3xl [perspective:1100px]">
         {/* Fixed height: long and short cards occupy the same box, so nothing below it
             moves when the card changes. Content that does not fit scrolls inside its face. */}
@@ -205,7 +209,8 @@ export default function FlashcardStage({
           <Button
             ref={revealRef}
             size="lg"
-            onClick={() => {
+            onClick={(event) => {
+              if (guard.shouldIgnoreReveal(event)) return;
               hasInteracted.current = true;
               setIsFlipped(true);
             }}
@@ -219,8 +224,9 @@ export default function FlashcardStage({
               <Button
                 key={label}
                 ref={index === 0 ? firstRatingRef : undefined}
-                disabled={isPending}
-                onClick={() => handleRateCard(rating)}
+                onClick={() => {
+                  if (guard.takeRating()) handleRateCard(rating);
+                }}
                 variant="outline"
                 size="lg"
                 className={`min-h-12 px-1 text-sm sm:text-base ${className}`}

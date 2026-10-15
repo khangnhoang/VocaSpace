@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";
+import { resetCardReviewQueueForTests } from "@/hooks/use-card-review-queue";
 import { CARDS_REQUIRED, CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
@@ -151,6 +152,10 @@ describe("D3 memory check stage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedUseRouter.mockReturnValue({ refresh: vi.fn() } as never);
+  });
+
+  afterEach(() => {
+    resetCardReviewQueueForTests();
   });
 
   it("starts at the memory check when the topic has no cards and requeues a wrong answer", async () => {
