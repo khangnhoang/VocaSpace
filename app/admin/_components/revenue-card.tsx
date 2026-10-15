@@ -89,11 +89,11 @@ export function RevenueCard({ months }: { months: RevenueMonth[] }) {
                 tabIndex={isSelected ? 0 : -1}
                 onClick={() => select(VIEWS.findIndex((item) => item.id === view.id), false)}
                 onKeyDown={handleKeyDown}
-                className={`flex min-h-11 items-center justify-center gap-2 rounded-t-lg px-2 text-sm font-semibold transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] motion-reduce:transition-none ${
+                className={`flex min-h-11 items-center justify-center gap-1.5 rounded-t-lg px-1 text-sm whitespace-nowrap sm:gap-2 sm:px-2 font-semibold transition-colors duration-[120ms] outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] motion-reduce:transition-none ${
                   isSelected ? "font-bold text-[#60A5FA]" : "text-slate-300 hover:bg-[#1E293B] hover:text-slate-50"
                 }`}
               >
-                <view.icon className="size-[18px] shrink-0" aria-hidden="true" />
+                <view.icon className="hidden size-[18px] shrink-0 min-[360px]:block" aria-hidden="true" />
                 {view.label}
               </button>
             );

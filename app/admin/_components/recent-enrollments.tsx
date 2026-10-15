@@ -35,7 +35,7 @@ export function RecentEnrollments({ enrollments, generatedAt }: RecentEnrollment
       ) : (
         <ul className="flex flex-col divide-y divide-slate-700">
           {enrollments.map((enrollment) => (
-            <li key={enrollment.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+            <li key={enrollment.id} className="grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-3 gap-y-1 py-3 first:pt-0 last:pb-0 sm:grid-cols-[40px_minmax(0,1fr)_auto]">
               <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#172554] text-sm font-bold text-[#60A5FA] ring-2 ring-[#60A5FA]">
                 {isImageUrl(enrollment.studentAvatar) ? (
                   <Image src={enrollment.studentAvatar} alt="" fill sizes="40px" unoptimized className="object-cover" />
@@ -43,14 +43,14 @@ export function RecentEnrollments({ enrollments, generatedAt }: RecentEnrollment
                   <span aria-hidden="true">{initialOf(enrollment.studentName)}</span>
                 )}
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0">
                 <p className="text-sm leading-[22px] font-bold break-words text-slate-50">{enrollment.studentName}</p>
                 {enrollment.studentEmail ? (
                   <p className="text-xs leading-4 font-medium break-all text-slate-300">{enrollment.studentEmail}</p>
                 ) : null}
                 <p className="mt-1 text-sm leading-[22px] break-words text-slate-300">{enrollment.courseTitle}</p>
               </div>
-              <time dateTime={enrollment.enrolledAt} className="shrink-0 text-xs leading-4 font-medium text-slate-400">
+              <time dateTime={enrollment.enrolledAt} className="col-start-2 text-xs leading-4 font-medium text-slate-400 sm:col-start-3 sm:row-start-1">
                 {formatRelativeTime(enrollment.enrolledAt, generatedAt)}
               </time>
             </li>
