@@ -18,7 +18,7 @@ import {
 // - Đối tượng: policy "Enrollments - Active Admin Select", "User_flashcards - Active Admin Select", quyền UPDATE theo cột
 //   của profiles, trigger a5_sync_profile_email, getAdminDashboardData, updateUserProfile, uploadAvatar, updateUserByAdmin.
 // - Case thành công: admin đang hoạt động thấy enrollment/flashcard của học viên khác; dashboard liệt kê lượt ghi danh
-//   của học viên khác và đếm flashcard bằng đúng tổng service role; học viên xóa mềm vẫn hiện là "Học viên ẩn danh";
+//   của học viên khác và đếm flashcard bằng đúng tổng service role; học viên xóa mềm vẫn hiện là "Học viên ẩn danh" và không có email (null);
 //   user vẫn lưu /profile, đặt username một lần, tải avatar, và tự đặt avatar_url; admin vẫn sửa phone qua service role;
 //   đổi email qua Auth admin API làm profiles.email đổi theo và không đụng hồ sơ khác; tạo user giữ hai email bằng nhau.
 // - Case thất bại: user UPDATE email, phone hoặc removed_at qua REST → 42501 và dòng không đổi, kể cả khi gửi chung với
@@ -168,7 +168,7 @@ describe("AUTH-021 admin reads of learner rows", () => {
     const dashboard = await getAdminDashboardData();
 
     expect(dashboard.error).toBeUndefined();
-    expect(dashboard.data!.metrics.totalFlashcardReviews).toBe(flashcards.count);
+    expect(dashboard.data!.metrics.learningCards).toBe(flashcards.count);
     expect(dashboard.data!.recentEnrollments).toEqual(expect.arrayContaining([
       expect.objectContaining({ studentEmail: learner.email, courseTitle: expect.stringContaining("A5 fixture") }),
     ]));
@@ -187,7 +187,7 @@ describe("AUTH-021 admin reads of learner rows", () => {
     expect(dashboard.error).toBeUndefined();
     // Học viên xóa mềm vẫn được đếm trong enrollment nhưng hiển thị như học viên không còn hồ sơ (A4a AC6b).
     expect(dashboard.data!.recentEnrollments).toEqual(expect.arrayContaining([
-      expect.objectContaining({ studentName: "Học viên ẩn danh", studentEmail: "no-email@vocaspace.com" }),
+      expect.objectContaining({ studentName: "Học viên ẩn danh", studentEmail: null }),
     ]));
     const adminSession = await signIn(admin);
     const perCourse = await adminSession.from("courses").select("id, enrollments(id)").eq("id", tree.courseId).single();
