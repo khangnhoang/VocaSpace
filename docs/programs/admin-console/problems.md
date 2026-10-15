@@ -6,10 +6,10 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ### ADMIN-003: The admin dashboard shows invented numbers
 
-- Status: AD4 implementation reviewed and local browser QA passed within the observed scope; Owner accepted the running `/admin` UI on 2026-10-16. Stays open until the AD4 migration reaches hosted and the shell header search is dealt with; rollout and remaining acceptance evidence are tracked in progress.
+- Status: AD4 implementation reviewed and local browser QA passed within the observed scope; Owner accepted the running `/admin` UI and the unrun real screen-reader QA exception on 2026-10-16. Hosted AD4 is applied and read-only verified. Stays open for merge/production acceptance and the unfinished shell header search; current evidence is tracked in progress.
 - Problem: the revenue trend is total revenue times fixed fractions (`app/actions/admin-dashboard.ts:130-138`); revenue is enrolments times the current price, not paid amounts (`:86-89`); four trend lines in `app/admin/_components/stats-cards.tsx:19-43` are hard-coded text; the period select, "Xem tất cả" and the header search do nothing.
 - Evidence: files above at `b6720ec`. AD4 replaced them: revenue, trend and counts come from `admin_dashboard_summary()`, the trend strings, period select and "Xem tất cả" are gone; the header search in `components/ui/admin-header.tsx` is shell code outside AD4 and still does nothing.
-- Direction: AD4 local review and Owner UI acceptance are complete; hosted rollout remains pending. The header search belongs to the admin shell redesign (ADMIN-005).
+- Direction: AD4 local review, Owner UI acceptance and hosted rollout are complete; merge and production QA remain pending. The header search belongs to the admin shell redesign (ADMIN-005).
 - Exit condition: every number on the dashboard is computed from real data with a stated definition, and controls without behaviour are removed or wired.
 
 ### ADMIN-004: Admin checks ignore removed admins and allow self role change
