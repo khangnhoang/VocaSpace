@@ -23,12 +23,12 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ### ADMIN-005: Admin screens have no accepted design
 
-- Status: Open (2026-10-14).
-- Problem: `docs/ui-design-system-and-review/index.md` has no Admin screen-type design and no admin surface brief; the dark-only Admin direction is only a future direction (`docs/ui-design-system-and-review/future-features.md`). Admin pages follow the existing dark admin shell and the short `frontend-design` Admin reference. The design lifecycle asks for a brief for a new surface (`docs/ui-design-system-and-review/plan.md:75`, `:81`).
+- Status: Open (2026-10-14). The Admin screen-type design was accepted on 2026-10-15; the admin pages are not yet redesigned against it.
+- Problem: the Admin screen-type design is accepted and listed in `docs/ui-design-system-and-review/index.md` (`docs/ui-design-system-and-review/screen-types/admin-business-operations.md`); the design lifecycle writes no per-page brief. The three admin pages (`/admin`, `/admin/courses`, `/admin/user-management`) still follow the earlier dark admin shell and have not been redesigned or reviewed against that design.
 - Evidence: AD3 ships `/admin/courses` without a brief, by Owner decision of 2026-10-14 (AD3 detail plan §1.4); the Owner reviews the running screen.
 - Owner QA of AD3 (2026-10-14): the admin pages look poor. The likely causes are the plain default admin shell and the Admin reference ranking polish low. The live course search works but feels abrupt: typing, then a visible jump, then the results. Fix it with the redesign, not in AD3.
-- Direction: a later frontend design pass. It rewrites the screen-type section with a shared design per screen type instead of per-page briefs, adds an Admin screen-type design, then redesigns the admin pages against it, including the search interaction.
-- Exit condition: an Owner-accepted Admin design is listed in the design index and the admin pages are reviewed against it.
+- Direction: the design half is done (the screen-type section now uses a shared design per screen type instead of per-page briefs, and the Admin screen-type design is accepted). A later frontend change redesigns the admin pages against it, including the as-you-type search region, the dashboard charts and the users-list row actions, and the Owner reviews the running screens.
+- Exit condition: the admin pages are reviewed against the accepted Admin design (listed in the design index since 2026-10-15).
 
 ## Resolved
 

@@ -8,7 +8,7 @@ This document records explicit Owner direction that is intentionally outside the
 
 - Learning Experience (LE/student) should eventually support both light and dark themes.
 - Teacher Authoring (TA/teacher) should eventually support both light and dark themes.
-- Admin is intended to be dark-only.
+- Admin is dark-only; the accepted [Admin screen-type design](./screen-types/admin-business-operations.md) owns its dark values.
 
 UI-2 does not implement or fully specify dark mode. The current Product Language may define a light reference, but its semantic ownership and token mapping must not make these future theme directions structurally incompatible. Future theme work owns exact dark values, contrast verification, component/surface mappings, persistence or preference behavior, transition behavior, and runtime rollout.
 
@@ -22,7 +22,7 @@ The public/user-facing homepage should eventually move away from the current sli
 - one secondary call to action; and
 - VocaSpace-specific content rather than generic SaaS presentation.
 
-This is a future homepage surface direction, not a global Product Language layout rule. A future surface specification must reconcile it with the actual homepage content, route behavior, responsive composition, accessibility, performance, asset ownership, and current implementation before any code change.
+This is a future homepage surface direction, not a global Product Language layout rule. The homepage plan must reconcile it with the actual homepage content, route behavior, responsive composition, accessibility, performance, asset ownership, and current implementation before any code change.
 
 ## Floating sheet direction
 
@@ -50,4 +50,6 @@ VocaSpace may later expose a product-level animation preference through global a
 - the switch communicates `OFF` with its knob on the left and a quiet neutral track; and
 - the platform/browser `prefers-reduced-motion` signal remains respected independently of any explicit product preference.
 
-The account-menu switch in the current TA review aid is non-authoritative review chrome and interaction evidence only. This future direction does not amend the accepted Product Language, require a Teacher-specific setting, define preference precedence or persistence, authorize runtime implementation, or decide the final account/settings placement. Future product-level work owns those decisions and must receive separate Owner acceptance and implementation authority.
+The account-menu switch in the current TA review aid is non-authoritative review chrome and interaction evidence only. This future direction does not amend the accepted Product Language, require a Teacher-specific setting, define preference precedence or persistence, or authorize runtime implementation. The placement direction is the avatar (account) dropdown, per the Owner direction below. Persistence, precedence and the detailed design stay future work, which must receive separate Owner acceptance and implementation authority.
+
+Owner direction of 2026-10-15 for where the preference lives: the control belongs in the avatar (account) dropdown, as a toggle whose track uses a Route-to-Action blue gradient and whose knob animates when it is switched, and the reduced-motion setting is off by default, which is the same default behaviour as `ON` above (normal motion); whether the label reads as "animation" or as "reduce motion" is a future design decision this list does not settle. A gradient track is a gradient use outside the data-bar exception in the Admin screen-type design and would need its own accepted exception. The operating-system `prefers-reduced-motion` signal stays respected independently, and persistence and precedence between the two stay future work. This direction is not part of the Admin screen-type acceptance and is not a runtime change.
