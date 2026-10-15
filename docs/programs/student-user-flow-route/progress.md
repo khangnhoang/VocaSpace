@@ -9,9 +9,9 @@ This file was migrated to the repository template and translated to English on 2
 | Field | Value |
 | --- | --- |
 | Spec revision | [implementation-plans/lf8/plan.md](./implementation-plans/lf8/plan.md) r5, approved by the Owner's workflow instruction of 2026-10-16 (implement once the plan review passes) (Decision 32, Owner decisions of 2026-10-16) |
-| Current unit / checkpoint | LF8 CP1 (not started). |
-| Status | LF8 plan r5 on branch `perf/instant-card-rating` from `main` `090ddda`; plan reviews r1 to r4 REVISE, r5 PASS (2026-10-16). |
-| Completed evidence | None for LF8. LF7 and earlier units: see Milestones. |
+| Current unit / checkpoint | LF8 CP1 done; next CP2 (workspace). |
+| Status | LF8 implementation in progress (CP1 committed locally). LF8 plan r5 on branch `perf/instant-card-rating` from `main` `090ddda`; plan reviews r1 to r4 REVISE, r5 PASS (2026-10-16). |
+| Completed evidence | LF8 CP1: `npx vitest run __tests__/utils/use-card-review-queue.test.tsx` 15 tests passing; `npx tsc --noEmit --incremental false`, `npm run lint` and `npm run docs:check` pass (see Milestones). LF7 and earlier units: see Milestones. |
 | Accepted deviations | None for LF8. |
 | Blockers / Owner decisions | None. |
 | Next action | Implement CP1 to CP4, then an independent implementation review looped until PASS; then push the branch. |
@@ -133,3 +133,4 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-13 LF7 review round 1 (evidence only): the rename AC4 case now names both calls and a documented `LF7_LOCK_ORDER_BASELINE=1` switch reproduces the direct-update baseline (down script applied, `rename_chapter` absent: 5 of 5 fail with `55P03`); the migration was re-applied and the AC4 and AC5 suites pass again (7 files, 93 tests); refused rename cases now assert the exact stored title (`379d903`).
 - 2026-10-13 LF7 review round 2 (Codex PASS): the global admin rename case also asserts the exact stored title of the direct-update chapter (`6987ac0`).
 - 2026-10-13 LF7 merged after CI was green; migration `20261013090000` pushed to hosted and verified before the merge, then applied to root (PR 151, `b6720ec`).
+- 2026-10-16 LF8 CP1: `hooks/use-card-review-queue.ts` is the shared save queue (one module-level promise chain, FIFO, one retry after 1 s, success and final-failure callbacks gated by a mounted flag, `whenDrained`, `beforeunload` tied to the pending count, test-only reset) with 15 unit tests; no UI uses it yet (this commit).
