@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
-import { adminUserSchema, AdminUserInput } from "@/lib/schemas/auth";
+import { adminUserSchema, adminUserIdSchema, adminUserUpdateSchema, AdminUserInput, AdminUserUpdateInput } from "@/lib/schemas/auth";
 
 // Khởi tạo Supabase Admin Client (Có quyền sinh sát tối cao, vượt qua mọi RLS)
 const getAdminClient = () => {
@@ -112,23 +112,33 @@ export async function createUserByAdmin(data: AdminUserInput) {
 }
 
 // 3. Sửa thông tin User
-export async function updateUserByAdmin(id: string, data: AdminUserInput) {
+export async function updateUserByAdmin(id: string, data: AdminUserUpdateInput | AdminUserInput) {
   const authorization = await requireAdmin();
   if (!authorization.authorized) return { error: authorization.error };
 
-  const adminClient = getAdminClient();
-  const validated = adminUserSchema.safeParse(data);
-  if (!validated.success) return { error: "Dữ liệu không hợp lệ!" };
+  const target = adminUserIdSchema.safeParse(id);
+  const validated = adminUserUpdateSchema.safeParse(data);
+  if (!target.success || !validated.success) return { error: "Dữ liệu không hợp lệ!" };
 
   const { full_name, phone, username, role } = validated.data;
+  if (authorization.userId === target.data && role !== "admin") {
+    return { error: "Không thể tự thay đổi vai trò của tài khoản đang đăng nhập." };
+  }
 
-  // Update bảng profiles
-  const { error } = await adminClient
+  const adminClient = getAdminClient();
+  const { data: updated, error } = await adminClient
     .from("profiles")
     .update({ full_name, phone, username, role, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", target.data)
+    .is("removed_at", null)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("updateUserByAdmin failed:", error.code);
+    return { error: "Không thể cập nhật tài khoản, vui lòng thử lại." };
+  }
+  if (!updated) return { error: "Không tìm thấy tài khoản đang hoạt động." };
   return { success: true, message: "Cập nhật thành công!" };
 }
 

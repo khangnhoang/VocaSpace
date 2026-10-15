@@ -69,6 +69,10 @@ export const adminUserSchema = z.object({
 
 export type AdminUserInput = z.infer<typeof adminUserSchema>;
 
+export const adminUserIdSchema = z.string().uuid("ID tài khoản không hợp lệ.").toLowerCase();
+export const adminUserUpdateSchema = adminUserSchema.omit({ email: true });
+export type AdminUserUpdateInput = z.infer<typeof adminUserUpdateSchema>;
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type SetPasswordInput = z.infer<typeof setPasswordSchema>;

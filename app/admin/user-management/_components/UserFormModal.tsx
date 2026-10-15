@@ -11,12 +11,13 @@ interface UserFormModalProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   editingUserId: string | null;
+  isSelfEdit: boolean;
   form: UseFormReturn<AdminUserInput>;
   onSubmitForm: (data: AdminUserInput) => void;
   isSubmitting: boolean;
 }
 
-export default function UserFormModal({ isOpen, setIsOpen, editingUserId, form, onSubmitForm, isSubmitting }: UserFormModalProps) {
+export default function UserFormModal({ isOpen, setIsOpen, editingUserId, isSelfEdit, form, onSubmitForm, isSubmitting }: UserFormModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -64,8 +65,8 @@ export default function UserFormModal({ isOpen, setIsOpen, editingUserId, form, 
             <div className="space-y-2 col-span-1 md:col-span-2">
               <label className="text-sm font-medium text-slate-300">Vai trò (Role)</label>
               <Controller control={form.control} name="role" render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-full bg-[#1E293B]/50 border-slate-700 text-white transition-all duration-300 ease-out focus:ring-cyan-500">
+                <Select value={field.value} onValueChange={field.onChange} disabled={isSelfEdit || isSubmitting}>
+                  <SelectTrigger aria-label="Vai trò" aria-describedby={isSelfEdit ? "self-role-explanation" : undefined} className="w-full bg-[#1E293B]/50 border-slate-700 text-white transition-all duration-300 ease-out focus:ring-cyan-500">
                     <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-slate-400" /><SelectValue placeholder="Chọn vai trò" /></div>
                   </SelectTrigger>
                   <SelectContent position="popper" className="dark bg-[#1E293B] border-slate-700 text-white">
@@ -75,6 +76,7 @@ export default function UserFormModal({ isOpen, setIsOpen, editingUserId, form, 
                   </SelectContent>
                 </Select>
               )} />
+              {isSelfEdit && <p id="self-role-explanation" className="text-sm text-slate-300">Bạn không thể tự thay đổi vai trò của tài khoản đang đăng nhập.</p>}
             </div>
           </div>
           <div className="flex items-center justify-end gap-3 mt-4 pt-6 border-t border-slate-800/80">

@@ -19,7 +19,7 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 
 const ITEMS_PER_PAGE = 6;
 
-export default function UsermanagementPage() {
+export default function UsermanagementPage({ currentAdminId }: { currentAdminId: string }) {
   const [usersList, setUsersList] = useState<AppUser[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,6 +88,7 @@ export default function UsermanagementPage() {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearchQuery(e.target.value); setCurrentPage(1); };
 
   const onSubmitForm = async (data: AdminUserInput) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     const res = editingUserId ? await updateUserByAdmin(editingUserId, data) : await createUserByAdmin(data);
     if (res.error) {
@@ -150,6 +151,7 @@ export default function UsermanagementPage() {
 
       <UserFormModal
         isOpen={isFormOpen} setIsOpen={setIsFormOpen} editingUserId={editingUserId}
+        isSelfEdit={editingUserId === currentAdminId}
         form={form} onSubmitForm={onSubmitForm} isSubmitting={isSubmitting}
       />
 
