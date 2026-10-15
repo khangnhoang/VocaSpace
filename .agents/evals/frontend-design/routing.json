@@ -46,15 +46,16 @@
         "criteria": [
           {
             "criterion_id": "admin-route-and-latitude",
-            "description": "The response classifies Admin or Business Operations and prioritizes stable, dense, predictable UI.",
+            "description": "The response classifies Admin or Business Operations, applies medium latitude (polish through typography, spacing rhythm, data hierarchy and smooth interaction) while keeping the UI stable, dense, predictable and safe, and routes to the accepted Admin screen-type design.",
             "material": true
           }
         ],
         "expected_behavior": [
-          "A migrated candidate selects references/admin-business-operations.md and skips the other four design references; the unsplit baseline has no future-reference obligation."
+          "A migrated candidate selects references/admin-business-operations.md and skips the other four design references; the unsplit baseline has no future-reference obligation.",
+          "Names the accepted Admin screen-type design under docs/ui-design-system-and-review/ as the source to read and treats the latitude as medium, not low and not marketing-level."
         ],
         "forbidden_behavior": [
-          "Classify the task as marketing or hide routine operational actions behind decorative effects."
+          "Classify the task as marketing, apply landing-page effects, or hide routine operational actions behind decorative effects."
         ],
         "safety_vetoes": [
           {
