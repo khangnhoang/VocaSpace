@@ -6,12 +6,13 @@ This index routes only to Owner-accepted design artifacts. Plans, progress recor
 
 ## Accepted product language
 
-- [VocaSpace Product Language](./product-language.md) — `Accepted` 2026-09-27; current content at `a14939f` (Button radius correction, 2026-09-30). Shared product identity and semantic intent for Learning Experience and Teacher Authoring.
+- [VocaSpace Product Language](./product-language.md) — `Accepted` 2026-09-27; current content in this PR (Admin dark-values ownership, 2026-10-15). Shared product identity and semantic intent for Learning Experience and Teacher Authoring.
 
 ## Accepted screen-type designs
 
 - [Learning Experience](./screen-types/learning-experience.md) — `Accepted` 2026-09-27 at `70813c9`. Learner hierarchy, feedback, progress, recall, completion, responsive behavior, and accessibility.
 - [Teacher Authoring](./screen-types/teacher-authoring.md) — `Accepted` 2026-09-28 at `5c79043`. Teacher portfolio, insight/action hierarchy, scalable Structure, focused topic authoring, recovery, responsive behavior, and accessibility.
+- [Admin Business Operations](./screen-types/admin-business-operations.md) — `Accepted` 2026-10-15; accepted content in this PR. Admin dark palette and hierarchy, tables and row actions, as-you-type search, confirmations, dashboard charts, tab-style selectors, responsive behavior, motion, and accessibility.
 
 ## Accepted shared-component contracts
 

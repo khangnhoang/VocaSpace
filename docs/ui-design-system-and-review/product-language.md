@@ -46,7 +46,7 @@ Ownership remains separated:
 | Owner | Owns | Does not own |
 | --- | --- | --- |
 | Product Language | Shared identity, semantic color, type roles, surface relationships, geometry intent, elevation, focus/state grammar, and motion intent | A page layout, route flow, exact component dimensions, or feature behavior |
-| Screen-type design | LE or TA hierarchy, density, interaction emphasis, feedback, and justified type-specific semantic roles | A second palette, font stack, radius family, or shadow system |
+| Screen-type design | LE or TA hierarchy, density, interaction emphasis, feedback, and justified type-specific semantic roles | A second palette, font stack, radius family, or shadow system, except that the Admin screen-type design owns the dark values of Product Language roles for Admin screens |
 | Shared-component contract (UI-3) | Exact variants, dimensions, interaction behavior, and usage constraints for shared primitives | Product or screen-type identity beyond the accepted intent it implements |
 | Surface specification (UI-4 or later) | Route-specific composition, content, states, and component selection | Changes to inherited product/type decisions without a new Owner decision |
 
@@ -78,7 +78,7 @@ A screen type may request an exception only when the product rule cannot safely 
 | Secondary text | `#475569` | Supporting text that must remain readable |
 | Inactive text | `#64748B` | Nonessential metadata; never the only signal for disabled state |
 
-The exact values in this accepted Product Language describe the current light reference. They do not impose a single-theme architecture: future implementations must keep semantic roles theme-addressable rather than embedding light values as feature-owned assumptions. This leaves room for separately accepted LE and TA dark counterparts without pretending those dark values are specified here. The intended dark-only Admin direction is also future scope, not approval of current `.dark` variables or a product-wide dark theme. See [Future product directions](./future-features.md).
+The exact values in this accepted Product Language describe the current light reference. They do not impose a single-theme architecture: future implementations must keep semantic roles theme-addressable rather than embedding light values as feature-owned assumptions. This leaves room for separately accepted LE and TA dark counterparts without pretending those dark values are specified here. Admin is dark-only: the [Admin screen-type design](./screen-types/admin-business-operations.md) owns the dark values of these roles for Admin screens only. That design is not approval of current `.dark` variables, of a product-wide dark theme, or of dark values for Learning Experience or Teacher Authoring. See [Future product directions](./future-features.md).
 
 ### 3.3 State pairs and contrast rules
 
