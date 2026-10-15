@@ -1,21 +1,41 @@
 /* Hiệu ứng lộ dần của dashboard /admin (Admin design mục 17): chỉ cắt vùng vẽ bằng clip-path, không đổi bố cục.
    Thời lượng và độ trễ của từng thanh nằm ở biến --reveal-duration / --reveal-delay do component đặt.
-   prefers-reduced-motion: tắt hẳn animation nên mọi thanh, đường và điểm hiện đầy đủ ngay. */
+   Vùng chứa (RevealScope) đặt data-reveal: waiting = cắt cho tới khi biểu đồ vào khung nhìn, playing = chạy một lần.
+   Không có data-reveal (chưa hydrate, không có IntersectionObserver) thì mọi thứ hiện đầy đủ, không animation.
+   prefers-reduced-motion: tắt hẳn cắt và animation nên mọi thanh, đường và điểm hiện đầy đủ ngay. */
 
-.revealUp {
-  animation: revealUp var(--reveal-duration, 900ms) cubic-bezier(0.2, 0, 0, 1) var(--reveal-delay, 0ms) both;
-}
+@media (prefers-reduced-motion: no-preference) {
+  [data-reveal="waiting"] .revealUp {
+    clip-path: inset(100% 0 0 0);
+  }
 
-.revealRight {
-  animation: revealRight var(--reveal-duration, 900ms) cubic-bezier(0.2, 0, 0, 1) var(--reveal-delay, 0ms) both;
-}
+  [data-reveal="waiting"] .revealRight {
+    clip-path: inset(0 100% 0 0);
+  }
 
-.trendReveal {
-  animation: revealTrend 900ms cubic-bezier(0.2, 0, 0, 1) both;
-}
+  [data-reveal="waiting"] .trendReveal {
+    clip-path: inset(-8px 100% -8px 0);
+  }
 
-.markerFade {
-  animation: fadeIn 120ms cubic-bezier(0.2, 0, 0, 1) var(--reveal-delay, 0ms) both;
+  [data-reveal="waiting"] .markerFade {
+    opacity: 0;
+  }
+
+  [data-reveal="playing"] .revealUp {
+    animation: revealUp var(--reveal-duration, 900ms) cubic-bezier(0.2, 0, 0, 1) var(--reveal-delay, 0ms) both;
+  }
+
+  [data-reveal="playing"] .revealRight {
+    animation: revealRight var(--reveal-duration, 900ms) cubic-bezier(0.2, 0, 0, 1) var(--reveal-delay, 0ms) both;
+  }
+
+  [data-reveal="playing"] .trendReveal {
+    animation: revealTrend 900ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+
+  [data-reveal="playing"] .markerFade {
+    animation: fadeIn 120ms cubic-bezier(0.2, 0, 0, 1) var(--reveal-delay, 0ms) both;
+  }
 }
 
 @keyframes revealUp {
@@ -61,5 +81,7 @@
   .trendReveal,
   .markerFade {
     animation: none;
+    clip-path: none;
+    opacity: 1;
   }
 }

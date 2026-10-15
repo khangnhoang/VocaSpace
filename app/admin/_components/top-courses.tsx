@@ -1,6 +1,7 @@
 import { formatCount, formatVnd } from "@/lib/admin/dashboard-format";
 import type { AdminDashboardDTO } from "@/lib/schemas/admin-dashboard";
 import { HorizontalDataBar } from "./data-bar";
+import { RevealScope } from "./reveal-scope";
 
 // Tối đa năm khóa học, xếp theo số ghi danh (gồm cả học viên đã bị gỡ); doanh thu là tổng thanh toán thành công của chính khóa đó (AC7).
 export function TopCourses({ courses }: { courses: AdminDashboardDTO["topCourses"] }) {
@@ -22,6 +23,7 @@ export function TopCourses({ courses }: { courses: AdminDashboardDTO["topCourses
       {courses.length === 0 ? (
         <p className="text-sm text-slate-300">Chưa có khóa học nào.</p>
       ) : (
+        <RevealScope>
         <ol className="flex flex-col gap-4">
           {courses.map((course, index) => (
             <li key={course.id} className="flex flex-col gap-2">
@@ -47,6 +49,7 @@ export function TopCourses({ courses }: { courses: AdminDashboardDTO["topCourses
             </li>
           ))}
         </ol>
+        </RevealScope>
       )}
     </section>
   );

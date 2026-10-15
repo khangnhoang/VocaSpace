@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/dashboard-format";
 import type { AdminDashboardDTO } from "@/lib/schemas/admin-dashboard";
 import { revealStyle } from "./reveal";
+import { RevealScope } from "./reveal-scope";
 import styles from "./dashboard-motion.module.css";
 
 type RevenueMonth = AdminDashboardDTO["revenueMonths"][number];
@@ -112,9 +113,10 @@ export function RevenueCard({ months }: { months: RevenueMonth[] }) {
         id={panelId("columns")}
         aria-labelledby={tabId("columns")}
         hidden={selected !== "columns"}
+        tabIndex={0}
         className={BODY_HEIGHT_CLASS}
       >
-        <ColumnsView months={months} max={max} />
+        <ColumnsView months={months} max={max} active={selected === "columns"} />
       </div>
       <div
         role="tabpanel"
@@ -123,13 +125,14 @@ export function RevenueCard({ months }: { months: RevenueMonth[] }) {
         hidden={selected !== "trend"}
         className={BODY_HEIGHT_CLASS}
       >
-        <TrendView months={months} max={max} />
+        <TrendView months={months} max={max} viewSelected={selected === "trend"} />
       </div>
       <div
         role="tabpanel"
         id={panelId("table")}
         aria-labelledby={tabId("table")}
         hidden={selected !== "table"}
+        tabIndex={0}
         className={BODY_HEIGHT_CLASS}
       >
         <TableView months={months} />
@@ -167,10 +170,10 @@ function columnsAlternative(months: RevenueMonth[]) {
     .join("; ")}.`;
 }
 
-function ColumnsView({ months, max }: { months: RevenueMonth[]; max: number }) {
+function ColumnsView({ months, max, active }: { months: RevenueMonth[]; max: number; active: boolean }) {
   return (
     // role="img" kèm văn bản thay thế đủ sáu giá trị; phần vẽ bên trong chỉ để nhìn.
-    <div role="img" aria-label={columnsAlternative(months)} className="relative h-full">
+    <RevealScope active={active} role="img" aria-label={columnsAlternative(months)} className="relative h-full">
       <PlotGrid />
       <div className={`${PLOT_CLASS} grid grid-cols-6`}>
         {months.map((month, index) => {
@@ -196,11 +199,11 @@ function ColumnsView({ months, max }: { months: RevenueMonth[]; max: number }) {
         })}
       </div>
       <MonthLabels months={months} />
-    </div>
+    </RevealScope>
   );
 }
 
-function TrendView({ months, max }: { months: RevenueMonth[]; max: number }) {
+function TrendView({ months, max, viewSelected }: { months: RevenueMonth[]; max: number; viewSelected: boolean }) {
   const fadeId = `${useId().replace(/[^a-zA-Z0-9_-]/g, "")}-fade`;
   const [active, setActive] = useState<number | null>(null);
   const focusedRef = useRef(false);
@@ -229,7 +232,7 @@ function TrendView({ months, max }: { months: RevenueMonth[]; max: number }) {
   };
 
   return (
-    <div className="relative h-full">
+    <RevealScope active={viewSelected} className="relative h-full">
       {/* Cả đồ thị là một nhóm focus được: mũi tên trái/phải đổi điểm, vùng thông báo đọc đúng chữ của tooltip. */}
       <div
         role="group"
@@ -320,7 +323,7 @@ function TrendView({ months, max }: { months: RevenueMonth[]; max: number }) {
       <p role="status" aria-live="polite" className="sr-only">
         {activeText}
       </p>
-    </div>
+    </RevealScope>
   );
 }
 

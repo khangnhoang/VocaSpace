@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { readFileSync } from "node:fs";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminDashboard } from "@/app/admin/_components/admin-dashboard";
 import type { AdminDashboardDTO } from "@/lib/schemas/admin-dashboard";
@@ -26,6 +26,7 @@ vi.mock("next/navigation", () => ({
 //   - top khóa học giữ thứ tự, số ghi danh, doanh thu; ghi danh mới có tên, email, khóa học, thời gian tương đối và không có giá.
 // - Case thất bại: học viên không còn hồ sơ hiện nhãn có sẵn và không có email; lỗi action hiện trạng thái lỗi an toàn, không con số nào, có "Thử lại" gọi làm mới.
 // - Bảo mật/phân quyền: không áp dụng ở lớp này; cổng admin và RPC được kiểm ở action và integration test.
+// - Hiệu ứng lộ dần: chỉ chạy một lần khi biểu đồ vào khung nhìn (IntersectionObserver giả), chọn lại cách xem thì lộ lại một lần, không có observer thì hiện ngay.
 // - Ổn định/resilience: danh sách rỗng, mọi tháng bằng 0, pending không có mốc gửi duyệt; tên dài; thanh khác 0 giữ độ dài tối thiểu.
 // - Invariant cần giữ: không giá trị, chuỗi xu hướng, ô chọn "Theo tuần" hay con số mặc định nào không có nguồn thật.
 // - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/components/admin-dashboard.test.tsx`.
@@ -34,7 +35,39 @@ vi.mock("next/navigation", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
+
+// IntersectionObserver giả: ghi lại từng observer để test tự quyết định lúc nào biểu đồ "vào khung nhìn".
+class FakeIntersectionObserver {
+  static instances: FakeIntersectionObserver[] = [];
+  elements: Element[] = [];
+  disconnected = false;
+  constructor(private callback: (entries: { isIntersecting: boolean; target: Element }[]) => void) {
+    FakeIntersectionObserver.instances.push(this);
+  }
+  observe(element: Element) {
+    this.elements.push(element);
+  }
+  disconnect() {
+    this.disconnected = true;
+  }
+  unobserve() {}
+  takeRecords() {
+    return [];
+  }
+  enter() {
+    act(() => this.callback(this.elements.map((target) => ({ isIntersecting: true, target }))));
+  }
+}
+
+function stubObserver() {
+  FakeIntersectionObserver.instances = [];
+  vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
+}
+
+const liveObservers = () => FakeIntersectionObserver.instances.filter((observer) => !observer.disconnected);
+const scopeOf = (testId: string) => screen.getAllByTestId(testId)[0].closest("[data-reveal]") as HTMLElement | null;
 
 const COURSE_A = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
 const COURSE_B = "8a1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6e";
@@ -308,6 +341,74 @@ describe("revenue card view switch", () => {
     const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
 
     expect(reduced).toMatch(/\.revealUp[\s\S]*\.revealRight[\s\S]*\.trendReveal[\s\S]*\.markerFade[\s\S]*animation:\s*none/);
+  });
+});
+
+describe("reveal on first view", () => {
+  it("draws share bars at once without an observer (no IntersectionObserver available)", () => {
+    renderDashboard();
+
+    expect(document.querySelector("[data-reveal]")).toBeNull();
+    expect(screen.getAllByTestId("data-bar").length).toBeGreaterThan(0);
+  });
+
+  it("holds the share bars until their chart enters view, then plays once and never again", () => {
+    stubObserver();
+    renderDashboard();
+    const composition = scopeOf("data-bar")!;
+    expect(composition.getAttribute("data-reveal")).toBe("waiting");
+
+    const observer = liveObservers().find((item) => item.elements.includes(composition))!;
+    observer.enter();
+    expect(composition.getAttribute("data-reveal")).toBe("playing");
+    expect(observer.disconnected).toBe(true);
+
+    // Sau khi đã chạy không còn observer nào theo dõi biểu đồ này, nên không thể lộ lại.
+    expect(liveObservers().some((item) => item.elements.includes(composition))).toBe(false);
+  });
+
+  it("reveals each chart on its own, keeping values and labels in the document throughout", () => {
+    stubObserver();
+    renderDashboard();
+
+    const scopes = [...document.querySelectorAll("[data-reveal]")];
+    expect(scopes.every((scope) => scope.getAttribute("data-reveal") === "waiting")).toBe(true);
+    expect(screen.getByRole("region", { name: "Cơ cấu người dùng" }).textContent).toContain("Học viên");
+    expect(screen.getByRole("region", { name: "Khóa học nhiều học viên nhất" }).textContent).toContain("TOEIC 750+ Cấp tốc");
+
+    const top = scopeOf("data-bar")!;
+    liveObservers().find((item) => item.elements.includes(top))!.enter();
+    expect(scopes.filter((scope) => scope.getAttribute("data-reveal") === "playing")).toHaveLength(1);
+  });
+
+  it("replays the chosen revenue view once each time it is selected", () => {
+    stubObserver();
+    renderDashboard();
+    const trend = screen.getByRole("group", { name: "Doanh thu theo tháng, dạng xu hướng" }).closest("[data-reveal]") as HTMLElement;
+    liveObservers().find((item) => item.elements.includes(trend))!.enter();
+    expect(trend.getAttribute("data-reveal")).toBe("playing");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cột" }));
+    expect(trend.getAttribute("data-reveal")).toBe("waiting");
+    const columns = screen.getByRole("img", { name: /dạng cột/ }) as HTMLElement;
+    expect(columns.getAttribute("data-reveal")).toBe("waiting");
+    liveObservers().find((item) => item.elements.includes(columns))!.enter();
+    expect(columns.getAttribute("data-reveal")).toBe("playing");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Xu hướng" }));
+    expect(columns.getAttribute("data-reveal")).toBe("waiting");
+    expect(trend.getAttribute("data-reveal")).toBe("waiting");
+    liveObservers().find((item) => item.elements.includes(trend))!.enter();
+    expect(trend.getAttribute("data-reveal")).toBe("playing");
+  });
+
+  it("makes the Cột and Bảng panels focusable so keyboard users can reach their content", () => {
+    renderDashboard();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Cột" }));
+    expect(screen.getByRole("tabpanel", { name: "Cột" }).getAttribute("tabindex")).toBe("0");
+    fireEvent.click(screen.getByRole("tab", { name: "Bảng" }));
+    expect(screen.getByRole("tabpanel", { name: "Bảng" }).getAttribute("tabindex")).toBe("0");
   });
 });
 

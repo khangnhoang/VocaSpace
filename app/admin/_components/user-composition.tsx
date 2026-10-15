@@ -1,6 +1,7 @@
 import { formatCount, formatPercent } from "@/lib/admin/dashboard-format";
 import type { AdminDashboardDTO } from "@/lib/schemas/admin-dashboard";
 import { HorizontalDataBar } from "./data-bar";
+import { RevealScope } from "./reveal-scope";
 
 const ROLES = [
   { key: "students", label: "Học viên" },
@@ -26,6 +27,7 @@ export function UserComposition({ distribution }: { distribution: AdminDashboard
           Tài khoản đang hoạt động theo vai trò: {formatCount(total)} tài khoản.
         </p>
       </div>
+      <RevealScope>
       <ul className="flex flex-col gap-4">
         {ROLES.map((role, index) => {
           const count = distribution[role.key];
@@ -43,6 +45,7 @@ export function UserComposition({ distribution }: { distribution: AdminDashboard
           );
         })}
       </ul>
+      </RevealScope>
     </section>
   );
 }
