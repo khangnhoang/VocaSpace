@@ -7,12 +7,12 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 | Field | Value |
 | --- | --- |
 | Spec revision | [AD4 plan](./implementation-plans/ad4/plan.md) r2, Owner-approved 2026-10-15 |
-| Current unit / checkpoint | AD4 CP1 (summary RPC and integration suite) |
-| Status | AD4 plan approved; implementation handed to one Sonnet implementor session. AD7 merged (PR 158); ADMIN-004 stays open for the Owner's production acceptance. |
-| Completed evidence | AD4 plan review: round 1 FAIL (paid-row `updated_at` moves when a learner is deleted; Owner chose `created_at`), round 2 PASS with three nits applied. Discovery on the isolated runtime rebuilt from `44335ad`: AD2, AD3, AD7 integration 3 files / 110 tests passed. `npm run docs:check`: 0 structure violations, 1 baseline broken link, 0 new. |
+| Current unit / checkpoint | AD4 CP2 (dashboard Server Action and Zod contract) |
+| Status | AD4 CP1 done (summary RPC and integration suite, local commit); CP2 to CP4 in progress with the Sonnet implementor session. AD7 merged (PR 158); ADMIN-004 stays open for the Owner's production acceptance. |
+| Completed evidence | AD4 plan review: round 1 FAIL (paid-row `updated_at` moves when a learner is deleted; Owner chose `created_at`), round 2 PASS with three nits applied. Discovery on the isolated runtime rebuilt from `44335ad`: AD2, AD3, AD7 integration 3 files / 110 tests passed. `npm run docs:check`: 0 structure violations, 1 baseline broken link, 0 new. AD4 CP1 on the isolated runtime rebuilt with the new migration: `ad4-admin-dashboard-summary` 16 tests passed; with the A5 admin-reads, AD2, AD3 and AD7 suites 5 files / 138 tests passed; mutation checks (UTC buckets, no currency filter, `updated_at` buckets) each made the new suite fail. |
 | Accepted deviations | Cloud session without Codex CLI or the user-level `sonnet-high-implementor` agent: at the Owner's direction (2026-10-15) the plan review ran as a Claude subagent, and implementation runs as one `general-purpose` subagent on Sonnet at high effort. |
 | Blockers / Owner decisions | None open. |
-| Next action | Implementor completes CP1 to CP4 with local commits; Main then runs the independent implementation review. |
+| Next action | Implementor completes CP2 to CP4 with local commits; Main then runs the independent implementation review. |
 | Current authority | Owner, 2026-10-15: implement AD4 r2 with local commits on `feat/admin-dashboard-real-data`. No push, PR, merge, hosted or root migration. Main does not edit product code or tests while the implementor owns the plan. |
 
 ## Milestones
@@ -49,4 +49,5 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Future featu
 - 2026-10-15 AD7 CP1–CP3 implemented and reviewed: round 0 required the isolated CI-routing correction; same-Reviewer round 1 passed with no remaining findings. Active-admin SQL/Storage boundaries, canonical-UUID self-role guard, self-edit UI and tests committed locally; root/hosted rollout and remote delivery remain separate (`648c6a8`).
 - 2026-10-15 AD7 CI run `38694847592` passed all jobs, including full unit/build, both integration jobs, Vercel Preview and production-gate, on `f1805b6`. Hosted preflight matched all four function bodies to the source baseline; dry-run listed only AD7. Migration `20261015090000` then applied once; read-only postflight matched all four new bodies exactly, preserved signatures/owners/grants/config and unchanged dependent policies, retained thumbnail owner access, and returned false from is_admin with no actor. Security advisors retain the existing callable-definer grants; no grant widening occurred (PR 158).
 - 2026-10-15 AD7 merged after the hosted migration and its read-only verification; Owner production acceptance pending under ADMIN-004 (PR 158, `fea4f47`).
-- 2026-10-15 AD4 detail plan r2 approved by the Owner after independent plan review PASS (round 2) (this commit).
+- 2026-10-15 AD4 detail plan r2 approved by the Owner after independent plan review PASS (round 2) (`7000bf4`).
+- 2026-10-15 AD4 CP1: read-only `admin_dashboard_summary()` RPC (SECURITY INVOKER, EXECUTE for authenticated only, Vietnam-month revenue buckets on `created_at`) and its integration suite (this commit).
