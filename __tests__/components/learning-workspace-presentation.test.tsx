@@ -27,7 +27,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Mặt sau thẻ: chọn bố cục căn giữa (giống thẻ ôn D6) khi vừa khung cố định, bố cục đọc cuộn khi tràn; đo lại khi đổi kích thước; mặt active và nội dung đọc được giống nhau ở cả hai.
 // - LF1 (AC3): bước "Từ vựng" theo kết quả server cả hai chiều; sau một lần Lại, lối tắt "Tới Bài tập" vẫn còn (điều hướng không đổi) và, khi rời giai đoạn mà server vẫn báo chưa xong, dòng các bước không còn ghi "đã xong".
 // - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật (bước hiện tại không phải nút, các bước còn lại là nút chỉ gọi đổi bước); danh sách chương mở theo yêu cầu.
-// - LF3 (AC6/AC8): bước đã xong vẫn ghi "đã xong" khi đang là bước hiện tại (cả ba bước); memory check khóa tới khi mọi thẻ có dòng của học viên (Lại/Khó cũng là đã xem), mở ngay khi thẻ cuối được chấm (kể cả khi mọi thẻ Lại/Khó và hàng đợi chưa rỗng) và không có ngoại lệ cho memory check đã qua (bài tập vẫn mở theo luật LF2); nhắc số thẻ còn cần Ổn/Dễ ngay khi đủ dòng cho mọi thẻ; về memory check đang khóa thì có panel khóa và lối về Từ vựng.
+// - LF3 (AC6/AC8): bước đã xong vẫn ghi "đã xong" khi đang là bước hiện tại (cả ba bước); memory check khóa tới khi mọi thẻ có dòng của học viên (Lại/Khó cũng là đã xem), mở ngay khi thẻ cuối được chấm (kể cả khi mọi thẻ Lại/Khó và hàng đợi chưa rỗng) và không có ngoại lệ cho memory check đã qua (bài tập vẫn mở theo luật LF2); không còn dòng nhắc số thẻ cần Ổn/Dễ ở bất kỳ bước nào (bước Từ vựng vẫn chưa xong, cổng không đổi); về memory check đang khóa thì có panel khóa và lối về Từ vựng.
 // - LF4 (AC3/AC4/AC5/AC6): vào trang chỉ xếp thẻ chưa xem (bộ đếm theo lượt) và báo số thẻ chưa học đúng một lần (không báo khi mọi thẻ đều chưa xem, không báo hai lần dưới StrictMode); đã xem hết thì có màn hình kết thúc; lời mời "Ôn ngay N thẻ" chỉ hiện khi có thẻ đến hạn thuộc bài (id lạ bị bỏ qua), Ổn/Dễ trong phiên đưa thẻ ra và Lại/Khó đưa vào; "Ôn lại từ vựng" dựng lại toàn bộ thẻ; bước hiện tại của dòng các bước không phải nút; bài không có thẻ không có toast chưa học.
 // - LF4 QA fix: màn hình kết thúc có nút "Tới Memory check" cạnh "Ôn lại từ vựng" (nút chính khi không có thẻ đến hạn, thứ tự Ôn ngay -> Ôn lại -> Tới Memory check), thanh trên không lặp nút này khi hàng đợi rỗng nhưng vẫn có khi đang học thẻ; không hiện khi memory check không phải bước kế tiếp.
 // - LF5 (AC1/AC2): vào chủ đề chưa hoàn thành ở bước đầu tiên còn phải làm (thẻ chưa xem hoặc bước Từ vựng chưa xong -> memory check chưa qua -> bài tập còn câu), kể cả khi thẻ đã xem hết mà còn thẻ chưa Ổn/Dễ (màn hình kết thúc kèm lời mời Ôn ngay); chủ đề đã hoàn thành mở màn hình hoàn thành, trừ khi có thẻ mới chưa xem (Từ vựng kèm toast chưa học).
@@ -678,6 +678,8 @@ describe("D8-LUI learning workspace presentation", () => {
       isMemoryCheckPassed: false,
       newlyCompleted: false,
     };
+    // Dòng nhắc "còn n thẻ cần chấm Ổn hoặc Dễ" đã bị bỏ theo Owner QA: bộ đếm "x / y" là chỉ báo duy nhất.
+    const UNRATED_HINT = /thẻ cần chấm Ổn hoặc Dễ/;
     const steps = () =>
       within(screen.getByRole("list", { name: "Các bước của bài học" }))
         .getAllByRole("listitem")
@@ -785,7 +787,7 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(steps()[0]).not.toMatch(/đã xong/);
     });
 
-    it("shows the unrated hint as soon as every card has a row but some still need Ổn or Dễ", () => {
+    it("never renders an unrated-cards hint when every card has a row but some still need Ổn or Dễ, while the step stays not done", () => {
       render(
         <LearningWorkspace
           data={data({
@@ -797,12 +799,11 @@ describe("D8-LUI learning workspace presentation", () => {
           })}
         />,
       );
-      // LF5: server báo bước Từ vựng xong và còn câu bài tập nên vào thẳng Bài tập. Nhắc có ở mọi bước, và bước Từ vựng không ghi "đã xong".
-      const hint = "Còn 1 thẻ cần chấm Ổn hoặc Dễ để hoàn thành bước Từ vựng.";
-      expect(screen.getByText(hint)).not.toBeNull();
+      // LF5: server báo bước Từ vựng xong và còn câu bài tập nên vào thẳng Bài tập. Bộ đếm "x / y" là chỉ báo duy nhất, không có dòng nhắc; bước Từ vựng vẫn không ghi "đã xong".
+      expect(screen.queryByText(UNRATED_HINT)).toBeNull();
       expect(steps()[0]).toBe("Từ vựng (chưa mở)");
       fireEvent.click(screen.getByRole("button", { name: "Về Từ vựng" }));
-      expect(screen.getByText(hint)).not.toBeNull();
+      expect(screen.queryByText(UNRATED_HINT)).toBeNull();
       expect(steps()[0]).toBe("Từ vựng (đang học)");
     });
 
@@ -830,10 +831,14 @@ describe("D8-LUI learning workspace presentation", () => {
         });
       }
       // Cả hai thẻ đã có dòng nhưng đều quay lại hàng đợi: hàng đợi chưa rỗng, memory check vẫn phải vào được.
-      expect(screen.getByText("Còn 2 thẻ cần chấm Ổn hoặc Dễ để hoàn thành bước Từ vựng.")).not.toBeNull();
+      // Không có dòng nhắc "còn n thẻ" ở hàng đợi học lại, và bước Từ vựng vẫn chưa xong.
+      expect(screen.queryByText(UNRATED_HINT)).toBeNull();
       expect(steps()).toEqual(["Từ vựng (đang học)", "Memory check (chưa mở)"]);
       fireEvent.click(screen.getByRole("button", { name: "Tới Memory check" }));
       expect(screen.getByText("Câu nhớ")).not.toBeNull();
+      // Cũng không hiện ở bước Memory check; bước Từ vựng vẫn không "đã xong".
+      expect(screen.queryByText(UNRATED_HINT)).toBeNull();
+      expect(steps()[0]).not.toMatch(/đã xong/);
     });
 
     it("locks the memory check on unseen cards even after it was passed, while exercises stay open", () => {

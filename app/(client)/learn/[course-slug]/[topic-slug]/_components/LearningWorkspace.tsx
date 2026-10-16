@@ -833,11 +833,6 @@ export default function LearningWorkspace({
         ? MEMORY_LOCK_REASON
         : null;
 
-  // Đã đủ dòng cho mọi thẻ (memory check mở) nhưng còn thẻ chưa Ổn/Dễ: bước Từ vựng chưa xong, nói rõ còn bao nhiêu thẻ.
-  // Hiện bất cứ lúc nào điều kiện đó đúng, kể cả khi hàng đợi thẻ còn thẻ Lại/Khó phải học lại.
-  const showUnratedHint =
-    flashcards.length > 0 && unseenCardIds.size === 0 && unratedCardIds.size > 0;
-
   const arrangement =
     currentExercise && currentGroup
       ? arrangeMaterial(currentExercise.part_type, currentGroup, currentGroup.isStandalone)
@@ -1338,12 +1333,6 @@ export default function LearningWorkspace({
               )}
           </div>
         </div>
-
-        {showUnratedHint && (
-          <p role="status" className="text-sm font-medium text-slate-700">
-            Còn {unratedCardIds.size} thẻ cần chấm Ổn hoặc Dễ để hoàn thành bước Từ vựng.
-          </p>
-        )}
 
         <main
           ref={planeRef}
