@@ -99,7 +99,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
     setSaveError(`${label} Thẻ được xếp lại để bạn chấm lại.`);
   }
 
-  const { enqueue, whenDrained, pendingCount: pendingSaves } = useCardReviewQueue({ onSaved: handleSaved, onFailed: handleSaveFailed });
+  const { enqueue, whenDrained } = useCardReviewQueue({ onSaved: handleSaved, onFailed: handleSaveFailed });
 
   // Hàng đợi rỗng sau đánh giá cuối và đã lưu hết: chạy một lần rồi tắt cờ (G3).
   function runQueueEnd(queueGeneration: number) {
@@ -227,8 +227,6 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
             <DialogDescription className={styles.support}>Nhớ lại, xem đáp án rồi tự đánh giá.</DialogDescription>
           </div>
         </div>
-        {/* Một dòng trạng thái duy nhất, chỉ có trong DOM khi còn đánh giá đang lưu; không đẩy bố cục. */}
-        {pendingSaves > 0 && <p role="status" className="pointer-events-none absolute bottom-2 right-4 z-10 text-xs font-medium text-slate-600">Đang lưu…</p>}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-10 sm:py-7">
           {batch.status === "loading" ? (
             <h3 ref={stateHeading} tabIndex={-1} className="flex min-h-48 items-center justify-center gap-3 outline-none" role="status">
@@ -280,8 +278,8 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
                   </div>
                 </div>
               ) : savingResults ? (
-                <h3 ref={stateHeading} tabIndex={-1} className="flex min-h-48 items-center justify-center gap-3 text-xl font-semibold outline-none">
-                  <Loader2 aria-hidden="true" className="size-5 animate-spin text-route motion-reduce:animate-none" />Đang lưu kết quả các thẻ…
+                <h3 ref={stateHeading} tabIndex={-1} aria-live="polite" className="flex min-h-48 items-center justify-center gap-3 text-xl font-semibold outline-none">
+                  <Loader2 aria-hidden="true" className="size-5 animate-spin text-route motion-reduce:animate-none" />Đang lưu kết quả, vui lòng đợi…
                 </h3>
               ) : (
                 <div className={`${finished ? styles.completion : ""} space-y-4 rounded-3xl px-4 py-12 text-center sm:py-16`}>

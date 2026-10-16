@@ -9,7 +9,7 @@ import { watchBrowserConsole } from "../support/console";
 // - Thành công: thử lại tải/lưu ghi đúng một lần, đóng/mở/reload giữ persistence; touch không cần hover.
 // - Thất bại: tải mất mạng giữ error/retry; lưu mất mạng hai lần (lần đầu và lần thử lại) xếp thẻ lại cuối hàng đợi kèm lời báo, due count không đổi (LF8); sau khi tải lại, thẻ đã lưu không quay lại còn thẻ bị xếp lại và chưa lưu hiện lại.
 // - Phân quyền: student canonical trên runtime E2E 45441; không mock thành công hay thay dữ liệu hosted.
-// - Invariant: thẻ chưa lưu quay lại hàng đợi (không mất), nút dùng được sau lỗi, chờ dòng "Đang lưu…" biến mất trước khi đọc DB hoặc tải lại, layout không tràn ngang.
+// - Invariant: thẻ chưa lưu quay lại hàng đợi (không mất), nút dùng được sau lỗi, chờ DB (`assertSaved`) trước khi đọc due count hoặc tải lại, không còn dòng trạng thái "Đang lưu…", layout không tràn ngang.
 // - Zoom native đã thử bằng probe riêng nhưng chưa xác minh được; Owner kiểm tra 200% sau.
 // - Verify: xem State LF8 trong progress.md (lệnh và kết quả chạy thật).
 // - Giới hạn: abort transport không chứng minh DB failure; chất lượng motion và UI/UX do Owner nghiệm thu.
@@ -50,7 +50,6 @@ test("load/save transport failures retry, and an unsaved rating puts its card ba
     await dialog.getByRole("button", { name: "Hiện đáp án" }).click();
     await dialog.getByRole("button", { name: "Dễ", exact: true }).click();
     await expect(dialog.getByText("Đã xử lý 1/2 thẻ trong lượt")).toBeVisible();
-    await expect(dialog.getByRole("status").filter({ hasText: "Đang lưu…" })).toHaveCount(0);
     await fixture.assertSaved(secondId);
     expect(await fixture.dueCount()).toBe(1);
     await page.keyboard.press("Escape");

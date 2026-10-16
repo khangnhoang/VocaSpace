@@ -11,7 +11,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // Test plan:
 // - Mục tiêu: LF8 AC1, AC2, AC5: chấm thẻ liên tiếp không chờ lưu vẫn ghi đúng đánh giá cuối của từng thẻ, đúng thứ tự, và chủ đề kết thúc theo quyết định của server.
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441), fixture ma trận học tập tạo trong beforeAll và dọn trong afterAll.
-// - Case thành công: Lại, Dễ, Ổn bấm liên tiếp không chờ lưu; sau khi dòng "Đang lưu…" biến mất, DB có đúng đánh giá cuối của từng thẻ và thẻ chưa chấm chưa có dòng.
+// - Case thành công: Lại, Dễ, Ổn bấm liên tiếp không chờ lưu; `expect.poll` trên DB thấy đúng đánh giá cuối của từng thẻ và thẻ chưa chấm chưa có dòng.
 //   Chấm tiếp hai thẻ còn lại (thẻ chấm Lại được chấm lại Ổn) thì hàng đợi kết thúc, memory check mở sau khi lưu xong, DB giữ đánh giá cuối.
 // - AC7 (trình duyệt thật): nhấp đúp chuột và chạm đúp trên nút chấm chỉ ghi đánh giá của thẻ đầu; thẻ kế tiếp vẫn ở mặt trước (chưa bị lật), không có đánh giá thứ hai.
 // - Phân quyền: kiểm tra bằng service role chỉ trên runtime E2E cô lập; học viên seed là người duy nhất được ghi danh.
@@ -59,14 +59,12 @@ async function lastRatingsByWord() {
   return result;
 }
 
-// Chấm không chờ lưu: chỉ chờ thẻ hiện ra (hiện ngay), không chờ dòng "Đang lưu…".
+// Chấm không chờ lưu: chỉ chờ thẻ hiện ra (hiện ngay); việc lưu xong được chờ bằng `expect.poll` trên DB.
 async function rateNow(page: Page, word: string, rating: string) {
   await expect(page.getByText(word, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Hiện đáp án" }).click();
   await page.getByRole("button", { name: rating, exact: true }).click();
 }
-
-const savesDrained = (page: Page) => expect(page.getByRole("status").filter({ hasText: "Đang lưu…" })).toHaveCount(0);
 
 test("rating Again, Easy and Good with no wait stores each card's last rating, then the queue ends as the server decides", async ({
   page,
@@ -81,13 +79,11 @@ test("rating Again, Easy and Good with no wait stores each card's last rating, t
   await rateNow(page, "approve", "Ổn");
   // Hàng đợi còn "available" rồi "schedule" (xếp lại sau Lại); thẻ hiện ngay, không chờ lưu.
   await expect(page.getByText("available", { exact: true })).toBeVisible();
-  await savesDrained(page);
   await expect.poll(lastRatingsByWord).toEqual({ schedule: 1, deadline: 4, approve: 3 });
 
   await rateNow(page, "available", "Dễ");
   await rateNow(page, "schedule", "Ổn");
   await expect(page.getByRole("heading", { name: FIRST_QUESTION })).toBeVisible();
-  await savesDrained(page);
   await expect.poll(lastRatingsByWord).toEqual({ schedule: 3, deadline: 4, approve: 3, available: 4 });
 });
 
@@ -115,7 +111,6 @@ async function expectOnlyFirstCardRated(page: Page) {
   await expect(page.getByText("deadline", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Lại", exact: true })).toHaveCount(0);
-  await savesDrained(page);
   await expect.poll(lastRatingsByWord).toEqual({ schedule: 1 });
 }
 

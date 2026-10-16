@@ -400,7 +400,7 @@ export default function LearningWorkspace({
   // LF8 G4: thế hệ của hàng đợi, đổi mỗi khi `startQueue` thay hàng đợi; lần lưu lỗi của thế hệ cũ không được chèn thẻ vào hàng đợi mới.
   const queueGenerationRef = useRef(0);
   // LF8 AC5: hết hàng đợi chỉ "lên cò" khi một lần chấm làm rỗng hàng đợi của thế hệ hiện tại (không lên cò lúc tải với hàng đợi rỗng, LF4).
-  // Ref để callback async đọc đúng; state để hiện trạng thái đang lưu thay cho màn hình kết thúc.
+  // Ref để callback async đọc đúng; state để hiện trạng thái đang lưu (vùng thông báo lịch sự) thay cho màn hình kết thúc; đây là chỗ duy nhất báo đang lưu (AC5b).
   const armedGenerationRef = useRef<number | null>(null);
   const [queueEndArmed, setQueueEndArmed] = useState(false);
   const setArmedGeneration = (generation: number | null) => {
@@ -580,7 +580,7 @@ export default function LearningWorkspace({
     toast.error(`${base} Thẻ được xếp lại để bạn chấm lại.`);
   };
 
-  const { enqueue: enqueueSave, whenDrained: whenSavesDrained, pendingCount: pendingSaves } =
+  const { enqueue: enqueueSave, whenDrained: whenSavesDrained } =
     useCardReviewQueue({ onSaved: handleCardSaved, onFailed: handleCardSaveFailed });
 
   // Quyết định cuối hàng đợi chạy một lần cho mỗi lần "lên cò", khi mọi lần lưu đã xong, và đọc `queueKind`,
@@ -1167,9 +1167,9 @@ export default function LearningWorkspace({
       // LF8 AC5: hàng đợi vừa rỗng do một lần chấm mà còn lần lưu đang chờ thì hiện trạng thái đang lưu thay cho màn hình kết thúc.
       if (learningQueue.length === 0 && queueEndArmed) {
         return (
-          <section className="mx-auto flex max-w-md flex-col items-center gap-3 py-8 text-center">
+          <section role="status" className="mx-auto flex max-w-md flex-col items-center gap-3 py-8 text-center">
             <Loader2 aria-hidden="true" className="size-8 text-recall motion-safe:animate-spin" />
-            <p className="text-lg font-semibold text-slate-900">Đang lưu kết quả các thẻ…</p>
+            <p className="text-lg font-semibold text-slate-900">Đang lưu kết quả, vui lòng đợi…</p>
           </section>
         );
       }
@@ -1348,7 +1348,7 @@ export default function LearningWorkspace({
         <main
           ref={planeRef}
           tabIndex={-1}
-          className="relative min-w-0 scroll-mt-4 rounded-2xl outline-none border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
+          className="min-w-0 scroll-mt-4 rounded-2xl outline-none border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8"
         >
           <div
             key={`${learningStage}:${exercisesLocked}`}
@@ -1356,16 +1356,6 @@ export default function LearningWorkspace({
           >
             {renderStage()}
           </div>
-          {/* LF8 AC5b: ngoài vùng bước (có `key`) nên không bị dựng lại khi đổi bước, và đặt tuyệt đối ở góc nên không làm dịch bố cục.
-              Phần tử `role="status"` chỉ có mặt khi còn lần lưu đang chờ. */}
-          {pendingSaves > 0 && (
-            <p
-              role="status"
-              className="pointer-events-none absolute bottom-2 right-4 text-xs font-medium text-slate-600"
-            >
-              Đang lưu…
-            </p>
-          )}
         </main>
 
         <nav

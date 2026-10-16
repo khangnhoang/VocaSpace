@@ -37,7 +37,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - LF6 (AC4, Owner QA 2026-10-13): màn hình hoàn thành không còn nút "Xem lại", dòng giải thích hay vòng nổi bật; một dòng gợi ý nhỏ nằm ngay dưới thanh tiến trình ở mọi giai đoạn (cả màn hình hoàn thành) khi thanh có hơn một bước, không có khi chủ đề chỉ có một bước hoặc không có bước nào, và nằm dưới lý do khóa (vùng polite) mà không lẫn vào đó. Con trỏ tay và nền hover của các bước được đo bằng computed style trong smoke, không bằng tên lớp.
 // - LF6 (AC10): hết hàng đợi ôn thẻ đến hạn/ôn lại từ vựng có toast riêng; chủ đề đã hoàn thành (đọc lúc hết hàng, kể cả kết quả của chính lần chấm) thì về màn hình hoàn thành đã ổn định, chưa hoàn thành thì ở lại màn hình kết thúc từ vựng và không sang memory check hay bài tập; Lại/Khó xếp lại không đổi loại hàng đợi; lần chấm hoàn thành chủ đề vẫn chạy chuỗi LF5 một lần không toast; hàng đợi lúc vào trang giữ toast và bước chuyển cũ; chấm đang lưu mà rời bước không mất kết quả và không gửi hai lần.
 // - LF6 (AC5): bốn nút tự đánh giá của FlashcardStage dùng đúng lớp Attention/Recall của định nghĩa dùng chung với ReviewSheet, cùng nhãn và thứ tự.
-// - LF8 (AC1-AC7): chấm thẻ hiện thẻ kế ngay khi `submitCardReview` còn treo; lưu từng lần một theo thứ tự (kể cả Lại trên hàng đợi một thẻ); giá trị suy ra từ server (khóa memory check, bước Từ vựng xong) chỉ đổi khi lần lưu thành công; lỗi thử lại một lần rồi đưa thẻ về cuối hàng đợi, không chèn lại thẻ đã nằm trong hàng đợi hoặc khi lần chấm sau của chính thẻ còn chờ, và hủy "lên cò" cuối hàng đợi; cuối hàng đợi chờ lưu xong (trạng thái đang lưu, rồi toast/bước chuyển một lần); hàng đợi rỗng lúc tải không chạy logic cuối hàng đợi; dòng "Đang lưu…" role=status chỉ có khi còn lần lưu chờ và hiện ở mọi bước; `beforeunload` khi còn chờ; tải lại do thẻ mới chờ lưu xong; hai lần bấm chấm cùng tick chỉ gửi một lần; nút lật bỏ qua click thuộc cử chỉ cũ hoặc lần bấm thứ hai (`detail > 1`) nhưng nhận phím và click sau pointerdown mới; unmount không làm rơi lần chấm đang chờ.
+// - LF8 (AC1-AC7): chấm thẻ hiện thẻ kế ngay khi `submitCardReview` còn treo; lưu từng lần một theo thứ tự (kể cả Lại trên hàng đợi một thẻ); giá trị suy ra từ server (khóa memory check, bước Từ vựng xong) chỉ đổi khi lần lưu thành công; lỗi thử lại một lần rồi đưa thẻ về cuối hàng đợi, không chèn lại thẻ đã nằm trong hàng đợi hoặc khi lần chấm sau của chính thẻ còn chờ, và hủy "lên cò" cuối hàng đợi; cuối hàng đợi chờ lưu xong (trạng thái đang lưu, rồi toast/bước chuyển một lần); hàng đợi rỗng lúc tải không chạy logic cuối hàng đợi; không có dòng trạng thái "Đang lưu…" khi đang chấm, chỉ trạng thái cuối hàng đợi "Đang lưu kết quả, vui lòng đợi…" trong vùng role=status (AC5b); `beforeunload` khi còn chờ; tải lại do thẻ mới chờ lưu xong; hai lần bấm chấm cùng tick chỉ gửi một lần; nút lật bỏ qua click thuộc cử chỉ cũ hoặc lần bấm thứ hai (`detail > 1`) nhưng nhận phím và click sau pointerdown mới; unmount không làm rơi lần chấm đang chờ.
 // - Kết quả verify gần nhất: xem lần chạy LF3 CP4 (2026-10-11) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`; LF5 CP4 (2026-10-12).
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
@@ -237,7 +237,7 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
       expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
       expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
-      expect(screen.queryByText("Đang lưu kết quả các thẻ…")).toBeNull();
+      expect(screen.queryByText("Đang lưu kết quả, vui lòng đợi…")).toBeNull();
       expect(mockedToast.success).not.toHaveBeenCalled();
       expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
       expect(
@@ -2078,7 +2078,7 @@ describe("D8-LUI learning workspace presentation", () => {
         save.resolve(result);
       });
     };
-    const savingLine = () => screen.queryByText("Đang lưu…");
+    const SAVING_END_COPY = "Đang lưu kết quả, vui lòng đợi…";
     const stepLabels = () =>
       within(screen.getByRole("list", { name: "Các bước của bài học" }))
         .getAllByRole("listitem")
@@ -2192,7 +2192,7 @@ describe("D8-LUI learning workspace presentation", () => {
       reveal();
       await rateNow("Ổn");
       // Both ratings are given: the queue is empty and the end is armed, so the learner sees the saving state.
-      expect(screen.getByText("Đang lưu kết quả các thẻ…")).not.toBeNull();
+      expect(screen.getByText(SAVING_END_COPY)).not.toBeNull();
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS);
@@ -2208,7 +2208,7 @@ describe("D8-LUI learning workspace presentation", () => {
       // The requeue disarmed the queue end: no completion toast and no finished screen.
       expect(mockedToast.success).not.toHaveBeenCalled();
       expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
-      expect(screen.queryByText("Đang lưu kết quả các thẻ…")).toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
     });
 
     it("does not queue a card twice when a failed Lại rating already put it back (AC4)", async () => {
@@ -2255,7 +2255,7 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(mockedToast.error).toHaveBeenCalledWith('Chưa lưu được đánh giá thẻ "reliable".');
       // Not requeued: the queue stays empty, the end ran once and the finished screen is shown.
       expect(screen.queryByText("1 / 1")).toBeNull();
-      expect(screen.queryByText("Đang lưu kết quả các thẻ…")).toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
       expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
       expect(mockedToast.success).toHaveBeenCalledTimes(1);
       expect(mockedToast.success).toHaveBeenCalledWith("Đã nạp xong từ vựng!");
@@ -2268,13 +2268,13 @@ describe("D8-LUI learning workspace presentation", () => {
       reveal();
       await rateNow("Ổn");
 
-      expect(screen.getByText("Đang lưu kết quả các thẻ…")).not.toBeNull();
+      expect(screen.getByText(SAVING_END_COPY)).not.toBeNull();
       expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
       expect(mockedToast.success).not.toHaveBeenCalled();
 
       // No topicProgress in the result: the fallback marks the stage done, as before.
       await settleSave(save, { success: true });
-      expect(screen.queryByText("Đang lưu kết quả các thẻ…")).toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
       expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
       expect(mockedToast.success).toHaveBeenCalledTimes(1);
       expect(mockedToast.success).toHaveBeenCalledWith("Đã nạp xong từ vựng!");
@@ -2285,43 +2285,36 @@ describe("D8-LUI learning workspace presentation", () => {
       render(<LearningWorkspace data={data({ flashcards: [cardA], unseenCardIds: [] })} />);
 
       expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
-      expect(screen.queryByText("Đang lưu kết quả các thẻ…")).toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
       expect(mockedReview).not.toHaveBeenCalled();
       expect(mockedToast.success).not.toHaveBeenCalled();
-      expect(savingLine()).toBeNull();
     });
 
-    it("shows the polite saving status only while a save is pending, on every stage (AC5b)", async () => {
-      const save = held();
-      mockedReview.mockReturnValueOnce(save.promise);
-      render(
-        <LearningWorkspace
-          data={data({
-            flashcards: [cardA, cardB],
-            unseenCardIds: [],
-            memoryCheck: lf8MemoryCheck,
-            isMemoryCheckPassed: true,
-            exercises: [exercise("part5", {})],
-            dueCardIds: [cardA.id],
-            progress: { isFlashcardCompleted: true, isExerciseCompleted: false, isTopicCompleted: false },
-          })}
-        />,
-      );
-      expect(savingLine()).toBeNull();
-      fireEvent.click(
-        within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name: /^Từ vựng/ }),
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 1 thẻ" }));
+    it("announces nothing while the learner keeps rating and shows the waiting copy in a polite live region only at the queue end (AC5b)", async () => {
+      const first = held();
+      const second = held();
+      mockedReview.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
       reveal();
       await rateNow("Ổn");
 
-      expect(savingLine()?.getAttribute("role")).toBe("status");
-      expect(savingLine()?.closest("main")).not.toBeNull();
-      // Still there after the learner leaves the card stage, and gone once the save is done.
-      fireEvent.click(screen.getByRole("button", { name: "Tới Bài tập" }));
-      expect(savingLine()).not.toBeNull();
-      await settleSave(save);
-      expect(savingLine()).toBeNull();
+      // A save is pending but the queue still has a card: no status line and no saving copy anywhere.
+      expect(screen.queryByText("Đang lưu…")).toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+
+      reveal();
+      await rateNow("Ổn");
+      // The last rating empties the queue while saves are pending: the only waiting UI.
+      const waiting = screen.getByText(SAVING_END_COPY);
+      expect(waiting.closest("[role=status]")).not.toBeNull();
+      expect(screen.queryByText("Đang lưu…")).toBeNull();
+
+      await settleSave(first);
+      expect(screen.queryByText(SAVING_END_COPY)).not.toBeNull();
+      await settleSave(second);
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
+      expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
     });
 
     it("warns before the page is left only while a save is pending (AC6)", async () => {

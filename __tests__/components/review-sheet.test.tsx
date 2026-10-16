@@ -13,7 +13,7 @@ import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 // - Loại: component interaction, dialog thật; chỉ mock action để kiểm tra xử lý kết quả client.
 // - Case: loading/empty/error/retry, reveal chỉ lộ mặt hiện tại, giữ mặt đáp án khi chuyển thẻ, bốn rating, next batch khi còn thẻ, hết thẻ chỉ quay lại, warning và stale load.
 // - Resilience: cùng tick chỉ nhận một lần chấm; đóng, Escape và bấm ra ngoài chờ lưu xong rồi mới đóng.
-// - LF8 (AC1-AC7): thẻ kế tiếp hiện trước khi lưu xong, một lần gọi; lưu lần lượt theo thứ tự; lỗi thử lại một lần rồi xếp thẻ lại kèm lời báo (không xếp lại khi lần chấm sau của chính thẻ còn chờ); hàng đợi rỗng chờ lưu xong rồi mới hoàn tất ("Đang lưu kết quả các thẻ…"); dòng trạng thái "Đang lưu…" chỉ có khi còn đang lưu; lỗi cuối hủy lệnh đóng đang chờ; nút chấm không bị khóa; click của cử chỉ trước hoặc lần click thứ hai của bấm đúp không lật thẻ kế tiếp; beforeunload khi còn đang lưu.
+// - LF8 (AC1-AC7): thẻ kế tiếp hiện trước khi lưu xong, một lần gọi; lưu lần lượt theo thứ tự; lỗi thử lại một lần rồi xếp thẻ lại kèm lời báo (không xếp lại khi lần chấm sau của chính thẻ còn chờ); hàng đợi rỗng chờ lưu xong rồi mới hoàn tất ("Đang lưu kết quả, vui lòng đợi…"); không có dòng trạng thái "Đang lưu…" khi đang chấm, chỉ tiêu đề cuối hàng đợi "Đang lưu kết quả, vui lòng đợi…" (vùng aria-live lịch sự, AC5b); lỗi cuối hủy lệnh đóng đang chờ; nút chấm không bị khóa; click của cử chỉ trước hoặc lần click thứ hai của bấm đúp không lật thẻ kế tiếp; beforeunload khi còn đang lưu.
 // - LF6 (AC5): bốn nút rating giữ nhãn và thứ tự, dùng đúng lớp Attention (Lại/Khó) hoặc Recall (Ổn/Dễ) từ định nghĩa dùng chung với FlashcardStage, và không bị khóa khi đang lưu (LF8).
 // - Giới hạn: không chứng minh RLS/FSRS persistence; browser local kiểm tra save/reopen/focus. Lỗi của thế hệ hàng đợi đã bị thay chỉ báo cho người học, không có test ở tầng component (không thể xảy ra khi đóng phải chờ lưu xong).
 // - Verify: xem State D6 trong progress.md.
@@ -165,7 +165,7 @@ describe("D6 review batches", () => {
     expect(screen.queryByText("secret")).toBeNull();
     expect(screen.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Hiện đáp án" })).toBeTruthy();
-    expect(screen.queryByText("Đang lưu kết quả các thẻ…")).toBeNull();
+    expect(screen.queryByText("Đang lưu kết quả, vui lòng đợi…")).toBeNull();
     expect(screen.queryByRole("heading", { name: /Chúc mừng|Đã hoàn tất/ })).toBeNull();
     expect(onComplete).not.toHaveBeenCalled();
     vi.useRealTimers();
@@ -183,7 +183,8 @@ describe("D6 review batches", () => {
     expect(screen.getByRole("button", { name: "Hiện đáp án" })).toBeTruthy();
     expect(screen.getByText("Đã xử lý 1/2 thẻ trong lượt")).toBeTruthy();
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(screen.getByText("Đang lưu…").closest("[role=status]")).toBeTruthy();
+    // Chưa phải cuối hàng đợi: lưu đang chờ nhưng không có dòng trạng thái nào (AC5b).
+    expect(screen.queryByText("Đang lưu…")).toBeNull();
     await act(async () => { pending.resolve({ success: true, progressError: "Đánh giá đã lưu, tiến độ bài học chưa đồng bộ." }); });
     // Server-derived values (warning) appear only after the save succeeded.
     expect(screen.getByText("Đánh giá đã lưu, tiến độ bài học chưa đồng bộ.")).toBeTruthy();
@@ -211,7 +212,8 @@ describe("D6 review batches", () => {
     submit.mockReturnValueOnce(pending.promise);
     const { onComplete } = await openReview();
     revealAndRate();
-    expect(screen.getByRole("heading", { name: "Đang lưu kết quả các thẻ…" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Đang lưu kết quả, vui lòng đợi…" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Đang lưu kết quả, vui lòng đợi…" }).getAttribute("aria-live")).toBe("polite");
     expect(screen.queryByRole("heading", { name: /Chúc mừng|Đã hoàn tất/ })).toBeNull();
     expect(onComplete).not.toHaveBeenCalled();
     await act(async () => { pending.resolve({ success: true }); });
@@ -223,7 +225,7 @@ describe("D6 review batches", () => {
     getDeck.mockResolvedValue(deck([], 0));
     render(<ReviewSheet isOpen onClose={vi.fn()} onReviewComplete={vi.fn()} />);
     await screen.findByRole("heading", { name: "Hiện không có thẻ đến hạn" });
-    expect(screen.queryByText("Đang lưu kết quả các thẻ…")).toBeNull();
+    expect(screen.queryByText("Đang lưu kết quả, vui lòng đợi…")).toBeNull();
     expect(screen.queryByText("Đang lưu…")).toBeNull();
   });
   it("accepts one rating per revealed card and makes close, Escape and outside click wait for the save (AC6, AC7)", async () => {
@@ -237,7 +239,7 @@ describe("D6 review batches", () => {
     const rating = screen.getByRole("button", { name: "Ổn" });
     await act(async () => { rating.click(); rating.click(); });
     expect(submit).toHaveBeenCalledOnce();
-    expect(screen.getByText("Đang lưu…")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Đang lưu kết quả, vui lòng đợi…" })).toBeTruthy();
     const back = screen.getByRole("button", { name: "Đóng giao diện ôn tập" }) as HTMLButtonElement;
     expect(back.disabled).toBe(false);
 
@@ -304,7 +306,7 @@ describe("D6 review batches", () => {
     expect(submit.mock.calls.map(([cardId, rating]) => [cardId, rating])).toEqual([[card.id, 1], [card.id, 1], [card.id, 3]]);
     expect(screen.getByRole("alert").textContent).toBe('Chưa lưu được đánh giá thẻ "reliable".');
     // Not requeued: the queue stays empty and the end is still armed, waiting for the second save.
-    expect(screen.getByText("Đang lưu kết quả các thẻ…")).toBeTruthy();
+    expect(screen.getByText("Đang lưu kết quả, vui lòng đợi…")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Hiện đáp án" })).toBeNull();
     expect(onComplete).not.toHaveBeenCalled();
     await act(async () => { second.resolve({ success: true }); });
@@ -392,7 +394,6 @@ describe("D6 review batches", () => {
     await screen.findByText("reliable");
     expect(getDeck).toHaveBeenCalledTimes(2);
     revealAndRate("Khó"); await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    await waitFor(() => expect(screen.queryByText("Đang lưu…")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Đóng giao diện ôn tập" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(onComplete).toHaveBeenCalledOnce();
@@ -437,7 +438,7 @@ describe("LF6 rating colours (AC5)", () => {
     for (const name of ["Lại", "Khó", "Ổn", "Dễ"]) {
       expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(false);
     }
-    pending.resolve({ success: true });
-    await waitFor(() => expect(screen.queryByText("Đang lưu…")).toBeNull());
+    await act(async () => { pending.resolve({ success: true }); });
+    expect(screen.queryByText("Đang lưu…")).toBeNull();
   });
 });
