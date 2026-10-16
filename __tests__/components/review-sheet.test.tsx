@@ -5,15 +5,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDeckReviewCards } from "@/app/actions/profile";
 import { submitCardReview } from "@/app/actions/review";
 import ReviewSheet from "@/app/(client)/learn/_components/ReviewSheet";
+import { CARD_REVIEW_RETRY_DELAY_MS, resetCardReviewQueueForTests } from "@/hooks/use-card-review-queue";
 import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 
 // Test plan:
-// - Mục tiêu: review từng lượt chỉ tiến sau rating đã lưu; lỗi giữ đáp án và cho retry.
+// - Mục tiêu: review tiến tới thẻ kế tiếp ngay khi chấm (LF8); việc lưu chạy nền theo thứ tự, và chỉ khi lưu thành công mới đổi giá trị do server quyết định (cảnh báo tiến độ, dueLeft, onReviewComplete).
 // - Loại: component interaction, dialog thật; chỉ mock action để kiểm tra xử lý kết quả client.
 // - Case: loading/empty/error/retry, reveal chỉ lộ mặt hiện tại, giữ mặt đáp án khi chuyển thẻ, bốn rating, next batch khi còn thẻ, hết thẻ chỉ quay lại, warning và stale load.
-// - Resilience: cùng tick chỉ lưu một lần; pending ngăn nút đóng, Escape và outside.
-// - LF6 (AC5): bốn nút rating giữ nhãn và thứ tự, dùng đúng lớp Attention (Lại/Khó) hoặc Recall (Ổn/Dễ) từ định nghĩa dùng chung với FlashcardStage, và vẫn bị khóa khi đang lưu.
-// - Giới hạn: không chứng minh RLS/FSRS persistence; browser local kiểm tra save/reopen/focus.
+// - Resilience: cùng tick chỉ nhận một lần chấm; đóng, Escape và bấm ra ngoài chờ lưu xong rồi mới đóng.
+// - LF8 (AC1-AC7): thẻ kế tiếp hiện trước khi lưu xong, một lần gọi; lưu lần lượt theo thứ tự; lỗi thử lại một lần rồi xếp thẻ lại kèm lời báo (không xếp lại khi lần chấm sau của chính thẻ còn chờ); hàng đợi rỗng chờ lưu xong rồi mới hoàn tất ("Đang lưu kết quả, vui lòng đợi…"); không có dòng trạng thái "Đang lưu…" khi đang chấm, chỉ tiêu đề cuối hàng đợi "Đang lưu kết quả, vui lòng đợi…" (vùng aria-live lịch sự, AC5b); lỗi cuối hủy lệnh đóng đang chờ; nút chấm không bị khóa; click của cử chỉ trước hoặc lần click thứ hai của bấm đúp không lật thẻ kế tiếp; beforeunload khi còn đang lưu.
+// - LF6 (AC5): bốn nút rating giữ nhãn và thứ tự, dùng đúng lớp Attention (Lại/Khó) hoặc Recall (Ổn/Dễ) từ định nghĩa dùng chung với FlashcardStage, và không bị khóa khi đang lưu (LF8).
+// - Giới hạn: không chứng minh RLS/FSRS persistence; browser local kiểm tra save/reopen/focus. Lỗi của thế hệ hàng đợi đã bị thay chỉ báo cho người học, không có test ở tầng component (không thể xảy ra khi đóng phải chờ lưu xong).
 // - Verify: xem State D6 trong progress.md.
 vi.mock("@/app/actions/profile", () => ({ getDeckReviewCards: vi.fn() }));
 vi.mock("@/app/actions/review", () => ({ submitCardReview: vi.fn() }));
@@ -46,7 +48,11 @@ beforeEach(() => {
   getDeck.mockResolvedValue(deck());
   submit.mockResolvedValue({ success: true });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  resetCardReviewQueueForTests();
+  vi.useRealTimers();
+});
 
 describe("D6 review batches", () => {
   it.each(["Lại", "Khó", "Ổn", "Dễ"])("retains the outgoing answer while %s advances to an immediately usable recall face", async (rating) => {
@@ -147,35 +153,197 @@ describe("D6 review batches", () => {
     expect(onComplete).toHaveBeenCalledOnce();
     expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." }));
   });
-  it.each(["result", "throw"])("retains the revealed answer/progress on %s save failure and allows manual retry", async (kind) => {
-    if (kind === "throw") submit.mockRejectedValueOnce(new Error("secret"));
-    else submit.mockResolvedValueOnce({ error: "Lưu thất bại" });
+  it.each(["result", "throw"])("puts the card back with a message after %s failures and lets the learner rate it again", async (kind) => {
+    if (kind === "throw") submit.mockRejectedValueOnce(new Error("secret")).mockRejectedValueOnce(new Error("secret"));
+    else submit.mockResolvedValueOnce({ error: "Lưu thất bại" }).mockResolvedValueOnce({ error: "Lưu thất bại" });
+    const { onComplete } = await openReview();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    revealAndRate();
+    await act(async () => { await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS); });
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("alert").textContent).toBe('Chưa lưu được đánh giá thẻ "reliable". Thẻ được xếp lại để bạn chấm lại.');
+    expect(screen.queryByText("secret")).toBeNull();
+    expect(screen.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hiện đáp án" })).toBeTruthy();
+    expect(screen.queryByText("Đang lưu kết quả, vui lòng đợi…")).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Chúc mừng|Đã hoàn tất/ })).toBeNull();
+    expect(onComplete).not.toHaveBeenCalled();
+    vi.useRealTimers();
+    revealAndRate();
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
+    expect(submit).toHaveBeenCalledTimes(3);
+  });
+  it("shows the next card at once, with a single call and no completion claim, while the save is pending (AC1, AC3, AC5)", async () => {
+    const pending = deferred<{ success: true; progressError?: string }>();
+    submit.mockReturnValueOnce(pending.promise);
+    getDeck.mockResolvedValue(deck([card, card2], 2));
+    const { onComplete } = await openReview();
+    revealAndRate("Ổn");
+    expect(screen.getByRole("heading", { name: "progress" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hiện đáp án" })).toBeTruthy();
+    expect(screen.getByText("Đã xử lý 1/2 thẻ trong lượt")).toBeTruthy();
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    // Chưa phải cuối hàng đợi: lưu đang chờ nhưng không có dòng trạng thái nào (AC5b).
+    expect(screen.queryByText("Đang lưu…")).toBeNull();
+    await act(async () => { pending.resolve({ success: true, progressError: "Đánh giá đã lưu, tiến độ bài học chưa đồng bộ." }); });
+    // Server-derived values (warning) appear only after the save succeeded.
+    expect(screen.getByText("Đánh giá đã lưu, tiến độ bài học chưa đồng bộ.")).toBeTruthy();
+    expect(screen.queryByText("Đang lưu…")).toBeNull();
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+  it("saves ratings one at a time in the order given, without disabling the next rating (AC2, AC7)", async () => {
+    const first = deferred<{ success: true }>();
+    const second = deferred<{ success: true }>();
+    submit.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    getDeck.mockResolvedValue(deck([card, card2], 2));
+    await openReview();
+    revealAndRate("Ổn");
+    revealAndRate("Dễ");
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit).toHaveBeenLastCalledWith(card.id, 3);
+    await act(async () => { first.resolve({ success: true }); });
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    expect(submit).toHaveBeenLastCalledWith(card2.id, 4);
+    await act(async () => { second.resolve({ success: true }); });
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
+  });
+  it("waits for the saves before completing, keeps a visible saving state and focuses the heading afterwards (AC5)", async () => {
+    const pending = deferred<{ success: true }>();
+    submit.mockReturnValueOnce(pending.promise);
     const { onComplete } = await openReview();
     revealAndRate();
-    await screen.findByRole("alert");
-    expect(screen.getByText("đáng tin cậy")).toBeTruthy();
-    expect(screen.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Đang lưu kết quả, vui lòng đợi…" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Đang lưu kết quả, vui lòng đợi…" }).getAttribute("aria-live")).toBe("polite");
+    expect(screen.queryByRole("heading", { name: /Chúc mừng|Đã hoàn tất/ })).toBeNull();
     expect(onComplete).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
-    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
-    expect(submit).toHaveBeenCalledTimes(2);
+    await act(async () => { pending.resolve({ success: true }); });
+    const heading = await screen.findByRole("heading", { name: "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." });
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(heading);
   });
-  it("keeps pending answer and rejects same-tick duplicate, close, Escape and outside", async () => {
+  it("never shows the saving state for a batch that has no cards at load (AC5)", async () => {
+    getDeck.mockResolvedValue(deck([], 0));
+    render(<ReviewSheet isOpen onClose={vi.fn()} onReviewComplete={vi.fn()} />);
+    await screen.findByRole("heading", { name: "Hiện không có thẻ đến hạn" });
+    expect(screen.queryByText("Đang lưu kết quả, vui lòng đợi…")).toBeNull();
+    expect(screen.queryByText("Đang lưu…")).toBeNull();
+  });
+  it("accepts one rating per revealed card and makes close, Escape and outside click wait for the save (AC6, AC7)", async () => {
     const pending = deferred<{ success: true }>();
-    submit.mockReturnValue(pending.promise);
+    submit.mockReturnValueOnce(pending.promise);
+    const onClose = vi.fn();
+    const onComplete = vi.fn();
+    render(<ReviewSheet isOpen onClose={onClose} onReviewComplete={onComplete} />);
+    await screen.findByText("reliable");
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    const rating = screen.getByRole("button", { name: "Ổn" });
+    await act(async () => { rating.click(); rating.click(); });
+    expect(submit).toHaveBeenCalledOnce();
+    expect(screen.getByRole("heading", { name: "Đang lưu kết quả, vui lòng đợi…" })).toBeTruthy();
+    const back = screen.getByRole("button", { name: "Đóng giao diện ôn tập" }) as HTMLButtonElement;
+    expect(back.disabled).toBe(false);
+
+    // Close, Escape and outside click wait; the back button then shows the pending state.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(back.disabled).toBe(true);
+    fireEvent.pointerDown(document.body);
+    fireEvent.click(back);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await act(async () => { pending.resolve({ success: true }); });
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(onComplete).toHaveBeenCalled();
+  });
+  it("ignores reveal and rate while a close is pending (AC6)", async () => {
+    const pending = deferred<{ success: true }>();
+    submit.mockReturnValueOnce(pending.promise);
+    getDeck.mockResolvedValue(deck([card, card2], 2));
+    const onClose = vi.fn();
+    render(<ReviewSheet isOpen onClose={onClose} onReviewComplete={vi.fn()} />);
+    await screen.findByText("reliable");
+    revealAndRate("Ổn");
+    fireEvent.click(screen.getByRole("button", { name: "Đóng giao diện ôn tập" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    expect(screen.queryByRole("button", { name: "Ổn" })).toBeNull();
+    await act(async () => { pending.resolve({ success: true }); });
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(submit).toHaveBeenCalledOnce();
+  });
+  it("cancels a pending close when a save finally fails, and shows the put-back card with the alert (AC4, AC6)", async () => {
+    submit.mockResolvedValueOnce({ error: "Lưu thất bại" }).mockResolvedValueOnce({ error: "Lưu thất bại" });
+    const onClose = vi.fn();
+    render(<ReviewSheet isOpen onClose={onClose} onReviewComplete={vi.fn()} />);
+    await screen.findByText("reliable");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    revealAndRate();
+    fireEvent.click(screen.getByRole("button", { name: "Đóng giao diện ôn tập" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS); });
+    vi.useRealTimers();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain('Chưa lưu được đánh giá thẻ "reliable".');
+    expect(screen.getByRole("heading", { name: "reliable" })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Đóng giao diện ôn tập" }) as HTMLButtonElement).disabled).toBe(false);
+    // Close works again once nothing is pending.
+    fireEvent.click(screen.getByRole("button", { name: "Đóng giao diện ôn tập" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  });
+  it("does not put a failed card back when a later rating of the same card is still pending, and completes once (AC4, AC5)", async () => {
+    const first = deferred<{ error: string }>();
+    const second = deferred<{ success: true }>();
+    submit.mockReturnValueOnce(first.promise as never).mockResolvedValueOnce({ error: "Lưu thất bại" }).mockReturnValueOnce(second.promise);
+    const { onComplete } = await openReview();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    // Lại puts the card back; its second rating (Ổn) waits behind the first save in the chain.
+    revealAndRate("Lại");
+    revealAndRate("Ổn");
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(submit).toHaveBeenCalledOnce();
+    // The first save fails twice (first try and the retry after the delay); the second rating then starts.
+    await act(async () => { first.resolve({ error: "Lưu thất bại" }); await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS); });
+    vi.useRealTimers();
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(3));
+    expect(submit.mock.calls.map(([cardId, rating]) => [cardId, rating])).toEqual([[card.id, 1], [card.id, 1], [card.id, 3]]);
+    expect(screen.getByRole("alert").textContent).toBe('Chưa lưu được đánh giá thẻ "reliable".');
+    // Not requeued: the queue stays empty and the end is still armed, waiting for the second save.
+    expect(screen.getByText("Đang lưu kết quả, vui lòng đợi…")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Hiện đáp án" })).toBeNull();
+    expect(onComplete).not.toHaveBeenCalled();
+    await act(async () => { second.resolve({ success: true }); });
+    await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(submit).toHaveBeenCalledTimes(3);
+  });
+  it("does not reveal the next card for a click of the previous gesture or the second click of a double tap (AC7)", async () => {
+    getDeck.mockResolvedValue(deck([card, card2], 2));
     await openReview();
     fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
     const rating = screen.getByRole("button", { name: "Ổn" });
-    act(() => { rating.click(); rating.click(); });
-    expect(submit).toHaveBeenCalledOnce();
-    expect(screen.getByText("đáng tin cậy")).toBeTruthy();
-    expect(screen.getByText("Đang lưu đánh giá…")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Đóng giao diện ôn tập" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    fireEvent.pointerDown(document.body);
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.pointerDown(rating);
+    await act(async () => { fireEvent.click(rating, { detail: 1 }); });
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 2 });
+    expect(screen.queryByRole("button", { name: "Ổn" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 1 });
+    expect(screen.queryByRole("button", { name: "Ổn" })).toBeNull();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Hiện đáp án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 1 });
+    expect(screen.getByRole("button", { name: "Ổn" })).toBeTruthy();
+  });
+  it("warns before the page is left only while a save is pending (AC6)", async () => {
+    const fireUnload = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const pending = deferred<{ success: true }>();
+    submit.mockReturnValueOnce(pending.promise);
+    await openReview();
+    expect(fireUnload()).toBe(false);
+    revealAndRate();
+    expect(fireUnload()).toBe(true);
     await act(async () => { pending.resolve({ success: true }); });
     await screen.findByText("Chúc mừng! Bạn đã ôn hết thẻ đến hạn.");
+    expect(fireUnload()).toBe(false);
   });
   it("advances once with a progress warning without rerating saved data", async () => {
     submit.mockResolvedValue({ success: true, progressError: "Đánh giá đã lưu, tiến độ bài học chưa đồng bộ." });
@@ -226,8 +394,8 @@ describe("D6 review batches", () => {
     await screen.findByText("reliable");
     expect(getDeck).toHaveBeenCalledTimes(2);
     revealAndRate("Khó"); await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    await waitFor(() => expect(screen.queryByText("Đang lưu đánh giá…")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Đóng giao diện ôn tập" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(onComplete).toHaveBeenCalledOnce();
   });
 });
@@ -259,16 +427,18 @@ describe("LF6 rating colours (AC5)", () => {
     expect(buttons[2].className).not.toMatch(/attention/);
   });
 
-  it("keeps every rating disabled while a save is in flight", async () => {
+  it("keeps every rating enabled while a save is in flight (LF8 AC7)", async () => {
     const pending = deferred<{ success: true }>();
     submit.mockReturnValueOnce(pending.promise);
+    getDeck.mockResolvedValue(deck([card, card2], 2));
     await openReview();
     revealAndRate("Ổn");
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
     for (const name of ["Lại", "Khó", "Ổn", "Dễ"]) {
-      expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(false);
     }
-    pending.resolve({ success: true });
-    await waitFor(() => expect(screen.queryByText("Đang lưu đánh giá…")).toBeNull());
+    await act(async () => { pending.resolve({ success: true }); });
+    expect(screen.queryByText("Đang lưu…")).toBeNull();
   });
 });

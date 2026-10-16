@@ -9,6 +9,7 @@ import { watchBrowserConsole } from "../support/console";
 // - Case: 0/2/51 due, hết thẻ chỉ quay lại, còn thẻ mới ôn lượt tiếp, long content, 320/375/768/1280, keyboard/focus, reduced motion.
 // - Invariant: 50 thẻ đầu hoàn tất vẫn còn lượt kế; query và FSRS giữ nguyên.
 // - LF6 (AC5/AC6): bốn nút rating mang màu Attention (Lại/Khó) hoặc Recall (Ổn/Dễ); lật thẻ 400 ms và vào thẻ 300 ms khi bình thường, không lật không animation khi reduced motion (đo computed style, hai chế độ tách riêng).
+// - LF8: đánh giá lưu nền nên smoke chờ DB (`assertSaved`, `expect.poll` trên `dueCount`) trước khi kết luận; không còn dòng trạng thái "Đang lưu…".
 // - Giới hạn: pending/failure/stale response nằm ở component; zoom CSS không thay thế browser zoom.
 // - Verify: xem State D6 trong progress.md.
 const credentials = { E2E_STUDENT_EMAIL: "student@gmail.com", E2E_STUDENT_PASSWORD: "123123" };
@@ -80,7 +81,7 @@ test("a 51-card workload completes only the 50-card batch and fetches the remain
       await expect(dialog.getByText(`Đã xử lý ${done + 1}/50 thẻ trong lượt`)).toBeVisible();
     }
     await expect(dialog.getByRole("heading", { name: "Đã hoàn tất lượt này" })).toBeVisible();
-    expect(await fixture.dueCount()).toBe(1);
+    await expect.poll(() => fixture.dueCount()).toBe(1);
     await dialog.getByRole("button", { name: "Ôn lượt tiếp theo" }).click();
     await expect(dialog.getByText("Đã xử lý 0/1 thẻ trong lượt")).toBeVisible();
     await dialog.getByRole("button", { name: "Hiện đáp án" }).click();
@@ -88,7 +89,7 @@ test("a 51-card workload completes only the 50-card batch and fetches the remain
     await expect(dialog.getByText("Đã xử lý 1/1 thẻ trong lượt")).toBeVisible();
     await expect(dialog.getByRole("heading", { name: "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." })).toBeVisible();
     await expect(dialog.getByRole("button", { name: /Ôn lượt tiếp|Tải lại lượt ôn/ })).toHaveCount(0);
-    expect(await fixture.dueCount()).toBe(0);
+    await expect.poll(() => fixture.dueCount()).toBe(0);
   } finally { await fixture.restore(); }
 });
 

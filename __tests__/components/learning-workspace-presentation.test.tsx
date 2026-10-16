@@ -12,6 +12,7 @@ import { CARDS_REQUIRED, CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
 import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";
+import { CARD_REVIEW_RETRY_DELAY_MS, resetCardReviewQueueForTests } from "@/hooks/use-card-review-queue";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
@@ -20,13 +21,13 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Loại test: component interaction test qua action boundary mock.
 // - Đối tượng: LearningWorkspace với FlashcardStage, ExerciseContext, ChoiceGroup và danh sách chương.
 // - Case thành công: lật thẻ chỉ lộ mặt sau đang active; sau khi chấm thành công thẻ lật về với đáp án vừa xem cho tới lần hiện đáp án kế; Part 1 có ảnh phóng to; audio giữ nguyên node khi đổi câu cùng nhóm.
-// - Case thất bại: chấm thẻ lỗi thì giữ mặt sau và các nút chấm; media thiếu hiện thông báo thay vì ô trống; ảnh lỗi cho tải lại cục bộ.
+// - Case thất bại: chấm thẻ lỗi (sau một lần thử lại) thì thẻ quay lại hàng đợi kèm toast nêu từ của thẻ (LF8 AC4); media thiếu hiện thông báo thay vì ô trống; ảnh lỗi cho tải lại cục bộ.
 // - Bảo mật/phân quyền: lựa chọn chưa chấm không mang trạng thái đúng/sai; DOM không có đáp án đúng trước khi server trả kết quả.
 // - Ổn định/resilience: bàn phím mũi tên đổi lựa chọn trong radiogroup; Again/Hard xếp lại cuối hàng đợi, ba thẻ cùng chấm Lại/Khó vẫn còn đủ ba thẻ (không báo xong).
 // - Mặt sau thẻ: chọn bố cục căn giữa (giống thẻ ôn D6) khi vừa khung cố định, bố cục đọc cuộn khi tràn; đo lại khi đổi kích thước; mặt active và nội dung đọc được giống nhau ở cả hai.
 // - LF1 (AC3): bước "Từ vựng" theo kết quả server cả hai chiều; sau một lần Lại, lối tắt "Tới Bài tập" vẫn còn (điều hướng không đổi) và, khi rời giai đoạn mà server vẫn báo chưa xong, dòng các bước không còn ghi "đã xong".
 // - Invariant cần giữ: dòng các bước chỉ gồm giai đoạn có thật (bước hiện tại không phải nút, các bước còn lại là nút chỉ gọi đổi bước); danh sách chương mở theo yêu cầu.
-// - LF3 (AC6/AC8): bước đã xong vẫn ghi "đã xong" khi đang là bước hiện tại (cả ba bước); memory check khóa tới khi mọi thẻ có dòng của học viên (Lại/Khó cũng là đã xem), mở ngay khi thẻ cuối được chấm (kể cả khi mọi thẻ Lại/Khó và hàng đợi chưa rỗng) và không có ngoại lệ cho memory check đã qua (bài tập vẫn mở theo luật LF2); nhắc số thẻ còn cần Ổn/Dễ ngay khi đủ dòng cho mọi thẻ; về memory check đang khóa thì có panel khóa và lối về Từ vựng.
+// - LF3 (AC6/AC8): bước đã xong vẫn ghi "đã xong" khi đang là bước hiện tại (cả ba bước); memory check khóa tới khi mọi thẻ có dòng của học viên (Lại/Khó cũng là đã xem), mở ngay khi thẻ cuối được chấm (kể cả khi mọi thẻ Lại/Khó và hàng đợi chưa rỗng) và không có ngoại lệ cho memory check đã qua (bài tập vẫn mở theo luật LF2); không còn dòng nhắc số thẻ cần Ổn/Dễ ở bất kỳ bước nào (bước Từ vựng vẫn chưa xong, cổng không đổi); về memory check đang khóa thì có panel khóa và lối về Từ vựng.
 // - LF4 (AC3/AC4/AC5/AC6): vào trang chỉ xếp thẻ chưa xem (bộ đếm theo lượt) và báo số thẻ chưa học đúng một lần (không báo khi mọi thẻ đều chưa xem, không báo hai lần dưới StrictMode); đã xem hết thì có màn hình kết thúc; lời mời "Ôn ngay N thẻ" chỉ hiện khi có thẻ đến hạn thuộc bài (id lạ bị bỏ qua), Ổn/Dễ trong phiên đưa thẻ ra và Lại/Khó đưa vào; "Ôn lại từ vựng" dựng lại toàn bộ thẻ; bước hiện tại của dòng các bước không phải nút; bài không có thẻ không có toast chưa học.
 // - LF4 QA fix: màn hình kết thúc có nút "Tới Memory check" cạnh "Ôn lại từ vựng" (nút chính khi không có thẻ đến hạn, thứ tự Ôn ngay -> Ôn lại -> Tới Memory check), thanh trên không lặp nút này khi hàng đợi rỗng nhưng vẫn có khi đang học thẻ; không hiện khi memory check không phải bước kế tiếp.
 // - LF5 (AC1/AC2): vào chủ đề chưa hoàn thành ở bước đầu tiên còn phải làm (thẻ chưa xem hoặc bước Từ vựng chưa xong -> memory check chưa qua -> bài tập còn câu), kể cả khi thẻ đã xem hết mà còn thẻ chưa Ổn/Dễ (màn hình kết thúc kèm lời mời Ôn ngay); chủ đề đã hoàn thành mở màn hình hoàn thành, trừ khi có thẻ mới chưa xem (Từ vựng kèm toast chưa học).
@@ -36,6 +37,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - LF6 (AC4, Owner QA 2026-10-13): màn hình hoàn thành không còn nút "Xem lại", dòng giải thích hay vòng nổi bật; một dòng gợi ý nhỏ nằm ngay dưới thanh tiến trình ở mọi giai đoạn (cả màn hình hoàn thành) khi thanh có hơn một bước, không có khi chủ đề chỉ có một bước hoặc không có bước nào, và nằm dưới lý do khóa (vùng polite) mà không lẫn vào đó. Con trỏ tay và nền hover của các bước được đo bằng computed style trong smoke, không bằng tên lớp.
 // - LF6 (AC10): hết hàng đợi ôn thẻ đến hạn/ôn lại từ vựng có toast riêng; chủ đề đã hoàn thành (đọc lúc hết hàng, kể cả kết quả của chính lần chấm) thì về màn hình hoàn thành đã ổn định, chưa hoàn thành thì ở lại màn hình kết thúc từ vựng và không sang memory check hay bài tập; Lại/Khó xếp lại không đổi loại hàng đợi; lần chấm hoàn thành chủ đề vẫn chạy chuỗi LF5 một lần không toast; hàng đợi lúc vào trang giữ toast và bước chuyển cũ; chấm đang lưu mà rời bước không mất kết quả và không gửi hai lần.
 // - LF6 (AC5): bốn nút tự đánh giá của FlashcardStage dùng đúng lớp Attention/Recall của định nghĩa dùng chung với ReviewSheet, cùng nhãn và thứ tự.
+// - LF8 (AC1-AC7): chấm thẻ hiện thẻ kế ngay khi `submitCardReview` còn treo; lưu từng lần một theo thứ tự (kể cả Lại trên hàng đợi một thẻ); giá trị suy ra từ server (khóa memory check, bước Từ vựng xong) chỉ đổi khi lần lưu thành công; lỗi thử lại một lần rồi đưa thẻ về cuối hàng đợi, không chèn lại thẻ đã nằm trong hàng đợi hoặc khi lần chấm sau của chính thẻ còn chờ, và hủy "lên cò" cuối hàng đợi; cuối hàng đợi chờ lưu xong (trạng thái đang lưu, rồi toast/bước chuyển một lần); hàng đợi rỗng lúc tải không chạy logic cuối hàng đợi; không có dòng trạng thái "Đang lưu…" khi đang chấm, chỉ trạng thái cuối hàng đợi "Đang lưu kết quả, vui lòng đợi…" trong vùng role=status (AC5b); `beforeunload` khi còn chờ; tải lại do thẻ mới chờ lưu xong; hai lần bấm chấm cùng tick chỉ gửi một lần; nút lật bỏ qua click thuộc cử chỉ cũ hoặc lần bấm thứ hai (`detail > 1`) nhưng nhận phím và click sau pointerdown mới; unmount không làm rơi lần chấm đang chờ.
 // - Kết quả verify gần nhất: xem lần chạy LF3 CP4 (2026-10-11) bằng `npx vitest run __tests__/components/learning-workspace-presentation.test.tsx`; LF5 CP4 (2026-10-12).
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
@@ -123,6 +125,12 @@ function exercise(
 const THREAD_HINT =
   "Bạn có thể di chuyển nhanh giữa các nội dung bằng cách nhấn vào nội dung tương ứng trên thanh tiến trình.";
 
+// LF8: memory check tối thiểu cho các test về cổng thẻ đã xem.
+const lf8MemoryCheck = {
+  id: "d0000000-0000-4000-8000-000000000001",
+  questions: [question("d0000000-0000-4000-8000-000000000002", "Câu nhớ", 1)],
+};
+
 function data(overrides: Partial<LearningWorkspaceData> = {}): LearningWorkspaceData {
   const flashcards = overrides.flashcards ?? [];
   return {
@@ -158,6 +166,7 @@ describe("D8-LUI learning workspace presentation", () => {
 
   afterEach(() => {
     cleanup();
+    resetCardReviewQueueForTests();
     vi.useRealTimers();
   });
 
@@ -205,17 +214,35 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(container.querySelector("[inert]")?.textContent).toContain("improve");
     });
 
-    it("keeps the revealed card and the ratings when saving the rating fails", async () => {
-      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+    it("puts the card back to rate again, and changes nothing the server decides, when saving the rating fails twice", async () => {
+      render(<LearningWorkspace data={data({ flashcards: [cardA], memoryCheck: lf8MemoryCheck, isMemoryCheckPassed: false })} />);
       fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
-      mockedReview.mockResolvedValueOnce({ error: "fail" });
+      mockedReview.mockResolvedValueOnce({ error: "fail" }).mockResolvedValueOnce({ error: "fail" });
       await act(async () => {
         fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
       });
+      // The first failure is retried before anything is shown to the learner.
+      expect(mockedReview).toHaveBeenCalledTimes(1);
+      expect(mockedToast.error).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS);
+      });
 
-      expect(mockedToast.error).toHaveBeenCalledWith("Lỗi đồng bộ tiến độ học!");
-      expect(screen.getByRole("button", { name: "Ổn" })).not.toBeNull();
-      expect(screen.queryByRole("button", { name: "Hiện đáp án" })).toBeNull();
+      expect(mockedReview).toHaveBeenCalledTimes(2);
+      expect(mockedToast.error).toHaveBeenCalledTimes(1);
+      expect(mockedToast.error).toHaveBeenCalledWith(
+        'Chưa lưu được đánh giá thẻ "reliable". Thẻ được xếp lại để bạn chấm lại.',
+      );
+      // The card is back at the front, to reveal and rate again; nothing was reported as saved or unlocked.
+      expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
+      expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
+      expect(screen.queryByText("Đang lưu kết quả, vui lòng đợi…")).toBeNull();
+      expect(mockedToast.success).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
+      expect(
+        within(screen.getByRole("list", { name: "Các bước của bài học" })).getAllByRole("listitem")[1].textContent,
+      ).toMatch(/đang khóa/);
     });
 
     it("requeues Again at the end and reports the unique card total", async () => {
@@ -651,6 +678,8 @@ describe("D8-LUI learning workspace presentation", () => {
       isMemoryCheckPassed: false,
       newlyCompleted: false,
     };
+    // Dòng nhắc "còn n thẻ cần chấm Ổn hoặc Dễ" đã bị bỏ theo Owner QA: bộ đếm "x / y" là chỉ báo duy nhất.
+    const UNRATED_HINT = /thẻ cần chấm Ổn hoặc Dễ/;
     const steps = () =>
       within(screen.getByRole("list", { name: "Các bước của bài học" }))
         .getAllByRole("listitem")
@@ -758,7 +787,7 @@ describe("D8-LUI learning workspace presentation", () => {
       expect(steps()[0]).not.toMatch(/đã xong/);
     });
 
-    it("shows the unrated hint as soon as every card has a row but some still need Ổn or Dễ", () => {
+    it("never renders an unrated-cards hint when every card has a row but some still need Ổn or Dễ, while the step stays not done", () => {
       render(
         <LearningWorkspace
           data={data({
@@ -770,12 +799,11 @@ describe("D8-LUI learning workspace presentation", () => {
           })}
         />,
       );
-      // LF5: server báo bước Từ vựng xong và còn câu bài tập nên vào thẳng Bài tập. Nhắc có ở mọi bước, và bước Từ vựng không ghi "đã xong".
-      const hint = "Còn 1 thẻ cần chấm Ổn hoặc Dễ để hoàn thành bước Từ vựng.";
-      expect(screen.getByText(hint)).not.toBeNull();
+      // LF5: server báo bước Từ vựng xong và còn câu bài tập nên vào thẳng Bài tập. Bộ đếm "x / y" là chỉ báo duy nhất, không có dòng nhắc; bước Từ vựng vẫn không ghi "đã xong".
+      expect(screen.queryByText(UNRATED_HINT)).toBeNull();
       expect(steps()[0]).toBe("Từ vựng (chưa mở)");
       fireEvent.click(screen.getByRole("button", { name: "Về Từ vựng" }));
-      expect(screen.getByText(hint)).not.toBeNull();
+      expect(screen.queryByText(UNRATED_HINT)).toBeNull();
       expect(steps()[0]).toBe("Từ vựng (đang học)");
     });
 
@@ -803,10 +831,14 @@ describe("D8-LUI learning workspace presentation", () => {
         });
       }
       // Cả hai thẻ đã có dòng nhưng đều quay lại hàng đợi: hàng đợi chưa rỗng, memory check vẫn phải vào được.
-      expect(screen.getByText("Còn 2 thẻ cần chấm Ổn hoặc Dễ để hoàn thành bước Từ vựng.")).not.toBeNull();
+      // Không có dòng nhắc "còn n thẻ" ở hàng đợi học lại, và bước Từ vựng vẫn chưa xong.
+      expect(screen.queryByText(UNRATED_HINT)).toBeNull();
       expect(steps()).toEqual(["Từ vựng (đang học)", "Memory check (chưa mở)"]);
       fireEvent.click(screen.getByRole("button", { name: "Tới Memory check" }));
       expect(screen.getByText("Câu nhớ")).not.toBeNull();
+      // Cũng không hiện ở bước Memory check; bước Từ vựng vẫn không "đã xong".
+      expect(screen.queryByText(UNRATED_HINT)).toBeNull();
+      expect(steps()[0]).not.toMatch(/đã xong/);
     });
 
     it("locks the memory check on unseen cards even after it was passed, while exercises stay open", () => {
@@ -2021,6 +2053,392 @@ describe("D8-LUI learning workspace presentation", () => {
         expect(completionHeading()).toBeNull();
         expect(mockedToast.success).toHaveBeenCalledWith("Đã nạp xong từ vựng!");
       });
+    });
+  });
+  describe("LF8 instant card rating", () => {
+    const cardC = { ...cardB, id: "e0000000-0000-4000-8000-00000000000c", front_content: { word: "retain" } };
+    const unseenGate = { flashcards: [cardA], memoryCheck: lf8MemoryCheck, isMemoryCheckPassed: false };
+    const finishedProgress = {
+      isFlashcardCompleted: true,
+      isExerciseCompleted: false,
+      isTopicCompleted: false,
+      isMemoryCheckPassed: false,
+      newlyCompleted: false,
+    };
+    function held() {
+      let resolve: (value: unknown) => void = () => {};
+      const promise = new Promise((r) => {
+        resolve = r;
+      });
+      return { promise: promise as never, resolve };
+    }
+    const reveal = () => fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    const rateNow = async (name: string) => {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name }));
+      });
+    };
+    const settleSave = async (save: ReturnType<typeof held>, result: unknown = { success: true }) => {
+      await act(async () => {
+        save.resolve(result);
+      });
+    };
+    const SAVING_END_COPY = "Đang lưu kết quả, vui lòng đợi…";
+    const stepLabels = () =>
+      within(screen.getByRole("list", { name: "Các bước của bài học" }))
+        .getAllByRole("listitem")
+        .map((item) => item.textContent?.replace(/^\d/, ""));
+    const fireUnload = () => {
+      const event = new Event("beforeunload", { cancelable: true }) as BeforeUnloadEvent;
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+
+    it("shows the next card at once while the save is still pending, with a single call (AC1)", async () => {
+      const save = held();
+      mockedReview.mockReturnValueOnce(save.promise);
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      reveal();
+      await rateNow("Ổn");
+
+      expect(screen.getByText("improve", { exact: true })).not.toBeNull();
+      expect(screen.queryByText("reliable", { exact: true })).toBeNull();
+      expect(screen.getByRole("button", { name: "Hiện đáp án" })).not.toBeNull();
+      expect(mockedReview).toHaveBeenCalledTimes(1);
+      expect(mockedReview).toHaveBeenCalledWith(cardA.id, Rating.Good);
+      await settleSave(save);
+    });
+
+    it("saves ratings one at a time in the order given (AC2)", async () => {
+      const saves = [held(), held(), held()];
+      for (const save of saves) mockedReview.mockReturnValueOnce(save.promise);
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB, cardC] })} />);
+      for (const name of ["Ổn", "Dễ", "Ổn"]) {
+        reveal();
+        await rateNow(name);
+      }
+
+      expect(mockedReview).toHaveBeenCalledTimes(1);
+      expect(mockedReview).toHaveBeenLastCalledWith(cardA.id, Rating.Good);
+      await settleSave(saves[0]);
+      expect(mockedReview).toHaveBeenCalledTimes(2);
+      expect(mockedReview).toHaveBeenLastCalledWith(cardB.id, Rating.Easy);
+      await settleSave(saves[1]);
+      expect(mockedReview).toHaveBeenCalledTimes(3);
+      expect(mockedReview).toHaveBeenLastCalledWith(cardC.id, Rating.Good);
+      await settleSave(saves[2]);
+    });
+
+    it("shows the same card again after Lại on a one-card queue and sends its second rating only after the first settles (AC2)", async () => {
+      const first = held();
+      const second = held();
+      mockedReview.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      reveal();
+      await rateNow("Lại");
+
+      expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
+      expect(screen.getByText("1 / 1")).not.toBeNull();
+      reveal();
+      await rateNow("Ổn");
+      expect(mockedReview).toHaveBeenCalledTimes(1);
+      await settleSave(first);
+      expect(mockedReview).toHaveBeenCalledTimes(2);
+      expect(mockedReview).toHaveBeenLastCalledWith(cardA.id, Rating.Good);
+      await settleSave(second);
+    });
+
+    it("keeps every server-derived value unchanged until the save succeeds, so the memory check unlocks only then (AC3)", async () => {
+      const save = held();
+      mockedReview.mockReturnValueOnce(save.promise);
+      render(
+        <LearningWorkspace
+          data={data({ ...unseenGate, unseenCardIds: [cardA.id], unratedCardIds: [cardA.id], progress: { ...finishedProgress } })}
+        />,
+      );
+      reveal();
+      await rateNow("Ổn");
+
+      // The queue has moved on (it is empty), but the card has no row yet: still locked, nothing marked done.
+      expect(stepLabels()).toEqual(["Từ vựng (đang học)", "Memory check (đang khóa)"]);
+      expect(screen.queryByRole("button", { name: "Tới Memory check" })).toBeNull();
+      expect(screen.queryByText("Câu nhớ")).toBeNull();
+
+      await settleSave(save, { success: true, topicProgress: { ...finishedProgress } });
+      expect(screen.getByText("Câu nhớ")).not.toBeNull();
+      expect(mockedToast.success).toHaveBeenCalledWith("Đã nạp xong từ vựng! Chuyển sang memory check.");
+    });
+
+    it("retries a failed save once after the delay and shows no error when the retry succeeds (AC4)", async () => {
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      reveal();
+      mockedReview.mockResolvedValueOnce({ error: "fail" }).mockResolvedValueOnce({ success: true });
+      await rateNow("Ổn");
+      expect(mockedReview).toHaveBeenCalledTimes(1);
+      expect(mockedToast.success).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS);
+      });
+      expect(mockedReview).toHaveBeenCalledTimes(2);
+      expect(mockedReview).toHaveBeenLastCalledWith(cardA.id, Rating.Good);
+      expect(mockedToast.error).not.toHaveBeenCalled();
+      expect(mockedToast.success).toHaveBeenCalledWith("Đã nạp xong từ vựng!");
+    });
+
+    it("puts a failed card back at the end, starts the next rating, and does not end the queue (AC4, AC5)", async () => {
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      mockedReview
+        .mockResolvedValueOnce({ error: "fail" })
+        .mockResolvedValueOnce({ error: "fail" })
+        .mockResolvedValueOnce({ success: true });
+      reveal();
+      await rateNow("Ổn");
+      reveal();
+      await rateNow("Ổn");
+      // Both ratings are given: the queue is empty and the end is armed, so the learner sees the saving state.
+      expect(screen.getByText(SAVING_END_COPY)).not.toBeNull();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS);
+      });
+
+      expect(mockedReview.mock.calls.map(([cardId]) => cardId)).toEqual([cardA.id, cardA.id, cardB.id]);
+      expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
+      expect(screen.getByText("1 / 2")).not.toBeNull();
+      expect(mockedToast.error).toHaveBeenCalledTimes(1);
+      expect(mockedToast.error).toHaveBeenCalledWith(
+        'Chưa lưu được đánh giá thẻ "reliable". Thẻ được xếp lại để bạn chấm lại.',
+      );
+      // The requeue disarmed the queue end: no completion toast and no finished screen.
+      expect(mockedToast.success).not.toHaveBeenCalled();
+      expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
+    });
+
+    it("does not queue a card twice when a failed Lại rating already put it back (AC4)", async () => {
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      mockedReview.mockResolvedValueOnce({ error: "fail" }).mockResolvedValueOnce({ error: "fail" });
+      reveal();
+      await rateNow("Lại");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS);
+      });
+
+      expect(mockedToast.error).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("1 / 1")).not.toBeNull();
+      expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
+    });
+
+    it("does not put a failed card back when a later rating of the same card is still pending, and the queue end runs once (AC4, AC5)", async () => {
+      const first = held();
+      mockedReview
+        .mockReturnValueOnce(first.promise)
+        .mockResolvedValueOnce({ error: "fail" })
+        .mockResolvedValueOnce({ success: true });
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      reveal();
+      await rateNow("Lại");
+      // Lại shows the same card again; its second rating waits behind the first save in the chain.
+      expect(screen.getByText("reliable", { exact: true })).not.toBeNull();
+      reveal();
+      await rateNow("Ổn");
+      expect(mockedReview).toHaveBeenCalledTimes(1);
+
+      // The first save fails twice (first try and the retry after the delay); the second rating then saves.
+      await settleSave(first, { error: "fail" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(CARD_REVIEW_RETRY_DELAY_MS);
+      });
+
+      expect(mockedReview.mock.calls.map(([cardId, rating]) => [cardId, rating])).toEqual([
+        [cardA.id, Rating.Again],
+        [cardA.id, Rating.Again],
+        [cardA.id, Rating.Good],
+      ]);
+      expect(mockedToast.error).toHaveBeenCalledTimes(1);
+      expect(mockedToast.error).toHaveBeenCalledWith('Chưa lưu được đánh giá thẻ "reliable".');
+      // Not requeued: the queue stays empty, the end ran once and the finished screen is shown.
+      expect(screen.queryByText("1 / 1")).toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
+      expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
+      expect(mockedToast.success).toHaveBeenCalledTimes(1);
+      expect(mockedToast.success).toHaveBeenCalledWith("Đã nạp xong từ vựng!");
+    });
+
+    it("waits for the saves before the queue-end logic, shows a saving state meanwhile, and runs the logic once (AC5)", async () => {
+      const save = held();
+      mockedReview.mockReturnValueOnce(save.promise);
+      render(<LearningWorkspace data={data({ flashcards: [cardA] })} />);
+      reveal();
+      await rateNow("Ổn");
+
+      expect(screen.getByText(SAVING_END_COPY)).not.toBeNull();
+      expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
+      expect(mockedToast.success).not.toHaveBeenCalled();
+
+      // No topicProgress in the result: the fallback marks the stage done, as before.
+      await settleSave(save, { success: true });
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
+      expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
+      expect(mockedToast.success).toHaveBeenCalledTimes(1);
+      expect(mockedToast.success).toHaveBeenCalledWith("Đã nạp xong từ vựng!");
+      expect(stepLabels()).toEqual(["Từ vựng (đã xong, đang học)"]);
+    });
+
+    it("never arms the queue end for a queue that is empty at load (AC5)", () => {
+      render(<LearningWorkspace data={data({ flashcards: [cardA], unseenCardIds: [] })} />);
+
+      expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
+      expect(mockedReview).not.toHaveBeenCalled();
+      expect(mockedToast.success).not.toHaveBeenCalled();
+    });
+
+    it("announces nothing while the learner keeps rating and shows the waiting copy in a polite live region only at the queue end (AC5b)", async () => {
+      const first = held();
+      const second = held();
+      mockedReview.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      reveal();
+      await rateNow("Ổn");
+
+      // A save is pending but the queue still has a card: no status line and no saving copy anywhere.
+      expect(screen.queryByText("Đang lưu…")).toBeNull();
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+
+      reveal();
+      await rateNow("Ổn");
+      // The last rating empties the queue while saves are pending: the only waiting UI.
+      const waiting = screen.getByText(SAVING_END_COPY);
+      expect(waiting.closest("[role=status]")).not.toBeNull();
+      expect(screen.queryByText("Đang lưu…")).toBeNull();
+
+      await settleSave(first);
+      expect(screen.queryByText(SAVING_END_COPY)).not.toBeNull();
+      await settleSave(second);
+      expect(screen.queryByText(SAVING_END_COPY)).toBeNull();
+      expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
+    });
+
+    it("warns before the page is left only while a save is pending (AC6)", async () => {
+      const save = held();
+      mockedReview.mockReturnValueOnce(save.promise);
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      expect(fireUnload()).toBe(false);
+      reveal();
+      await rateNow("Ổn");
+      expect(fireUnload()).toBe(true);
+      await settleSave(save);
+      expect(fireUnload()).toBe(false);
+    });
+
+    it("waits for pending saves before refreshing after the server asks for newly added cards (AC6)", async () => {
+      const refresh = vi.fn();
+      vi.mocked(useRouter).mockReturnValue({ refresh } as never);
+      const save = held();
+      render(
+        <LearningWorkspace
+          data={data({
+            flashcards: [cardA, cardB],
+            unseenCardIds: [],
+            memoryCheck: lf8MemoryCheck,
+            isMemoryCheckPassed: false,
+            exercises: [exercise("part5", {})],
+            dueCardIds: [cardA.id],
+            progress: { isFlashcardCompleted: true, isExerciseCompleted: false, isTopicCompleted: false },
+          })}
+        />,
+      );
+      fireEvent.click(
+        within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name: /^Từ vựng/ }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Ôn ngay 1 thẻ" }));
+      mockedReview.mockReturnValueOnce(save.promise);
+      reveal();
+      await rateNow("Ổn");
+      fireEvent.click(
+        within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name: /^Memory check/ }),
+      );
+
+      mockedSubmit.mockResolvedValueOnce({ error: CARDS_REQUIRED_ERROR, errorCode: CARDS_REQUIRED });
+      fireEvent.click(screen.getByRole("radio", { name: /Câu nhớ lựa chọn 1/ }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+      });
+      expect(refresh).not.toHaveBeenCalled();
+
+      await settleSave(save);
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("accepts one rating per revealed card even when the button is activated twice in the same tick (AC7)", async () => {
+      const first = held();
+      mockedReview.mockReturnValueOnce(first.promise);
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      reveal();
+      const button = screen.getByRole("button", { name: "Ổn" });
+      await act(async () => {
+        fireEvent.click(button);
+        fireEvent.click(button);
+      });
+
+      expect(mockedReview).toHaveBeenCalledTimes(1);
+      expect(mockedReview).toHaveBeenCalledWith(cardA.id, Rating.Good);
+      expect(screen.getByText("improve", { exact: true })).not.toBeNull();
+      expect(screen.getByText("1 / 2")).not.toBeNull();
+      await settleSave(first);
+    });
+
+    it("does not reveal the next card for a click of the previous gesture or the second click of a double tap (AC7)", async () => {
+      mockedReview.mockResolvedValueOnce({ success: true });
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      reveal();
+      const rating = screen.getByRole("button", { name: "Ổn" });
+      fireEvent.pointerDown(rating);
+      await act(async () => {
+        fireEvent.click(rating, { detail: 1 });
+      });
+      const revealButton = () => screen.getByRole("button", { name: "Hiện đáp án" });
+
+      // The second click of a double tap, and a click whose pointerdown came before this card was shown.
+      fireEvent.click(revealButton(), { detail: 2 });
+      expect(screen.queryByRole("button", { name: "Ổn" })).toBeNull();
+      fireEvent.click(revealButton(), { detail: 1 });
+      expect(screen.queryByRole("button", { name: "Ổn" })).toBeNull();
+
+      // A new press on the card reveals it, and so does the keyboard.
+      fireEvent.pointerDown(revealButton());
+      fireEvent.click(revealButton(), { detail: 1 });
+      expect(screen.getByRole("button", { name: "Ổn" })).not.toBeNull();
+    });
+
+    it("reveals with the keyboard right after a rating, with no timer involved (AC7)", async () => {
+      mockedReview.mockResolvedValueOnce({ success: true });
+      render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      reveal();
+      await rateNow("Ổn");
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 0 });
+
+      expect(screen.getByRole("button", { name: "Ổn" })).not.toBeNull();
+    });
+
+    it("keeps saving queued ratings after the workspace unmounts, without touching the screen", async () => {
+      const first = held();
+      mockedReview.mockReturnValueOnce(first.promise).mockResolvedValueOnce({ success: true });
+      const view = render(<LearningWorkspace data={data({ flashcards: [cardA, cardB] })} />);
+      reveal();
+      await rateNow("Ổn");
+      reveal();
+      await rateNow("Ổn");
+      view.unmount();
+
+      await settleSave(first);
+      expect(mockedReview).toHaveBeenCalledTimes(2);
+      expect(mockedReview).toHaveBeenLastCalledWith(cardB.id, Rating.Good);
+      expect(mockedToast.success).not.toHaveBeenCalled();
+      expect(mockedToast.error).not.toHaveBeenCalled();
     });
   });
 });

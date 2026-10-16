@@ -526,7 +526,6 @@ export function PublicCoursePreviewExperience({
               isFlipped={isFlipped}
               setIsFlipped={setIsFlipped}
               handleRateCard={handleRateCard}
-              isPending={false}
             />
           </div>
         ) : currentQuestionItem ? (

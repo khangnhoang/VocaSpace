@@ -37,6 +37,7 @@ vi.mock("next/navigation", () => ({
 // - Trình bày dùng chung với learning workspace D8-LUI (candidate): ChoiceGroup radio, ExerciseContext, thông báo thiếu ngữ liệu bắt buộc, kết thúc nói đúng là đã xem mẫu.
 // - Điều hướng câu hỏi (D8-LUI follow-up 3, candidate): "Danh sách câu hỏi" dùng state cục bộ, không gọi thêm Server Action; hiện trạng thái đúng/chưa đúng/chưa trả lời, nhảy tới câu bất kỳ, câu đã đúng hiện lại lựa chọn đã chọn; không còn hộp "Chính xác!" hiển thị (giữ thông báo cho trình đọc màn hình và phần giải thích). Cột câu hỏi cạnh ngữ liệu chỉ dính khi vừa viewport; "Tới câu hỏi" đưa focus vào tiêu đề; câu cuối vào thẳng màn hình tóm tắt Preview bằng nút chính, không thêm bước phụ.
 // - Kết quả trả về muộn: phản hồi của một câu chỉ gắn vào đúng câu đã gửi (cùng nhóm và khác nhóm), vẫn ghi vào lịch sử phiên của câu đó; quay lại câu đang chờ thì vẫn bị khóa, không gửi lần hai; phản hồi unavailable luôn đóng nội dung bất kể đang ở câu nào. Ảnh phóng to bị từ chối sau khi ảnh nhỏ đã tải sẽ kiểm tra lại quyền xem thử.
+// - Bấm đúp sau khi chấm thẻ (LF8 AC7, candidate): click thuộc cử chỉ bắt đầu trước khi thẻ kế tiếp hiện, hoặc là lần click thứ hai của cú bấm đúp, không lật thẻ kế tiếp; bấm mới hoặc phím vẫn lật; Preview vẫn không gọi Server Action nào khi chấm thẻ.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP3/CP4 (chạy `npx vitest run __tests__/components/public-course-preview.test.tsx`).
 
 const courseSlug = "public-course";
@@ -135,6 +136,39 @@ describe("public course Preview experience", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("does not reveal the next card for a stale or double click after a rating, and keeps rating local (LF8 AC7)", () => {
+    renderPreview();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    const rating = screen.getByRole("button", { name: "Lại" });
+    fireEvent.pointerDown(rating);
+    fireEvent.click(rating, { detail: 1 });
+    expect(screen.getByText("beta")).toBeTruthy();
+
+    // Second click of a double tap, then a click whose pointerdown came before this card was shown.
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 2 });
+    expect(screen.queryByRole("button", { name: "Ổn" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 1 });
+    expect(screen.queryByRole("button", { name: "Ổn" })).toBeNull();
+
+    // A new press reveals it; a second activation of the same rating button is taken only once.
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Hiện đáp án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 1 });
+    const good = screen.getByRole("button", { name: "Ổn" });
+    fireEvent.click(good);
+    fireEvent.click(good);
+    expect(screen.getByText("alpha")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hiện đáp án" })).toBeTruthy();
+    expect(mocks.answer).not.toHaveBeenCalled();
+    expect(mocks.getFirstTopic).not.toHaveBeenCalled();
+  });
+
+  it("reveals the first card for a click that has no pointerdown, such as an event replayed after hydration (LF8 AC7)", () => {
+    renderPreview();
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }), { detail: 1 });
+    expect(screen.getByRole("button", { name: "Lại" })).toBeTruthy();
   });
 
   it("keeps card ratings local and evaluates an exercise through the stateless Preview Action", async () => {

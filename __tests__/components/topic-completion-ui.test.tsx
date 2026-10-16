@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";
+import { resetCardReviewQueueForTests } from "@/hooks/use-card-review-queue";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learning-workspace";
 import { AUTO_ADVANCE_MS } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/auto-advance";
@@ -175,6 +176,7 @@ describe("D4 topic completion UI", () => {
   });
 
   afterEach(() => {
+    resetCardReviewQueueForTests();
     vi.useRealTimers();
   });
 
