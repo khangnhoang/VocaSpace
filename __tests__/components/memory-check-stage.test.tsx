@@ -15,21 +15,22 @@ import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
 // Test plan:
+// - LF9 review r1: dữ liệu local cũ không thắng snapshot server; kết quả qua remount giữ progress; tự chuyển đưa focus tới khung tác vụ mới.
 // - Mục tiêu: bảo vệ stage memory check D3 (H6) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
 // - Case thành công: câu sai quay lại cuối hàng; hết hàng (server báo đã qua) thì mở bài tập.
 // - Case thất bại: lỗi server giữ câu và lựa chọn hiện tại; MEMORY_CHECK_REQUIRED đưa về memory check.
 // - Ổn định/resilience: hàng đợi sau khi tải lại dựng từ map `answers` server trả (option đổi/xóa thì câu quay lại hàng).
 // - Invariant cần giữ: bài tập khóa kèm lý do + CTA tới khi qua; topic không có memory check giữ flow cũ.
-// - Đổi giai đoạn khi đang chờ phản hồi: mỗi câu dựng lại từ lần gửi của nó (đang chờ thì khóa, đã có kết quả thì hiện phản hồi), kể cả câu bị xếp lại sau; kết quả đạt đến lúc vắng mặt được áp dụng khi quay lại và vẫn chờ người học bấm tiếp; không gửi lần hai.
+// - Đổi giai đoạn khi đang chờ phản hồi: mỗi câu dựng lại từ lần gửi của nó (đang chờ thì khóa, đã có kết quả thì hiện phản hồi), kể cả câu bị xếp lại sau; kết quả đạt đến lúc vắng mặt được áp dụng khi quay lại cùng khoảng phản hồi trước khi tự chuyển; không gửi lần hai.
 // - LF3 (AC6): server từ chối với CARDS_REQUIRED (thẻ mới thêm sau khi tải trang) thì về bước Từ vựng, báo lỗi, xin server tải lại; trang đổi key theo dữ liệu thẻ nên workspace dựng lại và thẻ mới vào hàng đợi, câu trả lời không bị ghi.
-// - LF3 (AC8): khi kết quả trả lời báo memory check đã qua thì bước memory check đánh dấu đã xong ngay, bài tập mở ngay; phản hồi của câu vẫn hiện và việc chuyển sang bài tập chỉ xảy ra khi học viên bấm.
+// - LF3 (AC8): khi kết quả trả lời báo memory check đã qua thì bước memory check đánh dấu đã xong ngay, bài tập mở ngay; phản hồi của câu vẫn hiện trong khoảng chờ trước khi tự chuyển sang bài tập.
 // - LF4 (AC1): toast "Đã hoàn thành memory check!" đúng một lần ở bước chưa qua -> qua theo kết quả của chính câu trả lời; không toast khi chưa qua, khi memory check đã qua lúc tải trang, và khi chính câu trả lời đó làm bài học hoàn thành (chỉ còn toast hoàn thành bài).
 // - LF4 QA fix: sau CARDS_REQUIRED chỉ có MỘT toast thông tin "Bài học vừa có thêm N thẻ mới..." (N = số thẻ chưa xem sau khi tải lại), không toast lỗi và không toast "Bạn còn N thẻ chưa học" ở lần remount đó; tải lại không còn thẻ chưa xem thì không toast gì; lần tải trang sau (F5) báo thường lệ.
 // - LF5 (AC6/AC9): memory check đang đạt thì không còn hộp "Bạn đã trả lời đúng hết memory check" mà có danh sách chỉ đọc theo thứ tự: mỗi câu đánh dấu đáp án đã lưu của học viên kèm giải thích khi có; đầy đủ cả sau khi tải lại (giải thích từ loader) lẫn ngay sau khi đạt trong cùng phiên không tải lại (giải thích giữ từ kết quả trả lời), không ghi gì.
-// - LF5 (AC7): còn câu bài tập chưa đúng thì phản hồi cuối giữ nút "Mở bài tập"; không còn bài tập mở (không có bài tập hoặc mọi câu đã đúng) thì không có nút "Hoàn thành memory check"/"Mở bài tập", workspace tự chuyển tiếp sau phản hồi tới bước đầu tiên còn phải làm hoặc, khi vừa hoàn thành chủ đề, tới màn hình hoàn thành có chuỗi chuyển động; không toast hoàn thành bài lẫn toast memory check.
+// - LF9: câu đúng cuối tự chuyển sau 1200 ms tới phần còn thiếu/kết quả server; không có nút "Mở bài tập". Sai có câu khác thì "Câu tiếp theo", chỉ còn câu sai thì "Thử lại"; giữ retry queue và timer cleanup/remount.
 // - LF6 (AC1, tương tác LF5): rời memory check bằng thanh tiến trình trong lúc chờ tự chuyển thì đồng hồ cũ không kéo học viên về, "Xem kết quả chủ đề" còn và lần vào đầu tiên chạy chuỗi một lần; quay lại memory check vừa đạt thì phục hồi phản hồi đạt và bắt đầu một lần chờ mới (không phải bản xem lại); câu đang chờ phản hồi vẫn bị khóa khi rời sang Từ vựng và quay lại bằng thanh, kết quả đến vẫn hiện và không gửi hai lần.
-// - Kết quả verify gần nhất: xem plan D3 §10; LF3 CP4 chạy lại toàn file (2026-10-11); LF5 CP4 (2026-10-12).
+// - Kết quả verify LF9 hiện hành: xem State trong docs/programs/student-user-flow-route/progress.md.
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
@@ -130,6 +131,9 @@ function workspaceData(
     isMemoryCheckPassed: false,
     unseenCardIds: [],
     unratedCardIds: [],
+    memoryGateClearedCardIds: (overrides.progress?.isFlashcardCompleted || overrides.progress?.isTopicCompleted
+      || ((overrides.unseenCardIds?.length ?? 0) === 0 && (overrides.unratedCardIds?.length ?? 0) === 0))
+      ? (overrides.flashcards ?? []).filter((card) => !(overrides.unseenCardIds ?? []).includes(card.id)).map((card) => card.id) : null,
     dueCardIds: [],
     answers: {},
     progress: null,
@@ -151,11 +155,57 @@ function questionHeading() {
 describe("D3 memory check stage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedSubmit.mockReset();
+    mockedReview.mockReset();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     mockedUseRouter.mockReturnValue({ refresh: vi.fn() } as never);
   });
 
   afterEach(() => {
     resetCardReviewQueueForTests();
+    vi.useRealTimers();
+  });
+
+  it.each([
+    { memoryPassed: false, exerciseDone: true, heading: "Memory check vừa thay đổi", reload: "Tải lại" },
+    { memoryPassed: true, exerciseDone: false, heading: "Chưa xác nhận được tiến độ chủ đề", reload: "Tải lại tiến độ" },
+  ])("reloads stale answer data after review instead of using historical completion: $heading", async ({ memoryPassed, exerciseDone, heading, reload }) => {
+    const card = { id: "e0000000-0000-4000-8000-00000000000a", front_content: { word: "reliable" },
+      back_content: { translation: "đáng tin cậy" }, audio_url: null, image_url: null };
+    render(<LearningWorkspace data={workspaceData({
+      flashcards: [card], memoryGateClearedCardIds: [card.id], isMemoryCheckPassed: true,
+      answers: { [ids.first]: rightOption(1), [ids.second]: rightOption(2), [ids.exerciseQuestion]: ids.exerciseOption },
+      progress: { isFlashcardCompleted: true, isExerciseCompleted: true, isTopicCompleted: true },
+    })} />);
+    fireEvent.click(within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name: /^Từ vựng/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Ôn lại từ vựng" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    mockedReview.mockResolvedValueOnce({ success: true, topicProgress: {
+      isFlashcardCompleted: true, isMemoryCheckPassed: memoryPassed, isExerciseCompleted: exerciseDone,
+      isTopicCompleted: true, newlyCompleted: false,
+    } });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Ổn" })); });
+    expect(screen.getByRole("heading", { name: heading })).not.toBeNull();
+    expect(screen.getByRole("button", { name: reload })).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "Xem lại Memory check" })).toBeNull();
+  });
+
+  it("retains the server's unfinished exercise snapshot through a memory feedback remount instead of using sticky completion", async () => {
+    render(<LearningWorkspace data={workspaceData({
+      answers: { [ids.first]: rightOption(1), [ids.exerciseQuestion]: ids.exerciseOption },
+      progress: { isFlashcardCompleted: true, isExerciseCompleted: true, isTopicCompleted: true },
+    })} />);
+    const thread = within(screen.getByRole("list", { name: "Các bước của bài học" }));
+    fireEvent.click(thread.getByRole("button", { name: /^Memory check/ }));
+    mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, isMemoryCheckPassed: true,
+      topicProgress: { isFlashcardCompleted: true, isMemoryCheckPassed: true,
+        isExerciseCompleted: false, isTopicCompleted: true, newlyCompleted: false } });
+    await answer("Đúng 2");
+    fireEvent.click(thread.getByRole("button", { name: /^Bài tập/ }));
+    fireEvent.click(thread.getByRole("button", { name: /^Memory check/ }));
+    await act(async () => { vi.advanceTimersByTime(1200); });
+    expect(screen.getByRole("button", { name: "Tải lại tiến độ" })).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: /^Đã hoàn thành chủ đề/ })).toBeNull();
   });
 
   it("starts at the memory check when the topic has no cards and requeues a wrong answer", async () => {
@@ -176,7 +226,8 @@ describe("D3 memory check stage", () => {
     expect(screen.getByText("Giải thích 1")).not.toBeNull();
     expect(screen.getByText("Câu này sẽ quay lại sau các câu còn lại.")).not.toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Câu tiếp theo" }));
     expect(questionHeading()).toBe("Câu nhớ 2");
 
     mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, isMemoryCheckPassed: false });
@@ -184,7 +235,13 @@ describe("D3 memory check stage", () => {
     expect(screen.getByText("Chính xác!")).not.toBeNull();
     expect(screen.getByText("Đã đúng 1/2")).not.toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    fireEvent.click(screen.getByRole("button", { name: /Câu tiếp theo|Thử lại/ }));
+    expect(questionHeading()).toBe("Câu nhớ 1");
+    mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: false, isMemoryCheckPassed: false });
+    await answer("Sai 1");
+    expect(screen.getByRole("button", { name: "Thử lại" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
     expect(questionHeading()).toBe("Câu nhớ 1");
   });
 
@@ -208,8 +265,10 @@ describe("D3 memory check stage", () => {
     expect(questionHeading()).toBe("Câu nhớ 2");
 
     mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, isMemoryCheckPassed: true });
+    screen.getByRole("radio", { name: /Đúng 2/ }).focus();
     await answer("Đúng 2");
-    fireEvent.click(screen.getByRole("button", { name: "Mở bài tập" }));
+    await act(async () => { vi.advanceTimersByTime(1200); });
+    expect(document.activeElement).toBe(document.querySelector("main[tabindex='-1']"));
 
     expect(screen.getByText("Bài tập Part 5")).not.toBeNull();
     expect(screen.getByText("Câu bài tập")).not.toBeNull();
@@ -231,14 +290,14 @@ describe("D3 memory check stage", () => {
     mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, isMemoryCheckPassed: true });
     await answer("Đúng 2");
 
-    // Chưa bấm "Mở bài tập": bước đã xong và bài tập đã mở, còn phản hồi của câu vẫn hiện (AC8).
+    // Bước đã xong ngay khi server xác nhận; phản hồi vẫn hiện trong khoảng chờ.
     expect(stepTexts()).toEqual(["Memory check (đã xong, đang học)", "Bài tập (chưa mở)"]);
     expect(screen.getByText("Chính xác!")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Mở bài tập" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Mở bài tập" })).toBeNull();
     expect(screen.queryByText("Bạn đã trả lời đúng hết memory check")).toBeNull();
 
-    // Điều hướng là việc riêng: chỉ chuyển sang bài tập khi học viên bấm.
-    fireEvent.click(screen.getByRole("button", { name: "Mở bài tập" }));
+    // Hết khoảng phản hồi thì tự chuyển sang bài tập.
+    await act(async () => { vi.advanceTimersByTime(1200); });
     expect(screen.getByText("Câu bài tập")).not.toBeNull();
   });
 
@@ -269,7 +328,7 @@ describe("D3 memory check stage", () => {
       render(<LearningWorkspace data={workspaceData()} />);
       mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: false, isMemoryCheckPassed: false });
       await answer("Sai 1");
-      fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu tiếp theo|Thử lại/ }));
       mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, isMemoryCheckPassed: false });
       await answer("Đúng 2");
 
@@ -377,7 +436,7 @@ describe("D3 memory check stage", () => {
         isMemoryCheckPassed: false,
       });
       await answer("Đúng 1");
-      fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu tiếp theo|Thử lại/ }));
       mockedSubmit.mockResolvedValueOnce({
         success: true,
         isCorrect: true,
@@ -386,8 +445,8 @@ describe("D3 memory check stage", () => {
         topicProgress: passed,
       });
       await answer("Đúng 2");
-      // Exercise questions are still open: the pass keeps Mở bài tập.
-      fireEvent.click(screen.getByRole("button", { name: "Mở bài tập" }));
+      // Còn bài tập: hết khoảng phản hồi thì tự mở bài tập.
+      await act(async () => { vi.advanceTimersByTime(1200); });
       fireEvent.click(screen.getByRole("button", { name: /Về Memory check/ }));
 
       expect(reviewHeading()).not.toBeNull();
@@ -408,10 +467,10 @@ describe("D3 memory check stage", () => {
       const noButtons = () => {
         expect(screen.queryByRole("button", { name: "Mở bài tập" })).toBeNull();
         expect(screen.queryByRole("button", { name: "Hoàn thành memory check" })).toBeNull();
-        expect(screen.queryByRole("button", { name: "Tiếp tục" })).toBeNull();
+        expect(screen.queryByRole("button", { name: /Câu tiếp theo|Thử lại/ })).toBeNull();
       };
 
-      it("moves on by itself to the first unfinished stage when the topic has no exercises", async () => {
+      it("offers progress reload when memory passes but the server has not confirmed topic completion", async () => {
         const card = {
           id: "e0000000-0000-4000-8000-00000000000a",
           front_content: { word: "reliable" },
@@ -426,6 +485,7 @@ describe("D3 memory check stage", () => {
               flashcards: [card],
               unseenCardIds: [],
               unratedCardIds: [card.id],
+              memoryGateClearedCardIds: [card.id],
               answers: { [ids.first]: rightOption(1) },
               progress: { isFlashcardCompleted: false, isExerciseCompleted: false, isTopicCompleted: false },
             })}
@@ -451,8 +511,10 @@ describe("D3 memory check stage", () => {
         await act(async () => {
           vi.advanceTimersByTime(100);
         });
-        // Not completed: the AC1 rule sends the learner back to Từ vựng (the finished screen with the cards still to rate).
-        expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
+        // Không có nội dung tiếp theo và chưa có kết quả server: không dựng màn kết thúc giả.
+        expect(screen.getByRole("heading", { name: "Chưa xác nhận được tiến độ chủ đề" })).not.toBeNull();
+        expect(screen.getByRole("button", { name: "Tải lại tiến độ" })).not.toBeNull();
+        expect(screen.queryByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).toBeNull();
         expect(screen.queryByRole("heading", { name: /^Đã hoàn thành chủ đề/ })).toBeNull();
       });
 
@@ -538,7 +600,7 @@ describe("D3 memory check stage", () => {
     });
     expect(screen.getByText("Chính xác!")).not.toBeNull();
     expect(screen.getByText("Đã đúng 1/2")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Tiếp tục" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: /Câu tiếp theo|Thử lại/ })).not.toBeNull();
     expect(mockedSubmit).toHaveBeenCalledTimes(1);
   });
 
@@ -686,7 +748,7 @@ describe("D3 memory check stage", () => {
         isMemoryCheckPassed: false,
       });
       await answer("Sai 1");
-      fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu tiếp theo|Thử lại/ }));
       expect(questionHeading()).toBe("Câu nhớ 2");
 
       // Question 2 is sent, and the learner leaves before it answers.
@@ -702,7 +764,7 @@ describe("D3 memory check stage", () => {
       expect(questionHeading()).toBe("Câu nhớ 1");
       mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, isMemoryCheckPassed: false });
       await answer("Đúng 1");
-      fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu tiếp theo|Thử lại/ }));
 
       // Question 2 is still in flight: locked on its choice.
       expect(questionHeading()).toBe("Câu nhớ 2");
@@ -720,7 +782,7 @@ describe("D3 memory check stage", () => {
       expect(mockedSubmit.mock.calls.filter(([id]) => id === ids.second)).toHaveLength(1);
       expect(mockedSubmit).toHaveBeenCalledTimes(3);
 
-      fireEvent.click(screen.getByRole("button", { name: "Mở bài tập" }));
+      await act(async () => { vi.advanceTimersByTime(1200); });
       expect(screen.getByText("Câu bài tập")).not.toBeNull();
     });
 
@@ -744,7 +806,7 @@ describe("D3 memory check stage", () => {
       expect(screen.queryByText("Memory check vừa thay đổi")).toBeNull();
       expect(screen.getByText("Chính xác!")).not.toBeNull();
       expect(screen.getByText("Đã đúng 2/2")).not.toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Mở bài tập" }));
+      await act(async () => { vi.advanceTimersByTime(1200); });
       expect(screen.getByText("Câu bài tập")).not.toBeNull();
       expect(mockedSubmit).toHaveBeenCalledTimes(1);
     });

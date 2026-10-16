@@ -141,6 +141,9 @@ function workspaceData(overrides: Partial<LearningWorkspaceData> = {}): Learning
     isMemoryCheckPassed: true,
     unseenCardIds: [],
     unratedCardIds: [],
+    memoryGateClearedCardIds: (overrides.progress?.isFlashcardCompleted || overrides.progress?.isTopicCompleted
+      || ((overrides.unseenCardIds?.length ?? 0) === 0 && (overrides.unratedCardIds?.length ?? 0) === 0))
+      ? (overrides.flashcards ?? []).filter((card) => !(overrides.unseenCardIds ?? []).includes(card.id)).map((card) => card.id) : null,
     dueCardIds: [],
     answers: {},
     progress: null,
@@ -657,7 +660,8 @@ describe("D4 topic completion UI", () => {
     expect(mockedToast.error).toHaveBeenCalledWith(
       "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
     );
-    expect(successToasts()).toEqual(["Đã nạp xong từ vựng!"]);
+    expect(successToasts()).toEqual([]);
+    expect(screen.getByRole("button", { name: "Tải lại tiến độ" })).not.toBeNull();
   });
 
   it("opens the completion screen with no toast when the last card rating completes the topic with exercises still ahead", async () => {

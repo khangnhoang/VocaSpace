@@ -103,6 +103,7 @@ function workspaceData(
     isMemoryCheckPassed: true,
     unseenCardIds: [],
     unratedCardIds: [],
+    memoryGateClearedCardIds: null,
     dueCardIds: [],
     answers: {},
     progress: null,

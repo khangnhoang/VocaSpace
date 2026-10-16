@@ -7,7 +7,7 @@ import {
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
-// spec: docs/programs/student-user-flow-route/implementation-plans/lf5/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf6/plan.md
+// spec: docs/programs/student-user-flow-route/implementation-plans/lf9/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf6/plan.md
 // Test plan:
 // - Mục tiêu: kiểm chứng trên trình duyệt thật màn hình hoàn thành chủ đề, bước vào chủ đề ở bước đầu tiên còn phải làm và xem lại memory check (LF5 AC1-AC9).
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture tổng hợp tạo một lần trong beforeAll; mỗi test xóa tiến độ của học viên seed rồi chạy ở 375px và 1280px.
@@ -280,7 +280,7 @@ async function answerMemory(page: Page, answers: Array<[RegExp, string]>) {
   for (const [option, afterwards] of answers) {
     await page.getByRole("radio", { name: option }).click();
     await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-    // Câu cuối của memory check không bài tập tự chuyển sau 1200 ms, nên không chờ phản hồi của nó.
+    // Câu đúng cuối của mọi memory check tự chuyển sau 1200 ms, nên không chờ phản hồi của nó.
     if (!afterwards) continue;
     await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
     await page.getByRole("button", { name: afterwards }).click();
@@ -289,9 +289,9 @@ async function answerMemory(page: Page, answers: Array<[RegExp, string]>) {
 
 const FULL_WORDS = ["schedule", "deadline", "approve", "available"];
 const FULL_MEMORY: Array<[RegExp, string]> = [
-  [/hạn chót/, "Tiếp tục"],
-  [/approved/, "Tiếp tục"],
-  [/có sẵn, rảnh/, "Mở bài tập"],
+  [/hạn chót/, "Câu tiếp theo"],
+  [/approved/, "Câu tiếp theo"],
+  [/có sẵn, rảnh/, ""],
 ];
 // Đáp án đúng của 6 câu bài tập của chủ đề full-flow, theo thứ tự hiện ra.
 const FULL_EXERCISES: RegExp[] = [
@@ -312,6 +312,9 @@ async function finishFullFlow(page: Page) {
   await rateCards(page, FULL_WORDS);
   await expect(page.getByRole("heading", { name: 'Nghĩa của "deadline" là gì?' })).toBeVisible();
   await answerMemory(page, FULL_MEMORY);
+  await expect(page.getByRole("radio", { name: FULL_EXERCISES[0] })).toBeVisible();
+  await expect(stagePlane(page)).toBeFocused();
+  await expect(page.getByRole("button", { name: "Mở bài tập" })).toHaveCount(0);
   for (const [index, option] of FULL_EXERCISES.entries()) {
     const last = index === FULL_EXERCISES.length - 1;
     await page.getByRole("radio", { name: option }).click();
@@ -665,6 +668,9 @@ for (const width of WIDTHS) {
     await dueNow.click();
     await expect(page.getByText("1 / 1", { exact: true })).toBeVisible();
     await expect(page.getByText("schedule", { exact: true })).toBeVisible();
+    await rateCards(page, ["schedule"]);
+    await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
+    await expect(completionSection(page)).toHaveAttribute("data-motion", "settled");
   });
 
   test(`reduced motion shows the completion screen settled at once, at ${width}px`, async ({ page }) => {
@@ -706,7 +712,7 @@ for (const width of WIDTHS) {
     await rateCards(page, ["invoice", "supplier"]);
     await expect(page.getByRole("heading", { name: 'Nghĩa của "invoice" là gì?' })).toBeVisible();
     await answerMemory(page, [
-      [/hóa đơn/, "Tiếp tục"],
+      [/hóa đơn/, "Câu tiếp theo"],
       [/nhà cung cấp/, ""],
     ]);
 

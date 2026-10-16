@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { getLearningWorkspace } from "@/app/actions/learning-workspace";
@@ -6,21 +7,15 @@ import { submitQuestionAnswer } from "@/app/actions/progress";
 import { beginLocalPostgresTransaction, waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination";
 
 // Test plan:
-// - Mục tiêu: LF3 CP3 - memory check chỉ ghi được sau khi học viên có dòng user_flashcards của CHÍNH MÌNH cho mọi thẻ active
-//   của topic (AC4, AC5, G4-G6), do database ép trên Data API và trong RPC `lf2_submit_question_answer`.
-// - Loại: integration Data API/RLS + RPC + Server Action thật trên runtime E2E tách biệt; không mock database.
-// - Thành công: INSERT, UPDATE, upsert (nhánh insert, nhánh conflict) và RPC ghi được khi mọi thẻ active đã có dòng; Lại/Khó vẫn mở;
-//   topic không có thẻ active hoặc chỉ còn thẻ đã gỡ không bị chặn; thẻ mới được chấm thì mở lại.
-// - Thất bại: cùng các đường ghi bị từ chối (42501 / `cards_locked`) khi còn thẻ chưa có dòng; thẻ thêm sau khóa lại và đáp án đã lưu giữ nguyên.
-// - Phân quyền: dòng của học viên khác (kể cả admin đọc được mọi dòng) không làm thẻ thành "đã xem"; admin đang học dùng dòng của chính admin.
-// - Resilience: thẻ bị mất dòng giữa lúc phân loại và lúc ghi (barrier test-only) cho `cards_locked` ở cả nhánh insert lẫn nhánh conflict.
-// - Invariant: cổng SQL, RPC và danh sách thẻ chưa xem (`unseenCardIds`) của workspace luôn cùng đáp án ở mọi trạng thái; cổng bài tập LF2 và thứ tự ưu tiên giữ nguyên;
-//   catalog (definer, search_path, grants) và policy L1 không có policy permissive mới.
-// - Preview công khai không ghi user_question_answers nên không bị ảnh hưởng (memory-check-preview.test.ts giữ nguyên).
-// - Verify: xem số pass gần nhất trong progress.md (LF3 CP3).
-// - Ghi chú: chạy bằng `npm run test:integration -- __tests__/integration/lf3-memory-check-cards-seen-gate.test.ts`;
-//   cần ALLOW_DB_INTEGRATION_TESTS=true, API 45441, E2E_SUPABASE_WORKDIR=.e2e-runtime và psql.
-//   Override test-only (barrier) được cài/gỡ bằng DDL trên chính runtime tách biệt, luôn gỡ ở afterEach/afterAll.
+// - Mục tiêu: LF9 thay cổng LF3 bằng latest Good/Easy lần đầu, sau đó giữ tập thẻ đã đạt và khóa lại cho thẻ mới.
+// - Loại: integration Data API/RLS + RPC + Server Action thật trên API 45441; không mock database.
+// - Thành công: các nhánh answer INSERT/UPDATE/upsert/RPC mở đồng nhất; ghi nhận bền sau downgrade/reload, thẻ mới đạt riêng, gỡ/khôi phục thẻ.
+// - Thất bại: Again/Hard lần đầu, thẻ mới chưa đạt, rating rollback, giả mạo marker và user khác đều không mở cổng.
+// - Phân quyền: learner/admin chỉ dùng achievement của chính mình; private capture không callable; policy/grants LF2/L1 giữ nguyên.
+// - Resilience: rating đồng thời và direct downgrade phải cùng khóa progress; sync lỗi không mất capture; thẻ mới chen giữa precheck và ghi thì hai nhánh đều từ chối.
+// - Nâng cấp: chạy đúng đoạn backfill migration trên fixture legacy; chỉ trường hợp Owner chấp nhận được giữ, không sửa câu trả lời/điểm/hoàn thành.
+// - Verify: kết quả LF9 hiện hành nằm trong State của progress.md; dùng focused integration command tại đó.
+// - DDL lỗi sync và barrier chỉ ở runtime tách biệt, luôn khôi phục bằng finally/afterEach; không hosted.
 
 const authenticated = vi.hoisted(() => ({ client: null as unknown }));
 vi.mock("server-only", () => ({}));
@@ -163,8 +158,7 @@ const rpcAnswer = async (client: SupabaseClient, q: Q, option: string) => {
   return r.data as Status;
 };
 
-// Cùng một trạng thái, ba câu trả lời: cổng SQL (thử upsert một câu probe rồi dọn), RPC (cũng ghi probe rồi dọn) và danh sách `unseenCardIds`
-// mà workspace trả về cho đúng người đó (G4: parity ở mọi trạng thái).
+// Cùng trạng thái, đối chiếu ghi SQL, RPC và tập achievement mà workspace trả về cho chính học viên.
 async function gateStates(f: Fixture, client: SupabaseClient, userId: string) {
   const attempt = await upsertAnswer(client, userId, f.probe, f.probe.right);
   if (attempt.error) expect(attempt.error.code).toBe(RLS_VIOLATION);
@@ -176,7 +170,7 @@ async function gateStates(f: Fixture, client: SupabaseClient, userId: string) {
   authenticated.client = learner;
   if (workspace.status !== "success") throw new Error(`workspace status ${workspace.status}`);
   expect(["ok", "cards_locked"]).toContain(status);
-  return { sql: attempt.error === null, rpc: status === "ok", workspace: workspace.data.unseenCardIds.length === 0 };
+  return { sql: attempt.error === null, rpc: status === "ok", workspace: workspace.data.flashcards.every((card) => workspace.data.memoryGateClearedCardIds?.includes(card.id)) };
 }
 const expectGate = async (f: Fixture, open: boolean, client = learner, userId = studentId) =>
   expect(await gateStates(f, client, userId)).toEqual({ sql: open, rpc: open, workspace: open });
@@ -238,7 +232,7 @@ async function raceAnswer(q: Q, option: string, commitBetween: () => Promise<voi
   }
 }
 
-describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () => {
+describe.sequential("LF3/LF9 memory-check card gate", { timeout: 40_000 }, () => {
   beforeAll(async () => {
     await removeOverrides();
     learner = await signIn("student@gmail.com");
@@ -259,7 +253,7 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
   });
 
   describe("direct Data API writes (AC4)", () => {
-    it("refuses INSERT, UPDATE and both upsert branches until every active card has the learner's own row, then allows them", async () => {
+    it("refuses INSERT, UPDATE and both upsert branches until all active cards have latest Good/Easy, then allows them", async () => {
       const f = await build(2);
       const [first, second] = f.cardIds;
       const [a, b] = f.memory;
@@ -290,11 +284,13 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       expect(await storedAnswer(b)).toBe(b.wrong);
     });
 
-    it("keeps the gate open after any rating including Lại and Khó, and when a rating changes later (Owner decision)", async () => {
+    it("requires all latest ratings to be Good/Easy together, then retains the gate after Lại/Khó", async () => {
       const f = await build(2);
       const [a] = f.memory;
       await rate(f.cardIds[0], 1);
       await rate(f.cardIds[1], 2);
+      refused(await insertAnswer(learner, studentId, a, a.right));
+      await rateAll(f, 3);
       expect((await insertAnswer(learner, studentId, a, a.right)).error).toBeNull();
       await rate(f.cardIds[0], 1);
       await rate(f.cardIds[1], 1);
@@ -313,6 +309,8 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       await expectGate(removed, false);
       const gone = await service.from("cards").update({ removed_at: new Date().toISOString() }).eq("id", removed.cardIds[1]);
       expect(gone.error).toBeNull();
+      await rate(removed.cardIds[0], 1);
+      // Gỡ thẻ phải ghi nhận ngay, trước downgrade và trước loader/progress sync.
       await expectGate(removed, true);
       const [question] = removed.memory;
       expect((await upsertAnswer(learner, studentId, question, question.right)).error).toBeNull();
@@ -335,6 +333,8 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       expect(read.data).toEqual([{ selected_option_id: a.right }]);
 
       await rate(added, 1);
+      await expectGate(f, false);
+      await rate(added, 3);
       await expectGate(f, true);
       expect((await updateAnswer(learner, studentId, a, a.wrong)).error).toBeNull();
     });
@@ -352,6 +352,8 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       await rate(f.cardIds[0], 3, studentId);
       await expectGate(f, false);
       await rate(f.cardIds[1], 1, studentId);
+      await expectGate(f, false);
+      await rate(f.cardIds[1], 3, studentId);
       await expectGate(f, true);
     });
 
@@ -367,6 +369,8 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       await rate(f.cardIds[0], 3, adminId);
       await expectGate(f, false, admin, adminId);
       await rate(f.cardIds[1], 1, adminId);
+      await expectGate(f, false, admin, adminId);
+      await rate(f.cardIds[1], 3, adminId);
       await expectGate(f, true, admin, adminId);
       expect((await upsertAnswer(admin, adminId, f.memory[0], f.memory[0].right)).error).toBeNull();
     });
@@ -418,6 +422,8 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       expect(await storedAnswer(a)).toBe(a.right);
 
       await rateAll(f, 1);
+      expect((await rpcAnswer(learner, a, a.wrong)).status).toBe("cards_locked");
+      await rateAll(f, 3);
       expect((await rpcAnswer(learner, a, a.wrong)).status).toBe("ok");
     });
 
@@ -432,6 +438,8 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       expect(await storedAnswer(a)).toBeNull();
 
       await rate(f.cardIds[0], 1);
+      await expect(submitQuestionAnswer(a.id, a.right)).resolves.toMatchObject({ errorCode: "CARDS_REQUIRED" });
+      await rate(f.cardIds[0], 3);
       await expect(submitQuestionAnswer(a.id, a.right)).resolves.toMatchObject({ success: true, isCorrect: true });
       expect(await storedAnswer(a)).toBe(a.right);
 
@@ -445,28 +453,193 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
       expect(await storedAnswer(a)).toBe(a.wrong);
     });
 
-    it("reclassifies as cards_locked when the learner's card row disappears between the classification and the write", async () => {
+    it("reclassifies as cards_locked when a new card appears between classification and the write", async () => {
       const f = await build(1);
       const [a, b] = f.memory;
       await rateAll(f);
 
-      // Nhánh insert: chưa có đáp án, dòng thẻ mất giữa lúc phân loại và lúc ghi.
+      // Nhánh insert: chưa có đáp án, thẻ mới thêm giữa lúc phân loại và lúc ghi.
       const insertRace = await raceAnswer(a, a.right, async () => {
-        const r = await service.from("user_flashcards").delete().eq("user_id", studentId).eq("card_id", f.cardIds[0]);
-        if (r.error) throw r.error;
+        await addCard(f);
       });
       expect(insertRace).toEqual({ status: "cards_locked" });
       expect(await storedAnswer(a)).toBeNull();
 
-      // Nhánh conflict: đã có đáp án, dòng thẻ mất giữa chừng; đáp án cũ giữ nguyên.
+      // Nhánh conflict: đã có đáp án, thẻ mới thêm giữa chừng; đáp án cũ giữ nguyên.
       await rateAll(f);
       await seedAnswer(b, b.wrong);
       const conflictRace = await raceAnswer(b, b.right, async () => {
-        const r = await service.from("user_flashcards").delete().eq("user_id", studentId).eq("card_id", f.cardIds[0]);
-        if (r.error) throw r.error;
+        await addCard(f);
       });
       expect(conflictRace).toEqual({ status: "cards_locked" });
       expect(await storedAnswer(b)).toBe(b.wrong);
+    });
+  });
+
+  describe("LF9 transactional gate achievement", () => {
+    it("does not treat separate historical Good ratings as all latest Good together", async () => {
+      const f = await build(2);
+      await rate(f.cardIds[0], 3);
+      await rate(f.cardIds[0], 1);
+      await rate(f.cardIds[1], 4);
+      await expectGate(f, false);
+      await rate(f.cardIds[0], 3);
+      await expectGate(f, true);
+      await rateAll(f, 1);
+      await expectGate(f, true);
+    });
+
+    it("retains each new card independently and keeps removed/restored cleared cards open", async () => {
+      const f = await build(1);
+      await rateAll(f);
+      const first = await addCard(f), second = await addCard(f);
+      await rate(first, 3);
+      await rate(first, 1);
+      await expectGate(f, false);
+      await rate(second, 4);
+      await expectGate(f, true);
+      expect((await service.from("cards").update({ removed_at: new Date().toISOString() }).eq("id", first)).error).toBeNull();
+      expect((await service.from("cards").update({ removed_at: null }).eq("id", first)).error).toBeNull();
+      await expectGate(f, true);
+    });
+
+    it("serializes a direct downgrade with the transaction capturing the first opening", async () => {
+      const f = await build(2);
+      await rate(f.cardIds[1], 3);
+      const opening = await beginLocalPostgresTransaction(`begin;
+        insert into public.user_flashcards(user_id,card_id,last_rating)
+        values ('${studentId}','${f.cardIds[0]}',3);
+        select 'LF9_OPENING_READY:' || pg_backend_pid();`, "LF9_OPENING_READY:");
+      const downgrade = Promise.resolve(learner.from("user_flashcards").update({ last_rating: 1 })
+        .eq("user_id", studentId).eq("card_id", f.cardIds[1]));
+      try {
+        await waitForLocalPostgresQuery(
+          `select 'LF9_DOWNGRADE_BLOCKED' from pg_stat_activity a
+           where ${opening.pid} = any(pg_blocking_pids(a.pid)) limit 1`,
+          "direct downgrade waiting for the first-opening transaction",
+        );
+        await opening.finish("COMMIT");
+        expect((await downgrade).error).toBeNull();
+        // Khi opening commit, downgrade vẫn chưa commit: có một mốc all-Good thật trước khi hạ điểm.
+        await expectGate(f, true);
+      } finally {
+        await opening.finish("ROLLBACK");
+        await downgrade;
+      }
+    });
+
+    it("serializes a cross-topic card move with the transaction capturing the first opening", async () => {
+      const source = await build(2), target = await build(1);
+      await rate(source.cardIds[0], 3);
+      const opening = await beginLocalPostgresTransaction(`begin;
+        insert into public.user_flashcards(user_id,card_id,last_rating)
+        values ('${studentId}','${source.cardIds[1]}',3);
+        select 'LF9_MOVE_READY:' || pg_backend_pid();`, "LF9_MOVE_READY:");
+      const move = Promise.resolve(learner.from("user_flashcards").update({ card_id: target.cardIds[0] })
+        .eq("user_id", studentId).eq("card_id", source.cardIds[0]));
+      try {
+        await waitForLocalPostgresQuery(
+          `select 'LF9_MOVE_BLOCKED' from pg_stat_activity a
+           where ${opening.pid} = any(pg_blocking_pids(a.pid)) limit 1`,
+          "cross-topic card move waiting for the source opening transaction",
+        );
+        await opening.finish("COMMIT");
+        expect((await move).error).toBeNull();
+        await expectGate(source, true);
+        await expectGate(target, true);
+      } finally {
+        await opening.finish("ROLLBACK");
+        expect((await move).error).toBeNull();
+      }
+    });
+
+    it("captures concurrent direct learner ratings without losing achievement after downgrade and reload", async () => {
+      const f = await build(2);
+      const results = await Promise.all(f.cardIds.map((id) => learner.from("user_flashcards")
+        .insert({ user_id: studentId, card_id: id, last_rating: 3 })));
+      expect(results.map((r) => r.error)).toEqual([null, null]);
+      await rateAll(f, 1);
+      await expectGate(f, true);
+      const progress = await service.from("user_topic_progress").select("memory_gate_card_ids")
+        .eq("user_id", studentId).eq("topic_id", f.topicId).single();
+      expect(progress.data?.memory_gate_card_ids.sort()).toEqual([...f.cardIds].sort());
+    });
+
+    it("keeps successful rating capture when progress sync fails", async () => {
+      const f = await build(1);
+      const original = await waitForLocalPostgresQuery(
+        "select pg_get_functiondef('public.d4_sync_topic_progress(uuid)'::regprocedure)", "original progress sync",
+      );
+      try {
+        await psql(`create or replace function public.d4_sync_topic_progress(p_topic_id uuid)
+          returns jsonb language plpgsql security definer set search_path = '' as $$
+          begin raise exception 'LF9_TEST_SYNC_FAILURE'; end; $$`);
+        const saved = await learner.rpc("lf2_submit_card_review", {
+          p_card_id: f.cardIds[0], p_user_flashcard_id: null,
+          p_next_review_date: "2099-01-01T00:00:00Z", p_fsrs_meta: null,
+          p_last_rating: 3, p_updated_at: new Date().toISOString(),
+        });
+        expect(saved.error).toBeNull();
+        expect(saved.data).toEqual({ status: "ok", progress: null });
+      } finally {
+        await psql(original.replace(/--[^\r\n]*/g, ""));
+      }
+      await rate(f.cardIds[0], 1);
+      await expectGate(f, true);
+    });
+
+    it("does not capture a rolled-back rating or a forged learner marker", async () => {
+      const f = await build(1);
+      const tx = await beginLocalPostgresTransaction(`begin;
+        insert into public.user_flashcards(user_id,card_id,last_rating)
+        values ('${studentId}','${f.cardIds[0]}',3);
+        select 'LF9_ROLLBACK_READY:' || pg_backend_pid();`, "LF9_ROLLBACK_READY:");
+      await tx.finish("ROLLBACK");
+      await expectGate(f, false);
+      const forged = await learner.from("user_topic_progress").update({ memory_gate_card_ids: f.cardIds })
+        .eq("user_id", studentId).eq("topic_id", f.topicId).select("memory_gate_card_ids");
+      expect(forged.data).toEqual([]);
+      await expectGate(f, false);
+      const deniedRating = await learner.from("user_flashcards").insert({ user_id: adminId, card_id: f.cardIds[0], last_rating: 3 });
+      refused(deniedRating);
+      const other = await service.from("user_topic_progress").select("id").eq("user_id", adminId).eq("topic_id", f.topicId);
+      expect(other.data).toEqual([]);
+    });
+
+    it("backfills only completed, passed-memory or currently Good legacy topics without changing their results", async () => {
+      const completed = await build(1), memoryPassed = await build(1), partial = await build(1), good = await build(1);
+      for (const f of [completed, memoryPassed, partial]) {
+        await rateAll(f, 1);
+        await learner.rpc("d4_sync_topic_progress", { p_topic_id: f.topicId });
+      }
+      await rateAll(good, 3);
+      for (const q of [...memoryPassed.memory, memoryPassed.probe]) await seedAnswer(q, q.right);
+      await seedAnswer(partial.memory[0], partial.memory[0].wrong);
+      expect((await service.from("user_topic_progress").update({ is_topic_completed: true })
+        .eq("user_id", studentId).eq("topic_id", completed.topicId)).error).toBeNull();
+      const ids = [completed, memoryPassed, partial, good].map((f) => f.topicId);
+      expect((await service.from("user_topic_progress").update({ memory_gate_card_ids: null })
+        .eq("user_id", studentId).in("topic_id", ids)).error).toBeNull();
+      const before = await service.from("user_topic_progress").select("topic_id,is_topic_completed,is_flashcard_completed,completed_at")
+        .eq("user_id", studentId).in("topic_id", ids).order("topic_id");
+      const sql = readFileSync("supabase/migrations/20261016173554_lf9_memory_card_gate.sql", "utf8");
+      const start = sql.indexOf("-- Dữ liệu cũ không có mốc mở:");
+      const end = sql.indexOf("-- Giữ identity", start);
+      if (start < 0 || end < start) throw new Error("Missing migration backfill section");
+      await psql(sql.slice(start, end).replace(/--[^\r\n]*/g, ""));
+      const after = await service.from("user_topic_progress").select("topic_id,is_topic_completed,is_flashcard_completed,completed_at")
+        .eq("user_id", studentId).in("topic_id", ids).order("topic_id");
+      expect(after.data).toEqual(before.data);
+      for (const f of [completed, memoryPassed, good]) {
+        const stored = await service.from("user_topic_progress").select("memory_gate_card_ids")
+          .eq("user_id", studentId).eq("topic_id", f.topicId).single();
+        expect(stored.data?.memory_gate_card_ids).toEqual(f.cardIds);
+      }
+      const locked = await service.from("user_topic_progress").select("memory_gate_card_ids")
+        .eq("user_id", studentId).eq("topic_id", partial.topicId).single();
+      expect(locked.data?.memory_gate_card_ids).toBeNull();
+      expect(await storedAnswer(partial.memory[0])).toBe(partial.memory[0].wrong);
+      expect(await storedAnswer(memoryPassed.memory[0])).toBe(memoryPassed.memory[0].right);
     });
   });
 
@@ -485,6 +658,15 @@ describe.sequential("LF3 memory-check cards-seen gate", { timeout: 40_000 }, () 
         "the cards-seen helper catalog row",
       );
       expect(helper).toBe('true,s,search_path="",false,true');
+      const captureAcl = await waitForLocalPostgresQuery(
+        `select count(*)::text from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+         where n.nspname='private' and p.proname in ('lf9_capture_memory_gate','lf9_capture_card_rating','lf9_capture_card_content_change')
+         and p.prosecdef and p.proconfig @> array['search_path=""']::text[]
+         and not has_function_privilege('anon',p.oid,'execute')
+         and not has_function_privilege('authenticated',p.oid,'execute')
+         and not has_function_privilege('service_role',p.oid,'execute')`, "LF9 capture function ACLs",
+      );
+      expect(captureAcl).toBe("3");
       const policies = await waitForLocalPostgresQuery(
         `select string_agg(polname || ':' || polcmd::text || ':' || polpermissive::text, ',' order by polname)
          from pg_policy where polrelid = 'public.user_question_answers'::regclass and polcmd in ('a', 'w')`,

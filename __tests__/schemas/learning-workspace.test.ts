@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   learningWorkspaceResultSchema,
+  learningWorkspaceDataSchema,
   learningWorkspaceTopicSlugSchema,
 } from "@/lib/schemas/learning-workspace";
 
@@ -13,9 +14,18 @@ import {
 // - Bảo mật/phân quyền: output không cho caller chèn field ngoài contract.
 // - Ổn định/resilience: không áp dụng.
 // - Invariant cần giữ: schema là SSOT cho route/read result boundary.
-// - Kết quả verify gần nhất: 36/36 test passed trong focused CP1 Vitest command.
+// - Kết quả verify LF9 hiện hành: xem State trong docs/programs/student-user-flow-route/progress.md.
 
 describe("learning workspace schemas", () => {
+  it("accepts only null or UUID lists for the server-owned memory gate achievement", () => {
+    const schema = learningWorkspaceDataSchema.shape.memoryGateClearedCardIds;
+    expect(schema.safeParse(null).success).toBe(true);
+    expect(schema.safeParse([]).success).toBe(true);
+    expect(schema.safeParse(["44444444-4444-4444-8444-444444444444"]).success).toBe(true);
+    for (const value of [undefined, true, ["not-a-card"], [3]]) {
+      expect(schema.safeParse(value).success).toBe(false);
+    }
+  });
   it("normalizes a valid topic slug and rejects malformed route syntax", () => {
     expect(learningWorkspaceTopicSlugSchema.parse("  bai-hoc-1  ")).toBe(
       "bai-hoc-1",
