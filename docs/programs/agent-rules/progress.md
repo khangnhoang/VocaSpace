@@ -6,13 +6,13 @@ Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [AR2 plan](./implementation-plans/ar2/plan.md) r5 |
+| Spec revision | [AR2 plan](./implementation-plans/ar2/plan.md) r6 |
 | Current unit / checkpoint | AR2 CP1 (plan drafted) |
 | Status | in progress |
-| Completed evidence | AR1 done: merged PR 153 (`d1b990b`, 2026-10-14), evidence in the [AR1 plan](./implementation-plans/ar1/plan.md) and Git history. AR2: read-only discovery of the review, planning and native workflow skills, `docs/agent-loops.md` and `docs/agent-self-review.md` on 2026-10-16 against `03fdeec`; re-checked for r5 on 2026-10-17 (`03fdeec` still `origin/main`). |
+| Completed evidence | AR2: read-only discovery of the review, planning and native workflow skills, `docs/agent-loops.md` and `docs/agent-self-review.md` on 2026-10-16 against `03fdeec`; re-checked for r5 on 2026-10-17 (`03fdeec` still `origin/main`). |
 | Accepted deviations | none |
-| Blockers / Owner decisions | AR2 decisions D1–D13 are in the plan §1.4 (D2 superseded by D8 on 2026-10-17). The r4 Codex PASS covered the old scope; r5 needs a fresh Codex plan review. Owner approval of the plan pending |
-| Next action | Owner runs a fresh Codex plan review of AR2 plan r5; then Owner approval and CP2 implementation |
+| Blockers / Owner decisions | AR2 decisions D1–D13 are in the plan §1.4 (D2 superseded by D8 on 2026-10-17). Codex plan review of r6 and Owner approval of the plan pending |
+| Next action | Owner runs the Codex plan review of AR2 plan r6; then Owner approval and CP2 implementation |
 | Current authority | AR2 plan commit and branch push granted by the Owner on 2026-10-16 (D7); no implementation, PR or merge |
 
 ## Milestones
@@ -25,6 +25,7 @@ Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](
 - 2026-10-14 AR1 merged and CP4 memory cleanup done (PR 153, `d1b990b`).
 - 2026-10-14 Explore rule wording: Haiku reports findings, Main verifies the critical files (`331bc76`).
 - 2026-10-16 AR2 plan r2 drafted from the Owner's decisions D1–D7 (`ad32fd9`).
-- 2026-10-16 AR2 plan r3 after Codex plan review r1 (5 Required) (`c7a4143`).
-- 2026-10-16 AR2 plan r4: Codex plan review r2 PASS, its two suggestions applied (`d849e0b`).
-- 2026-10-17 AR2 plan r5: rescoped to a visible self-review evidence block, pass cap, cadence and plan review; `docs/agent-self-review.md` kept (this commit).
+- 2026-10-16 AR2 plan r3: every obligation of the method doc gets an owner; CP3 names harness scope and adjudication (`c7a4143`).
+- 2026-10-16 AR2 plan r4: CP3 gains the full `prepare --run` flags and the report exit rule (`d849e0b`).
+- 2026-10-17 AR2 plan r5: rescoped to a visible self-review evidence block, pass cap, cadence and plan review; `docs/agent-self-review.md` kept (`a596e41`).
+- 2026-10-17 AR2 plan r6: final review before the single push, reused evidence in the block, fresh-reader cases for push order and managed handoff, clean-checkout precondition for CP3 (this commit).
