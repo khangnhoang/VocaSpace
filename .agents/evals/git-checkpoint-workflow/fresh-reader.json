@@ -342,6 +342,11 @@
         "prompt": "Independently determine the Git actions at each checkpoint of the supplied three-checkpoint task, separately for each supplied authorization variant.",
         "context": [
           {
+            "context_id": "ctx-loops",
+            "source_type": "repository_file",
+            "path": "docs/agent-loops.md"
+          },
+          {
             "context_id": "fact-three-checkpoints",
             "source_type": "inline_text",
             "content": "An approved plan splits the task into checkpoints 1, 2 and 3 on an existing task branch with a known base and clean starting tree. Each checkpoint ends with its verification and self-review passing. After checkpoint 3 the author will hand the branch to an external reviewer."

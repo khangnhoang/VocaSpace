@@ -11,7 +11,7 @@
 //   - Giữ correction budget riêng cho plan/implementation/drift, running-role synchronization và stable progress.
 // - Invariant cần giữ:
 //   - Không tạo durable package registry, competing review/state-machine owner hay custom orchestration runtime.
-// - Kết quả verify gần nhất: passed 29 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 30 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v22.22.0.
 // - Ghi chú: static contract test không phải native rehearsal, manual QA hay bằng chứng model behavior.
 
 import assert from "node:assert/strict";
