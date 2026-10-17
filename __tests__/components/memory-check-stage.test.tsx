@@ -15,6 +15,7 @@ import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
 // Test plan:
+// - LF9 Owner QA: ẩn nút Tới Bài tập khi còn khóa; mở khóa thì hiện lại. Test đổi bước khi đang lưu dùng Từ vựng đã mở.
 // - LF9 review r1: dữ liệu local cũ không thắng snapshot server; kết quả qua remount giữ progress; tự chuyển đưa focus tới khung tác vụ mới.
 // - Mục tiêu: bảo vệ stage memory check D3 (H6) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
@@ -139,6 +140,17 @@ function workspaceData(
     progress: null,
     ...overrides,
   };
+}
+
+function memoryWithVocabulary(overrides: Partial<LearningWorkspaceData> = {}) {
+  const cardId = "e0000000-0000-4000-8000-00000000000a";
+  return workspaceData({
+    flashcards: [{ id: cardId, front_content: { word: "reliable" },
+      back_content: { translation: "đáng tin cậy" }, audio_url: null, image_url: null }],
+    memoryGateClearedCardIds: [cardId],
+    progress: { isFlashcardCompleted: true, isExerciseCompleted: false, isTopicCompleted: false },
+    ...overrides,
+  });
 }
 
 async function answer(optionName: string) {
@@ -269,6 +281,9 @@ describe("D3 memory check stage", () => {
     expect(screen.getByText("Bài tập Part 5")).not.toBeNull();
     expect(screen.getByText("Câu bài tập")).not.toBeNull();
     expect(screen.getByRole("button", { name: /Về Memory check/ })).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Về Memory check/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Tới Bài tập" }));
+    expect(screen.getByText("Câu bài tập")).not.toBeNull();
   });
 
   it("consumes the final confirmed pass immediately under Strict Mode without submitting twice", async () => {
@@ -559,7 +574,7 @@ describe("D3 memory check stage", () => {
   });
 
   it("keeps an answer in flight pending when the learner leaves and returns, and shows its result when it lands", async () => {
-    render(<LearningWorkspace data={workspaceData()} />);
+    render(<LearningWorkspace data={memoryWithVocabulary()} />);
 
     let settle: (value: unknown) => void = () => {};
     mockedSubmit.mockReturnValueOnce(
@@ -572,8 +587,8 @@ describe("D3 memory check stage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Tới Bài tập/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Về Memory check/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Về Từ vựng" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tới Memory check" }));
 
     // The returning view is still waiting: same choice, nothing to submit again.
     expect(questionHeading()).toBe("Câu nhớ 1");
@@ -691,11 +706,13 @@ describe("D3 memory check stage", () => {
       );
       return (value: unknown) => settle(value);
     }
-    const leave = () => fireEvent.click(screen.getByRole("button", { name: /Tới Bài tập/ }));
-    const comeBack = () => fireEvent.click(screen.getByRole("button", { name: /Về Memory check/ }));
+    const leave = () => fireEvent.click(screen.getByRole("button", { name: "Về Từ vựng" }));
+    const comeBack = () => fireEvent.click(
+      within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name: /^Memory check/ }),
+    );
 
     it("keeps a requeued question's late result locked on its own question, never allowing a second submit", async () => {
-      render(<LearningWorkspace data={workspaceData()} />);
+      render(<LearningWorkspace data={memoryWithVocabulary()} />);
 
       // Question 1 is wrong and goes behind question 2.
       mockedSubmit.mockResolvedValueOnce({
@@ -742,7 +759,7 @@ describe("D3 memory check stage", () => {
 
     it("takes in a pass that arrived while away instead of asking for a reload", async () => {
       render(
-        <LearningWorkspace data={workspaceData({ answers: { [ids.first]: rightOption(1) } })} />,
+        <LearningWorkspace data={memoryWithVocabulary({ answers: { [ids.first]: rightOption(1) } })} />,
       );
       const settle = deferSubmit();
       fireEvent.click(screen.getByRole("radio", { name: /Đúng 2/ }));
@@ -796,15 +813,16 @@ describe("D3 memory check stage", () => {
     ).toBe(false);
   });
 
-  it("shows the lock reason with a route back while exercises are locked", () => {
+  it("hides the forward exercise button while locked and explains the gate in the stage thread", () => {
     render(<LearningWorkspace data={workspaceData()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Tới Bài tập/ }));
-    expect(screen.getByText("Bài tập đang khóa")).not.toBeNull();
-    expect(screen.queryByText("Câu bài tập")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Làm memory check" }));
+    expect(screen.queryByRole("button", { name: /Tới Bài tập/ })).toBeNull();
+    const thread = within(screen.getByRole("list", { name: "Các bước của bài học" }));
+    fireEvent.click(thread.getByRole("button", { name: /^Bài tập.*đang khóa/ }));
     expect(questionHeading()).toBe("Câu nhớ 1");
+    expect(screen.queryByText("Bài tập đang khóa")).toBeNull();
+    expect(screen.queryByText("Câu bài tập")).toBeNull();
+    expect(screen.getByText("Trả lời đúng hết memory check để mở khóa phần bài tập.")).not.toBeNull();
   });
 
   it("sends the learner back to the memory check on MEMORY_CHECK_REQUIRED", async () => {

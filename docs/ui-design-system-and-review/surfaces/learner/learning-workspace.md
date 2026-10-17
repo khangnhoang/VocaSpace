@@ -17,6 +17,7 @@ The learner sees **the current task, its evidence, their response and the next u
 
 - Header: quiet course/chapter/topic context, a `Đã hoàn thành` badge once the server says the topic is complete, and an on-demand chapter and lesson outline (a sheet), never a permanent competing panel.
 - Stage thread: `Từ vựng → Memory check → Bài tập`, only stages that exist, with current, locked and done stated in words. It is not a bypass of server gates.
+- Forward `Tới…` stage actions appear only when their target is unlocked; do not send learners to a locked panel and a return action. Locked steps remain visible on the thread with their existing inline explanation (Owner local-QA decision 2026-10-18, LF9 r4).
 - One practice plane below it. Standalone and recall tasks use the whole plane; grouped material and its current question form one reading and answer path.
 - Wide (1024px and up): grouped material and the question sit in two columns inside the plane. Each column sticks to the top only while it fits in the viewport, and otherwise scrolls with the page. Medium and narrow: one column in the order context, stage, material, question, response, action, topic navigation, with 24px gutters at medium and 16px at narrow (12px at 320px).
 - When the layout is stacked and the material is long, a `Tới câu hỏi` link jumps to the question.

@@ -1,6 +1,6 @@
 # LF9 detail plan — Memory-check gate and continuous topic progression
 
-Revision: r3, 2026-10-17. Product decisions: Owner-confirmed 2026-10-17, including immediate final memory-check progression during local QA. The initial r2 plan passed independent Codex CLI `gpt-6.1-sol` / `high` review before implementation; the r3 amendment follows the Owner's explicit instruction. Master plan: [plan.md](../../plan.md).
+Revision: r4, 2026-10-18. Product decisions: Owner-confirmed 2026-10-17 and 2026-10-18, including immediate final memory-check progression and hiding forward actions to locked content during local QA. The initial r2 plan passed independent Codex CLI `gpt-6.1-sol` / `high` review before implementation; later amendments follow the Owner's explicit instructions. Master plan: [plan.md](../../plan.md).
 
 ## 1. Binding Spec
 
@@ -18,6 +18,7 @@ Outcome: learners finish the required vocabulary before their first memory check
 | AC6 | A confirmed final correct memory answer immediately continues to the first unfinished content or the server-confirmed topic result, including when exercises remain. No feedback delay or `Mở bài tập` action remains. A result arriving while the learner is on another stage does not navigate them away; returning to memory check consumes that result immediately without resubmitting. The existing ordinary-exercise feedback interval is unchanged. |
 | AC7 | User-controlled stage navigation, focus transfer, pending/error recovery and reduced-motion semantics remain usable. Public Preview stays stateless and has no persistent card gate. FSRS, grading and sticky topic completion stay unchanged. |
 | AC8 | Update the learning-data disclosure with the exact Owner-approved sentence: `Dữ liệu học tập: khoá học bạn tham gia, tiến độ học, trạng thái mở khoá các nội dung học, bài làm và kết quả ôn tập.` |
+| AC9 | A forward `Tới…` stage action is hidden while its target is locked and available once that target is unlocked, subject to the existing stage/action visibility rules. In particular, Memory check must not offer `Tới Bài tập` before its pass. Preserve the stage thread's locked state and inline explanation, backward navigation, and stale/server-error recovery. |
 
 ### 1.2 Scope and non-goals
 
@@ -44,6 +45,7 @@ Outcome: learners finish the required vocabulary before their first memory check
 - 2026-10-17: remove the review-finished stop and final `Mở bài tập` action; wrong-answer labels describe the retry-queue action.
 - 2026-10-17: approve the exact privacy wording in AC8.
 - 2026-10-17, local QA: remove the 1200 ms final memory-check wait; follow vocabulary progression and immediately open the next unfinished content or completion. Hide ordinary exercises of the local canonical `D8 Bài học trọn vẹn` topic for the memory-only completion case, preserving memory questions, cards and learner records; do not reset the root database.
+- 2026-10-18, local QA: hide the forward action to a locked stage; show it after unlocking rather than navigating the learner to a locked panel and a return action. The stage thread and server gate behavior remain unchanged.
 - 2026-10-17: finish the plan, revert all other implementation diffs to the base, then use Codex CLI `gpt-6.1-sol` / `high` for independent plan review; fix supported findings and re-review until PASS. On PASS, commit the plan and implement with local commit authority throughout. Push, PR, merge and hosted actions remain ungranted.
 
 ## 2. Repository facts

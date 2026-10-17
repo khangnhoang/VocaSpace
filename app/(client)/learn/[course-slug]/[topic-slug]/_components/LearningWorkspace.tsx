@@ -1365,10 +1365,9 @@ export default function LearningWorkspace({
             {learningStage !== "exercise" &&
               learningStage !== "complete" &&
               exercises.length > 0 &&
-              (learningStage === "memory" ||
-                (canSkipToQuiz && !exercisesLocked)) && (
+              !exercisesLocked &&
+              (learningStage === "memory" || canSkipToQuiz) && (
                 <Button onClick={skipToQuiz} variant="outline">
-                  {exercisesLocked && <Lock aria-hidden="true" />}
                   Tới Bài tập
                   <ChevronRight aria-hidden="true" />
                 </Button>
