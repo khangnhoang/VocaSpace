@@ -45,6 +45,7 @@ interface QuestionResponseProps {
   direction: "next" | "previous" | "none";
   /** Moves focus to the question heading on entry; set only after the learner navigated. */
   focusOnEntry: boolean;
+  hasPrevious: boolean;
   /** A later question exists; without it there is no "next" to offer and the end action takes its place. */
   hasNext: boolean;
   /**
@@ -88,6 +89,7 @@ export default function QuestionResponse({
   onAttemptSettled,
   direction,
   focusOnEntry,
+  hasPrevious,
   hasNext,
   endAction,
   onAutoAdvance,
@@ -276,6 +278,9 @@ export default function QuestionResponse({
         : null
       : null;
 
+  const showNext = !isCorrect && hasNext;
+  const singleNavigation = hasPrevious !== showNext;
+
   return (
     <div
       className={`flex min-w-0 flex-col gap-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[220ms] ${entrance}`}
@@ -311,16 +316,30 @@ export default function QuestionResponse({
       />
 
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-4">
-          <Button onClick={onPrevious} variant="link" size="lg" className="px-2">
-            <ChevronLeft aria-hidden="true" /> Câu trước
-          </Button>
-          {!isCorrect && hasNext && (
-            <Button onClick={onNext} variant="link" size="lg" className="px-2">
-              Câu sau <ChevronRight aria-hidden="true" />
-            </Button>
-          )}
-        </div>
+        {(hasPrevious || showNext) && (
+          <div className="flex items-center justify-between gap-4">
+            {hasPrevious && (
+              <Button
+                onClick={onPrevious}
+                variant={singleNavigation ? "outline" : "link"}
+                size="lg"
+                className={singleNavigation ? "w-full" : "px-2"}
+              >
+                <ChevronLeft aria-hidden="true" /> Câu trước
+              </Button>
+            )}
+            {showNext && (
+              <Button
+                onClick={onNext}
+                variant={singleNavigation ? "outline" : "link"}
+                size="lg"
+                className={singleNavigation ? "w-full" : "px-2"}
+              >
+                Câu sau <ChevronRight aria-hidden="true" />
+              </Button>
+            )}
+          </div>
+        )}
         {primary ? (
           <Button
             size="lg"

@@ -21,7 +21,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Màn hình rộng dùng Popover, màn hình hẹp dùng Sheet; cả hai dùng chung một danh sách.
 // - Không còn hộp "Bạn đã trả lời đúng câu này"/"Chính xác!" hiển thị: trạng thái đúng nằm ở lựa chọn xanh và thông báo cho trình đọc màn hình vẫn có. Riêng câu đúng có giải thích hiện hộp cùng cấu trúc với hộp sai (tiêu đề "Chính xác" + giải thích, token growth) và tiêu đề đó thay cho thông báo ẩn; câu đúng không có giải thích không hiện hộp (LF1).
 // - "Câu tiếp theo"/"Câu sau" chỉ hiện khi còn câu sau; câu cuối đã đúng đưa tới "Làm câu còn thiếu" hoặc, khi đã đủ, "Bài tiếp theo" (đúng đích của "Bài sau"; bài cuối thì "Về tổng quan khóa học"); không còn nút/màn hình "Hoàn thành bài tập" trung gian.
-// - Bố cục: "Câu trước" (variant link) và nút chính cùng một hàng, không có đường kẻ; cột câu hỏi cạnh ngữ liệu dài chỉ dính (`data-sticky`) khi vừa chiều cao viewport (đo bằng `offsetHeight` giả lập); ở bố cục xếp chồng có "Tới câu hỏi" cuộn (smooth, hoặc auto khi reduced motion) và đưa focus vào tiêu đề; đổi câu cùng nhóm giữ nguyên node ngữ liệu.
+// - Bố cục LF9: câu đầu ẩn "Câu trước"; nút điều hướng đơn dùng outline khác nút chính, cả hai full width; khi có đủ trước/sau thì chung một hàng. Cột câu hỏi cạnh ngữ liệu dài chỉ dính (`data-sticky`) khi vừa chiều cao viewport (đo bằng `offsetHeight` giả lập); ở bố cục xếp chồng có "Tới câu hỏi" cuộn (smooth, hoặc auto khi reduced motion) và đưa focus vào tiêu đề; đổi câu cùng nhóm giữ nguyên node ngữ liệu.
 // - Phân quyền: bài tập đang khóa sau memory check không có nút điều hướng; trong Preview chỉ dùng state cục bộ (xem public-course-preview.test.tsx).
 // - Câu đang chờ phản hồi khi người học rời câu: quay lại vẫn thấy lựa chọn và trạng thái chờ, không gửi lần hai; kết quả đến muộn (đúng, sai, lỗi lưu) xuất hiện đúng ở màn hình đang xem và danh sách câu hỏi khớp với kết quả server.
 // - Kết quả verify gần nhất: 21/21 passed (2026-10-10) bằng `npx vitest run __tests__/components/question-navigator.test.tsx`.
@@ -344,9 +344,10 @@ describe("question navigator in the learning workspace", () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Tới Bài tập" }));
-
-    expect(screen.getByText("Bài tập đang khóa")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Tới Bài tập" })).toBeNull();
+    fireEvent.click(within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name: /^Bài tập.*đang khóa/ }));
+    expect(screen.getByText("Câu nhớ")).not.toBeNull();
+    expect(screen.queryByText("Bài tập đang khóa")).toBeNull();
     expect(screen.queryByRole("button", { name: "Danh sách câu hỏi" })).toBeNull();
     expect(screen.queryByText("Câu đơn")).toBeNull();
   });
@@ -458,17 +459,13 @@ describe("question navigator in the learning workspace", () => {
     expect(screen.getByRole("heading", { name: "Câu nhóm A" })).not.toBeNull();
   });
 
-  it("puts Câu trước and the primary on one row, with Câu trước as the text link variant", () => {
+  it("hides previous on the first question and distinguishes next from the primary action", () => {
     render(<LearningWorkspace data={workspaceData()} />);
-    const back = screen.getByRole("button", { name: "Câu trước" });
+    expect(screen.queryByRole("button", { name: "Câu trước" })).toBeNull();
+    const forward = screen.getByRole("button", { name: "Câu sau" });
     const primary = screen.getByRole("button", { name: "Xác nhận đáp án" });
-
-    expect(back.getAttribute("data-variant")).toBe("link");
-    const row = back.parentElement as HTMLElement;
-    expect(row.contains(primary)).toBe(true);
-    expect(row.className).toContain("flex-wrap");
-    // No divider line separates the two actions any more.
-    expect(row.parentElement?.querySelector(".border-t")).toBeNull();
+    expect(forward.getAttribute("data-variant")).toBe("outline");
+    expect(primary.getAttribute("data-variant")).toBe("default");
   });
 });
 

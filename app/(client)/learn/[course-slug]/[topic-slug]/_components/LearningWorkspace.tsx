@@ -716,6 +716,7 @@ export default function LearningWorkspace({
   const currentPositionIndex = exerciseQuestionPositions.findIndex(
     (position) => position.questionId === currentQuestion?.id,
   );
+  const hasPreviousQuestion = currentPositionIndex > 0;
   // "Next" is only offered while a later question exists.
   const hasNextQuestion =
     currentPositionIndex >= 0 && currentPositionIndex < exerciseQuestionPositions.length - 1;
@@ -758,6 +759,7 @@ export default function LearningWorkspace({
   };
 
   const handlePrevQuestion = () => {
+    if (!hasPreviousQuestion) return;
     setEntry({ direction: "previous", focus: true });
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex((current) => current - 1);
@@ -784,11 +786,6 @@ export default function LearningWorkspace({
           (previousExerciseGroups[lastGroupIndex]?.questions ?? []).length - 1,
         ),
       );
-    } else if (memoryCheck) {
-      goToStage("memory");
-    } else if (flashcards.length > 0) {
-      // LF4 AC4: quay lại Từ vựng giữ hàng đợi hiện có (rỗng thì là màn hình kết thúc), không dựng lại toàn bộ thẻ.
-      changeStage("flashcard");
     }
   };
 
@@ -1016,6 +1013,7 @@ export default function LearningWorkspace({
               onAttemptSettled={settleAttempt}
               direction={entry.direction}
               focusOnEntry={entry.focus}
+              hasPrevious={hasPreviousQuestion}
               hasNext={hasNextQuestion}
               endAction={
                 pendingCompletion
