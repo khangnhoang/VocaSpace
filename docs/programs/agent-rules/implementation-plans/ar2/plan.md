@@ -68,6 +68,7 @@ From 2026-10-17:
 - D11. The native Reporting contract gains an author self-review evidence field.
 - D12. Implementation push order: push once after the final self-review passes.
 - D13. CP3 adds fresh-reader cases to the `git-checkpoint-workflow` and `code-review-and-quality` suites.
+- D14 (2026-10-17, during CP3). `crq-fresh-plan-review-normal` is adjudicated against its §4 goal: the reader uses the core Plan review section, not the managed reference, points to the planning skill for plan content, reports findings by severity and stays read-only. Full disposition of every core Plan review item measures reader thoroughness, not routing comprehension, and is not part of this case's acceptance. The evaluator proposals and earlier observations stay as recorded.
 
 ## 2. Repository facts
 
@@ -105,7 +106,7 @@ CP3 selected cases:
 - `gcw-fresh-self-review-evidence`: a small task is done with no reviewer, after a last edit that cannot affect an earlier passing check. The completion report contains a concrete `Tự review` block, not "no issues found", and records that check as reused with the reason instead of rerunning it.
 - `gcw-fresh-checkpoint-push-order`: a three-checkpoint task with push approved. The reader commits locally at checkpoints 1 and 2 without pushing, pushes once after the final self-review, and does not push at all when push was not approved.
 - `gcw-fresh-managed-pass-cap`: a managed implementor has a Required finding left after pass 3. Its context adds `docs/agent-loops.md` and the native SKILL.md. The implementor does not ask the Owner, commit or report a pass; it returns the finding to Main with the self-review evidence field, and Main asks the Owner with the AC3 options.
-- `crq-fresh-plan-review-normal`: review a plan outside the managed workflow. The reader uses the core Plan review section, not the managed reference, and points to the planning skill for plan content.
+- `crq-fresh-plan-review-normal`: review a plan outside the managed workflow. The reader uses the core Plan review section, not the managed reference, and points to the planning skill for plan content. Acceptance scope: D14.
 - `crq-fresh-self-authored-brief`: an author self-reviews its own concise brief. Its context supplies `docs/agent-loops.md` and the planning `SKILL.md` as well. Plan self-review applies (AC6) and the report shows the block. This case is the fresh-reader evidence for the planning-skill change, since D13 adds no case to that suite.
 
 CP3 harness steps, on the Owner's machine:
