@@ -311,41 +311,39 @@ export default function QuestionResponse({
       />
 
       <div className="flex flex-col gap-3">
-        {/* Two opposite actions share one row: back as a text link, forward as the primary. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex items-center justify-between gap-4">
           <Button onClick={onPrevious} variant="link" size="lg" className="px-2">
             <ChevronLeft aria-hidden="true" /> Câu trước
           </Button>
-          <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-            {!isCorrect && hasNext && (
-              <Button onClick={onNext} variant="link" size="lg" className="px-2">
-                Câu sau <ChevronRight aria-hidden="true" />
-              </Button>
-            )}
-            {primary ? (
-              <Button
-                size="lg"
-                disabled={
-                  isPending || ((phase.kind === "choosing" || phase.kind === "error") && !selectedId)
-                }
-                onClick={primary.onClick}
-              >
-                {primary.icon}
-                {primary.label}
-              </Button>
-            ) : (
-              !autoAdvances &&
-              "href" in endAction && (
-                <Button asChild size="lg">
-                  <Link href={endAction.href}>
-                    {endAction.label}
-                    <ChevronRight aria-hidden="true" />
-                  </Link>
-                </Button>
-              )
-            )}
-          </div>
+          {!isCorrect && hasNext && (
+            <Button onClick={onNext} variant="link" size="lg" className="px-2">
+              Câu sau <ChevronRight aria-hidden="true" />
+            </Button>
+          )}
         </div>
+        {primary ? (
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={
+              isPending || ((phase.kind === "choosing" || phase.kind === "error") && !selectedId)
+            }
+            onClick={primary.onClick}
+          >
+            {primary.icon}
+            {primary.label}
+          </Button>
+        ) : (
+          !autoAdvances &&
+          "href" in endAction && (
+            <Button asChild size="lg" className="w-full">
+              <Link href={endAction.href}>
+                {endAction.label}
+                <ChevronRight aria-hidden="true" />
+              </Link>
+            </Button>
+          )
+        )}
 
         <div aria-live="polite" aria-atomic="true" ref={feedbackRef} className="empty:hidden">
           {/* The green option and its check already show a right answer. Without an explanation the

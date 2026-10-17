@@ -1,6 +1,6 @@
 # LF9 detail plan — Memory-check gate and continuous topic progression
 
-Revision: r4, 2026-10-18. Product decisions: Owner-confirmed 2026-10-17 and 2026-10-18, including immediate final memory-check progression and hiding forward actions to locked content during local QA. The initial r2 plan passed independent Codex CLI `gpt-6.1-sol` / `high` review before implementation; later amendments follow the Owner's explicit instructions. Master plan: [plan.md](../../plan.md).
+Revision: r5, 2026-10-18. Product decisions: Owner-confirmed 2026-10-17 and 2026-10-18, including immediate final memory-check progression, hiding forward actions to locked content, and question-action layout/keyboard corrections during local QA. The initial r2 plan passed independent Codex CLI `gpt-6.1-sol` / `high` review before implementation; later amendments follow the Owner's explicit instructions. Master plan: [plan.md](../../plan.md).
 
 ## 1. Binding Spec
 
@@ -19,6 +19,7 @@ Outcome: learners finish the required vocabulary before their first memory check
 | AC7 | User-controlled stage navigation, focus transfer, pending/error recovery and reduced-motion semantics remain usable. Public Preview stays stateless and has no persistent card gate. FSRS, grading and sticky topic completion stay unchanged. |
 | AC8 | Update the learning-data disclosure with the exact Owner-approved sentence: `Dữ liệu học tập: khoá học bạn tham gia, tiến độ học, trạng thái mở khoá các nội dung học, bài làm và kết quả ôn tập.` |
 | AC9 | A forward `Tới…` stage action is hidden while its target is locked and available once that target is unlocked, subject to the existing stage/action visibility rules. In particular, Memory check must not offer `Tới Bài tập` before its pass. Preserve the stage thread's locked state and inline explanation, backward navigation, and stale/server-error recovery. |
+| AC10 | Exercise `Câu trước` and optional `Câu sau` share one row; the primary response action occupies the full width on its own row below. Each enabled answer is a Tab/Shift+Tab stop in option order; focusing alone does not select or grade. Keep arrow-key selection, Space/Enter activation, single-choice semantics, and disabled/pending/graded behavior. Apply the shared choice keyboard contract consistently to exercise, memory and stateless Preview; preserve submission, feedback and progression rules. |
 
 ### 1.2 Scope and non-goals
 
@@ -46,6 +47,7 @@ Outcome: learners finish the required vocabulary before their first memory check
 - 2026-10-17: approve the exact privacy wording in AC8.
 - 2026-10-17, local QA: remove the 1200 ms final memory-check wait; follow vocabulary progression and immediately open the next unfinished content or completion. Hide ordinary exercises of the local canonical `D8 Bài học trọn vẹn` topic for the memory-only completion case, preserving memory questions, cards and learner records; do not reset the root database.
 - 2026-10-18, local QA: hide the forward action to a locked stage; show it after unlocking rather than navigating the learner to a locked panel and a return action. The stage thread and server gate behavior remain unchanged.
+- 2026-10-18, local QA: put previous/next question links on one row and make the primary response action full width; change the shared choice group's single roving Tab stop to sequential Tab access to every enabled answer, retaining arrows and activation keys. Other response and persistence behavior stays unchanged.
 - 2026-10-17: finish the plan, revert all other implementation diffs to the base, then use Codex CLI `gpt-6.1-sol` / `high` for independent plan review; fix supported findings and re-review until PASS. On PASS, commit the plan and implement with local commit authority throughout. Push, PR, merge and hosted actions remain ungranted.
 
 ## 2. Repository facts

@@ -4,19 +4,20 @@
 
 import React from "react";
 import { readFileSync } from "node:fs";
-import { cleanup, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import ChoiceGroup, {
   type ChoiceResult,
 } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ChoiceGroup";
 
 // Test plan:
+// - LF9 Owner QA: từng đáp án còn mở có trong thứ tự Tab kể cả sau khi chọn; phím mũi tên vẫn đổi lựa chọn/focus; đáp án đã khóa không tương tác.
 // - Mục tiêu: bảo vệ chuyển động phản hồi đáp án sai (corrective) của ChoiceGroup, dùng chung cho bài tập, memory check và Preview; đáp án đúng chỉ đổi trạng thái, không có chuyển động hay thanh viền trái.
 // - Loại test: component test trong jsdom; jsdom không chạy CSS animation nên kiểm tra dấu hiệu kích hoạt `data-motion` và hợp đồng CSS.
 // - Case thành công: đáp án sai gắn `corrective` chỉ trên lựa chọn đã chấm, đáp án đúng không gắn gì; trạng thái vẫn có biểu tượng và chữ cho trình đọc màn hình.
 // - Một lần mỗi lượt chấm: mount sẵn ở trạng thái đã chấm (xem lại câu) không chạy; render lại không đổi; "Thử lại" gỡ dấu hiệu rồi lượt chấm mới chạy lại.
 // - Reduced motion: hoạt ảnh chỉ áp qua `motion-safe:`; keyframes `corrective` là chuyển ngang duy nhất và nằm trong globals.css.
-// - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI follow-up 3 (chạy `npx vitest run __tests__/components/choice-group-motion.test.tsx`).
+// - Kết quả verify LF9 hiện hành: xem State trong docs/programs/student-user-flow-route/progress.md; kiểm tra file bằng `npx vitest run __tests__/components/choice-group-motion.test.tsx`.
 
 const options = [
   { id: "o1", content: "Đáp án một", label: "A", order_index: 1 },
@@ -42,6 +43,30 @@ function group(selectedId: string | null, result: ChoiceResult | null) {
 const motionOf = (name: RegExp) => screen.getByRole("radio", { name }).getAttribute("data-motion");
 
 describe("ChoiceGroup answer motion", () => {
+  it("keeps every enabled answer in the Tab order before and after selection", () => {
+    const { rerender } = render(group(null, null));
+    expect(screen.getAllByRole("radio").map((option) => option.tabIndex)).toEqual([0, 0]);
+    rerender(group("o2", null));
+    expect(screen.getAllByRole("radio").map((option) => option.tabIndex)).toEqual([0, 0]);
+    expect(screen.getByRole("radio", { name: /Đáp án hai/ }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("preserves arrow-key selection and locks graded answers against interaction", () => {
+    const onSelect = vi.fn();
+    const props = { options, selectedId: null, result: null, disabled: false, onSelect, labelledBy: "q" };
+    const { rerender } = render(<><p id="q">Câu hỏi</p><ChoiceGroup {...props} /></>);
+    const [first, second] = screen.getAllByRole("radio");
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(second);
+    expect(onSelect).toHaveBeenLastCalledWith("o2");
+    rerender(<><p id="q">Câu hỏi</p><ChoiceGroup {...props} selectedId="o2" result="correct" disabled /></>);
+    expect(screen.getAllByRole("radio").every((option) => option.matches(":disabled"))).toBe(true);
+    onSelect.mockClear();
+    fireEvent.keyDown(second, { key: "ArrowDown" });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("nudges the chosen option when it is graded wrong and leaves a right one still", () => {
     const { rerender } = render(group("o1", null));
     expect(motionOf(/Đáp án một/)).toBeNull();
