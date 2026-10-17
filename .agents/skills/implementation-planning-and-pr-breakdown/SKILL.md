@@ -245,8 +245,8 @@ Record preliminary size after routing. Re-evaluate during discovery after owners
 
 Use observable signals:
 
-* **Small:** one clear owner and outcome; no material behavior, permission, status or dependency change; local rollback and verification are obvious. Use a micro-plan in the action or response.
-* **Medium:** several files may serve one bounded contract; ownership is stable, no material decision is missing, and targeted verification/rollback remain coherent. Use a concise response plan or approved brief.
+* **Small:** one clear owner and outcome; no material behavior, permission, status or dependency change; local rollback and verification are obvious. Use a micro-plan in the action or response; inside an implementation turn, that turn's implementation self-review covers it.
+* **Medium:** several files may serve one bounded contract; ownership is stable, no material decision is missing, and targeted verification/rollback remain coherent. Use a concise response plan or approved brief, with plan self-review before it is presented to the Owner.
 * **Large/high-risk:** multiple owners or dependency chains; governance, permission, security, DB/auth/concurrency or deferred-scope risk; a material decision; or complex verification/rollback. Use an authoritative durable plan and plan self-review.
 
 Escalate depth when discovery finds another source of truth, a repository/approved-source conflict, a material behavior/permission/architecture/dependency decision, deferred scope, an unclear base or ownership boundary, a new hard-risk domain, more complex verification/rollback, an indistinguishable safe/unsafe scenario, or a structural/tooling prerequisite outside scope.

@@ -96,6 +96,8 @@ A successful commit is local only unless `github-pr-ci-workflow` has activated a
 
 Without explicit approval or that exact narrow exception, do not push, force-push, create or update a remote branch or PR, merge, create tags or releases, deploy, push migrations, or modify remote environments. Before any authorized normal push, read [references/push-and-remote.md](references/push-and-remote.md).
 
+For multi-checkpoint work, commit locally per checkpoint, push once after the final self-review in `docs/agent-loops.md` passes, then push only correction commits, each after its own self-review. This order grants no push; each push still needs explicit Owner approval or the narrow exception above.
+
 For a planning-only task with no branch, staging, commit, history, push, PR, or remote-delivery decision, do not activate checkpoint delivery or read a conditional Git reference. Route non-trivial implementation planning to `implementation-planning-and-pr-breakdown` instead. In a routing answer, explicitly name that planning owner; do not stop after saying that Git does not apply.
 
 When an approved non-trivial plan establishes the task boundary or branch base and Git work is also requested, keep both owners: route `implementation-planning-and-pr-breakdown` for the approved plan/base and `git-checkpoint-workflow` for the branch or synchronization procedure. Do not replace the planning owner with Git merely because branch preparation is the immediate action.
@@ -114,6 +116,9 @@ Các file đã thay đổi:
 
 Kiểm tra:
 - <command>: đạt/không đạt/bỏ qua/chưa chạy - <lý do>
+
+Tự review:
+- <block bằng chứng tự review theo `docs/agent-loops.md`>
 
 Commit message đề xuất (English Conventional Commit):
 <type>(<scope>): <imperative summary>

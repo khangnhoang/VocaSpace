@@ -103,6 +103,12 @@ test("routes shared author self-review without weakening native admission", () =
   assert.match(scenarios, /shared self-review never substitutes for those gates/);
 });
 
+test("reports author self-review evidence and returns capped findings to Main", () => {
+  assert.match(core, /author self-review evidence \(the `docs\/agent-loops\.md` evidence block/);
+  assert.match(core, /finding left after the pass cap, which a managed role returns to Main so Main asks the Owner/);
+  assert.match(lifecycleLoops, /A managed role does not ask the Owner; it returns the findings to Main in its handoff, and Main asks\./);
+});
+
 test("blocks findings by material impact instead of artifact type", () => {
   const materialBoundary = /authority, routing\/state transition, ownership\/source of truth, candidate identity, acceptance\/verification, or completion truth/;
   assert.match(core, materialBoundary);

@@ -69,13 +69,36 @@ Specialist review defaults to `0 specialist` and is never activated by task size
 
 Group signals that threaten the same invariant or causal chain and can be resolved by one bounded answer into one cluster, even when several domains report them. Multiple specialists are possible only for genuinely independent unresolved material clusters whose evidence gaps, bounded questions, benefit, and permission coverage each pass separately; there is no task-wide specialist entitlement or hard cap. Every specialist handles one cluster. One owner instruction may cover a bounded count or class of actions, and another owner round-trip is required only when the next action exceeds the granted count, domain, access, package, or action boundary.
 
-Quota controls package width, deduplication, low-value calls, and repetition. Token cost alone must not veto bounded evidence that could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict. Trigger satisfaction never grants specialist, implementation, Git, remote, database, production, or destructive permission. Route agent-authored durable-plan decisions to the narrower self-review rule in `implementation-planning-and-pr-breakdown` and reusable Specialist package/behavior to `code-review-and-quality`; record `not_run` when required permission or a valid executor/package is unavailable, and use `Blocked` when main evidence cannot establish trustworthy readiness.
+Quota controls package width, deduplication, low-value calls, and repetition. Token cost alone must not veto bounded evidence that could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict. Trigger satisfaction never grants specialist, implementation, Git, remote, database, production, or destructive permission. Route self-review of every agent-authored plan presented to the Owner (durable plan, approved brief or concise response plan; a micro-plan inside an implementation turn is covered by that turn's implementation self-review) to the plan self-review rule in `implementation-planning-and-pr-breakdown` and reusable Specialist package/behavior to `code-review-and-quality`; record `not_run` when required permission or a valid executor/package is unavailable, and use `Blocked` when main evidence cannot establish trustworthy readiness.
 
 ### Shared author self-review routing
 
 When a planning or implementation author reaches an applicable self-review boundary, read [`docs/agent-self-review.md`](./agent-self-review.md) completely once for that boundary and apply it to the actual current candidate together with every applicable artifact and domain extension. Do not load the shared methodology during the Universal Lightweight Preflight merely because a task may later produce a candidate. A task that reviews or changes the shared methodology still reads it during preflight because it is then a governing or target source.
 
 Plan and implementation self-review are separate boundaries; several local extensions within one boundary do not create repeated reads. A changed candidate requires the author to reapply the affected methodology and evidence checks, but not to reread an unchanged shared contract that remains reliably available in current context.
+
+**Self-review evidence block.** Every author report to the Owner at a plan or implementation self-review boundary includes one evidence block, headed `Tự review` in a Vietnamese report. It records:
+
+1. Review object: the plan revision, commit or diff, and the Owner request or plan it is checked against.
+2. Sources: the owning sources read at this boundary, or reused from an unchanged complete read in current context.
+3. Claims: each material claim checked (command, flag, path, line, count, behavior) with the command or `file:line` used.
+4. Checks: the checks whose result holds for the bytes after the last edit, either run after it or reused because the last edit cannot affect them (say why), with their results.
+5. Passes: one line per pass with its findings by severity and the fix.
+
+Small work may use one or two lines but still names concrete evidence. "No issues found" without claims and checks does not satisfy the block. The block records evidence; it never requires rereading or rerunning only to fill it, and [`docs/agent-self-review.md`](./agent-self-review.md) still decides reuse. It is a report section, not a new file, role or session.
+
+```text
+Tự review:
+- Đối tượng: <commit/diff hoặc plan revision>, so với <yêu cầu Owner hoặc plan>
+- Nguồn: <file đã đọc ở boundary này, hoặc dùng lại bản đọc đầy đủ chưa đổi>
+- Claim: <claim> — <command hoặc file:line>
+- Kiểm tra: <command> — <kết quả>; <command> dùng lại vì <lý do lần sửa cuối không ảnh hưởng>
+- Lượt 1: <finding theo mức độ> → <cách sửa>; Lượt 2: 0 Critical, 0 Required
+```
+
+**Passes and cadence.** A pass is one full review of the current candidate. The loop ends when a pass leaves no `Critical` or `Required` finding, with at most 3 passes. Self-review runs after each checkpoint. The final review is the last author review before the work goes to push or external review: it covers the whole diff against its base and every acceptance criterion the author can verify, and names criteria that wait on external evidence as pending. A one-checkpoint task's review is its final review. A later correction gets its own self-review over the correction and the criteria it affects. Self-review does not replace a required Reviewer, Codex review, fresh-reader round or manual QA, and the cap and cadence never grant commit, push or wider scope.
+
+**Findings left after the cap.** When pass 3 still leaves a `Critical` or `Required` finding, the author asks the Owner with its structured question tool, or in the reply when it has none. It describes each finding and offers: the author's recommended resolution, listed first; continue fixing; record it in the owning program's `problems.md`, only when that file exists. A managed role does not ask the Owner; it returns the findings to Main in its handoff, and Main asks. The author never stops silently or reports the work as passed.
 
 ## Loop 0: Planning / PR Breakdown
 
@@ -85,7 +108,7 @@ Plan and implementation self-review are separate boundaries; several local exten
 
 **Skill owner:** `implementation-planning-and-pr-breakdown`
 
-**Owner-facing output:** mục tiêu, phần trong phạm vi, phần ngoài phạm vi, sự thật đã xác nhận, giả định, xung đột/câu hỏi còn mở, thứ tự dependency, phase hoặc PR đề xuất khi hữu ích, acceptance criteria, kế hoạch kiểm tra/xác minh và rủi ro. Dùng ngôn ngữ owner yêu cầu; khi owner dùng tiếng Việt và không yêu cầu khác, tiêu đề cùng phần diễn giải phải là tiếng Việt tự nhiên, còn technical literal và exact evidence được giữ nguyên.
+**Owner-facing output:** mục tiêu, phần trong phạm vi, phần ngoài phạm vi, sự thật đã xác nhận, giả định, xung đột/câu hỏi còn mở, thứ tự dependency, phase hoặc PR đề xuất khi hữu ích, acceptance criteria, kế hoạch kiểm tra/xác minh, rủi ro và block `Tự review` của plan (xem "Shared author self-review routing"). Dùng ngôn ngữ owner yêu cầu; khi owner dùng tiếng Việt và không yêu cầu khác, tiêu đề cùng phần diễn giải phải là tiếng Việt tự nhiên, còn technical literal và exact evidence được giữ nguyên.
 
 **Mức độ tin cậy trong báo cáo:** độ rõ của phạm vi, độ tin cậy của yêu cầu, mức rủi ro, implementation gate và lý do.
 
@@ -109,7 +132,7 @@ If the user clearly requested implementation, scope is sufficiently clear, and n
 
 **Universal minimum review:** apply the shared author self-review route above. Every actual change set must also be checked for intended scope only, unrelated formatting, encoding/EOL hygiene, secrets/debug/conflict markers, accurate behavior/status claims, verification proportional to discovered risk, staged/unstaged/untracked content and permission/scope leakage. `git-checkpoint-workflow` owns the exact change-set and Git audit procedure.
 
-**Owner-facing output:** file đã thay đổi và lý do, kiểm tra/xác minh thực tế đã chạy cùng kết quả, rủi ro/khoảng trống/giả định/manual QA còn lại, mức độ tin cậy, English Conventional Commit message đề xuất và trạng thái remote action. Dùng tiêu đề cùng phần diễn giải bằng tiếng Việt tự nhiên khi owner dùng tiếng Việt, trừ khi owner yêu cầu ngôn ngữ khác; giữ nguyên command, path, branch, commit message và exact technical evidence.
+**Owner-facing output:** file đã thay đổi và lý do, kiểm tra/xác minh thực tế đã chạy cùng kết quả, rủi ro/khoảng trống/giả định/manual QA còn lại, block `Tự review` (xem "Shared author self-review routing"), mức độ tin cậy, English Conventional Commit message đề xuất và trạng thái remote action. Dùng tiêu đề cùng phần diễn giải bằng tiếng Việt tự nhiên khi owner dùng tiếng Việt, trừ khi owner yêu cầu ngôn ngữ khác; giữ nguyên command, path, branch, commit message và exact technical evidence.
 
 **Mức độ tin cậy trong báo cáo:** mức khớp phạm vi, độ tin cậy của kiểm tra/xác minh, mức rủi ro, nhu cầu manual QA và mức sẵn sàng để commit.
 

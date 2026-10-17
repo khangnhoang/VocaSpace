@@ -47,4 +47,4 @@ Ground every material or non-obvious correctness or readiness claim in concrete 
 
 ## Proportionality
 
-Scale depth to semantic risk, affected boundaries, verification complexity, and uncertainty. Do not create an extra role, session, artifact, lengthy report, repeated unchanged check, formal review, or citation ceremony solely to demonstrate that self-review occurred. Small `NORMAL` work remains eligible for the universal minimum review; discovered material risk may still trigger the stricter depth owned by `docs/agent-loops.md` and the applicable skill.
+Scale depth to semantic risk, affected boundaries, verification complexity, and uncertainty. Do not create an extra role, session, artifact, lengthy report, repeated unchanged check, formal review, or citation ceremony solely to demonstrate that self-review occurred; the self-review evidence block defined in `docs/agent-loops.md` is the one required record. Small `NORMAL` work remains eligible for the universal minimum review; discovered material risk may still trigger the stricter depth owned by `docs/agent-loops.md` and the applicable skill.
