@@ -106,7 +106,7 @@ test("routes shared author self-review without weakening native admission", () =
 test("reports author self-review evidence and returns capped findings to Main", () => {
   assert.match(core, /author self-review evidence \(the `docs\/agent-loops\.md` evidence block/);
   assert.match(core, /finding left after the pass cap, which a managed role returns to Main so Main asks the Owner/);
-  assert.match(lifecycleLoops, /A managed role does not ask the Owner; it returns the findings to Main in its handoff, and Main asks\./);
+  assert.match(lifecycleLoops, /A managed role does not ask the Owner; it returns the findings to Main in its handoff, and Main asks the Owner in the same way: with its structured question tool, or in the reply when it has none, offering the same options\./);
 });
 
 test("blocks findings by material impact instead of artifact type", () => {
