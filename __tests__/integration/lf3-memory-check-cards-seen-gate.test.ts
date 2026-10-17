@@ -13,6 +13,7 @@ import { beginLocalPostgresTransaction, waitForLocalPostgresQuery } from "./help
 // - Thất bại: Again/Hard lần đầu, thẻ mới chưa đạt, rating rollback, giả mạo marker và user khác đều không mở cổng.
 // - Phân quyền: learner/admin chỉ dùng achievement của chính mình; private capture không callable; policy/grants LF2/L1 giữ nguyên.
 // - Resilience: rating đồng thời và direct downgrade phải cùng khóa progress; sync lỗi không mất capture; thẻ mới chen giữa precheck và ghi thì hai nhánh đều từ chối.
+// - Cấu hình plan: caller dùng generic plan vẫn ghi nhận gate, giữ achievement sau downgrade và không bị đổi cấu hình plan.
 // - Nâng cấp: chạy đúng đoạn backfill migration trên fixture legacy; chỉ trường hợp Owner chấp nhận được giữ, không sửa câu trả lời/điểm/hoàn thành.
 // - Verify: kết quả LF9 hiện hành nằm trong State của progress.md; dùng focused integration command tại đó.
 // - DDL lỗi sync và barrier chỉ ở runtime tách biệt, luôn khôi phục bằng finally/afterEach; không hosted.
@@ -477,6 +478,27 @@ describe.sequential("LF3/LF9 memory-check card gate", { timeout: 40_000 }, () =>
   });
 
   describe("LF9 transactional gate achievement", () => {
+    it("captures and retains achievement with a generic-plan caller without changing its plan setting", async () => {
+      const f = await build(2);
+      await psql(`begin;
+        set local plan_cache_mode = force_generic_plan;
+        insert into public.user_flashcards(user_id,card_id,last_rating)
+        values ('${studentId}','${f.cardIds[0]}',3), ('${studentId}','${f.cardIds[1]}',4);
+        update public.user_flashcards set last_rating=1
+        where user_id='${studentId}' and card_id='${f.cardIds[0]}';
+        do $$ begin
+          if current_setting('plan_cache_mode') <> 'force_generic_plan' then
+            raise exception 'LF9_CHANGED_CALLER_PLAN';
+          end if;
+        end $$;
+        commit`);
+      const progress = await service.from("user_topic_progress").select("memory_gate_card_ids")
+        .eq("user_id", studentId).eq("topic_id", f.topicId).single();
+      expect(progress.error).toBeNull();
+      expect(progress.data?.memory_gate_card_ids.sort()).toEqual([...f.cardIds].sort());
+      await expectGate(f, true);
+    });
+
     it("does not treat separate historical Good ratings as all latest Good together", async () => {
       const f = await build(2);
       await rate(f.cardIds[0], 3);
