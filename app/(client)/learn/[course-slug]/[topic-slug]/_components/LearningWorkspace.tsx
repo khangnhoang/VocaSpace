@@ -1170,7 +1170,6 @@ export default function LearningWorkspace({
               }
             }}
             onGoToExercises={() => goToStage("exercise")}
-            onAutoAdvancePending={setAutoAdvancePending}
             onTopicCompleted={markTopicCompleted}
             onCardsRequired={recoverFromCardsRequired}
           />

@@ -1,6 +1,6 @@
 # LF9 detail plan — Memory-check gate and continuous topic progression
 
-Revision: r2, 2026-10-17. Product decisions: Owner-confirmed 2026-10-17. Plan acceptance and implementation are conditional on an independent Codex CLI `gpt-6.1-sol` / `high` review returning PASS, as explicitly requested by the Owner. Master plan: [plan.md](../../plan.md).
+Revision: r3, 2026-10-17. Product decisions: Owner-confirmed 2026-10-17, including immediate final memory-check progression during local QA. The initial r2 plan passed independent Codex CLI `gpt-6.1-sol` / `high` review before implementation; the r3 amendment follows the Owner's explicit instruction. Master plan: [plan.md](../../plan.md).
 
 ## 1. Binding Spec
 
@@ -15,7 +15,7 @@ Outcome: learners finish the required vocabulary before their first memory check
 | AC3 | The migration preserves the existing gate achievement for a completed topic or a currently fully correct, non-empty memory check. Other existing topics use AC1. It never changes stored answers, ratings or sticky topic completion. |
 | AC4 | After a first, due or full vocabulary queue drains and its saves settle, continue to the first unfinished stage: memory check, then exercises, then the server-confirmed topic result. A sticky historical topic-complete flag does not skip currently unfinished memory/exercise content at this transition. No completed-review interstitial. A failed save keeps the card available and never claims completion. Loading with an empty queue or deliberately revisiting vocabulary is not a queue-completion event. |
 | AC5 | After a wrong memory answer, show `Câu tiếp theo` when another question is queued and `Thử lại` when only this question remains. Incorrect questions return through the queue and still require a correct answer. |
-| AC6 | A confirmed final correct memory answer automatically continues after the existing feedback interval, including when exercises remain. Remove `Mở bài tập`. Continue to the first unfinished content or the server-confirmed topic result. Leaving the stage cancels its timer; remounting with an unconsumed result restores it without resubmitting. |
+| AC6 | A confirmed final correct memory answer immediately continues to the first unfinished content or the server-confirmed topic result, including when exercises remain. No feedback delay or `Mở bài tập` action remains. A result arriving while the learner is on another stage does not navigate them away; returning to memory check consumes that result immediately without resubmitting. The existing ordinary-exercise feedback interval is unchanged. |
 | AC7 | User-controlled stage navigation, focus transfer, pending/error recovery and reduced-motion semantics remain usable. Public Preview stays stateless and has no persistent card gate. FSRS, grading and sticky topic completion stay unchanged. |
 | AC8 | Update the learning-data disclosure with the exact Owner-approved sentence: `Dữ liệu học tập: khoá học bạn tham gia, tiến độ học, trạng thái mở khoá các nội dung học, bài làm và kết quả ôn tập.` |
 
@@ -43,6 +43,7 @@ Outcome: learners finish the required vocabulary before their first memory check
 - 2026-10-17: new cards relock until Good/Easy; preserve old completed topics or fully passed memory checks, apply the new rule elsewhere.
 - 2026-10-17: remove the review-finished stop and final `Mở bài tập` action; wrong-answer labels describe the retry-queue action.
 - 2026-10-17: approve the exact privacy wording in AC8.
+- 2026-10-17, local QA: remove the 1200 ms final memory-check wait; follow vocabulary progression and immediately open the next unfinished content or completion. Hide ordinary exercises of the local canonical `D8 Bài học trọn vẹn` topic for the memory-only completion case, preserving memory questions, cards and learner records; do not reset the root database.
 - 2026-10-17: finish the plan, revert all other implementation diffs to the base, then use Codex CLI `gpt-6.1-sol` / `high` for independent plan review; fix supported findings and re-review until PASS. On PASS, commit the plan and implement with local commit authority throughout. Push, PR, merge and hosted actions remain ungranted.
 
 ## 2. Repository facts
@@ -59,7 +60,7 @@ Baseline: `03fdeec6c58a510d3607715b1b4b2df350782aa4`, checked 2026-10-17.
 
 - Add a nullable cleared-card ID set to `user_topic_progress`; a null set means the initial gate has not opened. Reuse one server-owned capture operation under the progress-row lock, covering qualifying rating writes and progress sync as necessary. First achievement captures all active IDs; later new-card achievements append IDs independently. A narrow rating-write trigger is allowed if required to cover direct Data API writes; avoid duplicate writers or capture rules. Equivalent storage is allowed if AC1–AC3/G2/G2a hold.
 - Preserve the existing gate's identity and progress RPC response keys. Extend the loader's schema-owned result with the cleared-card set; derive pending cards from own ratings plus that set. UI-only pending state remains local.
-- Use the existing queue-end callback and memory feedback timer, with the shared first-unfinished-stage resolver where its semantics fit. No new scheduler or state library.
+- Use the existing queue-end callback and shared first-unfinished-stage resolver where its semantics fit. Consume a confirmed memory pass only while its stage is mounted, before painting a redundant final stop. No new scheduler or state library.
 
 ## 4. Checkpoints
 
@@ -92,7 +93,7 @@ Planned focused commands (checks not yet run):
 | Old achievements cannot be reconstructed exactly | Apply the explicit AC3 migration rule, with an upgrade/backfill test. |
 | New cards or overlapping saves make UI and SQL disagree | Own-row parity and direct-write tests; capture under progress-row lock; unlock UI only on confirmed saves. |
 | A direct rating write or failed progress sync loses the latch | Test direct INSERT/UPDATE/upsert, supported RPC writes, sync failure, downgrade/reload and concurrent card ratings; successful capture is transactional with its owning write. |
-| A late result or timer pulls a learner out of their chosen stage | Preserve timer cleanup, queue generations and stored-attempt ownership; focused departure/remount tests. |
+| A late result pulls a learner out of their chosen stage | Preserve queue generations and stored-attempt ownership; consume final memory results only on the mounted stage, with focused departure/remount tests. |
 | The new loader requires the additive column | Local compatibility check; hosted migration first under a separate grant, then deployment. Old response shape remains valid. |
 
 - Rollout: independent plan PASS, authorized local plan commit, implementation and coherent local checkpoint commits; implementation review and local verification; separately authorized push/PR/CI; separately authorized hosted preflight, additive migration and read-only postflight; then separately authorized merge/deploy and Owner QA. The old application can be refused by the stricter gate during the migration-to-deployment window; coordinate these steps, require a fresh page after deployment, and roll back the gate if the new app cannot deploy. Do not claim uninterrupted old-client behavior or feature completion before both layers are active. No hosted action is granted here.

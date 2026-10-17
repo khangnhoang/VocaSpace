@@ -8,7 +8,6 @@ import { CARDS_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO } from "@/lib/schemas/learn";
 import type { TopicProgress } from "@/lib/schemas/learning-workspace";
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
-import { AUTO_ADVANCE_MS } from "./auto-advance";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -43,15 +42,13 @@ interface MemoryCheckStageProps {
   onPassed: (progress?: TopicProgress) => void;
   /**
    * Server báo memory check đã qua ngay trong kết quả của câu trả lời. Workspace đánh dấu bước "đã xong" tại đây (AC8),
-   * không đợi học viên bấm tiếp; phản hồi của câu vẫn hiện cho tới khi học viên tiếp tục.
+   * không đợi học viên bấm tiếp; câu đúng cuối chuyển ngay sang nội dung tiếp theo.
    * `newlyCompleted` là giá trị của chính kết quả câu trả lời này (LF4 AC1): khi bài vừa hoàn thành, màn hình hoàn thành
    * thay cho toast nên workspace không hiện toast memory check.
    */
   onMemoryPassed?: (newlyCompleted: boolean) => void;
   onGoToExercises: () => void;
   onTopicCompleted?: (newlyCompleted: boolean) => void;
-  /** LF5 Q16: true exactly while the auto-advance timer runs, so the workspace can hide its duplicate return action. */
-  onAutoAdvancePending?: (pending: boolean) => void;
   /**
    * The server refused the answer because the topic has a card this learner has not seen (a card added after the page
    * loaded). The workspace owns recovery: back to the flashcards and a data refresh.
@@ -87,7 +84,6 @@ export default function MemoryCheckStage({
   onMemoryPassed,
   onGoToExercises,
   onTopicCompleted,
-  onAutoAdvancePending,
   onCardsRequired,
 }: MemoryCheckStageProps) {
   const [isPending, startTransition] = useTransition();
@@ -141,29 +137,19 @@ export default function MemoryCheckStage({
     if (feedbackKey) continueButtonRef.current?.focus();
   }, [feedbackKey]);
 
-  // Callback mới nhất không đặt lại khoảng phản hồi khi workspace render lại.
   const autoAdvances = feedback?.kind === "correct" && feedback.passed;
   const confirmedProgress = settled && settled.kind !== "error" ? settled.topicProgress : undefined;
-  const latestRef = useRef({ onAttemptCleared, onPassed, onAutoAdvancePending, confirmedProgress });
-  // Layout effects: the workspace hides its return action in the same commit as the wait starts, so it never flashes.
-  useLayoutEffect(() => {
-    latestRef.current = { onAttemptCleared, onPassed, onAutoAdvancePending, confirmedProgress };
-  });
+  const consumedAttemptRef = useRef<AnswerAttempt | undefined>(undefined);
   const autoAdvanceQuestionId = autoAdvances ? currentQuestion?.id : undefined;
   useLayoutEffect(() => {
-    if (!autoAdvanceQuestionId) return;
-    latestRef.current.onAutoAdvancePending?.(true);
-    const timer = window.setTimeout(() => {
-      latestRef.current.onAttemptCleared(autoAdvanceQuestionId);
-      latestRef.current.onPassed(latestRef.current.confirmedProgress);
-    }, AUTO_ADVANCE_MS);
-    return () => {
-      window.clearTimeout(timer);
-      latestRef.current.onAutoAdvancePending?.(false);
-    };
-  }, [autoAdvanceQuestionId]);
+    if (!autoAdvanceQuestionId || !attempt || consumedAttemptRef.current === attempt) return;
+    // Chỉ xử lý khi bước đang được mở; ref tránh chuyển hai lần khi Strict Mode chạy lại effect.
+    consumedAttemptRef.current = attempt;
+    onAttemptCleared(autoAdvanceQuestionId);
+    onPassed(confirmedProgress);
+  }, [autoAdvanceQuestionId, attempt, onAttemptCleared, onPassed, confirmedProgress]);
 
-  // Giữ phản hồi của câu vừa đạt trong khoảng chờ, dù isPassed đã bật.
+  // Kết quả chưa tiêu thụ cần được chuyển tiếp trước khi hiện bản xem lại chỉ đọc.
   if (isPassed && !feedback?.passed) {
     // LF5 AC6: xem lại chỉ đọc, không ghi gì và không đổi trạng thái đã qua.
     const reviewQuestions = questions

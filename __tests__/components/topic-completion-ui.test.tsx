@@ -15,6 +15,7 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 import { AUTO_ADVANCE_MS } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/auto-advance";
 
 // Test plan:
+// - LF9 Owner QA: Memory check cuối mở kết quả chủ đề ngay khi server xác nhận, không chờ timer; bài tập thường giữ khoảng phản hồi hiện hành.
 // - Mục tiêu: bảo vệ UI hoàn thành topic D4 (H6/G7) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
 // - Đối tượng: LearningWorkspace (thẻ, bài tập qua QuestionResponse) và MemoryCheckStage.
@@ -718,16 +719,10 @@ describe("D4 topic completion UI", () => {
       topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
     });
     await answerMemory();
-    // LF5 AC7: no toast and no button; after the feedback the workspace moves on to the completion screen by itself.
+    // Memory check cuối chuyển ngay, màn hình hoàn thành thay cho toast.
     expect(successToasts()).toEqual([]);
     expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
-    expect(screen.getByText("Chính xác!")).not.toBeNull();
-    expect(completionHeading()).toBeNull();
-    // Q16: no return action during the memory check's own wait either.
     expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
-    await act(async () => {
-      vi.advanceTimersByTime(1200);
-    });
     expect(completionHeading()).not.toBeNull();
     expect(successToasts()).toEqual([]);
     unmount();
