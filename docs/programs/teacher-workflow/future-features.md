@@ -4,7 +4,7 @@ Owner direction outside current scope, recorded 2026-10-11 during LF3 QA. Discus
 
 ## TFEAT-001: Editing published content without reverting to draft
 
-- Status: Deferred. Suggested first, as a small unit.
+- Status: Planned as [TFEAT1](../student-user-flow-route/implementation-plans/tfeat1/plan.md) (Decision 39 of the student-user-flow-route program), 2026-10-18.
 - Direction: adding or editing a card (and other content) in a published topic no longer moves the topic back to draft for re-review; today the author confirms a browser `confirm()` ("Bài học đã xuất bản… chuyển bài học về bản nháp…") and the topic leaves published.
 - Options noted: edit live with a change history (who changed what, when), optionally warning only on breaking changes (removing items, changing a correct answer); or keep the published version while a pending revision waits for approval (needs content versioning, much larger).
 - Interactions to settle at planning: learner progress after an edit (LF3 relocks the memory check on a new card, by design), stored answers when a correct option changes, and replacing the native `confirm()` with an app dialog.

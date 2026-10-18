@@ -8,14 +8,14 @@ This file was migrated to the repository template and translated to English on 2
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [LF9 plan](./implementation-plans/lf9/plan.md) r7 (last executed unit). |
-| Current unit / checkpoint | None active. LF9 r7 is merged (PR 164, `56f6269`); the GRANT-001 hardening is merged (PR 165, `051ec81`) and applied to hosted. |
-| Status | merged. LF9 is deployed and passed Owner production QA on 2026-10-18; the r7 correction is UI-only. |
+| Spec revision | [TFEAT1 plan](./implementation-plans/tfeat1/plan.md) r3. |
+| Current unit / checkpoint | TFEAT1 CP1 (DB boundary), not started. Branch `feat/tfeat1-published-live-edit`, stacked on the docs cleanup `32cf5ac`; one PR later. LF9 r7 is merged (PR 164, `56f6269`); GRANT-001 is merged (PR 165, `051ec81`) and applied to hosted. |
+| Status | planned. Codex CLI `gpt-6.1-sol` / `high` plan review PASS at round 3; Owner approved the plan 2026-10-18. LF9 is deployed and passed Owner production QA on 2026-10-18. |
 | Completed evidence | Finished units are in the milestones. GRANT-001 hosted postflight, 2026-10-18: a dry-run listed only `20261018090000_grant001_chapter_rpc_revoke_anon.sql`, one `db push` applied it, migration history lists it, and `has_function_privilege` gives `anon=false,authenticated=true,public=false,service_role=true` for `create_chapter_ordered(uuid, text)` and `move_chapter_order(uuid, text)`. The stale memory-check case in `learning-workspace-matrix` now follows LF9 (a confirmed pass opens the exercises by itself); the spec passes 10/10 on the isolated runtime. |
 | Accepted deviations | none open. |
 | Blockers / Owner decisions | None. Noted at LF9 QA, unchanged: when the topic is already complete, the top-bar `Xem kết quả chủ đề` can appear together with the question's `Hoàn thành`; the navigator caption also shows in public Preview. Audible screen-reader output remains unverified. |
-| Next action | The Owner picks the next unit; open items are in [problems.md](./problems.md) and [future-features.md](./future-features.md). |
-| Current authority | None active. A new unit needs its own plan and Owner grant. The GRANT-001 hosted apply was a one-time grant and is complete. |
+| Next action | `sonnet-high-implementor` implements CP1, then CP2; Main reviews each checkpoint and runs the Codex implementation review. |
+| Current authority | Owner 2026-10-18: implement TFEAT1 with local commits through one `sonnet-high-implementor` session. Push, PR, merge, hosted migration and deploy are not granted. |
 | Hosted state | VocaSpace project `zmnfsorjuibfjowmjtxo` has `20261016173554`, `20261018040000` and `20261018090000` applied once each; LF9 r7 is deployed. |
 
 ## Milestones
@@ -161,4 +161,5 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-18 LF9 r7 exercise-navigation correction (Decision 38) implemented locally: navigator-only movement with a visible caption, trailing `Câu tiếp theo` arrow and an always-pressed `Hoàn thành`; component and E2E checks pass apart from the pre-existing stale memory-check matrix case, Owner QA passed (`8a9f1a6`).
 - 2026-10-18 LF9 r7 merged (PR 164, `56f6269`).
 - 2026-10-18 GRANT-001 hardening migration merged, applied to hosted once and grant-checked read-only (PR 165, `051ec81`).
-- 2026-10-18 State refreshed, GRANT-001 resolved and the stale memory-check matrix case aligned with LF9 (this commit).
+- 2026-10-18 State refreshed, GRANT-001 resolved and the stale memory-check matrix case aligned with LF9 (`32cf5ac`).
+- 2026-10-18 TFEAT1 planned: edit published topics in place (Decision 39), Codex plan review PASS at round 3, Owner approved with Sonnet implementation (this commit).

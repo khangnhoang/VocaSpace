@@ -109,3 +109,12 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Lý do hoãn: Owner đề xuất khi QA thủ công LF1 (2026-10-10); ngoài phạm vi LF1 (luật hoàn thành flashcard và giải thích khi trả lời đúng).
 - Wave/phạm vi dự kiến: Kế hoạch nhỏ riêng và PR riêng, theo `frontend-design` và `frontend-workflow`.
 - Liên kết: [LF1 plan](./implementation-plans/learning-followup/plan.md).
+
+---
+
+## FEAT-011: Lịch sử thay đổi nội dung bài học đã xuất bản
+
+- Trạng thái: Deferred.
+- Mô tả: Ghi lại ai đã sửa gì và khi nào trên bài học đã xuất bản, sau khi TFEAT1 cho phép sửa trực tiếp.
+- Lý do hoãn: Owner chọn "Để sau" khi lập plan TFEAT1 (2026-10-18). Đây là dữ liệu người dùng mới, nên khi làm phải cập nhật `/privacy` trong cùng PR.
+- Liên kết: [TFEAT1 plan](./implementation-plans/tfeat1/plan.md), [Decision 39](./plan.md#2-owner-decisions).
