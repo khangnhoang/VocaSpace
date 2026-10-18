@@ -15,12 +15,15 @@ Three rules below are standing Owner permissions that apply without asking again
 ## Planning
 
 - Ask open Owner decisions with AskUserQuestion (recommended option first, marked "(Recommended)", at most 4 per call) before the plan is written or sent to review.
+- Any decision that bundles several actions (for example commit, plan approval and an implementation grant) goes through AskUserQuestion, one question per decision, with option descriptions that say exactly what happens. Use the wrap-up buttons only for a single obvious yes/no.
 
 ## Implementation
 
 - When the Owner hands a plan to Sonnet (orchestrator mode), dispatch one `sonnet-high-implementor` session for all checkpoints. Do this only for an approved plan with no open decision; otherwise ask the Owner first. The handoff grants local commits only.
 - Send corrections and later checkpoints to the same session with SendMessage; do not start a subagent or an independent review per checkpoint. Reviews or evidence that the plan or a skill requires (for example a fresh-reader round) still run at their checkpoint.
 - While an implementor owns the plan, Main does not edit product code or tests, even for small QA fixes.
+- The handoff prompt names the plan file as the single source of truth (the plan wins on any conflict) and adds only the checkpoint scope, the authority and operational notes the plan lacks. Do not restate the plan's scope or acceptance in your own words.
+- A concern the plan does not cover goes into the prompt as a risk to prove with tests, stating the expected result. Hand over all checkpoints in one dispatch; split them only when a later checkpoint needs an Owner decision based on an earlier result, not so Main can check in between.
 
 ## Discovery
 
