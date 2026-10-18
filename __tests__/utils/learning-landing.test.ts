@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveLandingStage, type LandingStageInput } from "@/lib/learning-landing";
+import { resolveLandingStage, resolveNextUnfinishedStage, type LandingStageInput } from "@/lib/learning-landing";
 
 // Test plan:
-// - Mục tiêu: `resolveLandingStage` chọn bước đầu tiên học viên còn phải làm khi vào chủ đề (LF5 AC1, AC2, AC7).
+// - Mục tiêu: chọn bước mở trang (LF5) và phần chưa xong sau một giai đoạn (LF9); cổng thẻ mới được ưu tiên, không dựng kết quả giả.
 // - Loại test: unit.
 // - Đối tượng: lib/learning-landing.ts.
 // - Case thành công: chủ đề chưa hoàn thành mở Từ vựng (thẻ chưa xem hoặc bước chưa xong), rồi Memory check chưa qua, rồi Bài tập còn câu;
@@ -113,5 +113,23 @@ describe("resolveLandingStage for a completed topic", () => {
     expect(
       landing({ ...completed, flashcardCount: 0, isFlashcardCompleted: false, hasUnseenCard: false }),
     ).toBe("complete");
+  });
+
+  it("opens Từ vựng when a new card was seen but still has not cleared the memory gate", () => {
+    expect(landing({ ...completed, hasUnseenCard: false, hasPendingMemoryCards: true })).toBe("flashcard");
+  });
+});
+
+describe("LF9 next unfinished content after a stage ends", () => {
+  it("prioritizes unfinished memory check and exercises over historical topic completion", () => {
+    const state = { hasMemoryCheck: true, isMemoryCheckPassed: false, remainingExerciseQuestions: 2, isTopicCompleted: true };
+    expect(resolveNextUnfinishedStage(state)).toBe("memory");
+    expect(resolveNextUnfinishedStage({ ...state, isMemoryCheckPassed: true })).toBe("exercise");
+    expect(resolveNextUnfinishedStage({ ...state, hasMemoryCheck: false })).toBe("exercise");
+    expect(resolveNextUnfinishedStage({ ...state, isMemoryCheckPassed: true, remainingExerciseQuestions: 0 })).toBe("complete");
+  });
+
+  it("does not fabricate a result when all local questions are done but the server has not confirmed completion", () => {
+    expect(resolveNextUnfinishedStage({ hasMemoryCheck: false, isMemoryCheckPassed: true, remainingExerciseQuestions: 0, isTopicCompleted: false })).toBeNull();
   });
 });

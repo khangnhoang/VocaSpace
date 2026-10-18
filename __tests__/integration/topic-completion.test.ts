@@ -293,9 +293,9 @@ describe.sequential("D4 topic completion server truth", { timeout: 30_000 }, () 
     await expectMemoryParity(fixture, progress);
 
     await review(fixture.cardIds[0]);
-    // LF3: memory check chỉ ghi được sau khi mọi thẻ active đã có dòng của học viên; chấm Lại (1) là đã xem nhưng chưa xong flashcard.
+    // LF9: có dòng chấm Lại vẫn chưa vượt cổng lần đầu; không được lưu cả đáp án sai để bỏ qua thẻ còn thiếu.
     await review(fixture.cardIds[1], 1);
-    await answer(fixture.memoryQuestions[0], fixture.memoryQuestions[0].wrong);
+    await expect(answer(fixture.memoryQuestions[0], fixture.memoryQuestions[0].wrong)).rejects.toThrow("row-level security");
     progress = await syncOk(fixture.topicId);
     expect(progress).toMatchObject({
       is_flashcard_completed: false, is_memory_check_passed: false, is_exercise_completed: false, is_topic_completed: false,
@@ -304,6 +304,8 @@ describe.sequential("D4 topic completion server truth", { timeout: 30_000 }, () 
 
     // LF2: bài tập chỉ ghi được sau khi memory check qua, nên thẻ cuối và câu memory đúng phải có trước đáp án exercise.
     await review(fixture.cardIds[1]);
+    await answer(fixture.memoryQuestions[0], fixture.memoryQuestions[0].wrong);
+    expect(await syncOk(fixture.topicId)).toMatchObject({ is_flashcard_completed: true, is_memory_check_passed: false, is_topic_completed: false });
     await answer(fixture.memoryQuestions[0], fixture.memoryQuestions[0].right);
     await answer(first, first.right);
     await answer(second, second.wrong);

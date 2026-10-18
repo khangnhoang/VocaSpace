@@ -389,6 +389,24 @@ describe("getLearningWorkspace", () => {
     expect(await load([removedCard])).toMatchObject({ unseenCardIds: [], unratedCardIds: [], dueCardIds: [] });
   });
 
+  it("loads retained gate achievement independently from a later Again rating", async () => {
+    mockSupabase({
+      queries: {
+        courses: singleQuery(course), chapters: rowsQuery([chapter]),
+        topics: singleQuery({
+          ...topic,
+          cards: [{ ...topic.cards[0], ratings: [{ user_id: user.id, last_rating: 1, next_review_date: "2099-01-01T00:00:00Z" }] }],
+          progress: [{ ...topic.progress[0], is_topic_completed: true, memory_gate_card_ids: [ids.card] }],
+        }),
+      },
+    });
+    const result = await getLearningWorkspace(course.slug, topic.slug);
+    expect(result.status).toBe("success");
+    if (result.status !== "success") throw new Error("expected success");
+    expect(result.data.memoryGateClearedCardIds).toEqual([ids.card]);
+    expect(result.data.unratedCardIds).toEqual([ids.card]);
+  });
+
   it("returns the cards due for review from the learner's own rows with the time boundary at the server clock (LF4 AC5)", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-12T10:00:00.000Z"));

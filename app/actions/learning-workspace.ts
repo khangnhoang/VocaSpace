@@ -131,6 +131,7 @@ type RawCard = {
 
 type RawProgress = {
   topic_id: string;
+  memory_gate_card_ids: string[] | null;
   is_flashcard_completed: boolean | null;
   is_exercise_completed: boolean | null;
   is_topic_completed: boolean | null;
@@ -386,6 +387,7 @@ function buildTopicData(
     flashcards,
     unseenCardIds,
     unratedCardIds,
+    memoryGateClearedCardIds: rawProgress?.memory_gate_card_ids ?? null,
     dueCardIds,
     exercises,
     memoryCheck: memoryCheck
@@ -504,7 +506,7 @@ export async function getLearningWorkspace(
             ratings:user_flashcards (user_id, last_rating, next_review_date)
           ),
           progress:user_topic_progress (
-            topic_id, is_flashcard_completed, is_exercise_completed, is_topic_completed
+            topic_id, is_flashcard_completed, is_exercise_completed, is_topic_completed, memory_gate_card_ids
           ),
           exercises (
             id, topic_id, course_id, title, activity_stage, part_type, order_index, removed_at,
@@ -582,6 +584,9 @@ export async function getLearningWorkspace(
     if (!data.progress?.isTopicCompleted) {
       const synced = await syncTopicProgress(supabase, data.currentTopic.id);
       if (synced) {
+        if (synced.isFlashcardCompleted) {
+          data.memoryGateClearedCardIds = data.flashcards.map((card) => (card as { id: string }).id);
+        }
         data.progress = {
           isFlashcardCompleted: synced.isFlashcardCompleted,
           isExerciseCompleted: synced.isExerciseCompleted,

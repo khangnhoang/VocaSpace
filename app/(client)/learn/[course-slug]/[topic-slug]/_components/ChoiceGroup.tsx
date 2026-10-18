@@ -49,10 +49,6 @@ export default function ChoiceGroup({
     setPreviousResult(result);
     setValidatedHere(result !== null);
   }
-  // Roving tabindex: the selected option, or the first one, is the single tab stop.
-  const selectedIndex = options.findIndex((option) => option.id === selectedId);
-  const tabStop = selectedIndex >= 0 ? selectedIndex : 0;
-
   const moveSelection = (event: KeyboardEvent, index: number) => {
     if (disabled) return;
     let target = index;
@@ -102,7 +98,6 @@ export default function ChoiceGroup({
             role="radio"
             aria-checked={isSelected}
             data-motion={motion}
-            tabIndex={index === tabStop ? 0 : -1}
             disabled={disabled}
             onClick={() => onSelect(option.id)}
             onKeyDown={(event) => moveSelection(event, index)}
