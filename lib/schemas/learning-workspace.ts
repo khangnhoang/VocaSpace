@@ -106,6 +106,8 @@ export const learningWorkspaceDataSchema = z.strictObject({
   // LF3: tính từ dòng user_flashcards của chính học viên (xem lib/card-progress.ts): thẻ chưa có dòng nào và thẻ chưa Ổn/Dễ.
   unseenCardIds: z.array(z.uuid()),
   unratedCardIds: z.array(z.uuid()),
+  // LF9: null là chưa vượt cổng lần đầu; chỉ server ghi nhận tập id đã đạt.
+  memoryGateClearedCardIds: z.array(z.uuid()).nullable(),
   // LF4: thẻ đã xem nhưng đến hạn FSRS hoặc chưa Ổn/Dễ; chỉ dùng cho lời mời ôn lại ở màn hình kết thúc.
   dueCardIds: z.array(z.uuid()),
   exercises: z.array(ExerciseSchema),

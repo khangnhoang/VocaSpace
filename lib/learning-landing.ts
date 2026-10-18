@@ -5,6 +5,7 @@ export interface LandingStageInput {
   flashcardCount: number;
   /** Có thẻ chưa có dòng của học viên (thẻ chưa xem). */
   hasUnseenCard: boolean;
+  hasPendingMemoryCards?: boolean;
   /** Server báo bước Từ vựng đã xong (lần chấm gần nhất của mọi thẻ là Ổn/Dễ). */
   isFlashcardCompleted: boolean;
   hasMemoryCheck: boolean;
@@ -25,9 +26,9 @@ export interface LandingStageInput {
 export function resolveLandingStage(input: LandingStageInput): LandingStage {
   const hasCards = input.flashcardCount > 0;
   if (input.isTopicCompleted) {
-    return hasCards && input.hasUnseenCard ? "flashcard" : "complete";
+    return hasCards && (input.hasUnseenCard || input.hasPendingMemoryCards) ? "flashcard" : "complete";
   }
-  if (hasCards && (input.hasUnseenCard || !input.isFlashcardCompleted)) return "flashcard";
+  if (hasCards && (input.hasUnseenCard || input.hasPendingMemoryCards || !input.isFlashcardCompleted)) return "flashcard";
   if (input.hasMemoryCheck && !input.isMemoryCheckPassed) return "memory";
   if (input.remainingExerciseQuestions > 0) return "exercise";
 
@@ -35,4 +36,14 @@ export function resolveLandingStage(input: LandingStageInput): LandingStage {
   if (input.hasMemoryCheck && (!input.isMemoryCheckPassed || input.exerciseCount === 0)) return "memory";
   if (input.exerciseCount > 0) return "exercise";
   return "flashcard";
+}
+
+// Sau một giai đoạn vừa kết thúc, nội dung còn thiếu thắng cờ hoàn thành lịch sử.
+// null giữ lỗi đồng bộ hiện rõ: không được suy ra kết quả chủ đề chỉ vì hàng đợi local đã rỗng.
+export function resolveNextUnfinishedStage(
+  input: Pick<LandingStageInput, "hasMemoryCheck" | "isMemoryCheckPassed" | "remainingExerciseQuestions" | "isTopicCompleted">,
+): Exclude<LandingStage, "flashcard"> | null {
+  if (input.hasMemoryCheck && !input.isMemoryCheckPassed) return "memory";
+  if (input.remainingExerciseQuestions > 0) return "exercise";
+  return input.isTopicCompleted ? "complete" : null;
 }

@@ -371,6 +371,7 @@ export interface UserTopicProgress {
   is_flashcard_completed: boolean;
   is_exercise_completed: boolean;
   is_topic_completed: boolean;
+  memory_gate_card_ids: string[] | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;

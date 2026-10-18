@@ -31,7 +31,8 @@ export default function PrivacyPage() {
             Chúng tôi không nhận mật khẩu Google và không truy cập dữ liệu khác trong tài khoản Google.
           </li>
           <li>
-            <strong>Dữ liệu học tập:</strong> khoá học bạn tham gia, tiến độ học, bài làm và kết quả ôn tập.
+            <strong>Dữ liệu học tập:</strong> khoá học bạn tham gia, tiến độ học, trạng thái mở khoá các nội dung học,
+            bài làm và kết quả ôn tập.
           </li>
           <li>
             <strong>Nội dung của giáo viên:</strong> khoá học, bài học, câu hỏi, hình ảnh và tệp mà giáo viên tải lên.

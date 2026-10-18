@@ -95,8 +95,9 @@ export async function createLearningTree(service: SupabaseClient, price = 0): Pr
 // Gắn đủ dữ liệu học của một học viên vào cây: enrollment, flashcard, progress, answer.
 export async function seedLearnerRows(service: SupabaseClient, userId: string, tree: LearningTree) {
   await insertOrThrow(service, "enrollments", { user_id: userId, course_id: tree.courseId });
-  await insertOrThrow(service, "user_flashcards", { user_id: userId, card_id: tree.cardId, last_rating: 3 });
+  // LF9 chấm thẻ sẽ tự tạo progress nếu chưa có, nên dựng dòng này trước.
   await insertOrThrow(service, "user_topic_progress", { user_id: userId, topic_id: tree.topicId });
+  await insertOrThrow(service, "user_flashcards", { user_id: userId, card_id: tree.cardId, last_rating: 3 });
   await insertOrThrow(service, "user_question_answers", {
     user_id: userId,
     question_id: tree.questionId,

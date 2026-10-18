@@ -45,6 +45,7 @@ interface QuestionResponseProps {
   direction: "next" | "previous" | "none";
   /** Moves focus to the question heading on entry; set only after the learner navigated. */
   focusOnEntry: boolean;
+  hasPrevious: boolean;
   /** A later question exists; without it there is no "next" to offer and the end action takes its place. */
   hasNext: boolean;
   /**
@@ -88,6 +89,7 @@ export default function QuestionResponse({
   onAttemptSettled,
   direction,
   focusOnEntry,
+  hasPrevious,
   hasNext,
   endAction,
   onAutoAdvance,
@@ -276,6 +278,9 @@ export default function QuestionResponse({
         : null
       : null;
 
+  const showNext = !isCorrect && hasNext;
+  const singleNavigation = hasPrevious !== showNext;
+
   return (
     <div
       className={`flex min-w-0 flex-col gap-5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[220ms] ${entrance}`}
@@ -311,41 +316,53 @@ export default function QuestionResponse({
       />
 
       <div className="flex flex-col gap-3">
-        {/* Two opposite actions share one row: back as a text link, forward as the primary. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <Button onClick={onPrevious} variant="link" size="lg" className="px-2">
-            <ChevronLeft aria-hidden="true" /> Câu trước
-          </Button>
-          <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-            {!isCorrect && hasNext && (
-              <Button onClick={onNext} variant="link" size="lg" className="px-2">
+        {(hasPrevious || showNext) && (
+          <div className="flex items-center justify-between gap-4">
+            {hasPrevious && (
+              <Button
+                onClick={onPrevious}
+                variant={singleNavigation ? "outline" : "link"}
+                size="lg"
+                className={singleNavigation ? "w-full" : "px-2"}
+              >
+                <ChevronLeft aria-hidden="true" /> Câu trước
+              </Button>
+            )}
+            {showNext && (
+              <Button
+                onClick={onNext}
+                variant={singleNavigation ? "outline" : "link"}
+                size="lg"
+                className={singleNavigation ? "w-full" : "px-2"}
+              >
                 Câu sau <ChevronRight aria-hidden="true" />
               </Button>
             )}
-            {primary ? (
-              <Button
-                size="lg"
-                disabled={
-                  isPending || ((phase.kind === "choosing" || phase.kind === "error") && !selectedId)
-                }
-                onClick={primary.onClick}
-              >
-                {primary.icon}
-                {primary.label}
-              </Button>
-            ) : (
-              !autoAdvances &&
-              "href" in endAction && (
-                <Button asChild size="lg">
-                  <Link href={endAction.href}>
-                    {endAction.label}
-                    <ChevronRight aria-hidden="true" />
-                  </Link>
-                </Button>
-              )
-            )}
           </div>
-        </div>
+        )}
+        {primary ? (
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={
+              isPending || ((phase.kind === "choosing" || phase.kind === "error") && !selectedId)
+            }
+            onClick={primary.onClick}
+          >
+            {primary.icon}
+            {primary.label}
+          </Button>
+        ) : (
+          !autoAdvances &&
+          "href" in endAction && (
+            <Button asChild size="lg" className="w-full">
+              <Link href={endAction.href}>
+                {endAction.label}
+                <ChevronRight aria-hidden="true" />
+              </Link>
+            </Button>
+          )
+        )}
 
         <div aria-live="polite" aria-atomic="true" ref={feedbackRef} className="empty:hidden">
           {/* The green option and its check already show a right answer. Without an explanation the

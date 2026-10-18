@@ -12,7 +12,7 @@ import { beginLocalPostgresTransaction, waitForLocalPostgresQuery } from "./help
 // - Phân quyền: anon/admin/collaborator không tự có quyền learner; service cũng bị FK ràng buộc.
 // - Resilience: ghi sai rollback, author đổi đáp án không rewrite snapshot cũ; counts đọc đủ hơn 1.000 rows.
 // - Invariant: option thuộc question, các parent cùng course/exercise; SELECT lịch sử không phụ thuộc quyền ghi.
-// - Verify: 24/24 passed (2026-10-08), bộ compatibility L1 87/87 trên E2E tách biệt.
+// - Verify: 24/24 passed (2026-10-18), cùng hai suite A5 đạt 59/59 trên E2E tách biệt sau sửa CI LF9.
 // - Ghi chú: chạy bằng `npm run test:integration -- __tests__/integration/learner-integrity.test.ts`;
 //   cần ALLOW_DB_INTEGRATION_TESTS=true, API 45441, E2E_SUPABASE_WORKDIR=.e2e-runtime và psql.
 
@@ -134,7 +134,7 @@ describe.sequential("L1 learner integrity", () => {
         expect((await service.from("cards").delete().in("id", cardIds.slice(offset, offset + 100))).error).toBeNull();
       }
     }
-  });
+  }, 30_000); // Dựng và dọn hơn 1.000 thẻ qua Data API/trigger thật; không phải phép đo latency.
 
   it("derives correctness for INSERT, UPDATE and upsert; retains attempt snapshot after author edits", async () => {
     const t = await tree();

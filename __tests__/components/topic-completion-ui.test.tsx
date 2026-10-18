@@ -15,6 +15,8 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 import { AUTO_ADVANCE_MS } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/auto-advance";
 
 // Test plan:
+// - LF9 Owner QA: chỉ điều hướng giữa các câu bài tập; câu đầu/cuối ẩn nút tương ứng, một câu không có cả hai; nút điều hướng đơn dùng outline khác nút chính.
+// - LF9 Owner QA: Memory check cuối mở kết quả chủ đề ngay khi server xác nhận, không chờ timer; bài tập thường giữ khoảng phản hồi hiện hành.
 // - Mục tiêu: bảo vệ UI hoàn thành topic D4 (H6/G7) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
 // - Đối tượng: LearningWorkspace (thẻ, bài tập qua QuestionResponse) và MemoryCheckStage.
@@ -141,6 +143,9 @@ function workspaceData(overrides: Partial<LearningWorkspaceData> = {}): Learning
     isMemoryCheckPassed: true,
     unseenCardIds: [],
     unratedCardIds: [],
+    memoryGateClearedCardIds: (overrides.progress?.isFlashcardCompleted || overrides.progress?.isTopicCompleted
+      || ((overrides.unseenCardIds?.length ?? 0) === 0 && (overrides.unratedCardIds?.length ?? 0) === 0))
+      ? (overrides.flashcards ?? []).filter((card) => !(overrides.unseenCardIds ?? []).includes(card.id)).map((card) => card.id) : null,
     dueCardIds: [],
     answers: {},
     progress: null,
@@ -287,6 +292,39 @@ describe("D4 topic completion UI", () => {
     expect(
       screen.getByRole("button", { name: "Xác nhận đáp án" }).hasAttribute("disabled"),
     ).toBe(true);
+  });
+
+  it("keeps previous and next inside the exercise question list and distinguishes a single remaining action", () => {
+    render(<LearningWorkspace data={workspaceData({
+      exercises: [exerciseA, exerciseB],
+      memoryCheck: { id: ids.memory, questions: [question(ids.memoryQuestion, "Câu nhớ")] },
+      answers: { [ids.memoryQuestion]: right(ids.memoryQuestion) },
+    })} />);
+    expect(screen.getByText("Câu đơn")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu trước" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Về Memory check" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Câu sau" }).getAttribute("data-variant")).toBe("outline");
+    expect(screen.getByRole("button", { name: "Xác nhận đáp án" }).getAttribute("data-variant")).toBe("default");
+    next();
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Câu trước" }).getAttribute("data-variant")).toBe("link");
+    expect(screen.getByRole("button", { name: "Câu sau" }).getAttribute("data-variant")).toBe("link");
+    next();
+    expect(screen.getByText("Câu nhóm B")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu sau" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Câu trước" }).getAttribute("data-variant")).toBe("outline");
+    fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
+    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
+    expect(screen.getByText("Câu đơn")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu trước" })).toBeNull();
+  });
+
+  it("shows no previous or next action for a single exercise question", () => {
+    render(<LearningWorkspace data={workspaceData({ exercises: [{ ...exerciseA, groups: [] }] })} />);
+    expect(screen.queryByRole("button", { name: "Câu trước" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Câu sau" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Xác nhận đáp án" })).not.toBeNull();
   });
 
   it("offers the first missing question after the last one is answered, instead of a next that leads nowhere", async () => {
@@ -657,7 +695,8 @@ describe("D4 topic completion UI", () => {
     expect(mockedToast.error).toHaveBeenCalledWith(
       "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
     );
-    expect(successToasts()).toEqual(["Đã nạp xong từ vựng!"]);
+    expect(successToasts()).toEqual([]);
+    expect(screen.getByRole("button", { name: "Tải lại tiến độ" })).not.toBeNull();
   });
 
   it("opens the completion screen with no toast when the last card rating completes the topic with exercises still ahead", async () => {
@@ -714,16 +753,10 @@ describe("D4 topic completion UI", () => {
       topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
     });
     await answerMemory();
-    // LF5 AC7: no toast and no button; after the feedback the workspace moves on to the completion screen by itself.
+    // Memory check cuối chuyển ngay, màn hình hoàn thành thay cho toast.
     expect(successToasts()).toEqual([]);
     expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
-    expect(screen.getByText("Chính xác!")).not.toBeNull();
-    expect(completionHeading()).toBeNull();
-    // Q16: no return action during the memory check's own wait either.
     expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
-    await act(async () => {
-      vi.advanceTimersByTime(1200);
-    });
     expect(completionHeading()).not.toBeNull();
     expect(successToasts()).toEqual([]);
     unmount();

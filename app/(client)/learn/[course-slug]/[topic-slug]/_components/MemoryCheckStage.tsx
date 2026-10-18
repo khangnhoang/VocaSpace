@@ -6,8 +6,8 @@ import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import { CARDS_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO } from "@/lib/schemas/learn";
+import type { TopicProgress } from "@/lib/schemas/learning-workspace";
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
-import { AUTO_ADVANCE_MS } from "./auto-advance";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -31,11 +31,6 @@ interface MemoryCheckStageProps {
   isPassed: boolean;
   /** Chủ đề có bài tập: màn hình xem lại giữ lối mở bài tập. */
   hasExercises: boolean;
-  /**
-   * LF5 AC7: còn câu bài tập chưa đúng. Chỉ khi đó phản hồi cuối giữ nút `Mở bài tập`; nếu không, workspace tự chuyển tiếp sau phản hồi.
-   * Mặc định theo `hasExercises`.
-   */
-  hasOpenExercises?: boolean;
   /** LF5 AC6: đáp án đã lưu theo câu, để màn hình xem lại đánh dấu đáp án đúng của học viên. */
   answers?: Record<string, string>;
   /** LF5 AC6/AC9: giải thích chỉ có ở câu mà đáp án đã lưu đang đúng (từ server lúc tải hoặc từ kết quả trả lời trong phiên). */
@@ -43,19 +38,17 @@ interface MemoryCheckStageProps {
   onCorrectAnswer: (questionId: string, optionId: string, explanation?: string) => void;
   /** Câu trả lời sai: workspace bỏ giải thích đã giữ của câu đó (AC9). */
   onIncorrectAnswer?: (questionId: string) => void;
-  /** Điều hướng sau phản hồi cuối (học viên bấm nút, hoặc tự chuyển khi không còn bài tập mở): chỉ chuyển bước, không quyết định memory check đã qua hay chưa. */
-  onPassed: () => void;
+  /** Tự chuyển sau phản hồi cuối; server vẫn quyết định memory check đã qua hay chưa. */
+  onPassed: (progress?: TopicProgress) => void;
   /**
    * Server báo memory check đã qua ngay trong kết quả của câu trả lời. Workspace đánh dấu bước "đã xong" tại đây (AC8),
-   * không đợi học viên bấm tiếp; phản hồi của câu vẫn hiện cho tới khi học viên tiếp tục.
+   * không đợi học viên bấm tiếp; câu đúng cuối chuyển ngay sang nội dung tiếp theo.
    * `newlyCompleted` là giá trị của chính kết quả câu trả lời này (LF4 AC1): khi bài vừa hoàn thành, màn hình hoàn thành
    * thay cho toast nên workspace không hiện toast memory check.
    */
   onMemoryPassed?: (newlyCompleted: boolean) => void;
   onGoToExercises: () => void;
   onTopicCompleted?: (newlyCompleted: boolean) => void;
-  /** LF5 Q16: true exactly while the auto-advance timer runs, so the workspace can hide its duplicate return action. */
-  onAutoAdvancePending?: (pending: boolean) => void;
   /**
    * The server refused the answer because the topic has a card this learner has not seen (a card added after the page
    * loaded). The workspace owns recovery: back to the flashcards and a data refresh.
@@ -83,7 +76,6 @@ export default function MemoryCheckStage({
   onAttemptCleared,
   isPassed,
   hasExercises,
-  hasOpenExercises = hasExercises,
   answers = {},
   explanations = {},
   onCorrectAnswer,
@@ -92,7 +84,6 @@ export default function MemoryCheckStage({
   onMemoryPassed,
   onGoToExercises,
   onTopicCompleted,
-  onAutoAdvancePending,
   onCardsRequired,
 }: MemoryCheckStageProps) {
   const [isPending, startTransition] = useTransition();
@@ -146,29 +137,19 @@ export default function MemoryCheckStage({
     if (feedbackKey) continueButtonRef.current?.focus();
   }, [feedbackKey]);
 
-  // LF5 AC7: câu đúng cuối cùng làm memory check qua mà không còn bài tập mở thì không có nút nào; workspace tự chuyển tiếp
-  // sau phản hồi. Callback mới nhất nằm trong ref để mỗi lần workspace render lại không đặt lại bộ đếm.
-  const autoAdvances = feedback?.kind === "correct" && feedback.passed && !hasOpenExercises;
-  const latestRef = useRef({ onAttemptCleared, onPassed, onAutoAdvancePending });
-  // Layout effects: the workspace hides its return action in the same commit as the wait starts, so it never flashes.
-  useLayoutEffect(() => {
-    latestRef.current = { onAttemptCleared, onPassed, onAutoAdvancePending };
-  });
+  const autoAdvances = feedback?.kind === "correct" && feedback.passed;
+  const confirmedProgress = settled && settled.kind !== "error" ? settled.topicProgress : undefined;
+  const consumedAttemptRef = useRef<AnswerAttempt | undefined>(undefined);
   const autoAdvanceQuestionId = autoAdvances ? currentQuestion?.id : undefined;
   useLayoutEffect(() => {
-    if (!autoAdvanceQuestionId) return;
-    latestRef.current.onAutoAdvancePending?.(true);
-    const timer = window.setTimeout(() => {
-      latestRef.current.onAttemptCleared(autoAdvanceQuestionId);
-      latestRef.current.onPassed();
-    }, AUTO_ADVANCE_MS);
-    return () => {
-      window.clearTimeout(timer);
-      latestRef.current.onAutoAdvancePending?.(false);
-    };
-  }, [autoAdvanceQuestionId]);
+    if (!autoAdvanceQuestionId || !attempt || consumedAttemptRef.current === attempt) return;
+    // Chỉ xử lý khi bước đang được mở; ref tránh chuyển hai lần khi Strict Mode chạy lại effect.
+    consumedAttemptRef.current = attempt;
+    onAttemptCleared(autoAdvanceQuestionId);
+    onPassed(confirmedProgress);
+  }, [autoAdvanceQuestionId, attempt, onAttemptCleared, onPassed, confirmedProgress]);
 
-  // Khi câu trả lời vừa làm memory check qua, phản hồi của câu còn hiện (kèm nút mở bài tập) dù isPassed đã bật.
+  // Kết quả chưa tiêu thụ cần được chuyển tiếp trước khi hiện bản xem lại chỉ đọc.
   if (isPassed && !feedback?.passed) {
     // LF5 AC6: xem lại chỉ đọc, không ghi gì và không đổi trạng thái đã qua.
     const reviewQuestions = questions
@@ -280,6 +261,7 @@ export default function MemoryCheckStage({
         explanation: result.explanation,
         progressError: result.progressError,
         passed: result.isMemoryCheckPassed === true,
+        topicProgress: result.topicProgress,
       });
       if (result.isMemoryCheckPassed === true) onMemoryPassed?.(result.topicProgress?.newlyCompleted === true);
     });
@@ -290,7 +272,7 @@ export default function MemoryCheckStage({
     const questionId = currentQuestion.id;
     onAttemptCleared(questionId);
     if (feedback.passed) {
-      onPassed();
+      onPassed(confirmedProgress);
       return;
     }
     setQueue((current) => {
@@ -390,7 +372,7 @@ export default function MemoryCheckStage({
             size="lg"
             className="min-h-12 w-full"
           >
-            {feedback.passed && hasOpenExercises ? "Mở bài tập" : "Tiếp tục"}
+            {feedback.kind === "incorrect" ? (willReturn ? "Câu tiếp theo" : "Thử lại") : "Câu tiếp theo"}
           </Button>
         )
       ) : (
