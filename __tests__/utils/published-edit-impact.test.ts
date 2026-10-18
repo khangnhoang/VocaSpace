@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   describeAnswerImpact,
+  describeAnswerImpactTitle,
   getQuestionAnswerImpact,
   hasAnswerImpact,
 } from "@/lib/course-authoring/published-edit-impact";
@@ -11,7 +12,8 @@ import {
 // - Loại test: unit thuần cho hàm so sánh bản đã lưu với bản sắp gửi.
 // - Case thành công: giữ nguyên đáp án, chỉ sửa chữ, thêm đáp án sai mới → không cảnh báo.
 // - Case cảnh báo: xóa đáp án, xóa chữ của đáp án (bị lọc như server), chuyển đáp án đúng sang
-//   đáp án khác hoặc sang đáp án mới → có cảnh báo, nội dung nêu học viên phải trả lời lại.
+//   đáp án khác hoặc sang đáp án mới → có cảnh báo; tiêu đề "Đổi đáp án đúng?" khi đổi đáp án đúng, "Lưu thay đổi đáp án?" khi chỉ bỏ đáp án;
+//   nội dung nêu học viên chưa hoàn thành chấm theo đáp án mới, người đã hoàn thành giữ kết quả.
 // - Nhiều đáp án đúng: so cả tập id đáp án đúng; bỏ bớt, thêm đáp án đúng, hoặc đáp án đúng mới chưa có id đều cảnh báo;
 //   chỉ sửa chữ mà giữ nguyên tập thì không.
 // - Invariant cần giữ: so sánh theo id đã lưu, không theo vị trí hay nội dung chữ.
@@ -42,7 +44,8 @@ describe("getQuestionAnswerImpact", () => {
     ]);
 
     expect(impact).toEqual({ removedOption: true, correctChanged: false });
-    expect(describeAnswerImpact(impact)).toBe("Đáp án bị bỏ sẽ không còn hiển thị cho học viên.");
+    expect(describeAnswerImpact(impact)).toBe("Đáp án bị bỏ sẽ không còn hiện cho học viên.");
+    expect(describeAnswerImpactTitle(impact)).toBe("Lưu thay đổi đáp án?");
   });
 
   it("treats an option whose text was cleared as removed because the server filters it", () => {
@@ -63,7 +66,10 @@ describe("getQuestionAnswerImpact", () => {
     ]);
 
     expect(impact).toEqual({ removedOption: false, correctChanged: true });
-    expect(describeAnswerImpact(impact)).toContain("phải trả lời lại");
+    expect(describeAnswerImpact(impact)).toBe(
+      "Học viên chưa hoàn thành bài học sẽ được chấm theo đáp án mới: ai đã chọn đáp án cũ sẽ phải làm lại câu này. Học viên đã hoàn thành bài học vẫn giữ kết quả. Nhớ sửa lời giải cho khớp với đáp án mới.",
+    );
+    expect(describeAnswerImpactTitle(impact)).toBe("Đổi đáp án đúng?");
   });
 
   it("reports a correct-answer change when a brand-new option becomes correct", () => {
@@ -134,7 +140,8 @@ describe("getQuestionAnswerImpact", () => {
     ]);
 
     expect(impact).toEqual({ removedOption: true, correctChanged: true });
-    expect(describeAnswerImpact(impact)).toContain("Đáp án bị bỏ");
-    expect(describeAnswerImpact(impact)).toContain("phải trả lời lại");
+    expect(describeAnswerImpact(impact)).toContain("Đáp án bị bỏ sẽ không còn hiện cho học viên.");
+    expect(describeAnswerImpact(impact)).toContain("sẽ phải làm lại câu này");
+    expect(describeAnswerImpactTitle(impact)).toBe("Đổi đáp án đúng?");
   });
 });

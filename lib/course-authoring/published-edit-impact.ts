@@ -68,15 +68,20 @@ export function hasAnswerImpact(impact: AnswerImpact) {
   return impact.removedOption || impact.correctChanged;
 }
 
+// Tiêu đề nêu đúng điều sắp xảy ra: đổi đáp án đúng thì nói thẳng, chỉ bỏ đáp án thì dùng tiêu đề trung tính.
+export function describeAnswerImpactTitle(impact: AnswerImpact) {
+  return impact.correctChanged ? "Đổi đáp án đúng?" : "Lưu thay đổi đáp án?";
+}
+
 export function describeAnswerImpact(impact: AnswerImpact) {
   const parts: string[] = [];
   if (impact.correctChanged) {
     parts.push(
-      "Đáp án đúng sẽ đổi: học viên đã chọn đáp án cũ sẽ phải trả lời lại câu này. Câu trả lời đã lưu không bị chấm lại, còn việc hoàn thành bài học dùng đáp án đúng mới.",
+      "Học viên chưa hoàn thành bài học sẽ được chấm theo đáp án mới: ai đã chọn đáp án cũ sẽ phải làm lại câu này. Học viên đã hoàn thành bài học vẫn giữ kết quả. Nhớ sửa lời giải cho khớp với đáp án mới.",
     );
   }
   if (impact.removedOption) {
-    parts.push("Đáp án bị bỏ sẽ không còn hiển thị cho học viên.");
+    parts.push("Đáp án bị bỏ sẽ không còn hiện cho học viên.");
   }
   return parts.join(" ");
 }

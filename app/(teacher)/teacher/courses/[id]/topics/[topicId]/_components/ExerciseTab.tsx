@@ -63,6 +63,7 @@ import {
 import {
   PUBLISHED_DELETE_IMPACT,
   describeAnswerImpact,
+  describeAnswerImpactTitle,
   getQuestionAnswerImpact,
   hasAnswerImpact,
 } from "@/lib/course-authoring/published-edit-impact";
@@ -474,7 +475,7 @@ export default function ExerciseTab({
       const impact = getQuestionAnswerImpact(editingQuestion.options, cleanOptions);
       if (hasAnswerImpact(impact)) {
         const confirmed = await publishedWarning.confirm({
-          title: "Lưu thay đổi đáp án của bài học đã xuất bản?",
+          title: describeAnswerImpactTitle(impact),
           description: describeAnswerImpact(impact),
           confirmText: "Vẫn lưu thay đổi",
         });

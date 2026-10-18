@@ -83,7 +83,9 @@ window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 const topicId = "22222222-2222-4222-8222-222222222222";
 const courseId = "11111111-1111-4111-8111-111111111111";
-const WARNING_TITLE = "Lưu thay đổi đáp án của bài học đã xuất bản?";
+const CORRECT_TITLE = "Đổi đáp án đúng?";
+// Cả hai tiêu đề cảnh báo đáp án; dùng cho các case khẳng định "không có cảnh báo" hoặc hủy.
+const WARNING_TITLE = /^(Đổi đáp án đúng\?|Lưu thay đổi đáp án\?)$/;
 
 const exerciseWithQuestion = {
   id: "ex-1",
@@ -135,8 +137,8 @@ describe("ExerciseTab on a published topic", () => {
     fireEvent.click(within(editor).getAllByRole("radio")[1]);
     fireEvent.click(within(editor).getByRole("button", { name: "Lưu dữ liệu" }));
 
-    const warning = await screen.findByRole("dialog", { name: WARNING_TITLE });
-    expect(within(warning).getByText(/phải trả lời lại/)).toBeTruthy();
+    const warning = await screen.findByRole("dialog", { name: CORRECT_TITLE });
+    expect(within(warning).getByText(/sẽ phải làm lại câu này/)).toBeTruthy();
     expect(mocks.updateQuestion).not.toHaveBeenCalled();
 
     fireEvent.click(within(warning).getByRole("button", { name: "Vẫn lưu thay đổi" }));

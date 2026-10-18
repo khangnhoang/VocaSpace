@@ -176,10 +176,8 @@ describe("MemoryCheckSection", () => {
     it("opens the warning before saving a changed correct answer and saves only after confirm", async () => {
       await openEditAndPickB();
 
-      const warning = await screen.findByRole("dialog", {
-        name: "Lưu thay đổi đáp án của bài học đã xuất bản?",
-      });
-      expect(within(warning).getByText(/phải trả lời lại/)).toBeTruthy();
+      const warning = await screen.findByRole("dialog", { name: "Đổi đáp án đúng?" });
+      expect(within(warning).getByText(/sẽ phải làm lại câu này/)).toBeTruthy();
       expect(mocks.updateQuestion).not.toHaveBeenCalled();
 
       fireEvent.click(within(warning).getByRole("button", { name: "Vẫn lưu thay đổi" }));
@@ -194,13 +192,11 @@ describe("MemoryCheckSection", () => {
     it("makes no request and keeps the typed values when the owner cancels the warning", async () => {
       await openEditAndPickB();
 
-      const warning = await screen.findByRole("dialog", {
-        name: "Lưu thay đổi đáp án của bài học đã xuất bản?",
-      });
+      const warning = await screen.findByRole("dialog", { name: "Đổi đáp án đúng?" });
       fireEvent.click(within(warning).getByRole("button", { name: "Hủy bỏ" }));
 
       await waitFor(() =>
-        expect(screen.queryByRole("dialog", { name: "Lưu thay đổi đáp án của bài học đã xuất bản?" })).toBeNull(),
+        expect(screen.queryByRole("dialog", { name: /^(Đổi đáp án đúng\?|Lưu thay đổi đáp án\?)$/ })).toBeNull(),
       );
       expect(mocks.updateQuestion).not.toHaveBeenCalled();
       const editor = screen.getByRole("dialog", { name: "Sửa câu memory check" });
@@ -229,10 +225,8 @@ describe("MemoryCheckSection", () => {
       fireEvent.click(screen.getByRole("button", { name: "Bỏ đáp án C" }));
       fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
 
-      const warning = await screen.findByRole("dialog", {
-        name: "Lưu thay đổi đáp án của bài học đã xuất bản?",
-      });
-      expect(within(warning).getByText(/không còn hiển thị/)).toBeTruthy();
+      const warning = await screen.findByRole("dialog", { name: "Lưu thay đổi đáp án?" });
+      expect(within(warning).getByText(/không còn hiện cho học viên/)).toBeTruthy();
       expect(mocks.updateQuestion).not.toHaveBeenCalled();
     });
 
@@ -252,7 +246,7 @@ describe("MemoryCheckSection", () => {
       fireEvent.change(screen.getByLabelText("Nội dung đáp án B"), { target: { value: "B" } });
       fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
       await waitFor(() => expect(mocks.addMemoryCheckQuestion).toHaveBeenCalledTimes(1));
-      expect(screen.queryByRole("dialog", { name: "Lưu thay đổi đáp án của bài học đã xuất bản?" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: /^(Đổi đáp án đúng\?|Lưu thay đổi đáp án\?)$/ })).toBeNull();
     });
 
     it("explains the learner impact inside the delete dialog and deletes on its single confirm", async () => {
@@ -292,7 +286,7 @@ describe("MemoryCheckSection", () => {
     fireEvent.click(screen.getByLabelText("Đáp án B là đáp án đúng"));
     fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
     await waitFor(() => expect(mocks.updateQuestion).toHaveBeenCalledTimes(1));
-    expect(screen.queryByRole("dialog", { name: "Lưu thay đổi đáp án của bài học đã xuất bản?" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: /^(Đổi đáp án đúng\?|Lưu thay đổi đáp án\?)$/ })).toBeNull();
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Xóa câu memory check 1" }));
