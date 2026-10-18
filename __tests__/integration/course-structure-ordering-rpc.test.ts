@@ -1,17 +1,18 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination";
 
 // Test plan:
 // - Mục tiêu: kiểm tra authority D2 cho chapter cùng ordering topic/chapter bằng Supabase local thật.
 // - Loại test: integration/RPC/Supabase.
 // - Đối tượng: create_chapter_ordered, move_chapter_order, hide_chapter, restore_chapter_ordered, chapter RLS và Data API column grants, cùng topic ordering RPC.
 // - Case thành công: tạo order max+1 tính cả soft-deleted row; move up/down persist vào DB; boundary soft-deleted rows tạo no-op đúng.
-// - Case thất bại: unauthenticated, non-member/global admin, previewer/editor reorder, creator spoofing, invalid direction, mismatch course/chapter, removed target và removed parent.
-// - Bảo mật/phân quyền: service-role chỉ dựng fixture/cleanup/assert; RPC app flow dùng client đã đăng nhập.
+// - Case thất bại: anon bị Data API từ chối 42501 (GRANT-001), non-member/global admin, previewer/editor reorder, creator spoofing, invalid direction, mismatch course/chapter, removed target và removed parent.
+// - Bảo mật/phân quyền: service-role chỉ dựng fixture/cleanup/assert; RPC app flow dùng client đã đăng nhập; catalog grant: anon và public không execute create_chapter_ordered/move_chapter_order, authenticated và service_role có.
 // - Ổn định/resilience: fixture cô lập theo course UUID, cleanup fail loud, helper kiểm tra active unique invariant.
 // - Invariant cần giữ: creator do create RPC gán; editor chỉ sửa/ẩn/khôi phục chương của mình; owner/co_owner reorder; restore nối vào cuối active order; active order unique.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:integration -- __tests__/integration/course-structure-ordering-rpc.test.ts`.
+// - Kết quả verify gần nhất: passed (14/14) sau migration GRANT-001 bằng `ALLOW_DB_INTEGRATION_TESTS=true npm run test:integration -- __tests__/integration/course-structure-ordering-rpc.test.ts` trên runtime cô lập (API 45441); trước migration (áp rollback) 2 case anon fail.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -316,17 +317,44 @@ describe.sequential("course structure ordering RPC integration", () => {
     ]);
     await expectNoActiveChapterDuplicate(courseId);
 
+    // GRANT-001: anon không có quyền execute nên Data API từ chối trước khi vào hàm (không còn AUTH_REQUIRED).
     const unauthenticated = await anonymousClient.rpc("create_chapter_ordered", {
       p_course_id: courseId,
       p_title: "Anonymous Chapter",
     });
-    expectRpcError(unauthenticated.error, "AUTH_REQUIRED");
+    expect(unauthenticated.error?.code).toBe("42501");
+    expect((await getChapters(courseId)).map((chapter) => chapter.title)).toEqual([
+      "Active Chapter A",
+      "Deleted Chapter B",
+      "Created Chapter C",
+    ]);
 
     const unauthorized = await studentClient.rpc("create_chapter_ordered", {
       p_course_id: courseId,
       p_title: "Student Chapter",
     });
     expectRpcError(unauthorized.error, "COURSE_EDIT_FORBIDDEN");
+  });
+
+  it("refuses anon execute on the chapter create and move RPCs while signed-in callers keep it (GRANT-001)", async () => {
+    const grants = (signature: string) => waitForLocalPostgresQuery(
+      `select string_agg(r || '=' || has_function_privilege(r, '${signature}', 'execute')::text, ',' order by r)
+         from unnest(array['anon', 'authenticated', 'public', 'service_role']) as r`,
+      `${signature} execute grants`,
+    );
+    for (const signature of ["public.create_chapter_ordered(uuid, text)", "public.move_chapter_order(uuid, text)"]) {
+      expect(await grants(signature), signature).toBe("anon=false,authenticated=true,public=false,service_role=true");
+    }
+
+    const courseId = await createCourseFixture();
+    await insertChapter(courseId, "Chapter A", 1);
+    const chapterId = await insertChapter(courseId, "Chapter B", 2);
+    const moved = await anonymousClient.rpc("move_chapter_order", { p_chapter_id: chapterId, p_direction: "up" });
+    expect(moved.error?.code).toBe("42501");
+    expect((await getChapters(courseId)).map((chapter) => [chapter.title, chapter.order_index])).toEqual([
+      ["Chapter A", 1],
+      ["Chapter B", 2],
+    ]);
   });
 
   it("create_topic_ordered appends after soft-deleted topic slots and rejects invalid parent context", async () => {
