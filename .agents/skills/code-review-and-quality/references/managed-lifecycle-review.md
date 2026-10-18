@@ -12,17 +12,14 @@ Read this reference only for a `MULTI_AGENT_E2E` Plan Reviewer or Implementation
 
 ## Plan Reviewer dimensions
 
-Disposition every item for the exact detailed-plan candidate:
+Apply every item of the parent skill's core Plan review section to the exact detailed-plan candidate, then disposition these managed checks:
 
-- exact Owner-source and approved Master Plan/workstream fidelity, including material ambiguity and Phase/scope exclusions;
-- current repository reality, semantic ownership, activated skills, and absence of a competing source of truth;
-- task-local lineage, dependencies, assumption evidence/invalidation, and positive blast-radius dispositions;
-- exact and forbidden paths, serialized writer boundaries, branch/base/prerequisites, and implementability without downstream material invention;
-- observable acceptance mapped to deterministic, native/runtime, manual, and external evidence with truthful claim limits;
-- action permissions, progress ownership, detailed-plan drift, open/closed Master Plan mismatch, rollback, stop, and Owner-decision routes;
-- consumer-to-owner, acceptance-to-evidence, and prompt-leakage closure so reusable semantics are repository-owned rather than payload-only.
+- approved Master Plan/workstream fidelity, including Phase exclusions and task-local lineage;
+- serialized writer boundaries;
+- detailed-plan drift and open/closed Master Plan mismatch;
+- prompt-leakage closure, so reusable semantics are repository-owned rather than payload-only.
 
-Plan Reviewer does not implement, approve the Owner's semantic decision, or make an action grant. A material candidate defect within the Planner's current authority is a blocking finding; missing external evidence/permission or material Owner ambiguity is a blocker with the exact resolver.
+Plan Reviewer applies the parent's blocking-finding and blocker rules, with the Planner's current authority as the author authority.
 
 ## Implementation Reviewer dimensions
 

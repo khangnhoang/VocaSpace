@@ -1,6 +1,6 @@
 ---
 name: code-review-and-quality
-description: Repository-specific code review and quality-gate workflow for completed checkpoints, implementation prompts, branches, and pull requests. Use after implementation, before merge, when reviewing code written by a human or agent, validating a correction commit, or deciding readiness for manual QA, further revision, push, or merge.
+description: Repository-specific code review and quality-gate workflow for completed checkpoints, implementation prompts, branches, pull requests, and plans. Use after implementation, before merge, when reviewing code written by a human or agent, when reviewing a plan or brief, validating a correction commit, or deciding readiness for manual QA, further revision, push, or merge.
 ---
 
 # Code Review and Quality
@@ -15,6 +15,7 @@ Use this skill when reviewing:
 * code written by a human or agent
 * a bug fix, refactor, migration, RLS/RPC change, validation boundary, frontend change, test change, or documentation change
 * whether implementation matches an approved plan
+* a plan, brief or other plan candidate, using the core Plan review section
 * whether manual QA can begin
 * whether a change is ready for the next approved Git or merge action
 
@@ -36,7 +37,7 @@ This skill owns:
 
 `docs/agent-loops.md` owns author self-review activation and routes its generic methodology to `docs/agent-self-review.md`. This skill owns any additionally applicable formal, integration, independent, or correction review and does not restate the generic author methodology.
 
-It does not own planning, commit creation, push permission, domain implementation rules, test taxonomy, or comment policy.
+It does not own plan content (owned by `implementation-planning-and-pr-breakdown`), commit creation, push permission, domain implementation rules, test taxonomy, or comment policy.
 
 ## Related skills
 
@@ -208,6 +209,22 @@ Check:
 
 Do not demand abstraction because two blocks merely look similar.
 
+### Plan review
+
+Use this section to review a plan, brief or other plan candidate, in or outside a managed workflow. `implementation-planning-and-pr-breakdown` owns what a plan must contain; this section owns how to review it. A `MULTI_AGENT_E2E` Plan Reviewer round adds the managed checks in [`references/managed-lifecycle-review.md`](references/managed-lifecycle-review.md).
+
+Disposition every item for the exact plan revision:
+
+* fidelity to the Owner source and approved scope, including material ambiguity and scope exclusions;
+* current repository reality, semantic ownership, activated skills, and absence of a competing source of truth;
+* dependencies, assumption evidence and invalidation, and blast radius;
+* exact and forbidden paths, branch/base/prerequisites, and implementability without downstream material invention;
+* observable acceptance mapped to deterministic, native/runtime, manual, and external evidence with truthful claim limits;
+* action permissions, progress ownership, rollback, stop, and Owner-decision routes;
+* consumer-to-owner and acceptance-to-evidence closure.
+
+Plan review does not implement, approve the Owner's material decision, or grant any action. A material defect within the author's current authority is a blocking finding; missing external evidence or permission, or material Owner ambiguity, is a blocker with the exact resolver.
+
 ## Change-set audit
 
 Classify changed areas as:
@@ -249,7 +266,7 @@ Use final sizing and the actual review target to select the smallest sufficient 
 * Main integration review applies when correctness depends on interactions across owners or boundaries.
 * A self-authored non-small implementation first completes the shared author self-review boundary, then uses formal main review when the task, checkpoint, lifecycle or discovered risk requires it, plus integration review when affected boundaries require it.
 * A human- or other-agent-authored branch or PR uses formal main review, plus integration review when its risk or boundaries require it; do not label that work `main self-review`.
-* An agent-authored durable plan keeps the narrower planning-owned rule that main-agent plan self-review comes first.
+* Every agent-authored plan presented to the Owner keeps the narrower planning-owned rule that main-agent plan self-review comes first.
 
 If review evidence exposes a concrete hard risk or material uncertainty that invalidates final sizing, reclassify before specialist consideration, complete the newly applicable formal or integration review, and then evaluate the gates below.
 

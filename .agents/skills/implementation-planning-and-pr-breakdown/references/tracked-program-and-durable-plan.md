@@ -74,13 +74,13 @@ completed
 
 Do not invent paths or mark work complete before its criteria are satisfied.
 
-## Durable-plan decision and self-review
+## Durable-plan decision and plan self-review
 
 A durable plan is required when large/high-risk work needs continuity across sessions or agents, spans multiple owners or dependencies, defines an exact permission contract, requires a material owner decision, has ordered phases, or needs an auditable rollback boundary.
 
 Do not create a plan file for small clear work, bounded medium work already covered by a concise approved brief, or work already owned by a complete authoritative plan. Update the owning source when permitted; do not duplicate master plans, trackers, ADRs or problem records.
 
-At the applicable plan self-review boundary, follow `docs/agent-loops.md`, read `docs/agent-self-review.md` once for that boundary, and apply its generic methodology together with these planning-specific extensions:
+Plan self-review applies to every plan presented to the Owner: a durable plan, an approved brief or a concise response plan. At that boundary, follow `docs/agent-loops.md`, read `docs/agent-self-review.md` once for that boundary, and apply its generic methodology together with the planning-specific extensions that the plan's depth uses:
 
 * owning master plan, ADR, per-PR owner record and progress/problem sources;
 * source ownership, dependency/order and branch baseline;

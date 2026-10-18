@@ -11,7 +11,7 @@
 //   - Giữ correction budget riêng cho plan/implementation/drift, running-role synchronization và stable progress.
 // - Invariant cần giữ:
 //   - Không tạo durable package registry, competing review/state-machine owner hay custom orchestration runtime.
-// - Kết quả verify gần nhất: passed 29 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v24.11.1.
+// - Kết quả verify gần nhất: passed 30 tests bằng `node --test .agents/scripts/native-multi-agent-workflow.test.mjs` trên Node v22.22.0.
 // - Ghi chú: static contract test không phải native rehearsal, manual QA hay bằng chứng model behavior.
 
 import assert from "node:assert/strict";
@@ -101,6 +101,12 @@ test("routes shared author self-review without weakening native admission", () =
   assert.match(reconciliation, /bounded native author-side handoff closure/);
   assert.match(reconciliation, /failure returns to the owning writer before Reviewer dispatch/);
   assert.match(scenarios, /shared self-review never substitutes for those gates/);
+});
+
+test("reports author self-review evidence and returns capped findings to Main", () => {
+  assert.match(core, /author self-review evidence \(the `docs\/agent-loops\.md` evidence block/);
+  assert.match(core, /finding left after the pass cap, which a managed role returns to Main so Main asks the Owner/);
+  assert.match(lifecycleLoops, /A managed role does not ask the Owner; it returns the findings to Main in its handoff, and Main asks the Owner in the same way: with its structured question tool, or in the reply when it has none, offering the same options\./);
 });
 
 test("blocks findings by material impact instead of artifact type", () => {

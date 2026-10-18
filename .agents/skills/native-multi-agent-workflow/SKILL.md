@@ -74,6 +74,6 @@ Stop and report instead of dispatching, admitting, correcting, or transitioning 
 
 ## Reporting contract
 
-Report exact mode, workflow/phase/episode, role/session reuse, Owner revision and ordered refs, candidate revision, review round/artifact, authority snapshot, observed status, changed-path scope, verification and claim limits, blockers, correction budget, and recommended next route. Distinguish observed native behavior from deterministic structure checks and from unsupported isolation or future-platform claims.
+Report exact mode, workflow/phase/episode, role/session reuse, Owner revision and ordered refs, candidate revision, review round/artifact, authority snapshot, observed status, changed-path scope, verification and claim limits, author self-review evidence (the `docs/agent-loops.md` evidence block, including any `Critical` or `Required` finding left after the pass cap, which a managed role returns to Main so Main asks the Owner), blockers, correction budget, and recommended next route. Distinguish observed native behavior from deterministic structure checks and from unsupported isolation or future-platform claims.
 
 Keep durable progress closure stable: after admitted `PASS`, commit the reviewed implementation first, then use a progress-only commit to record stable observed facts and the implementation hash. The tracker never records its own commit hash or a transient self-reference such as `pending this checkpoint`; Git history owns the progress-only commit identity.
