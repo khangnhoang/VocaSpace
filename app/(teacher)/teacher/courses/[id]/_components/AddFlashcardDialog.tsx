@@ -10,7 +10,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { cardSchema, type CardFormValues } from "@/lib/schemas/card";
 import { createCard, updateCard } from "@/app/actions/card";
 import { Card } from "./types";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface AddFlashcardDialogProps {
   isOpen: boolean;
@@ -20,10 +19,9 @@ interface AddFlashcardDialogProps {
   onSuccess: () => void;
   onCreateSuccess?: () => boolean;
   readOnly?: boolean;
-  isPublished?: boolean;
 }
 
-export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, initialData, onSuccess, onCreateSuccess, readOnly = false, isPublished = false }: AddFlashcardDialogProps) {
+export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, initialData, onSuccess, onCreateSuccess, readOnly = false }: AddFlashcardDialogProps) {
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<CardFormValues>({
@@ -52,16 +50,12 @@ export default function AddFlashcardDialog({ isOpen, setIsOpen, topicId, initial
 
   const onSubmit = (values: CardFormValues) => {
     if (readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation(initialData ? "Việc sửa thẻ" : "Việc thêm thẻ")
-      : false;
-    if (isPublished && !confirmPublished) return;
 
     startTransition(async () => {
       // Quyết định gọi API Sửa hay Thêm dựa vào initialData
       const res = initialData
-        ? await updateCard(initialData.id, values, confirmPublished)
-        : await createCard(topicId, values, confirmPublished);
+        ? await updateCard(initialData.id, values)
+        : await createCard(topicId, values);
         
       if (res.error) toast.error(res.error);
       else {

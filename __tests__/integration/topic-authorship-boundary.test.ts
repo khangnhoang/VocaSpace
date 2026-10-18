@@ -6,9 +6,12 @@ import { randomUUID } from "node:crypto";
 // - Mục tiêu: chứng minh trusted boundary cho topic authoring group, role-only downgrade, review exclusion và responsibility transfer khi remove/leave.
 // - Loại test: real local Supabase integration/RPC/RLS với service-role fixture setup.
 // - Case thành công: responsible author request, downgrade giữ nguyên authorship, remove/leave transfer tới recipient hợp lệ.
+//   - TFEAT1: creator và contributor đang active sửa (đổi tên) topic published tại chỗ, topic vẫn published.
 // - Case thất bại: contributor/outside-group request hoặc edit, reviewer thuộc initial group, remove/leave thiếu recipient.
+//   - co_owner ngoài topic group và contributor đã bị gỡ không sửa được topic published.
 // - Bảo mật/phân quyền: direct collaborator DML bị thu hồi; admin chỉ có course-scoped role trong fixture, không có bypass global.
 // - Invariant cần giữ: role downgrade không đổi creator/responsible/contributor; remove/leave transfer atomic và không để thiếu responsible author.
+// - Kết quả verify gần nhất: passed (20 test) bằng `npm run test:integration -- __tests__/integration/topic-authorship-boundary.test.ts` trên runtime E2E cô lập (API 45441) sau local reset (TFEAT1 CP1).
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -722,5 +725,46 @@ describe.sequential("D1 topic authorship boundary", () => {
       p_title: "renamed by outsider",
       p_confirm_published: false,
     })).error).not.toBeNull();
+  });
+
+  it("lets only the current topic group edit a published topic in place", async () => {
+    const fixture = await createFixture();
+    expect((await clients.teacher.rpc("add_topic_contributor", {
+      p_topic_id: fixture.topicId,
+      p_user_id: USERS.student.id,
+    })).error).toBeNull();
+    expect((await service.from("topics").update({
+      status: "published",
+      first_approved_at: new Date().toISOString(),
+    }).eq("id", fixture.topicId)).error).toBeNull();
+
+    expect((await clients.teacher.rpc("d1_update_topic", {
+      p_topic_id: fixture.topicId,
+      p_title: "renamed live by creator",
+      p_confirm_published: false,
+    })).error).toBeNull();
+    expect((await clients.student.rpc("d1_update_topic", {
+      p_topic_id: fixture.topicId,
+      p_title: "renamed live by contributor",
+    })).error).toBeNull();
+    expect((await service.from("topics").select("status, title").eq("id", fixture.topicId).single()).data)
+      .toMatchObject({ status: "published", title: "renamed live by contributor" });
+
+    // co_owner ngoài topic group vẫn bị từ chối trên topic published.
+    expectRpcError(
+      await clients.admin.rpc("d1_update_topic", { p_topic_id: fixture.topicId, p_title: "renamed by outsider" }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+
+    const { data: contributor } = await service.from("topic_contributors").select("id")
+      .eq("topic_id", fixture.topicId).eq("user_id", USERS.student.id).is("removed_at", null).single();
+    expect(contributor?.id).toBeTruthy();
+    expect((await clients.teacher.rpc("remove_topic_contributor", { p_contributor_id: contributor!.id })).error).toBeNull();
+    expectRpcError(
+      await clients.student.rpc("d1_update_topic", { p_topic_id: fixture.topicId, p_title: "renamed after removal" }),
+      "COURSE_EDIT_FORBIDDEN",
+    );
+    expect((await service.from("topics").select("status, title").eq("id", fixture.topicId).single()).data)
+      .toMatchObject({ status: "published", title: "renamed live by contributor" });
   });
 });

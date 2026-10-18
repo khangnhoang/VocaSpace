@@ -490,7 +490,6 @@ describe("ChapterWorkbench inline rename", () => {
       expect(mocks.updateTopic).toHaveBeenCalledWith({
         topicId: makeTopic(0).id,
         title: "Renamed topic",
-        confirmPublished: false,
       }),
     );
     await waitFor(() => expect(props.announce).toHaveBeenCalledWith('Đã đổi tên bài học thành "Renamed topic"'));
@@ -516,9 +515,9 @@ describe("ChapterWorkbench inline rename", () => {
     expect(stillEditing.getAttribute("aria-invalid")).toBe("true");
   });
 
-  it("does not rename a published topic when the owner cancels the confirmation", async () => {
+  it("renames a published topic at once with no confirmation and no demotion flag", async () => {
     mocks.getTopicsByChapterId.mockResolvedValue({ data: [makeTopic(0, { status: "published" })] });
-    vi.mocked(window.confirm).mockReturnValue(false);
+    mocks.updateTopic.mockResolvedValue({ message: "ok" });
     renderWorkbench();
 
     await screen.findByText("Draft 0");
@@ -528,9 +527,14 @@ describe("ChapterWorkbench inline rename", () => {
     fireEvent.change(input, { target: { value: "Renamed topic" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
-    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
-    expect(mocks.updateTopic).not.toHaveBeenCalled();
-    expect(screen.getByRole("textbox", { name: "Tên bài học" })).toBeTruthy();
+    await waitFor(() =>
+      expect(mocks.updateTopic).toHaveBeenCalledWith({
+        topicId: makeTopic(0).id,
+        title: "Renamed topic",
+      }),
+    );
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("renames the chapter in place, cancels with Escape and exits when focus leaves", async () => {
@@ -609,7 +613,6 @@ describe("ChapterWorkbench topic rename on a phone-width screen", () => {
     expect(mocks.updateTopic).toHaveBeenLastCalledWith({
       topicId: makeTopic(0).id,
       title: "Renamed topic",
-      confirmPublished: false,
     });
     expect(props.announce).toHaveBeenCalledWith('Đã đổi tên bài học thành "Renamed topic"');
     await waitFor(() =>

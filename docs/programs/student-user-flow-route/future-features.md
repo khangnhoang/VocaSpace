@@ -109,3 +109,19 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 - Lý do hoãn: Owner đề xuất khi QA thủ công LF1 (2026-10-10); ngoài phạm vi LF1 (luật hoàn thành flashcard và giải thích khi trả lời đúng).
 - Wave/phạm vi dự kiến: Kế hoạch nhỏ riêng và PR riêng, theo `frontend-design` và `frontend-workflow`.
 - Liên kết: [LF1 plan](./implementation-plans/learning-followup/plan.md).
+
+---
+
+## FEAT-011: Lịch sử thay đổi nội dung bài học đã xuất bản
+
+- Trạng thái: Deferred.
+- Mô tả: Ghi lại ai đã sửa gì và khi nào trên bài học đã xuất bản, sau khi TFEAT1 cho phép sửa trực tiếp.
+- Lý do hoãn: Owner chọn "Để sau" khi lập plan TFEAT1 (2026-10-18). Đây là dữ liệu người dùng mới, nên khi làm phải cập nhật `/privacy` trong cùng PR.
+- Liên kết: [TFEAT1 plan](./implementation-plans/tfeat1/plan.md), [Decision 39](./plan.md#2-owner-decisions).
+
+## FEAT-012: Nhắc học viên làm bù khi bài học đã hoàn thành có nội dung mới
+
+- Trạng thái: Deferred, là unit riêng sau TFEAT1.
+- Mô tả: khi bài học đã hoàn thành nhưng theo nội dung hiện tại còn câu hỏi hoặc thẻ chưa đạt (tác giả đổi đáp án đúng, thêm câu hoặc thêm thẻ), màn kết quả hiện một khung kiểu "Bài học có 1 câu mới cần làm" kèm nút đưa thẳng tới câu đầu tiên chưa đạt. Không hạ trạng thái hoàn thành, không đổi quy tắc chấm.
+- Lý do: Owner QA TFEAT1 (2026-10-18) thấy màn kết quả vẫn báo hoàn thành, dấu hiệu duy nhất là bước "Bài tập" mất dấu tích, học viên phải tự dò câu chưa làm. TFEAT1 làm trường hợp này thường gặp hơn. Owner chọn tách unit riêng thay vì gộp vào TFEAT1.
+- Liên kết: [TFEAT1 plan](./implementation-plans/tfeat1/plan.md).

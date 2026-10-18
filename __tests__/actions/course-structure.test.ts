@@ -793,7 +793,6 @@ describe("course structure actions", () => {
     expect(topicUpdateClient.rpc).toHaveBeenCalledWith("d1_update_topic", {
       p_topic_id: topicId,
       p_title: "Updated topic",
-      p_confirm_published: false,
     });
 
     const topicDeleteClient = authClient(

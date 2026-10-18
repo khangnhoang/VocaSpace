@@ -17,7 +17,6 @@ import {
 import { deleteTopic, withdrawReviewToDraft } from "@/app/actions/topic";
 import { getTopicDeletePreviewProjection } from "@/app/actions/course-preview";
 import type { TopicRejectionEntry, TopicWorkflow } from "@/lib/schemas/topic-workflow";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 import { getCourseOverviewPath, getCourseStructurePath } from "@/lib/course-authoring/routes";
 import TopicAuthorshipSection from "./TopicAuthorshipSection";
 import TopicReviewNotes from "./TopicReviewNotes";
@@ -85,7 +84,7 @@ function getNextAction(workflow: TopicWorkflow) {
 
   if (workflow.status === "published") {
     return workflow.canEdit
-      ? "Nội dung đã được duyệt. Mọi thay đổi sẽ cần xác nhận và đưa bài học về bản nháp."
+      ? "Bài học đang xuất bản: chỉnh sửa được lưu và hiển thị cho học viên ngay, không cần duyệt lại. Xóa nội dung hoặc đổi đáp án đúng sẽ hỏi xác nhận trước."
       : "Bạn đang xem phiên bản đã xuất bản của bài học.";
   }
 
@@ -213,14 +212,8 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
   const handleDeleteTopic = async (unmarkTopicIds: string[]) => {
     if (!workflow.canDeleteTopic) return { error: "Bạn không có quyền ẩn bài học này." };
     const fromPending = frozen;
-    const confirmPublished = workflow.status === "published"
-      ? confirmPublishedTopicMutation("Việc xóa bài học")
-      : false;
-    if (workflow.status === "published" && !confirmPublished) return { cancelled: true };
-
     const result = await deleteTopic({
       topicId: workflow.topicId,
-      confirmPublished,
       unmarkTopicIds,
     });
     if (result.error) return result;

@@ -19,7 +19,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Chưa kiểm chứng: cảm nhận chuyển động, thời gian và mật độ đọc do Owner đánh giá trên UI chạy thật.
 // - LF6 (AC6): lật thẻ của workspace 400 ms khi bình thường và không chuyển động khi reduced motion (computed style).
 // - LF4: các test thẻ từ vựng xóa dòng chấm của học viên trước khi chạy vì hàng đợi chỉ gồm thẻ chưa xem.
-// - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2/CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-workspace-matrix.smoke.spec.ts`).
+// - Kết quả verify gần nhất: passed (10/10) ngày 2026-10-18 sau khi sửa case memory check theo LF9 (đạt thì tự mở bài tập) và cho helper mở danh sách câu hỏi chờ hydrate (chạy `npm run test:e2e -- e2e/smoke/learning-workspace-matrix.smoke.spec.ts`).
 
 const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 const WIDTHS = [320, 375, 768, 1024, 1366, 1440];
@@ -47,8 +47,14 @@ const topicPath = (key: keyof typeof MATRIX_TOPICS) =>
 
 // LF9 r7: the question list is the only way between questions, so moving on picks the row after the current one.
 const nextQuestion = async (page: Page) => {
-  await page.getByRole("button", { name: "Danh sách câu hỏi" }).click();
   const rows = page.getByRole("button", { name: /^Câu \d+: / });
+  // A click that lands before hydration opens nothing, so retry until the list is open.
+  await expect(async () => {
+    if ((await page.getByRole("dialog").count()) === 0) {
+      await page.getByRole("button", { name: "Danh sách câu hỏi" }).click();
+    }
+    await expect(rows.first()).toBeVisible({ timeout: 1_000 });
+  }).toPass();
   const current = await rows.evaluateAll((all) => all.findIndex((row) => row.getAttribute("aria-current") === "true"));
   await rows.nth(current + 1).click();
   // The closing list still repeats exercise titles, so wait until it is gone.
@@ -297,11 +303,11 @@ test("memory check keeps exercises locked until the server confirms the pass", a
   await page.getByRole("radio", { name: /đáng tin cậy/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
   await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
-  await page.getByRole("button", { name: "Tiếp tục" }).click();
+  await page.getByRole("button", { name: "Câu tiếp theo" }).click();
 
   await page.getByRole("radio", { name: /enhance/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-  await page.getByRole("button", { name: "Mở bài tập" }).click();
+  // LF9: khi server xác nhận đạt, workspace tự mở bài tập; không còn nút trung gian.
 
   await expect(page.getByText("Part 5 sau memory check")).toBeVisible();
   await expect(page.getByRole("button", { name: "Về Memory check" })).toBeVisible();

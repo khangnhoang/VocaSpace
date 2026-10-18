@@ -11,12 +11,12 @@ import { randomUUID } from "node:crypto";
 //   - Topic có card, exercise và memory check hợp lệ gửi duyệt được; topic không có memory check giữ luồng cũ.
 // - Case thất bại:
 //   - Topic chỉ có memory check bị `TOPIC_REVIEW_NOT_READY`; câu memory check thiếu option đúng bị `TOPIC_MEMORY_CHECK_NOT_READY` ở request và approve.
-//   - Payload thiếu option, thiếu đáp án đúng, topic pending, outsider và published chưa xác nhận đều bị từ chối và không để lại row nào.
+//   - Payload thiếu option, thiếu đáp án đúng, topic pending và outsider (kể cả trên topic published) đều bị từ chối và không để lại row nào.
 // - Bảo mật/phân quyền:
-//   - Mutation dùng authority D1 (`d1_prepare_topic_content_mutation`); published được hạ về draft trong cùng transaction.
+//   - Mutation dùng authority D1 (`d1_prepare_topic_content_mutation`); topic published được sửa tại chỗ (TFEAT1), vẫn published, cờ `p_confirm_published` bị bỏ qua.
 // - Invariant cần giữ:
 //   - Tối đa một bộ memory check active mỗi topic; memory check không có part_type, exercise phải có part_type; stage không đổi sau khi tạo; exercise cũ mặc định stage `exercise`.
-// - Kết quả verify gần nhất: passed (13 test) bằng `npm.cmd run test:integration -- __tests__/integration/memory-check-stage.test.ts`.
+// - Kết quả verify gần nhất: passed (15 test) bằng `npm run test:integration -- __tests__/integration/memory-check-stage.test.ts` trên runtime E2E cô lập (API 45441) sau local reset (TFEAT1 CP1).
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -241,7 +241,7 @@ describe.sequential("D3 memory check stage", () => {
     expect(await memoryRows(fixture.topicId)).toEqual({ exercises: [], questions: [] });
   });
 
-  it("applies D1 authority: outsider and pending are denied, published needs confirmation and is demoted", async () => {
+  it("applies D1 authority: outsider and pending are denied, published is edited in place and stays published", async () => {
     const fixture = await createFixture();
     expectRpcError(await addMemoryQuestion(student, fixture.topicId, memoryQuestion()), "COURSE_EDIT_FORBIDDEN");
 
@@ -249,17 +249,24 @@ describe.sequential("D3 memory check stage", () => {
     expectRpcError(await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion()), "TOPIC_PENDING_FROZEN");
 
     await setTopicStatus(fixture.topicId, "published");
-    expectRpcError(await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion()), "TOPIC_PUBLISHED_CONFIRM_REQUIRED");
+    // Student vẫn là outsider trên topic published; không ghi gì.
+    expectRpcError(await addMemoryQuestion(student, fixture.topicId, memoryQuestion()), "COURSE_EDIT_FORBIDDEN");
     expect(await memoryRows(fixture.topicId)).toEqual({ exercises: [], questions: [] });
 
-    const confirmed = await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion(), true);
-    expect(confirmed.error).toBeNull();
-    expect(confirmed.data).toMatchObject({ topic_status: "draft" });
+    const withoutFlag = await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion());
+    expect(withoutFlag.error).toBeNull();
+    expect(withoutFlag.data).toMatchObject({ topic_status: "published" });
+    expect((await memoryRows(fixture.topicId)).questions).toHaveLength(1);
+
+    const withLegacyFlag = await addMemoryQuestion(teacher, fixture.topicId, memoryQuestion("Câu thứ hai?"), true);
+    expect(withLegacyFlag.error).toBeNull();
+    expect(withLegacyFlag.data).toMatchObject({ topic_status: "published" });
+    expect((await memoryRows(fixture.topicId)).questions).toHaveLength(2);
     const { data: topic } = await admin.from("topics").select("status").eq("id", fixture.topicId).single();
-    expect(topic?.status).toBe("draft");
+    expect(topic?.status).toBe("published");
   });
 
-  it("rolls back the published demotion when the question is invalid", async () => {
+  it("leaves a published topic published and writes nothing when the question is invalid", async () => {
     const fixture = await createFixture();
     await setTopicStatus(fixture.topicId, "published");
     expectRpcError(

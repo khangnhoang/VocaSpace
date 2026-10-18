@@ -17,6 +17,7 @@ import type {
   TopicDeletePreviewProjection,
 } from "@/lib/schemas/course-preview";
 import { useDialogReturnFocus } from "./use-dialog-return-focus";
+import { PublishedImpactNotice } from "./PublishedEditWarning";
 
 export type PreviewQuotaProjection = ChapterHidePreviewProjection | TopicDeletePreviewProjection;
 
@@ -36,6 +37,8 @@ interface PreviewQuotaResolutionDialogProps {
   targetId: string | null;
   targetTitle: string;
   description: string;
+  // Chỉ truyền khi bài học đã xuất bản: nói học viên mất gì, thay cho một lời nhắc thứ hai.
+  publishedImpact?: string;
   confirmText: string;
   confirmAriaLabel?: string;
   loadingText: string;
@@ -60,6 +63,7 @@ export default function PreviewQuotaResolutionDialog({
   targetId,
   targetTitle,
   description,
+  publishedImpact,
   confirmText,
   confirmAriaLabel,
   loadingText,
@@ -207,6 +211,8 @@ export default function PreviewQuotaResolutionDialog({
             </div>
           </div>
         </DialogHeader>
+
+        {publishedImpact ? <PublishedImpactNotice>{publishedImpact}</PublishedImpactNotice> : null}
 
         {/* Clean target info preview */}
         <div className="mt-1 rounded-xl border border-slate-200/80 bg-slate-50/60 p-3.5">

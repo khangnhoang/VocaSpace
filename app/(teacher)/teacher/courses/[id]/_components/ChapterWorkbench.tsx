@@ -60,7 +60,7 @@ import {
 } from "@/app/actions/topic";
 import { getTopicDeletePreviewProjection } from "@/app/actions/course-preview";
 import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
+import { PUBLISHED_DELETE_IMPACT } from "@/lib/course-authoring/published-edit-impact";
 import type { PreviewMarkerChange } from "./course-preview-controls";
 import PreviewQuotaResolutionDialog from "./PreviewQuotaResolutionDialog";
 import { useDialogReturnFocus } from "./use-dialog-return-focus";
@@ -399,13 +399,8 @@ export default function ChapterWorkbench({
     if (readOnly || !topic.canEditContent || topic.status === "pending") {
       return { error: "Bạn không có quyền đổi tên bài học này." };
     }
-    const confirmPublished =
-      topic.status === "published"
-        ? confirmPublishedTopicMutation("Việc đổi tên bài học")
-        : false;
-    if (topic.status === "published" && !confirmPublished) return { cancelled: true };
 
-    const res = await updateTopic({ topicId: topic.id, title, confirmPublished });
+    const res = await updateTopic({ topicId: topic.id, title });
     if (res.error) return { error: res.error };
 
     await reloadTopics();
@@ -452,15 +447,10 @@ export default function ChapterWorkbench({
       return { error: "Bạn không có quyền xóa bài học này." };
     }
 
-    const confirmPublished =
-      topicToDelete.status === "published"
-        ? confirmPublishedTopicMutation("Việc ẩn bài học")
-        : false;
-    if (topicToDelete.status === "published" && !confirmPublished) return { cancelled: true };
-
+    // Hộp thoại xóa chính là bước xác nhận (có cảnh báo ảnh hưởng học viên), nên gửi cờ xác nhận mà server yêu cầu.
     const res = await deleteTopic({
       topicId: topicToDelete.id,
-      confirmPublished,
+      confirmPublished: topicToDelete.status === "published",
       unmarkTopicIds,
     });
     if (res.error) return res;
@@ -703,6 +693,9 @@ export default function ChapterWorkbench({
         targetId={topicToDelete?.id ?? null}
         targetTitle={topicToDelete?.title ?? "bài học này"}
         description="Bài học sẽ được chuyển vào danh sách đã xóa. Nội dung bên trong được giữ lại và có thể khôi phục."
+        publishedImpact={
+          topicToDelete?.status === "published" ? PUBLISHED_DELETE_IMPACT.topic : undefined
+        }
         confirmText="Xóa bài học"
         loadingText="Đang xóa bài học…"
         getProjection={getTopicDeletePreviewProjection}

@@ -22,7 +22,6 @@ export const topicCreateSchema = topicSchema.extend({
 
 export const topicUpdateSchema = topicSchema.extend({
   topicId: z.uuid("ID bài học không hợp lệ."),
-  confirmPublished: z.boolean().optional().default(false),
 });
 
 export const topicDeleteSchema = z.object({

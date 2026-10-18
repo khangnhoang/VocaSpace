@@ -457,7 +457,7 @@ describe("exercise authoring server actions", () => {
     });
 
     it("sends only trimmed non-empty options to the trusted RPC", async () => {
-      const result = await addMemoryCheckQuestion("topic-1", validMemoryQuestion, true);
+      const result = await addMemoryCheckQuestion("topic-1", validMemoryQuestion);
 
       expect(result).toEqual({ success: true, message: "Đã thêm câu memory check!" });
       expect(mockSupabase.rpc).toHaveBeenCalledWith("d3_add_memory_check_question", {
@@ -470,7 +470,6 @@ describe("exercise authoring server actions", () => {
             { content: "tiền lương", is_correct: false },
           ],
         },
-        p_confirm_published: true,
       });
       expect(tableCalls).toEqual([]);
     });

@@ -33,7 +33,7 @@ function mapCardRpcError(message: string, fallback: string) {
     TOPIC_PENDING_FROZEN:
       "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
     TOPIC_PUBLISHED_CONFIRM_REQUIRED:
-      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+      "Bài học đã xuất bản và cần xác nhận trước khi thay đổi. Vui lòng tải lại trang và thử lại.",
     CARD_PAYLOAD_INVALID: "Dữ liệu thẻ từ vựng không hợp lệ.",
   };
 
@@ -58,12 +58,10 @@ export async function getCardsByTopicId(topicId: string) {
 export async function createCard(
   topicId: string,
   values: CardFormValues,
-  confirmPublished = false,
 ) {
   const parsed = createCardActionSchema.safeParse({
     topicId,
     values,
-    confirmPublished,
   });
   if (!parsed.success) {
     return {
@@ -98,7 +96,6 @@ export async function createCard(
       p_topic_id: input.topicId,
       p_front_content: front_content,
       p_back_content: back_content,
-      p_confirm_published: input.confirmPublished,
     });
 
     if (error) {
@@ -120,12 +117,10 @@ export async function createCard(
 export async function updateCard(
   cardId: string,
   values: CardFormValues,
-  confirmPublished = false,
 ) {
   const parsed = updateCardActionSchema.safeParse({
     cardId,
     values,
-    confirmPublished,
   });
   if (!parsed.success) {
     return {
@@ -159,7 +154,6 @@ export async function updateCard(
       p_card_id: input.cardId,
       p_front_content: front_content,
       p_back_content: back_content,
-      p_confirm_published: input.confirmPublished,
     });
 
     if (error) {
@@ -178,8 +172,8 @@ export async function updateCard(
 }
 
 // Xóa thẻ (Soft Delete)
-export async function deleteCard(cardId: string, confirmPublished = false) {
-  const parsed = deleteCardSchema.safeParse({ cardId, confirmPublished });
+export async function deleteCard(cardId: string) {
+  const parsed = deleteCardSchema.safeParse({ cardId });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "ID thẻ từ vựng không hợp lệ." };
   }
@@ -190,7 +184,6 @@ export async function deleteCard(cardId: string, confirmPublished = false) {
 
   const { data, error } = await supabase.rpc("d1_delete_card", {
     p_card_id: parsed.data.cardId,
-    p_confirm_published: parsed.data.confirmPublished,
   });
 
   if (error) {
@@ -209,12 +202,10 @@ export async function deleteCard(cardId: string, confirmPublished = false) {
 export async function createBulkCards(
   topicId: string,
   cardsData: CardFormValues[],
-  confirmPublished = false,
 ) {
   const parsed = createBulkCardsActionSchema.safeParse({
     topicId,
     cardsData,
-    confirmPublished,
   });
   if (!parsed.success) {
     return {
@@ -253,7 +244,6 @@ export async function createBulkCards(
     const { data, error } = await supabase.rpc("d1_bulk_create_cards", {
       p_topic_id: input.topicId,
       p_cards: cardsToInsert,
-      p_confirm_published: input.confirmPublished,
     });
 
     if (error) {

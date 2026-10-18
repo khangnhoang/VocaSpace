@@ -15,7 +15,8 @@ import { getCardsByTopicId, deleteCard } from "@/app/actions/card";
 import AddFlashcardDialog from "@/app/(teacher)/teacher/courses/[id]/_components/AddFlashcardDialog";
 import BulkAddFlashcardDialog from "./BulkAddFlashcardDialog";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
+import { PUBLISHED_DELETE_IMPACT } from "@/lib/course-authoring/published-edit-impact";
+import { PublishedImpactNotice } from "@/app/(teacher)/teacher/courses/[id]/_components/PublishedEditWarning";
 
 interface FlashcardTabProps {
   topicId: string;
@@ -80,12 +81,8 @@ export default function FlashcardTab({
   // Xác nhận Xóa
   const handleConfirmDelete = () => {
     if (!deletingCard || readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc ẩn thẻ")
-      : false;
-    if (isPublished && !confirmPublished) return;
     startDeleteTransition(async () => {
-      const res = await deleteCard(deletingCard.id, confirmPublished);
+      const res = await deleteCard(deletingCard.id);
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
@@ -198,7 +195,6 @@ export default function FlashcardTab({
         setIsOpen={setIsFormOpen}
         topicId={topicId}
         readOnly={readOnly}
-        isPublished={isPublished}
         initialData={editingCard} // Truyền data sửa vào đây
         onSuccess={() => {
           setRefreshKey((prev) => prev + 1);
@@ -220,7 +216,6 @@ export default function FlashcardTab({
         setIsOpen={setIsBulkOpen} 
         topicId={topicId} 
         readOnly={readOnly}
-        isPublished={isPublished}
         onSuccess={() => {
           setRefreshKey((prev) => prev + 1);
           onMutationSuccess?.();
@@ -251,6 +246,9 @@ export default function FlashcardTab({
             </span>{" "}
             không?
           </p>
+          {isPublished ? (
+            <PublishedImpactNotice>{PUBLISHED_DELETE_IMPACT.card}</PublishedImpactNotice>
+          ) : null}
           <div className="mt-6 flex gap-3 justify-end">
             <Button
               variant="outline"

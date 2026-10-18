@@ -131,7 +131,7 @@ function mapTopicContentRpcError(error?: SupabaseErrorLike | null) {
     return "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.";
   }
   if (text.includes("TOPIC_PUBLISHED_CONFIRM_REQUIRED")) {
-    return "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.";
+    return "Bài học đã xuất bản và cần xác nhận trước khi thay đổi. Vui lòng tải lại trang và thử lại.";
   }
   if (text.includes("TOPIC_TITLE_REQUIRED")) return "Tên bài học không được để trống.";
   if (text.includes("TOPIC_TITLE_TOO_SHORT")) {
@@ -327,7 +327,6 @@ export async function updateTopic(rawInput: TopicUpdateInput) {
   const { data, error } = await supabase.rpc("d1_update_topic", {
     p_topic_id: input.topicId,
     p_title: input.title,
-    p_confirm_published: input.confirmPublished,
   });
 
   if (error) {
