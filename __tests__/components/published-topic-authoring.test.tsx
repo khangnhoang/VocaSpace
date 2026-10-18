@@ -71,6 +71,7 @@ vi.mock("sonner", () => ({ toast: mocks.toast }));
 // - Đối tượng: ExerciseTab, FlashcardTab, SettingsTab (MemoryCheckSection có file test riêng).
 // - Case thành công:
 //   - lưu câu hỏi đổi đáp án đúng mở dialog, xác nhận mới gọi updateQuestion một lần;
+//   - lưu câu hỏi đang có hai đáp án đúng mà chỉ giữ một đáp án đúng cũng mở cảnh báo (hủy thì không gọi action);
 //   - lưu câu hỏi chỉ sửa chữ, đổi tên bài tập và đổi tên bài học gọi action ngay, không dialog;
 //   - dialog xóa bài tập/câu hỏi/thẻ có ghi chú ảnh hưởng học viên và chỉ một bước xác nhận;
 //   - ẩn bài học đã xuất bản hiện ghi chú ảnh hưởng và gửi cờ xác nhận mà server yêu cầu cho d1_delete_topic.
@@ -162,6 +163,39 @@ describe("ExerciseTab on a published topic", () => {
     expect(mocks.updateQuestion).not.toHaveBeenCalled();
     const stillOpen = screen.getByRole("dialog", { name: "Sửa Câu hỏi & Đáp án" });
     expect((within(stillOpen).getAllByRole("radio")[1] as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("warns when a question with two saved correct options is saved with only one, and cancel makes no request", async () => {
+    mocks.getExercisesByTopicId.mockResolvedValue({
+      data: [
+        {
+          ...exerciseWithQuestion,
+          questions: [
+            {
+              ...exerciseWithQuestion.questions[0],
+              options: [
+                { id: "o-a", content: "go", is_correct: true, label: "A", order_index: 1 },
+                { id: "o-b", content: "goes", is_correct: true, label: "B", order_index: 2 },
+                { id: "o-c", content: "going", is_correct: false, label: "C", order_index: 3 },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    await renderTab(true);
+    const editor = await openQuestionEditor();
+    // Hai đáp án đúng đã lưu không sửa trực tiếp được qua nhóm radio (chỉ một nút hiện đã chọn), nên chọn C rồi chọn lại A
+    // để còn đúng một mình A. Bản cũ chỉ so đáp án đúng đầu tiên (A) nên bỏ sót ca này.
+    fireEvent.click(within(editor).getAllByRole("radio")[2]);
+    fireEvent.click(within(editor).getAllByRole("radio")[0]);
+    fireEvent.click(within(editor).getByRole("button", { name: "Lưu dữ liệu" }));
+
+    const warning = await screen.findByRole("dialog", { name: WARNING_TITLE });
+    fireEvent.click(within(warning).getByRole("button", { name: "Hủy bỏ" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: WARNING_TITLE })).toBeNull());
+    expect(mocks.updateQuestion).not.toHaveBeenCalled();
   });
 
   it("saves a wording-only question edit at once with no warning", async () => {

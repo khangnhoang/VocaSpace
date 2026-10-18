@@ -12,6 +12,8 @@ import {
 // - Case thành công: giữ nguyên đáp án, chỉ sửa chữ, thêm đáp án sai mới → không cảnh báo.
 // - Case cảnh báo: xóa đáp án, xóa chữ của đáp án (bị lọc như server), chuyển đáp án đúng sang
 //   đáp án khác hoặc sang đáp án mới → có cảnh báo, nội dung nêu học viên phải trả lời lại.
+// - Nhiều đáp án đúng: so cả tập id đáp án đúng; bỏ bớt, thêm đáp án đúng, hoặc đáp án đúng mới chưa có id đều cảnh báo;
+//   chỉ sửa chữ mà giữ nguyên tập thì không.
 // - Invariant cần giữ: so sánh theo id đã lưu, không theo vị trí hay nội dung chữ.
 
 const saved = [
@@ -74,6 +76,55 @@ describe("getQuestionAnswerImpact", () => {
 
     expect(impact.correctChanged).toBe(true);
     expect(impact.removedOption).toBe(false);
+  });
+
+  describe("with several correct options", () => {
+    const multi = [
+      { id: "a", is_correct: true },
+      { id: "b", is_correct: true },
+      { id: "c", is_correct: false },
+    ];
+
+    it("reports a change when a saved correct option stops being correct", () => {
+      const impact = getQuestionAnswerImpact(multi, [
+        { id: "a", content: "A", is_correct: true },
+        { id: "b", content: "B", is_correct: false },
+        { id: "c", content: "C", is_correct: false },
+      ]);
+
+      expect(impact).toEqual({ removedOption: false, correctChanged: true });
+    });
+
+    it("reports a change when another saved option becomes correct as well", () => {
+      const impact = getQuestionAnswerImpact(saved, [
+        { id: "a", content: "A", is_correct: true },
+        { id: "b", content: "B", is_correct: true },
+        { id: "c", content: "C", is_correct: false },
+      ]);
+
+      expect(impact).toEqual({ removedOption: false, correctChanged: true });
+    });
+
+    it("reports a change when a new option without an id is also marked correct", () => {
+      const impact = getQuestionAnswerImpact(multi, [
+        { id: "a", content: "A", is_correct: true },
+        { id: "b", content: "B", is_correct: true },
+        { id: "c", content: "C", is_correct: false },
+        { content: "Mới", is_correct: true },
+      ]);
+
+      expect(impact.correctChanged).toBe(true);
+    });
+
+    it("reports no change for a wording-only edit that keeps the same correct set", () => {
+      const impact = getQuestionAnswerImpact(multi, [
+        { id: "b", content: "B sửa chữ", is_correct: true },
+        { id: "a", content: "A sửa chữ", is_correct: true },
+        { id: "c", content: "C", is_correct: false },
+      ]);
+
+      expect(impact).toEqual({ removedOption: false, correctChanged: false });
+    });
   });
 
   it("reports both effects when the correct option is deleted", () => {

@@ -39,7 +39,8 @@ interface EditedOption {
 }
 
 // So bản đã lưu với bản sắp gửi: đáp án nào đã lưu mà không còn trong bản gửi (kể cả bị xóa chữ
-// nên bị lọc) là "bị bỏ"; đáp án đúng đã lưu không còn là đáp án đúng đã giữ là "đổi đáp án đúng".
+// nên bị lọc) là "bị bỏ"; tập đáp án đúng đã lưu khác tập đáp án đúng đã giữ là "đổi đáp án đúng".
+// Schema và RPC cho phép nhiều đáp án đúng nên so cả tập, không chỉ đáp án đúng đầu tiên.
 export function getQuestionAnswerImpact(
   saved: readonly SavedOption[],
   edited: readonly EditedOption[],
@@ -50,9 +51,15 @@ export function getQuestionAnswerImpact(
   );
   const removedOption = saved.some((option) => !keptIds.has(option.id));
 
-  const savedCorrectId = saved.find((option) => option.is_correct)?.id ?? null;
-  const keptCorrectId = kept.find((option) => option.is_correct)?.id ?? null;
-  const correctChanged = savedCorrectId !== keptCorrectId;
+  const savedCorrectIds = new Set(
+    saved.filter((option) => option.is_correct).map((option) => option.id),
+  );
+  const keptCorrect = kept.filter((option) => option.is_correct);
+  // Đáp án đúng chưa có id là đáp án mới nên chắc chắn làm đổi tập đáp án đúng.
+  const correctChanged =
+    keptCorrect.some((option) => !option.id) ||
+    keptCorrect.length !== savedCorrectIds.size ||
+    keptCorrect.some((option) => !savedCorrectIds.has(option.id as string));
 
   return { removedOption, correctChanged };
 }
