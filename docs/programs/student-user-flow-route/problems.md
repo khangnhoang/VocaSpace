@@ -55,6 +55,7 @@ This file was migrated to the repository templates and translated to English on 
 - Problem: on hosted, `anon` has execute on `create_chapter_ordered` and `move_chapter_order`. Their migrations only revoke from `public` (`20260630090000_course_structure_ordering_rpc.sql:549-559`, `20260924100000_d2_chapter_creator_authority.sql:574-577`), so the default privilege for `anon` stays; LF7 did not change these grants.
 - Evidence: read-only `has_function_privilege('anon', …)` on hosted, 2026-10-13, after the LF7 push; `rename_chapter`, `move_topic_order` and `move_topic_to_position` return false for `anon`.
 - Direction: both functions check the caller inside, so a signed-out visitor cannot change data; a later hardening migration revokes execute from `anon` and adds a grant test.
+- Update (2026-10-18): migration `20261018090000_grant001_chapter_rpc_revoke_anon.sql` revokes `anon` and keeps `authenticated` and `service_role`; `course-structure-ordering-rpc.test.ts` asserts the grants and a 42501 for `anon`. It passes on the isolated local DB and fails there without the migration. Not yet applied to hosted.
 - Exit condition: `anon` has no execute on either function on hosted, with a test that asserts it.
 
 ## Resolved
