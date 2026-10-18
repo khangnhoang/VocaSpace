@@ -549,12 +549,16 @@ describe("D8-LUI learning workspace presentation", () => {
       );
 
       const audio = screen.getByLabelText("Âm thanh của nhóm câu hỏi");
-      fireEvent.click(screen.getByRole("button", { name: "Câu sau" }));
-      expect(screen.getByText("Câu hai")).not.toBeNull();
+      const pick = (row: RegExp) => {
+        fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
+        fireEvent.click(screen.getByRole("button", { name: row }));
+      };
+      pick(/Câu 2: Câu hai/);
+      expect(screen.getByRole("heading", { name: "Câu hai" })).not.toBeNull();
       expect(screen.getByLabelText("Âm thanh của nhóm câu hỏi")).toBe(audio);
 
-      fireEvent.click(screen.getByRole("button", { name: "Câu sau" }));
-      expect(screen.getByText("Câu ba")).not.toBeNull();
+      pick(/Câu 3: Câu ba/);
+      expect(screen.getByRole("heading", { name: "Câu ba" })).not.toBeNull();
       const next = screen.getByLabelText("Âm thanh của nhóm câu hỏi");
       expect(next).not.toBe(audio);
       expect(next.getAttribute("src")).toBe("/aud-2");

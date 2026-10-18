@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { Button } from "@/components/ui/button";
 import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO, QuestionOptionDTO } from "@/lib/schemas/learn";
 import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
-import { AUTO_ADVANCE_MS } from "./auto-advance";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -45,24 +44,15 @@ interface QuestionResponseProps {
   direction: "next" | "previous" | "none";
   /** Moves focus to the question heading on entry; set only after the learner navigated. */
   focusOnEntry: boolean;
-  hasPrevious: boolean;
-  /** A later question exists; without it there is no "next" to offer and the end action takes its place. */
+  /** A later question to continue to; without it the end action takes its place. */
   hasNext: boolean;
   /**
-   * What follows a correct answer when no later question exists: go back to a
-   * missing question, open the completion screen of a topic this answer just
-   * completed, or leave for the next topic (or the course overview).
+   * What follows a correct answer when there is no next question: go back to a
+   * missing question, open the completion screen of a completed topic, or leave
+   * for the next topic (or the course overview). The learner always presses it,
+   * so the last feedback stays on screen until they move on.
    */
   endAction: { label: string; onClick: () => void } | { label: string; href: string };
-  /**
-   * LF5 AC4: set when the topic is complete and no exercise question remains. A correct answer given here then shows
-   * its feedback, offers no end button, and calls this after `AUTO_ADVANCE_MS`; an answer the server already had
-   * keeps `endAction`, so merely visiting the last question never moves the learner.
-   */
-  onAutoAdvance?: () => void;
-  /** LF5 Q16: true exactly while the auto-advance timer runs, so the workspace can hide its duplicate return action. */
-  onAutoAdvancePending?: (pending: boolean) => void;
-  onPrevious: () => void;
   onNext: () => void;
   onCorrectAnswer: (questionId: string, optionId: string) => void;
   onIncorrectAnswer?: (questionId: string) => void;
@@ -89,12 +79,8 @@ export default function QuestionResponse({
   onAttemptSettled,
   direction,
   focusOnEntry,
-  hasPrevious,
   hasNext,
   endAction,
-  onAutoAdvance,
-  onAutoAdvancePending,
-  onPrevious,
   onNext,
   onCorrectAnswer,
   onIncorrectAnswer,
@@ -232,37 +218,20 @@ export default function QuestionResponse({
     headingRef.current?.focus();
   };
 
-  // A fresh correct answer on the last question of a finished topic hands over by itself: no end button.
-  const autoAdvances =
-    phase.kind === "correct" && !phase.alreadySaved && !hasNext && Boolean(onAutoAdvance);
-  const onAutoAdvanceRef = useRef({ onAutoAdvance, onAutoAdvancePending });
-  // Layout effects: the workspace hides its return action in the same commit as the wait starts, so it never flashes.
-  useLayoutEffect(() => {
-    onAutoAdvanceRef.current = { onAutoAdvance, onAutoAdvancePending };
-  });
-  useLayoutEffect(() => {
-    if (!autoAdvances) return;
-    onAutoAdvanceRef.current.onAutoAdvancePending?.(true);
-    const timer = window.setTimeout(() => onAutoAdvanceRef.current.onAutoAdvance?.(), AUTO_ADVANCE_MS);
-    return () => {
-      window.clearTimeout(timer);
-      onAutoAdvanceRef.current.onAutoAdvancePending?.(false);
-    };
-  }, [autoAdvances]);
-
   const primary =
     phase.kind === "correct"
       ? hasNext
-        ? { label: "Câu tiếp theo", onClick: onNext, icon: <ChevronRight aria-hidden="true" /> }
-        : autoAdvances || "href" in endAction
+        ? { label: "Câu tiếp theo", onClick: onNext, icon: null, trailingIcon: <ChevronRight aria-hidden="true" /> }
+        : "href" in endAction
           ? null
-          : { label: endAction.label, onClick: endAction.onClick, icon: null }
+          : { label: endAction.label, onClick: endAction.onClick, icon: null, trailingIcon: null }
       : phase.kind === "incorrect"
-        ? { label: "Thử lại", onClick: retry, icon: null }
+        ? { label: "Thử lại", onClick: retry, icon: null, trailingIcon: null }
         : {
             label: isPending ? "Đang kiểm tra…" : "Xác nhận đáp án",
             onClick: submit,
             icon: isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null,
+            trailingIcon: null,
           };
 
   const entrance =
@@ -277,9 +246,6 @@ export default function QuestionResponse({
         ? PROGRESS_SYNC_NOTICE
         : null
       : null;
-
-  const showNext = !isCorrect && hasNext;
-  const singleNavigation = hasPrevious !== showNext;
 
   return (
     <div
@@ -316,30 +282,6 @@ export default function QuestionResponse({
       />
 
       <div className="flex flex-col gap-3">
-        {(hasPrevious || showNext) && (
-          <div className="flex items-center justify-between gap-4">
-            {hasPrevious && (
-              <Button
-                onClick={onPrevious}
-                variant={singleNavigation ? "outline" : "link"}
-                size="lg"
-                className={singleNavigation ? "w-full" : "px-2"}
-              >
-                <ChevronLeft aria-hidden="true" /> Câu trước
-              </Button>
-            )}
-            {showNext && (
-              <Button
-                onClick={onNext}
-                variant={singleNavigation ? "outline" : "link"}
-                size="lg"
-                className={singleNavigation ? "w-full" : "px-2"}
-              >
-                Câu sau <ChevronRight aria-hidden="true" />
-              </Button>
-            )}
-          </div>
-        )}
         {primary ? (
           <Button
             size="lg"
@@ -351,9 +293,9 @@ export default function QuestionResponse({
           >
             {primary.icon}
             {primary.label}
+            {primary.trailingIcon}
           </Button>
         ) : (
-          !autoAdvances &&
           "href" in endAction && (
             <Button asChild size="lg" className="w-full">
               <Link href={endAction.href}>

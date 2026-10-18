@@ -12,23 +12,23 @@ import { submitCardReview } from "@/app/actions/review";
 import { resetCardReviewQueueForTests } from "@/hooks/use-card-review-queue";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learning-workspace";
-import { AUTO_ADVANCE_MS } from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/auto-advance";
 
 // Test plan:
-// - LF9 Owner QA: chỉ điều hướng giữa các câu bài tập; câu đầu/cuối ẩn nút tương ứng, một câu không có cả hai; nút điều hướng đơn dùng outline khác nút chính.
-// - LF9 Owner QA: Memory check cuối mở kết quả chủ đề ngay khi server xác nhận, không chờ timer; bài tập thường giữ khoảng phản hồi hiện hành.
+// - LF9 r7 (Owner QA 2026-10-18): không còn "Câu trước"/"Câu sau"; chỉ "Danh sách câu hỏi" chuyển giữa các câu bài tập.
+// - LF9 r7: câu trả lời làm hoàn thành chủ đề (câu cuối hay câu thiếu ở giữa) luôn có nút "Hoàn thành" mở màn hình hoàn thành; không có đồng hồ tự chuyển nào, kể cả khi chủ đề đã hoàn thành từ trước.
+// - LF9 Owner QA: Memory check cuối mở kết quả chủ đề ngay khi server xác nhận, không chờ timer.
 // - Mục tiêu: bảo vệ UI hoàn thành topic D4 (H6/G7) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
 // - Đối tượng: LearningWorkspace (thẻ, bài tập qua QuestionResponse) và MemoryCheckStage.
 // - AC7 (ứng viên chờ Owner duyệt): đúng thì hiện "Câu tiếp theo" (khi còn câu sau) và không tự chuyển câu; sai thì giải thích nằm tại chỗ với "Thử lại"; lỗi lưu giữ nguyên lựa chọn và không bị hiểu là đáp án sai; kết quả trễ của câu cũ không đánh dấu câu mới.
 // - Case thành công: câu standalone hiển thị trước group, không có passage và không có nhãn nhóm (group đánh số không tính phần standalone); khi server báo `newlyCompleted` thì không còn toast hoàn thành mà màn hình hoàn thành hiện (LF5 AC4).
 // - Case thất bại: `progressError` hiện toast nhưng không chặn việc học tiếp.
-// - Ổn định/resilience: câu cuối không có "Câu tiếp theo"/"Câu sau"; trả lời đúng câu cuối khi còn câu thiếu thì CTA "Làm câu còn thiếu" đưa tới câu đầu tiên còn thiếu, khi đã đủ thì nút chính là "Bài tiếp theo" (hoặc "Về tổng quan khóa học" ở bài cuối) và không có màn hình/nút hoàn thành trung gian.
+// - Ổn định/resilience: câu cuối không có "Câu tiếp theo"; trả lời đúng câu cuối khi còn câu thiếu thì CTA "Làm câu còn thiếu" đưa tới câu đầu tiên còn thiếu.
 // - Invariant cần giữ: trả lời đúng câu cuối của exercise 1 không báo hoàn thành; UI không tự suy ra hoàn thành topic.
 // - Trạng thái bền: topic đã hoàn thành (theo `progress` hoặc kết quả server) có nhãn "Đã hoàn thành" ở header,
 //   dấu tích trong danh sách chương, và "Bài sau"/"Về tổng quan khóa học" thành nút chính ở các bước (còn ở màn hình hoàn thành thì là nút phụ); không còn nút "Hoàn thành bài học".
-// - LF5 (AC4): chấm thẻ cuối, trả lời câu bài tập cuối hay câu thiếu cuối, hoặc câu đúng cuối của memory check làm bài học hoàn thành thì không có toast nào (cả toast hoàn thành bài lẫn toast chuyển bước/memory check) và màn hình hoàn thành thay cho bước; câu bài tập cuối giữ phản hồi rồi (Q15) tự mở màn hình hoàn thành sau AUTO_ADVANCE_MS mà không có nút kết thúc, còn câu thiếu cuối (hoặc câu chưa phải cuối) vẫn dùng hành động xác nhận; lối quay lại `Xem kết quả chủ đề` ẩn trong lúc chờ (Q16); chưa hoàn thành thì vẫn có toast chuyển bước.
-// - LF6 (AC1, tương tác LF5): rời câu bài tập cuối bằng thanh tiến trình trong lúc chờ tự chuyển thì đồng hồ cũ không kéo học viên sang màn hình hoàn thành, không gửi lần hai, và lần vào đầu tiên từ "Xem kết quả chủ đề" vẫn chạy chuỗi.
+// - LF5 (AC4): chấm thẻ cuối, trả lời câu bài tập làm hoàn thành, hoặc câu đúng cuối của memory check làm bài học hoàn thành thì không có toast nào (cả toast hoàn thành bài lẫn toast chuyển bước/memory check) và màn hình hoàn thành thay cho bước; chưa hoàn thành thì vẫn có toast chuyển bước.
+// - LF6 (AC1): rời câu bài tập vừa làm hoàn thành bằng thanh tiến trình thì không bị kéo sang màn hình hoàn thành, không gửi lần hai, và lần vào đầu tiên từ "Xem kết quả chủ đề" vẫn chạy chuỗi.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint D8-LUI CP2 (chạy `npx vitest run __tests__/components/topic-completion-ui.test.tsx`).
 
 vi.mock("@/app/actions/progress", () => ({
@@ -160,9 +160,10 @@ async function submitExerciseAnswer(optionContent: string) {
   });
 }
 
-// A saved-correct question offers "Câu tiếp theo" instead of the skip link "Câu sau".
-function next() {
-  fireEvent.click(screen.getByRole("button", { name: /^(Câu sau|Câu tiếp theo)$/ }));
+// The question list is the only way to jump between exercise questions.
+function goTo(questionNumber: number) {
+  fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(`^Câu ${questionNumber}: `) }));
 }
 
 function successToasts() {
@@ -193,7 +194,7 @@ describe("D4 topic completion UI", () => {
     expect(screen.queryByText("Đoạn văn A")).toBeNull();
     expect(screen.queryByText(/^Nhóm \d/)).toBeNull();
 
-    next();
+    goTo(2);
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
     expect(screen.getByText("Đoạn văn A")).not.toBeNull();
     // Groups are numbered without the standalone segment.
@@ -209,7 +210,7 @@ describe("D4 topic completion UI", () => {
         })}
       />,
     );
-    next();
+    goTo(2);
     mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, topicProgress: progress() });
     await submitExerciseAnswer("Đúng Câu nhóm A");
 
@@ -281,7 +282,7 @@ describe("D4 topic completion UI", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
     });
-    next();
+    goTo(2);
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
 
     await act(async () => {
@@ -294,37 +295,21 @@ describe("D4 topic completion UI", () => {
     ).toBe(true);
   });
 
-  it("keeps previous and next inside the exercise question list and distinguishes a single remaining action", () => {
+  it("moves between exercise questions only through the question list", () => {
     render(<LearningWorkspace data={workspaceData({
       exercises: [exerciseA, exerciseB],
       memoryCheck: { id: ids.memory, questions: [question(ids.memoryQuestion, "Câu nhớ")] },
       answers: { [ids.memoryQuestion]: right(ids.memoryQuestion) },
     })} />);
     expect(screen.getByText("Câu đơn")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Câu trước" })).toBeNull();
     expect(screen.getByRole("button", { name: "Về Memory check" })).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Câu sau" }).getAttribute("data-variant")).toBe("outline");
     expect(screen.getByRole("button", { name: "Xác nhận đáp án" }).getAttribute("data-variant")).toBe("default");
-    next();
-    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Câu trước" }).getAttribute("data-variant")).toBe("link");
-    expect(screen.getByRole("button", { name: "Câu sau" }).getAttribute("data-variant")).toBe("link");
-    next();
+    expect(screen.queryByRole("button", { name: /^Câu (trước|sau)$/ })).toBeNull();
+    goTo(3);
     expect(screen.getByText("Câu nhóm B")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Câu sau" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Câu trước" }).getAttribute("data-variant")).toBe("outline");
-    fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
-    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
+    expect(screen.queryByRole("button", { name: /^Câu (trước|sau)$/ })).toBeNull();
+    goTo(1);
     expect(screen.getByText("Câu đơn")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Câu trước" })).toBeNull();
-  });
-
-  it("shows no previous or next action for a single exercise question", () => {
-    render(<LearningWorkspace data={workspaceData({ exercises: [{ ...exerciseA, groups: [] }] })} />);
-    expect(screen.queryByRole("button", { name: "Câu trước" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Câu sau" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Xác nhận đáp án" })).not.toBeNull();
   });
 
   it("offers the first missing question after the last one is answered, instead of a next that leads nowhere", async () => {
@@ -336,16 +321,13 @@ describe("D4 topic completion UI", () => {
         })}
       />,
     );
-    next();
-    next();
+    goTo(3);
     expect(screen.getByText("Câu nhóm B")).not.toBeNull();
-    // There is no later question: no skip link, and nothing named "next".
-    expect(screen.queryByRole("button", { name: "Câu sau" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
 
     mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true, topicProgress: progress() });
     await submitExerciseAnswer("Đúng Câu nhóm B");
     expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Hoàn thành" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Làm câu còn thiếu" }));
 
     expect(screen.getByText("Câu đơn")).not.toBeNull();
@@ -353,13 +335,13 @@ describe("D4 topic completion UI", () => {
     expect(completionHeading()).toBeNull();
   });
 
-  it("opens the completion screen in place, with no toast, when the last answer completes the topic", async () => {
+  it("keeps the learner on the answer that completes the topic until they press Hoàn thành", async () => {
     render(
       <LearningWorkspace
         data={workspaceData({ answers: { [ids.standalone]: right(ids.standalone) } })}
       />,
     );
-    next();
+    goTo(2);
     expect(screen.queryByText("Đã hoàn thành")).toBeNull();
     mockedSubmit.mockResolvedValueOnce({
       success: true,
@@ -368,29 +350,20 @@ describe("D4 topic completion UI", () => {
     });
     await submitExerciseAnswer("Đúng Câu nhóm A");
 
-    // LF5: no toast; the completed state shows at once without a reload, and the learner stays on the
-    // answered question with its feedback until the action that acknowledges it.
+    // LF5: no toast, and the completed state shows at once without a reload.
     expect(successToasts()).toEqual([]);
     expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
-    expect(completionHeading()).toBeNull();
-    expect(screen.getByText("Câu nhóm A")).not.toBeNull();
-    expect(screen.getByText("Chính xác!")).not.toBeNull();
-    // LF5 AC4: no end button at all; the completion screen follows the same delay as the memory check.
     expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
-    // Q16: the top bar's return action would only duplicate the wait, so no button has that name meanwhile.
-    expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
-    const overviewBefore = screen.getAllByRole("link", { name: "Về tổng quan khóa học" });
-    expect(overviewBefore).toHaveLength(1);
-
+    // LF9 r7: nothing moves on its own; the feedback stays until the learner presses Hoàn thành.
     act(() => {
-      vi.advanceTimersByTime(AUTO_ADVANCE_MS - 100);
+      vi.advanceTimersByTime(10_000);
     });
     expect(completionHeading()).toBeNull();
     expect(screen.getByText("Chính xác!")).not.toBeNull();
-    act(() => {
-      vi.advanceTimersByTime(100);
-    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành" }));
     expect(completionHeading()?.textContent).toBe("Đã hoàn thành chủ đề “Bài một”");
+    expect(completionHeading()?.closest("section")?.getAttribute("data-motion")).toBe("sequence");
     expect(screen.queryByText("Câu nhóm A")).toBeNull();
     // This is the last topic: the screen's primary action and the footer both lead to the overview.
     const overviewLinks = screen.getAllByRole("link", { name: "Về tổng quan khóa học" });
@@ -399,7 +372,7 @@ describe("D4 topic completion UI", () => {
     expect(successToasts()).toEqual([]);
   });
 
-  it("also hands over by itself when the topic was already complete and the last answer leaves no question open", async () => {
+  it("also ends with Hoàn thành when the topic was already complete and the last answer leaves no question open", async () => {
     render(
       <LearningWorkspace
         data={workspaceData({
@@ -409,7 +382,7 @@ describe("D4 topic completion UI", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /^Bài tập/ }));
-    next();
+    goTo(2);
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
     mockedSubmit.mockResolvedValueOnce({
       success: true,
@@ -419,37 +392,16 @@ describe("D4 topic completion UI", () => {
     await submitExerciseAnswer("Đúng Câu nhóm A");
 
     expect(screen.getByText("Chính xác!")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Bài tiếp theo" })).toBeNull();
-    expect(completionHeading()).toBeNull();
     act(() => {
-      vi.advanceTimersByTime(AUTO_ADVANCE_MS);
+      vi.advanceTimersByTime(10_000);
     });
+    expect(completionHeading()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành" }));
     expect(completionHeading()).not.toBeNull();
   });
 
-  it("does not hand over when the learner leaves the last question before the delay ends", async () => {
-    render(
-      <LearningWorkspace
-        data={workspaceData({ answers: { [ids.standalone]: right(ids.standalone) } })}
-      />,
-    );
-    next();
-    mockedSubmit.mockResolvedValueOnce({
-      success: true,
-      isCorrect: true,
-      topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
-    });
-    await submitExerciseAnswer("Đúng Câu nhóm A");
-    expect(screen.queryByRole("button", { name: "Xem kết quả chủ đề" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
-    expect(screen.getByText("Câu đơn")).not.toBeNull();
-    // Q16: the timer is gone with the question, so the way back to the completion screen is shown again.
-    fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
-    expect(completionHeading()).not.toBeNull();
-  });
-
-  it("does not pull the learner back after leaving an exercise by the thread during the completion wait", async () => {
+  it("keeps a pending completion when the learner leaves by the thread, and plays it from Xem kết quả chủ đề", async () => {
     const card = {
       id: "e0000000-0000-4000-8000-00000000000a",
       front_content: { word: "reliable" },
@@ -469,7 +421,7 @@ describe("D4 topic completion UI", () => {
       within(screen.getByRole("list", { name: "Các bước của bài học" })).getByRole("button", { name });
     // The card still needs Ổn or Dễ, so the learner lands on Từ vựng and opens the exercises from the thread.
     fireEvent.click(threadStep(/^Bài tập/));
-    next();
+    goTo(2);
     mockedSubmit.mockResolvedValueOnce({
       success: true,
       isCorrect: true,
@@ -479,10 +431,6 @@ describe("D4 topic completion UI", () => {
     expect(screen.getByText("Chính xác!")).not.toBeNull();
 
     fireEvent.click(threadStep(/^Từ vựng/));
-    act(() => {
-      vi.advanceTimersByTime(AUTO_ADVANCE_MS * 2);
-    });
-    // The wait ended with the unmounted question: the learner stays where they went and nothing was sent twice.
     expect(completionHeading()).toBeNull();
     expect(screen.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" })).not.toBeNull();
     expect(mockedSubmit).toHaveBeenCalledTimes(1);
@@ -493,31 +441,7 @@ describe("D4 topic completion UI", () => {
     expect(completionHeading()?.closest("section")?.getAttribute("data-motion")).toBe("sequence");
   });
 
-  it("keeps the timer cleared and the return action visible when the learner stays on another question", async () => {
-    render(
-      <LearningWorkspace
-        data={workspaceData({ answers: { [ids.standalone]: right(ids.standalone) } })}
-      />,
-    );
-    next();
-    mockedSubmit.mockResolvedValueOnce({
-      success: true,
-      isCorrect: true,
-      topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: true }),
-    });
-    await submitExerciseAnswer("Đúng Câu nhóm A");
-    fireEvent.click(screen.getByRole("button", { name: "Câu trước" }));
-    expect(screen.getByText("Câu đơn")).not.toBeNull();
-
-    act(() => {
-      vi.advanceTimersByTime(AUTO_ADVANCE_MS * 2);
-    });
-    expect(completionHeading()).toBeNull();
-    expect(screen.getByText("Câu đơn")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Xem kết quả chủ đề" })).not.toBeNull();
-  });
-
-  it("keeps the end action on a last question the server already had, so visiting it never moves the learner", () => {
+  it("shows Hoàn thành on a saved last question of a completed topic, and never moves the learner by itself", () => {
     render(
       <LearningWorkspace
         data={workspaceData({
@@ -527,18 +451,20 @@ describe("D4 topic completion UI", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /^Bài tập/ }));
-    next();
+    goTo(2);
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
-    // The footer and the end action both lead to the overview; the end action is still there.
-    expect(screen.getAllByRole("link", { name: "Về tổng quan khóa học" })).toHaveLength(2);
     act(() => {
-      vi.advanceTimersByTime(AUTO_ADVANCE_MS * 2);
+      vi.advanceTimersByTime(10_000);
     });
     expect(completionHeading()).toBeNull();
     expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    // Only the footer leads to the overview; the question's own end action opens the completion screen.
+    expect(screen.getAllByRole("link", { name: "Về tổng quan khóa học" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành" }));
+    expect(completionHeading()).not.toBeNull();
   });
 
-  it("opens the completion screen from Câu tiếp theo when an earlier missed question completes the topic", async () => {
+  it("ends with Hoàn thành, not Câu tiếp theo, when an earlier missed question completes the topic", async () => {
     render(
       <LearningWorkspace
         data={workspaceData({
@@ -554,12 +480,12 @@ describe("D4 topic completion UI", () => {
     });
     await submitExerciseAnswer("Đúng Câu đơn");
 
-    // The first question is not the last one: the acknowledging action is Câu tiếp theo.
     expect(successToasts()).toEqual([]);
     expect(completionHeading()).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Câu tiếp theo" }));
+    expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành" }));
     expect(completionHeading()).not.toBeNull();
-    expect(screen.queryByText("Câu nhóm A")).toBeNull();
+    expect(screen.queryByText("Câu đơn")).toBeNull();
   });
 
   it("shows stored completion in the header and sidebar and promotes the next topic", () => {

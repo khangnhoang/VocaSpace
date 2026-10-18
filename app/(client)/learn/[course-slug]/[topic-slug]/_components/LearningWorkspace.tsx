@@ -307,8 +307,6 @@ export default function LearningWorkspace({
   // Ref để callback async đọc đúng giá trị vừa đặt; state để render nút hành động của câu hỏi cuối.
   const [pendingCompletion, setPendingCompletionState] = useState(false);
   const pendingCompletionRef = useRef(false);
-  // LF5 Q16: a last answer's auto-advance is waiting; the return action to the completion screen would only duplicate it.
-  const [autoAdvancePending, setAutoAdvancePending] = useState(false);
   const setPendingCompletion = (value: boolean) => {
     pendingCompletionRef.current = value;
     setPendingCompletionState(value);
@@ -716,7 +714,6 @@ export default function LearningWorkspace({
   const currentPositionIndex = exerciseQuestionPositions.findIndex(
     (position) => position.questionId === currentQuestion?.id,
   );
-  const hasPreviousQuestion = currentPositionIndex > 0;
   // "Next" is only offered while a later question exists.
   const hasNextQuestion =
     currentPositionIndex >= 0 && currentPositionIndex < exerciseQuestionPositions.length - 1;
@@ -739,11 +736,6 @@ export default function LearningWorkspace({
   };
 
   const handleNextQuestion = () => {
-    // LF5 AC4: câu trả lời vừa hoàn thành chủ đề; hành động xác nhận phản hồi mở màn hình hoàn thành thay vì sang câu khác.
-    if (pendingCompletionRef.current) {
-      goToComplete();
-      return;
-    }
     if (!hasNextQuestion) return;
     setEntry({ direction: "next", focus: true });
     if (currentQuestionIndex < sortedQuestions.length - 1) {
@@ -755,37 +747,6 @@ export default function LearningWorkspace({
       setCurrentExerciseIndex((current) => current + 1);
       setCurrentGroupIndex(0);
       setCurrentQuestionIndex(0);
-    }
-  };
-
-  const handlePrevQuestion = () => {
-    if (!hasPreviousQuestion) return;
-    setEntry({ direction: "previous", focus: true });
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((current) => current - 1);
-    } else if (currentGroupIndex > 0) {
-      const previousGroupIndex = currentGroupIndex - 1;
-      setCurrentGroupIndex(previousGroupIndex);
-      setCurrentQuestionIndex(
-        Math.max(
-          0,
-          (sortedGroups[previousGroupIndex]?.questions ?? []).length - 1,
-        ),
-      );
-    } else if (currentExerciseIndex > 0) {
-      const previousExerciseIndex = currentExerciseIndex - 1;
-      setCurrentExerciseIndex(previousExerciseIndex);
-      const previousExerciseGroups = exerciseSegments(
-        exercises[previousExerciseIndex],
-      );
-      const lastGroupIndex = Math.max(0, previousExerciseGroups.length - 1);
-      setCurrentGroupIndex(lastGroupIndex);
-      setCurrentQuestionIndex(
-        Math.max(
-          0,
-          (previousExerciseGroups[lastGroupIndex]?.questions ?? []).length - 1,
-        ),
-      );
     }
   };
 
@@ -1013,13 +974,15 @@ export default function LearningWorkspace({
               onAttemptSettled={settleAttempt}
               direction={entry.direction}
               focusOnEntry={entry.focus}
-              hasPrevious={hasPreviousQuestion}
-              hasNext={hasNextQuestion}
+              // An answer that just completed the topic ends here even mid-list: its action is "Hoàn thành", not "Câu tiếp theo".
+              hasNext={hasNextQuestion && !pendingCompletion}
               endAction={
                 pendingCompletion
-                  ? { label: "Xem kết quả chủ đề", onClick: goToComplete }
+                  ? { label: "Hoàn thành", onClick: goToComplete }
                   : remainingQuestions.length > 0
                   ? { label: "Làm câu còn thiếu", onClick: goToFirstRemainingQuestion }
+                  : isTopicCompleted
+                  ? { label: "Hoàn thành", onClick: goToComplete }
                   : lessonNeighbors.next
                     ? {
                         label: "Bài tiếp theo",
@@ -1027,7 +990,6 @@ export default function LearningWorkspace({
                       }
                     : { label: "Về tổng quan khóa học", href: `/learn/${courseSlug}` }
               }
-              onPrevious={handlePrevQuestion}
               onNext={handleNextQuestion}
               onCorrectAnswer={(questionId, optionId) =>
                 setUserAnswers((current) => ({
@@ -1038,12 +1000,6 @@ export default function LearningWorkspace({
               onIncorrectAnswer={(questionId) =>
                 setIncorrectIds((current) => ({ ...current, [questionId]: true }))
               }
-              onAutoAdvance={
-                (pendingCompletion || isTopicCompleted) && remainingQuestions.length === 0
-                  ? goToComplete
-                  : undefined
-              }
-              onAutoAdvancePending={setAutoAdvancePending}
               onTopicCompleted={markTopicCompleted}
               onMemoryCheckRequired={returnToMemoryCheck}
             />
@@ -1333,7 +1289,7 @@ export default function LearningWorkspace({
 
           <div className="flex flex-wrap items-center gap-2">
             {/* LF5 AC5: chủ đề đã hoàn thành và đang xem một bước khác thì có đúng một lối quay lại màn hình hoàn thành (nút "Xem kết quả chủ đề"). */}
-            {isTopicCompleted && learningStage !== "complete" && !autoAdvancePending && (
+            {isTopicCompleted && learningStage !== "complete" && (
               <Button onClick={goToComplete} variant="outline">
                 <CheckCircle2 aria-hidden="true" />
                 Xem kết quả chủ đề

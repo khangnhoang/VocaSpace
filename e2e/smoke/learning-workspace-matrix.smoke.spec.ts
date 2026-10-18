@@ -11,7 +11,7 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // Test plan:
 // - Mục tiêu: kiểm chứng trên trình duyệt thật layout learning workspace D8-LUI (candidate) cho thẻ, Part 1-7, memory check và media lỗi.
 // - Loại test: smoke E2E trên Supabase local cô lập; fixture tổng hợp tạo trong beforeAll và dọn trong afterAll.
-// - Case thành công: thẻ lật và chuyển sang thẻ kế; Part 1 ảnh không bị cắt và phóng to được; sai thì giải thích tại chỗ, đúng thì chờ "Câu tiếp theo" (AC7 candidate); audio giữ node cùng nhóm; memory check mở khóa bài tập.
+// - Case thành công: thẻ lật và chuyển sang thẻ kế; Part 1 ảnh không bị cắt và phóng to được; sai thì giải thích tại chỗ, đúng thì chờ "Câu tiếp theo" (AC7 candidate); chuyển câu chỉ qua "Danh sách câu hỏi" (LF9 r7); audio giữ node cùng nhóm; memory check mở khóa bài tập.
 // - Case thất bại: ảnh không tải được hiện thông báo cục bộ và vẫn làm được câu hỏi; nhóm thiếu audio hiện thông báo thay vì ô trống.
 // - Bảo mật/phân quyền: fixture chỉ ghi vào runtime E2E cô lập (cổng 45441); học viên seed là người duy nhất được ghi danh.
 // - Ổn định/resilience: không tràn ngang ở 320/375/768/1024/1366/1440px; reduced motion bỏ bản sao đang gấp của thẻ cũ.
@@ -45,9 +45,15 @@ test.beforeEach(async ({ page }) => {
 const topicPath = (key: keyof typeof MATRIX_TOPICS) =>
   `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS[key].slug}`;
 
-// Saved correct answers survive a reload, so a question may offer "Câu tiếp theo" instead of "Câu sau".
-const nextQuestion = (page: Page) =>
-  page.getByRole("button", { name: /^(Câu sau|Câu tiếp theo)$/ }).click();
+// LF9 r7: the question list is the only way between questions, so moving on picks the row after the current one.
+const nextQuestion = async (page: Page) => {
+  await page.getByRole("button", { name: "Danh sách câu hỏi" }).click();
+  const rows = page.getByRole("button", { name: /^Câu \d+: / });
+  const current = await rows.evaluateAll((all) => all.findIndex((row) => row.getAttribute("aria-current") === "true"));
+  await rows.nth(current + 1).click();
+  // The closing list still repeats exercise titles, so wait until it is gone.
+  await expect(rows).toHaveCount(0);
+};
 
 // LF4: workspace chỉ xếp thẻ chưa xem, nên test thẻ từ vựng xóa dòng chấm của học viên để luôn bắt đầu từ hàng đợi đầy đủ.
 async function forgetVocabularyCardProgress() {
@@ -244,20 +250,14 @@ test("a long Part 7 passage keeps the question reachable: pinned beside it when 
   // Pinned near the top of the viewport while the long passage scrolls past, not left behind it.
   expect((await heading.boundingBox())?.y ?? Infinity).toBeLessThan(200);
 
-  // Stacked but roomy: back, forward and the primary action all share one row.
-  await page.setViewportSize({ width: 768, height: 900 });
-  await toPart7();
-  const rowOf = async (name: string | RegExp) =>
-    (await page.getByRole("button", { name }).boundingBox())?.y ?? Number.NaN;
-  expect(Math.abs((await rowOf("Câu trước")) - (await rowOf("Xác nhận đáp án")))).toBeLessThan(12);
-  expect(Math.abs((await rowOf("Câu sau")) - (await rowOf("Xác nhận đáp án")))).toBeLessThan(12);
-
-  // Narrow: the three do not fit one line, so the forward link stays with the primary
-  // action (wrapping as a pair) and nothing spills sideways.
-  await page.setViewportSize({ width: 375, height: 800 });
-  await toPart7();
-  expect(Math.abs((await rowOf("Câu sau")) - (await rowOf("Xác nhận đáp án")))).toBeLessThan(12);
-  await expectNoHorizontalOverflow(page);
+  // LF9 r7: no back or skip actions; the question list and its caption stay visible at every width.
+  for (const width of [768, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await toPart7();
+    await expect(page.getByRole("button", { name: /^Câu (trước|sau)$/ })).toHaveCount(0);
+    await expect(page.getByText("Chuyển nhanh giữa các câu")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  }
   await page.getByRole("button", { name: "Tới câu hỏi" }).click();
   await expect(heading).toBeFocused();
   await expect(heading).toBeInViewport();

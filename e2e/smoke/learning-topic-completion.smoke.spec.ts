@@ -22,7 +22,8 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Bảo mật/phân quyền: fixture và kiểm tra chỉ trên runtime E2E cô lập; học viên seed là người duy nhất được ghi danh.
 // - Ổn định/resilience: không tràn ngang ở 375px và 1280px trên các màn bị đụng tới.
 // - Invariant cần giữ: xem lại không ghi gì; tiến độ khóa học/chương lấy từ cùng nguồn với danh sách chương.
-// - Chưa kiểm chứng: cảm nhận chuyển động và nhịp 1200 ms của lần tự chuyển do Owner đánh giá trên UI chạy thật.
+// - LF9 r7: câu bài tập cuối giữ phản hồi và không tự chuyển; nút "Hoàn thành" mở màn hình hoàn thành.
+// - Chưa kiểm chứng: cảm nhận chuyển động do Owner đánh giá trên UI chạy thật.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint LF5 CP4 (chạy `npm run test:e2e -- e2e/smoke/learning-topic-completion.smoke.spec.ts`).
 
 test.describe.configure({ mode: "serial" });
@@ -198,72 +199,6 @@ async function startMotionSampler(page: Page) {
   });
 }
 
-type AutoAdvanceSample = {
-  time: number;
-  radios: number;
-  resultButtons: number;
-  graded: boolean;
-  completed: boolean;
-  section: boolean;
-};
-
-async function startAutoAdvanceRecorder(page: Page) {
-  await page.evaluate(() => {
-    const samples: AutoAdvanceSample[] = [];
-    (window as unknown as { __autoAdvance: AutoAdvanceSample[] }).__autoAdvance = samples;
-    const begin = performance.now();
-    const tick = () => {
-      const resultButtons = Array.from(document.querySelectorAll("button")).filter(
-        (button) => button.textContent?.trim() === "Xem kết quả chủ đề",
-      );
-      samples.push({
-        time: performance.now(),
-        radios: document.querySelectorAll("[role='radio']").length,
-        resultButtons: resultButtons.length,
-        // The answer was graded correct: the polite live region carries the "Chính xác" feedback.
-        graded: Array.from(document.querySelectorAll("[aria-live='polite']")).some((region) =>
-          region.textContent?.includes("Chính xác"),
-        ),
-        // The header's "Đã hoàn thành" badge: the moment the topic shows as completed.
-        completed: Array.from(document.querySelectorAll("span, p, div")).some(
-          (element) => element.textContent?.trim() === "Đã hoàn thành",
-        ),
-        section: document.querySelector("section[aria-labelledby='topic-completion-title']") !== null,
-      });
-      if (performance.now() - begin < 12_000) requestAnimationFrame(tick);
-    };
-    tick();
-  });
-}
-
-/**
- * The last exercise answer keeps its feedback on screen with no `Xem kết quả chủ đề` button at all (the top bar's return
- * action is hidden during the wait, Owner Q16), then the completion screen opens by itself. Only the order of the
- * states is asserted: the 1200 ms delay itself is covered by the fake-timer component tests, and a frame count or an
- * elapsed-time window would depend on runner speed.
- */
-async function expectAutoAdvance(page: Page) {
-  const samples = await page.evaluate(
-    () => (window as unknown as { __autoAdvance: AutoAdvanceSample[] }).__autoAdvance,
-  );
-  const openedAt = samples.findIndex((sample) => sample.section);
-  expect(openedAt, "the completion screen opens").toBeGreaterThanOrEqual(0);
-  // 1. The correct feedback shows before the screen opens.
-  const beforeOpen = samples.slice(0, openedAt);
-  expect(
-    beforeOpen.some((sample) => sample.graded),
-    "the graded-correct feedback shows",
-  ).toBe(true);
-  // 2. While that feedback is visible the topic shows as completed and there is no return action or end button.
-  const waiting = beforeOpen.filter((sample) => sample.graded && sample.completed);
-  expect(waiting.length, "a wait frame with the feedback and the completed topic").toBeGreaterThan(0);
-  for (const sample of beforeOpen.filter((frame) => frame.graded)) {
-    expect(sample.radios).toBeGreaterThan(0);
-    expect(sample.resultButtons).toBe(0);
-  }
-  // 3. Then the completion screen (openedAt >= 0 above).
-}
-
 async function readMotionSamples(page: Page) {
   return page.evaluate(() => (window as unknown as { __motion: MotionSample[] }).__motion);
 }
@@ -280,7 +215,7 @@ async function answerMemory(page: Page, answers: Array<[RegExp, string]>) {
   for (const [option, afterwards] of answers) {
     await page.getByRole("radio", { name: option }).click();
     await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-    // Câu đúng cuối của mọi memory check tự chuyển sau 1200 ms, nên không chờ phản hồi của nó.
+    // Câu đúng cuối của mọi memory check chuyển ngay khi server xác nhận, nên không chờ phản hồi của nó.
     if (!afterwards) continue;
     await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
     await page.getByRole("button", { name: afterwards }).click();
@@ -304,8 +239,8 @@ const FULL_EXERCISES: RegExp[] = [
 ];
 
 /**
- * Học trọn chủ đề full-flow đến hết câu cuối. Câu cuối không có nút kết thúc: phản hồi hiện trong lúc chờ rồi
- * màn hình hoàn thành tự mở sau AUTO_ADVANCE_MS. Bộ lấy mẫu chuyển động chạy từ trước câu cuối để không lỡ chuỗi.
+ * Học trọn chủ đề full-flow đến hết câu cuối. Câu cuối giữ phản hồi và không tự chuyển (LF9 r7); nút "Hoàn thành"
+ * mở màn hình hoàn thành. Bộ lấy mẫu chuyển động chạy từ trước lần bấm đó để không lỡ chuỗi.
  */
 async function finishFullFlow(page: Page) {
   await page.goto(topicPath("full"));
@@ -318,17 +253,16 @@ async function finishFullFlow(page: Page) {
   for (const [index, option] of FULL_EXERCISES.entries()) {
     const last = index === FULL_EXERCISES.length - 1;
     await page.getByRole("radio", { name: option }).click();
-    if (last) {
-      await startMotionSampler(page);
-      await startAutoAdvanceRecorder(page);
-    }
     await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
     if (last) {
-      // Không chờ từng điều kiện bằng nhiều lệnh riêng: cửa sổ phản hồi ngắn, nên bộ ghi theo khung hình trong trang
-      // lấy mẫu và phần kiểm tra chạy sau khi màn hình hoàn thành đã mở. Chỉ kiểm thứ tự trạng thái, không kiểm thời gian
-      // (nhịp 1200 ms đã có test component với fake timers); 10 s chỉ để bắt trường hợp không bao giờ tự chuyển.
-      await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible({ timeout: 10_000 });
-      await expectAutoAdvance(page);
+      const finish = page.getByRole("button", { name: "Hoàn thành", exact: true });
+      await expect(finish).toBeVisible();
+      await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Câu tiếp theo" })).toHaveCount(0);
+      await expect(completionSection(page)).toHaveCount(0);
+      await startMotionSampler(page);
+      await finish.click();
+      await expect(page.getByRole("heading", { name: completionTitle("full") })).toBeVisible();
     } else {
       const forward = page.getByRole("button", { name: "Câu tiếp theo" });
       await expect(forward).toBeVisible();

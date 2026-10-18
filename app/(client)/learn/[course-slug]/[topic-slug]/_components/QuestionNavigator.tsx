@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { CheckCircle2, Circle, ListChecks, Lock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -197,17 +197,27 @@ export default function QuestionNavigator({
     event.preventDefault();
   };
 
+  const hintId = useId();
   const trigger = (
-    <Button variant="outline" className="shrink-0">
+    <Button variant="outline" className="shrink-0" aria-describedby={hintId}>
       <ListChecks aria-hidden="true" />
       {label}
     </Button>
+  );
+  // The list is the only way to move between questions, so its purpose is shown on every screen size, not on hover.
+  const withHint = (control: ReactNode) => (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      {control}
+      <p id={hintId} className="text-xs text-slate-600">
+        Chuyển nhanh giữa các câu
+      </p>
+    </div>
   );
 
   const list = <QuestionList sections={sections} onPick={pick} />;
 
   if (isWide) {
-    return (
+    return withHint(
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent
@@ -228,7 +238,7 @@ export default function QuestionNavigator({
     );
   }
 
-  return (
+  return withHint(
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent
