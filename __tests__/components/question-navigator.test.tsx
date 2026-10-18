@@ -20,8 +20,8 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Nhảy câu: chọn dòng đóng danh sách, đưa focus vào tiêu đề câu đó, giữ nguyên ngữ liệu khi cùng nhóm, đổi ngữ liệu khi sang nhóm khác; dòng bị khóa là nút vô hiệu kèm lý do và không gọi onSelect.
 // - Màn hình rộng dùng Popover, màn hình hẹp dùng Sheet; cả hai dùng chung một danh sách.
 // - Không còn hộp "Bạn đã trả lời đúng câu này"/"Chính xác!" hiển thị: trạng thái đúng nằm ở lựa chọn xanh và thông báo cho trình đọc màn hình vẫn có. Riêng câu đúng có giải thích hiện hộp cùng cấu trúc với hộp sai (tiêu đề "Chính xác" + giải thích, token growth) và tiêu đề đó thay cho thông báo ẩn; câu đúng không có giải thích không hiện hộp (LF1).
-// - "Câu tiếp theo"/"Câu sau" chỉ hiện khi còn câu sau; câu cuối đã đúng đưa tới "Làm câu còn thiếu" hoặc, khi đã đủ, "Bài tiếp theo" (đúng đích của "Bài sau"; bài cuối thì "Về tổng quan khóa học"); không còn nút/màn hình "Hoàn thành bài tập" trung gian.
-// - Bố cục LF9: câu đầu ẩn "Câu trước"; nút điều hướng đơn dùng outline khác nút chính, cả hai full width; khi có đủ trước/sau thì chung một hàng. Cột câu hỏi cạnh ngữ liệu dài chỉ dính (`data-sticky`) khi vừa chiều cao viewport (đo bằng `offsetHeight` giả lập); ở bố cục xếp chồng có "Tới câu hỏi" cuộn (smooth, hoặc auto khi reduced motion) và đưa focus vào tiêu đề; đổi câu cùng nhóm giữ nguyên node ngữ liệu.
+// - "Câu tiếp theo >" (mũi tên sau chữ) chỉ hiện khi câu đúng còn câu sau; câu cuối đã đúng đưa tới "Làm câu còn thiếu", "Hoàn thành" khi chủ đề đã hoàn thành, hoặc "Bài tiếp theo" (bài cuối thì "Về tổng quan khóa học").
+// - Bố cục LF9 r7: không còn "Câu trước"/"Câu sau"; "Danh sách câu hỏi" là lối chuyển câu duy nhất và có dòng mô tả "Chuyển nhanh giữa các câu" (aria-describedby). Cột câu hỏi cạnh ngữ liệu dài chỉ dính (`data-sticky`) khi vừa chiều cao viewport (đo bằng `offsetHeight` giả lập); ở bố cục xếp chồng có "Tới câu hỏi" cuộn (smooth, hoặc auto khi reduced motion) và đưa focus vào tiêu đề; đổi câu cùng nhóm giữ nguyên node ngữ liệu.
 // - Phân quyền: bài tập đang khóa sau memory check không có nút điều hướng; trong Preview chỉ dùng state cục bộ (xem public-course-preview.test.tsx).
 // - Câu đang chờ phản hồi khi người học rời câu: quay lại vẫn thấy lựa chọn và trạng thái chờ, không gửi lần hai; kết quả đến muộn (đúng, sai, lỗi lưu) xuất hiện đúng ở màn hình đang xem và danh sách câu hỏi khớp với kết quả server.
 // - Kết quả verify gần nhất: 21/21 passed (2026-10-10) bằng `npx vitest run __tests__/components/question-navigator.test.tsx`.
@@ -459,13 +459,28 @@ describe("question navigator in the learning workspace", () => {
     expect(screen.getByRole("heading", { name: "Câu nhóm A" })).not.toBeNull();
   });
 
-  it("hides previous on the first question and distinguishes next from the primary action", () => {
+  it("moves between questions only through the described question list, with no previous or skip actions", () => {
     render(<LearningWorkspace data={workspaceData()} />);
-    expect(screen.queryByRole("button", { name: "Câu trước" })).toBeNull();
-    const forward = screen.getByRole("button", { name: "Câu sau" });
-    const primary = screen.getByRole("button", { name: "Xác nhận đáp án" });
-    expect(forward.getAttribute("data-variant")).toBe("outline");
-    expect(primary.getAttribute("data-variant")).toBe("default");
+    openNavigator();
+    fireEvent.click(rowOf(/Câu 2: Câu nhóm A/));
+
+    expect(screen.queryByRole("button", { name: /Câu trước/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Câu sau/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Xác nhận đáp án" })).not.toBeNull();
+    // The hint is visible text on every screen size and is the trigger's accessible description.
+    expect(
+      screen.getByRole("button", { name: "Danh sách câu hỏi", description: "Chuyển nhanh giữa các câu" }),
+    ).not.toBeNull();
+  });
+
+  it("keeps the trailing arrow after the Câu tiếp theo label", async () => {
+    render(<LearningWorkspace data={workspaceData()} />);
+    mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: true });
+    await submitExerciseAnswer("Đúng Câu đơn");
+
+    const next = screen.getByRole("button", { name: "Câu tiếp theo" });
+    expect(next.lastElementChild?.tagName.toLowerCase()).toBe("svg");
+    expect(next.firstChild?.nodeType).toBe(Node.TEXT_NODE);
   });
 });
 
@@ -544,7 +559,8 @@ describe("grouped material layout", () => {
     render(<LearningWorkspace data={workspaceData()} />);
     openGroupB();
     const passage = screen.getByText("Đoạn văn B");
-    fireEvent.click(screen.getByRole("button", { name: "Câu sau" }));
+    openNavigator();
+    fireEvent.click(rowOf(/Câu 4: Câu B hai/));
     expect(screen.getByRole("heading", { name: "Câu B hai" })).not.toBeNull();
     expect(screen.getByText("Đoạn văn B")).toBe(passage);
   });
@@ -571,9 +587,11 @@ describe("an answer in flight when the learner leaves its question", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" }));
     });
-    fireEvent.click(screen.getByRole("button", { name: "Câu sau" }));
+    openNavigator();
+    fireEvent.click(rowOf(/Câu 2: Câu nhóm A/));
     expect(screen.getByText("Câu hỏi 2/4")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Câu trước/ }));
+    openNavigator();
+    fireEvent.click(rowOf(/Câu 1: Câu đơn/));
     expect(screen.getByText("Câu hỏi 1/4")).not.toBeNull();
   }
 
