@@ -143,7 +143,8 @@ const deletableWorkflow = {
 //   - contributor thấy affordance info ngay cạnh action, mở được bằng keyboard focus và bằng hover,
 //     với đúng câu lý do quyền và không có câu "sẵn sàng để gửi";
 //   - pending-delete tải projection trước, gửi danh sách gỡ nhãn hiện hành, hủy review rồi điều hướng về course Structure;
-//   - xóa thành công không refresh route topic đã xóa.
+//   - xóa thành công không refresh route topic đã xóa;
+//   - bài học đã xuất bản mà tác giả có quyền sửa nói chỉnh sửa hiển thị ngay, không còn nhắc "bản nháp" (TFEAT1 AC6).
 // - Case thất bại:
 //   - `rejectionHistory: []` (kể cả topic published) không render khối lịch sử;
 //   - xóa lỗi giữ dialog và route hiện tại, không điều hướng.
@@ -275,6 +276,16 @@ describe("TopicWorkflowPanel", () => {
       />,
     );
     expect(screen.queryByText(/Đã bị từ chối duyệt/)).toBeNull();
+  });
+
+  it("tells an author of a published topic that edits go live at once, with no draft wording", () => {
+    const { container } = render(
+      <Panel workflow={{ ...baseWorkflow, status: "published" as const, isReady: true }} onRefresh={vi.fn()} />,
+    );
+
+    expect(container.textContent).toContain("chỉnh sửa được lưu và hiển thị cho học viên ngay");
+    expect(container.textContent).not.toContain("bản nháp");
+    expect(container.textContent).not.toContain("chuyển về");
   });
 
   it("keeps the pending state free of any escalation action", () => {
@@ -476,7 +487,6 @@ describe("TopicWorkflowPanel", () => {
 
     await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
       topicId: baseWorkflow.topicId,
-      confirmPublished: false,
       unmarkTopicIds: [],
     }));
     await waitFor(() => expect(mocks.router.push).toHaveBeenCalledWith(

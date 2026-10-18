@@ -60,7 +60,16 @@ import {
   resolveExerciseIssueGuidance,
   type DashboardIssueGuidance,
 } from "@/lib/course-authoring/issue-guidance";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
+import {
+  PUBLISHED_DELETE_IMPACT,
+  describeAnswerImpact,
+  getQuestionAnswerImpact,
+  hasAnswerImpact,
+} from "@/lib/course-authoring/published-edit-impact";
+import {
+  PublishedImpactNotice,
+  usePublishedEditWarning,
+} from "@/app/(teacher)/teacher/courses/[id]/_components/PublishedEditWarning";
 
 interface ExerciseTabProps {
   topicId: string;
@@ -108,6 +117,7 @@ export default function ExerciseTab({
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const scrolledTargetRef = useRef<string | null>(null);
+  const publishedWarning = usePublishedEditWarning();
 
   // STATES: XÓA
   const [deletingExercise, setDeletingExercise] = useState<FullExercise | null>(
@@ -238,12 +248,8 @@ export default function ExerciseTab({
   // ==================== HANDLERS: DELETE ====================
   const handleDeleteExercise = () => {
     if (!deletingExercise || readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc ẩn bài tập")
-      : false;
-    if (isPublished && !confirmPublished) return;
     startTransition(async () => {
-      const res = await deleteExercise(deletingExercise.id, confirmPublished);
+      const res = await deleteExercise(deletingExercise.id);
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
@@ -256,12 +262,8 @@ export default function ExerciseTab({
 
   const handleDeleteQuestion = () => {
     if (!deletingQuestion || readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc ẩn câu hỏi")
-      : false;
-    if (isPublished && !confirmPublished) return;
     startTransition(async () => {
-      const res = await deleteQuestion(deletingQuestion.id, confirmPublished);
+      const res = await deleteQuestion(deletingQuestion.id);
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
@@ -282,10 +284,6 @@ export default function ExerciseTab({
   };
   const handleEditExerciseBasic = () => {
     if (!editingExercise || readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc sửa bài tập")
-      : false;
-    if (isPublished && !confirmPublished) return;
 
     if (editTitle.trim().length < 4) {
       setEditTitleError("Tên bài tập phải dài hơn 3 ký tự.");
@@ -299,7 +297,6 @@ export default function ExerciseTab({
         editingExercise.id,
         editTitle,
         editPart,
-        confirmPublished,
       );
       if (res.error) {
         if (res.error.includes("Tên bài tập")) {
@@ -330,10 +327,6 @@ export default function ExerciseTab({
   };
   const handleEditGroup = () => {
     if (!editingGroup || readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc sửa nhóm ngữ liệu")
-      : false;
-    if (isPublished && !confirmPublished) return;
 
     const validatedAudioUrl = questionGroupAudioUrlSchema.safeParse(editGroupAudio);
     const validatedImageUrl = questionGroupImageUrlSchema.safeParse(editGroupImage);
@@ -390,7 +383,6 @@ export default function ExerciseTab({
         editGroupPassage,
         editGroupAudio,
         editGroupImage,
-        confirmPublished,
       );
       if (res.error) {
         const mediaToCleanup = [...editUploadedMedia];
@@ -457,12 +449,8 @@ export default function ExerciseTab({
         .map((o) => ({ ...o })),
     );
   };
-  const handleEditQuestion = () => {
+  const handleEditQuestion = async () => {
     if (!editingQuestion || readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc sửa câu hỏi")
-      : false;
-    if (isPublished && !confirmPublished) return;
     const cleanOptions = editQuestionOptions
       .map((option) => ({
         id: option.id,
@@ -481,13 +469,25 @@ export default function ExerciseTab({
       return;
     }
 
+    // Chỉ hỏi sau khi dữ liệu hợp lệ và trước khi gọi server: hủy thì không có request nào.
+    if (isPublished) {
+      const impact = getQuestionAnswerImpact(editingQuestion.options, cleanOptions);
+      if (hasAnswerImpact(impact)) {
+        const confirmed = await publishedWarning.confirm({
+          title: "Lưu thay đổi đáp án của bài học đã xuất bản?",
+          description: describeAnswerImpact(impact),
+          confirmText: "Vẫn lưu thay đổi",
+        });
+        if (!confirmed) return;
+      }
+    }
+
     startTransition(async () => {
       const res = await updateQuestion(
         editingQuestion.id,
         editQuestionContent,
         editQuestionExplanation || null,
         cleanOptions,
-        confirmPublished,
       );
       if (res.error) toast.error(res.error);
       else {
@@ -876,7 +876,6 @@ export default function ExerciseTab({
         setIsOpen={setIsAddOpen}
         topicId={topicId}
         readOnly={readOnly}
-        isPublished={isPublished}
         onSuccess={() => {
           setRefreshKey((p) => p + 1);
           onMutationSuccess?.();
@@ -1230,6 +1229,9 @@ export default function ExerciseTab({
               Hành động này sẽ soft-delete toàn bộ nhóm dữ liệu bên dưới.
             </DialogDescription>
           </DialogHeader>
+          {isPublished ? (
+            <PublishedImpactNotice>{PUBLISHED_DELETE_IMPACT.exercise}</PublishedImpactNotice>
+          ) : null}
           <div className="mt-6 flex gap-3 justify-end">
             <Button variant="outline" onClick={() => setDeletingExercise(null)}>
               Hủy
@@ -1254,6 +1256,9 @@ export default function ExerciseTab({
               Xóa câu hỏi và toàn bộ các phương án lựa chọn liên quan.
             </DialogDescription>
           </DialogHeader>
+          {isPublished ? (
+            <PublishedImpactNotice>{PUBLISHED_DELETE_IMPACT.question}</PublishedImpactNotice>
+          ) : null}
           <div className="mt-6 flex gap-3 justify-end">
             <Button variant="outline" onClick={() => setDeletingQuestion(null)}>
               Hủy
@@ -1267,6 +1272,7 @@ export default function ExerciseTab({
           </div>
         </DialogContent>
       </Dialog>
+      {publishedWarning.dialog}
     </div>
   );
 }

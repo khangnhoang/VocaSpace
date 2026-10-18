@@ -23,7 +23,7 @@ vi.mock("@/utils/supabase/server", () => ({
 // - Bảo mật/phân quyền:
 //   - RLS vẫn là chốt quyền cuối; action gom lỗi không có row thành thông báo an toàn.
 // - Ổn định/resilience:
-//   - Action truyền confirmation mặc định false và không tự ghi trực tiếp vào bảng cards.
+//   - Action không còn gửi cờ xác nhận bài học đã xuất bản (server bỏ qua cờ này) và không tự ghi trực tiếp vào bảng cards.
 // - Invariant cần giữ:
 //   - RPC error hoặc response shape không hợp lệ không bao giờ được báo mutation thành công.
 
@@ -117,7 +117,6 @@ describe("deleteCard", () => {
     });
     expect(client.rpc).toHaveBeenCalledWith("d1_delete_card", {
       p_card_id: cardId,
-      p_confirm_published: false,
     });
   });
 
@@ -213,8 +212,8 @@ describe("card create/update/bulk actions", () => {
     });
     expect(client.rpc).toHaveBeenCalledWith("d1_create_card", expect.objectContaining({
       p_topic_id: topicId,
-      p_confirm_published: false,
     }));
+    expect(client.rpc.mock.calls[0][1]).not.toHaveProperty("p_confirm_published");
   });
 
   it("does not report update success when the trusted RPC returns no row", async () => {
@@ -229,8 +228,8 @@ describe("card create/update/bulk actions", () => {
     });
     expect(client.rpc).toHaveBeenCalledWith("d1_update_card", expect.objectContaining({
       p_card_id: cardId,
-      p_confirm_published: false,
     }));
+    expect(client.rpc.mock.calls[0][1]).not.toHaveProperty("p_confirm_published");
   });
 
   it("does not report bulk success when the trusted RPC returns no row", async () => {
@@ -248,7 +247,7 @@ describe("card create/update/bulk actions", () => {
     });
     expect(client.rpc).toHaveBeenCalledWith("d1_bulk_create_cards", expect.objectContaining({
       p_topic_id: topicId,
-      p_confirm_published: false,
     }));
+    expect(client.rpc.mock.calls[0][1]).not.toHaveProperty("p_confirm_published");
   });
 });

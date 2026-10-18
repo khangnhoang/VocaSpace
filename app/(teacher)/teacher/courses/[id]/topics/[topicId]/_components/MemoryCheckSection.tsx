@@ -23,7 +23,16 @@ import {
   type FullExerciseQuestion,
   type MemoryCheck,
 } from "@/lib/schemas/exercise";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
+import {
+  PUBLISHED_DELETE_IMPACT,
+  describeAnswerImpact,
+  getQuestionAnswerImpact,
+  hasAnswerImpact,
+} from "@/lib/course-authoring/published-edit-impact";
+import {
+  PublishedImpactNotice,
+  usePublishedEditWarning,
+} from "@/app/(teacher)/teacher/courses/[id]/_components/PublishedEditWarning";
 
 interface MemoryCheckSectionProps {
   topicId: string;
@@ -77,6 +86,7 @@ export default function MemoryCheckSection({
   const [draft, setDraft] = useState<QuestionDraft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<FullExerciseQuestion | null>(null);
+  const publishedWarning = usePublishedEditWarning();
 
   useEffect(() => {
     let isMounted = true;
@@ -152,7 +162,7 @@ export default function MemoryCheckSection({
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!draft || readOnly) return;
     const payload = {
       content: draft.content,
@@ -166,10 +176,22 @@ export default function MemoryCheckSection({
       return;
     }
 
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation(draft.questionId ? "Việc sửa câu memory check" : "Việc thêm câu memory check")
-      : false;
-    if (isPublished && !confirmPublished) return;
+    // Chỉ sửa câu hiện có mới có thể bỏ đáp án hoặc đổi đáp án đúng; thêm câu mới lưu thẳng.
+    // Hỏi trước khi gọi server: hủy thì không có request nào và dialog giữ nguyên dữ liệu đã nhập.
+    const savedQuestion = draft.questionId
+      ? questions.find((question) => question.id === draft.questionId)
+      : undefined;
+    if (isPublished && savedQuestion) {
+      const impact = getQuestionAnswerImpact(savedQuestion.options, draft.options);
+      if (hasAnswerImpact(impact)) {
+        const confirmed = await publishedWarning.confirm({
+          title: "Lưu thay đổi đáp án của bài học đã xuất bản?",
+          description: describeAnswerImpact(impact),
+          confirmText: "Vẫn lưu thay đổi",
+        });
+        if (!confirmed) return;
+      }
+    }
 
     startTransition(async () => {
       const res = draft.questionId
@@ -178,9 +200,8 @@ export default function MemoryCheckSection({
             parsed.data.content,
             parsed.data.explanation ?? null,
             draft.options,
-            confirmPublished,
           )
-        : await addMemoryCheckQuestion(topicId, parsed.data, confirmPublished);
+        : await addMemoryCheckQuestion(topicId, parsed.data);
 
       if (res.error) {
         setDraftError(res.error);
@@ -193,16 +214,12 @@ export default function MemoryCheckSection({
 
   const handleDelete = () => {
     if (!deleting || readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation(isLastQuestion ? "Việc gỡ memory check" : "Việc xóa câu memory check")
-      : false;
-    if (isPublished && !confirmPublished) return;
 
     startTransition(async () => {
       // Câu cuối không xóa lẻ được (bộ phải có ít nhất một câu), nên gỡ cả bộ memory check.
       const res = isLastQuestion && memoryCheck
-        ? await deleteExercise(memoryCheck.id, confirmPublished)
-        : await deleteQuestion(deleting.id, confirmPublished);
+        ? await deleteExercise(memoryCheck.id)
+        : await deleteQuestion(deleting.id);
       if (res.error) {
         toast.error(res.error);
         return;
@@ -429,6 +446,13 @@ export default function MemoryCheckSection({
                 : "Xóa câu hỏi và các đáp án của câu này khỏi memory check."}
             </DialogDescription>
           </DialogHeader>
+          {isPublished ? (
+            <PublishedImpactNotice>
+              {isLastQuestion
+                ? PUBLISHED_DELETE_IMPACT.memory_check
+                : PUBLISHED_DELETE_IMPACT.memory_check_question}
+            </PublishedImpactNotice>
+          ) : null}
           <div className="mt-4 flex justify-end gap-3">
             <Button variant="outline" disabled={isPending} onClick={() => setDeleting(null)}>
               Hủy
@@ -443,6 +467,7 @@ export default function MemoryCheckSection({
           </div>
         </DialogContent>
       </Dialog>
+      {publishedWarning.dialog}
     </section>
   );
 }

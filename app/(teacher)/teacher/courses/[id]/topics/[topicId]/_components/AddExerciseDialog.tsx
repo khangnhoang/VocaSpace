@@ -50,7 +50,6 @@ import {
   type ExerciseFormValues,
 } from "@/lib/schemas/exercise";
 import { createExercise, deleteQuestionGroupMedia } from "@/app/actions/exercise";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 import {
   AikenParseError,
   formatAikenParseIssues,
@@ -67,7 +66,6 @@ interface AddExerciseDialogProps {
   onSuccess: () => void;
   onCreateSuccess?: () => boolean;
   readOnly?: boolean;
-  isPublished?: boolean;
 }
 
 type OptionValue = {
@@ -162,7 +160,6 @@ export default function AddExerciseDialog({
   onSuccess,
   onCreateSuccess,
   readOnly = false,
-  isPublished = false,
 }: AddExerciseDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [isBulkMode, setIsBulkMode] = useState(false);
@@ -438,12 +435,7 @@ export default function AddExerciseDialog({
         return;
       }
 
-      const confirmPublished = isPublished
-        ? confirmPublishedTopicMutation("Việc thêm bài tập")
-        : false;
-      if (isPublished && !confirmPublished) return;
-
-      const res = await createExercise(topicId, validation.data, confirmPublished);
+      const res = await createExercise(topicId, validation.data);
       if (res.error) {
         const mediaToCleanup = [...uploadedMedia];
         await cleanupUploadedMedia(mediaToCleanup);

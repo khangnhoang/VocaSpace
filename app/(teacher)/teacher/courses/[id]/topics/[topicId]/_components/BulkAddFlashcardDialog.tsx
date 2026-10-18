@@ -7,7 +7,6 @@ import { Loader2, FileUp } from "lucide-react";
 import { toast } from "sonner";
 import { createBulkCards } from "@/app/actions/card";
 import { CardFormValues } from "@/lib/schemas/card";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
 
 interface BulkAddFlashcardDialogProps {
   isOpen: boolean;
@@ -15,10 +14,9 @@ interface BulkAddFlashcardDialogProps {
   topicId: string;
   onSuccess: () => void;
   readOnly?: boolean;
-  isPublished?: boolean;
 }
 
-export default function BulkAddFlashcardDialog({ isOpen, setIsOpen, topicId, onSuccess, readOnly = false, isPublished = false }: BulkAddFlashcardDialogProps) {
+export default function BulkAddFlashcardDialog({ isOpen, setIsOpen, topicId, onSuccess, readOnly = false }: BulkAddFlashcardDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [rawText, setRawText] = useState("");
 
@@ -54,13 +52,8 @@ export default function BulkAddFlashcardDialog({ isOpen, setIsOpen, topicId, onS
       });
     }
 
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc thêm hàng loạt thẻ")
-      : false;
-    if (isPublished && !confirmPublished) return;
-
     startTransition(async () => {
-      const res = await createBulkCards(topicId, parsedCards, confirmPublished);
+      const res = await createBulkCards(topicId, parsedCards);
       if (res.error) {
         toast.error(res.error);
       } else {

@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
   getTopicDeletePreviewProjection: vi.fn(),
   getCoursePreviewAllocation: vi.fn(),
   setCourseTopicPreviewMarkers: vi.fn(),
-  confirmPublishedTopicMutation: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
@@ -30,10 +29,6 @@ vi.mock("@/app/actions/course-preview", () => ({
   getTopicDeletePreviewProjection: mocks.getTopicDeletePreviewProjection,
   getCoursePreviewAllocation: mocks.getCoursePreviewAllocation,
   setCourseTopicPreviewMarkers: mocks.setCourseTopicPreviewMarkers,
-}));
-
-vi.mock("@/lib/course-authoring/topic-workflow", () => ({
-  confirmPublishedTopicMutation: mocks.confirmPublishedTopicMutation,
 }));
 
 vi.mock("sonner", () => ({ toast: mocks.toast }));

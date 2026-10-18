@@ -7,7 +7,7 @@ import { Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
 import type { Topic } from "@/types/database";
-import { confirmPublishedTopicMutation } from "@/lib/course-authoring/topic-workflow";
+import { PUBLISHED_DELETE_IMPACT } from "@/lib/course-authoring/published-edit-impact";
 import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import { getTopicDeletePreviewProjection } from "@/app/actions/course-preview";
 import {
@@ -65,12 +65,8 @@ export default function SettingsTab({
 
   const handleSave = () => {
     if (readOnly) return;
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc đổi tên bài học")
-      : false;
-    if (isPublished && !confirmPublished) return;
     startTransition(async () => {
-      const res = await updateTopic({ topicId, title, confirmPublished });
+      const res = await updateTopic({ topicId, title });
       if (res.error) toast.error(res.error);
       else {
         toast.success(res.message);
@@ -81,14 +77,15 @@ export default function SettingsTab({
 
   const handleDelete = async (unmarkTopicIds: string[]) => {
     if (readOnly) return { error: "Bài học đang chờ duyệt hoặc chỉ có quyền xem." };
-    const confirmPublished = isPublished
-      ? confirmPublishedTopicMutation("Việc ẩn bài học")
-      : false;
-    if (isPublished && !confirmPublished) return { cancelled: true };
     setIsDeleting(true);
     let deleted = false;
     try {
-      const res = await deleteTopic({ topicId, confirmPublished, unmarkTopicIds });
+      const res = await deleteTopic({
+        topicId,
+        // Hộp thoại xóa chính là bước xác nhận (có cảnh báo ảnh hưởng học viên), nên gửi cờ xác nhận mà server yêu cầu.
+        confirmPublished: isPublished,
+        unmarkTopicIds,
+      });
       if (res.error) return res;
       deleted = true;
       toast.success(res.message);
@@ -200,6 +197,7 @@ export default function SettingsTab({
         targetId={topicId}
         targetTitle={topicTitle}
         description="Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."
+        publishedImpact={isPublished ? PUBLISHED_DELETE_IMPACT.topic : undefined}
         confirmText="Xóa bài học"
         loadingText="Đang xóa bài học…"
         getProjection={getTopicDeletePreviewProjection}

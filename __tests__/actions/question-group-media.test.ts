@@ -6,8 +6,9 @@ import { deleteQuestionGroupMedia } from "@/app/actions/exercise";
 // - Mục tiêu: kiểm tra upload và cleanup media giữ đúng bucket/path, topic lifecycle,
 //   uploader ownership, topic-group membership và admin moderation exception.
 // - Loại test: Server Action/Route Handler unit với Supabase boundary mock.
-// - Case thành công: author cleanup trên topic draft và admin cleanup trên topic published.
-// - Case thất bại: bucket/path không hợp lệ, topic pending/published/removed, ngoài group
+// - Case thành công: uploader trong topic group cleanup trên topic draft hoặc published
+//   (TFEAT1: bài học đã xuất bản được sửa tại chỗ) và admin cleanup trên topic published.
+// - Case thất bại: bucket/path không hợp lệ, topic pending/removed, ngoài group
 //   hoặc không phải uploader đều không được gọi Storage remove.
 // - Bảo mật/phân quyền: upload cần topic-group access; không phát public URL.
 // - Ổn định/resilience: lỗi Storage không trả raw provider details.
@@ -223,9 +224,15 @@ describe("question group media upload route and cleanup action", () => {
     expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
   });
 
-  it.each(["question_group_images", "question_group_audios"] as const)(
-    "allows the uploader to cleanup %s for an active draft topic",
-    async (bucket) => {
+  it.each(
+    (["question_group_images", "question_group_audios"] as const).flatMap(
+      (bucket) => (["draft", "published"] as const).map((status) => [bucket, status] as const),
+    ),
+  )(
+    "allows the uploader to cleanup %s for an active %s topic",
+    async (bucket, status) => {
+      mocks.setTopicStatus(status);
+
       const result = await deleteQuestionGroupMedia(
         bucket,
         "course-1/topic-1/teacher-1/file.png",
@@ -239,20 +246,17 @@ describe("question group media upload route and cleanup action", () => {
     },
   );
 
-  it.each(["pending", "published"])(
-    "rejects ordinary cleanup for a %s topic",
-    async (status) => {
-      mocks.setTopicStatus(status);
+  it("rejects ordinary cleanup for a pending topic", async () => {
+    mocks.setTopicStatus("pending");
 
-      const result = await deleteQuestionGroupMedia(
-        "question_group_images",
-        "course-1/topic-1/teacher-1/file.png",
-      );
+    const result = await deleteQuestionGroupMedia(
+      "question_group_images",
+      "course-1/topic-1/teacher-1/file.png",
+    );
 
-      expect("error" in result).toBe(true);
-      expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
-    },
-  );
+    expect("error" in result).toBe(true);
+    expect(mocks.storageBucket.remove).not.toHaveBeenCalled();
+  });
 
   it("rejects ordinary cleanup after the topic is removed", async () => {
     mocks.setTopicRemovedAt("2026-09-16T00:00:00.000Z");

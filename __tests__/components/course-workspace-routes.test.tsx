@@ -1348,9 +1348,8 @@ describe("course workspace route contract", () => {
     expect(backButtonSource).toContain(
       "href={getCourseStructureChapterPath(courseId, chapterId)}",
     );
-    expect(settingsTabSource).toContain(
-      "deleteTopic({ topicId, confirmPublished, unmarkTopicIds })",
-    );
+    expect(settingsTabSource).toContain("confirmPublished: isPublished");
+    expect(settingsTabSource).toContain("unmarkTopicIds,");
     expect(settingsTabSource).toContain("getTopicDeletePreviewProjection");
     expect(previewResolutionSource).toContain("requiredUnmarkCount");
     expect(previewResolutionSource).toContain("outsideMarkedTopics.map");

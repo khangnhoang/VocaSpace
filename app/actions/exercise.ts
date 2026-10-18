@@ -175,7 +175,7 @@ function mapCreateExerciseRpcError(message: string) {
     TOPIC_PENDING_FROZEN:
       "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
     TOPIC_PUBLISHED_CONFIRM_REQUIRED:
-      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+      "Bài học đã xuất bản và cần xác nhận trước khi thay đổi. Vui lòng tải lại trang và thử lại.",
     QUESTION_GROUP_LAST_QUESTION:
       "Nhóm câu hỏi phải có ít nhất một câu hỏi và đáp án hợp lệ.",
     EXERCISE_LAST_QUESTION: "Bài tập phải có ít nhất một câu hỏi hợp lệ.",
@@ -218,7 +218,7 @@ function mapQuestionSyncRpcError(message: string) {
     TOPIC_PENDING_FROZEN:
       "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
     TOPIC_PUBLISHED_CONFIRM_REQUIRED:
-      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+      "Bài học đã xuất bản và cần xác nhận trước khi thay đổi. Vui lòng tải lại trang và thử lại.",
     QUESTION_GROUP_LAST_QUESTION:
       "Nhóm câu hỏi phải có ít nhất một câu hỏi và đáp án hợp lệ.",
     EXERCISE_LAST_QUESTION: "Bài tập phải có ít nhất một câu hỏi hợp lệ.",
@@ -237,7 +237,7 @@ function mapDeleteExerciseRpcError(message: string) {
     TOPIC_PENDING_FROZEN:
       "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
     TOPIC_PUBLISHED_CONFIRM_REQUIRED:
-      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+      "Bài học đã xuất bản và cần xác nhận trước khi thay đổi. Vui lòng tải lại trang và thử lại.",
   };
 
   return (
@@ -301,7 +301,11 @@ export async function deleteQuestionGroupMedia(
         };
       }
 
-      if (topic.removed_at !== null || topic.status !== "draft") {
+      // Bài học đã xuất bản được sửa tại chỗ nên vẫn dọn media cũ; pending và đã xóa thì từ chối.
+      if (
+        topic.removed_at !== null ||
+        (topic.status !== "draft" && topic.status !== "published")
+      ) {
         return {
           error: "Bạn không có quyền xóa file media trong trạng thái hiện tại.",
         };
@@ -440,7 +444,7 @@ function mapMemoryCheckRpcError(message: string) {
     COURSE_EDIT_FORBIDDEN: "Bạn không có quyền chỉnh sửa nội dung khóa học này.",
     TOPIC_PENDING_FROZEN: "Bài học đang chờ duyệt và tạm thời không nhận thay đổi.",
     TOPIC_PUBLISHED_CONFIRM_REQUIRED:
-      "Bài học đã publish. Vui lòng xác nhận để chuyển về bản nháp trước khi thay đổi.",
+      "Bài học đã xuất bản và cần xác nhận trước khi thay đổi. Vui lòng tải lại trang và thử lại.",
     QUESTION_CONTENT_REQUIRED: "Nội dung câu hỏi không được để trống.",
     QUESTION_REQUIRES_TWO_OPTIONS: "Câu hỏi phải có ít nhất 2 đáp án hợp lệ.",
     QUESTION_REQUIRES_CORRECT_OPTION: "Câu hỏi phải có ít nhất 1 đáp án đúng hợp lệ.",
@@ -452,7 +456,6 @@ function mapMemoryCheckRpcError(message: string) {
 export async function addMemoryCheckQuestion(
   topicId: string,
   rawData: unknown,
-  confirmPublished = false,
 ) {
   const validated = memoryCheckQuestionSchema.safeParse(rawData);
   if (!validated.success) {
@@ -474,7 +477,6 @@ export async function addMemoryCheckQuestion(
         .map((option) => ({ content: option.content.trim(), is_correct: option.is_correct }))
         .filter((option) => option.content !== ""),
     },
-    p_confirm_published: confirmPublished,
   });
 
   if (error) {
@@ -488,7 +490,6 @@ export async function addMemoryCheckQuestion(
 export async function createExercise(
   topicId: string,
   rawData: ExerciseFormValues,
-  confirmPublished = false,
 ) {
   const supabase = await createClient();
 
@@ -516,7 +517,8 @@ export async function createExercise(
       {
         p_topic_id: topicId,
         p_payload: validated.data,
-        p_confirm_published: confirmPublished,
+        // Tham số cũ: DB bỏ qua, nhưng overload này không có giá trị mặc định.
+        p_confirm_published: false,
       },
     );
 
@@ -536,7 +538,7 @@ export async function createExercise(
   }
 }
 
-export async function deleteExercise(exerciseId: string, confirmPublished = false) {
+export async function deleteExercise(exerciseId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -547,7 +549,8 @@ export async function deleteExercise(exerciseId: string, confirmPublished = fals
   try {
     const { error } = await supabase.rpc("soft_delete_exercise_cascade", {
       p_exercise_id: exerciseId,
-      p_confirm_published: confirmPublished,
+      // Tham số cũ: DB bỏ qua, nhưng overload này không có giá trị mặc định.
+      p_confirm_published: false,
     });
 
     if (error) {
@@ -569,7 +572,6 @@ export async function updateExerciseBasic(
   exerciseId: string,
   title: string,
   part_type: string,
-  confirmPublished = false,
 ) {
   const supabase = await createClient();
   const {
@@ -606,7 +608,6 @@ export async function updateExerciseBasic(
     const { error } = await supabase.rpc("d1_update_exercise_basic", {
       p_exercise_id: exerciseId,
       p_title: title,
-      p_confirm_published: confirmPublished,
     });
 
     if (error) throw new Error(mapCreateExerciseRpcError(error.message));
@@ -616,10 +617,7 @@ export async function updateExerciseBasic(
   }
 }
 
-export async function deleteQuestionGroup(
-  groupId: string,
-  confirmPublished = false,
-) {
+export async function deleteQuestionGroup(groupId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -645,7 +643,6 @@ export async function deleteQuestionGroup(
   try {
     const { error } = await supabase.rpc("d1_delete_question_group", {
       p_group_id: groupId,
-      p_confirm_published: confirmPublished,
     });
 
     if (error) throw new Error(mapQuestionSyncRpcError(error.message));
@@ -655,10 +652,7 @@ export async function deleteQuestionGroup(
   }
 }
 
-export async function deleteQuestion(
-  questionId: string,
-  confirmPublished = false,
-) {
+export async function deleteQuestion(questionId: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -669,7 +663,6 @@ export async function deleteQuestion(
   try {
     const { error } = await supabase.rpc("d1_delete_question", {
       p_question_id: questionId,
-      p_confirm_published: confirmPublished,
     });
 
     if (error) throw new Error(mapQuestionSyncRpcError(error.message));
@@ -684,7 +677,6 @@ export async function updateQuestionGroup(
   passage_text: string,
   audio_url: string,
   image_url: string,
-  confirmPublished = false,
 ) {
   const supabase = await createClient();
   const {
@@ -743,7 +735,6 @@ export async function updateQuestionGroup(
       p_passage_text: passage_text,
       p_audio_url: validatedAudioUrl.data,
       p_image_url: validatedImageUrl.data,
-      p_confirm_published: confirmPublished,
     });
 
     if (error) throw new Error(mapQuestionSyncRpcError(error.message));
@@ -776,7 +767,6 @@ export async function updateQuestion(
   content: string,
   explanation: string | null,
   options: OptionInput[],
-  confirmPublished = false,
 ) {
   const supabase = await createClient();
   const {
@@ -811,7 +801,8 @@ export async function updateQuestion(
         p_content: content,
         p_explanation: explanation,
         p_options: cleanOptions,
-        p_confirm_published: confirmPublished,
+        // Tham số cũ: DB bỏ qua, nhưng overload này không có giá trị mặc định.
+        p_confirm_published: false,
       },
     );
 

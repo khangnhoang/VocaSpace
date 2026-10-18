@@ -48,7 +48,7 @@ export async function prepareExerciseAuthoringFixture(env = process.env) {
       responsible_author_user_id: exerciseAuthoringFixture.teacherId,
       title: "Local Test Topic",
       slug: "local-test-topic",
-      // Các scenario soạn nội dung bắt đầu từ draft; published cần xác nhận chuyển về draft.
+      // Các scenario soạn nội dung bắt đầu từ draft.
       status: "draft",
       order_index: 1,
       removed_at: null,
