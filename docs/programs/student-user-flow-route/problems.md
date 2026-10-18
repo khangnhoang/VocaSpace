@@ -49,15 +49,6 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: keep the initial DTO narrow and add deeper payment history only when the product need is clear. Verification needed: behavior of pending, paid, cancelled, expired and failed states.
 - Exit condition: the product need is clear and a payment unit with its data and query boundary is delivered.
 
-### GRANT-001: Two chapter RPCs are executable by `anon` on hosted
-
-- Status: Open (2026-10-13, Owner: record now, fix in a later hardening PR).
-- Problem: on hosted, `anon` has execute on `create_chapter_ordered` and `move_chapter_order`. Their migrations only revoke from `public` (`20260630090000_course_structure_ordering_rpc.sql:549-559`, `20260924100000_d2_chapter_creator_authority.sql:574-577`), so the default privilege for `anon` stays; LF7 did not change these grants.
-- Evidence: read-only `has_function_privilege('anon', …)` on hosted, 2026-10-13, after the LF7 push; `rename_chapter`, `move_topic_order` and `move_topic_to_position` return false for `anon`.
-- Direction: both functions check the caller inside, so a signed-out visitor cannot change data; a later hardening migration revokes execute from `anon` and adds a grant test.
-- Update (2026-10-18): migration `20261018090000_grant001_chapter_rpc_revoke_anon.sql` revokes `anon` and keeps `authenticated` and `service_role`; `course-structure-ordering-rpc.test.ts` asserts the grants and a 42501 for `anon`. It passes on the isolated local DB and fails there without the migration. Not yet applied to hosted.
-- Exit condition: `anon` has no execute on either function on hosted, with a test that asserts it.
-
 ## Resolved
 
 One line each. Details stay in Git (`git show eb36618:docs/refactors/student-user-flow-route/problems.md`) and in the cited PR.
@@ -94,3 +85,4 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - PERF-RLS-001 — Resolved 2026-10-11: per-parent content read checks and the folded topic read check (LF3, PR 147, `ad224f1`) remove the scan of `topics` from the hosted single-question `question_options` plan, the read-boundary matrix passes unchanged, local calls of `private.q7_can_read_topic` fell 32→4 and 5885→853, and the production topic page median fell 1418→651 ms; action reads were measured locally only, accepted by the Owner on 2026-10-12 (LF4 plan §1.4 Q4); hosted and production figures are recorded in the 2026-10-11 LF3 closeout milestone of [progress.md](./progress.md).
 - QUALITY-001 — Resolved 2026-10-13: `npm run lint` is green (0 errors and 0 warnings) after three generated output folders were ignored and the tracked-file errors and warnings were fixed, and CI now runs it; the warning policy was reconciled by fixing every warning rather than tolerating them (LF7, `08ca4d8`, `a4485b7`).
 - STRUCTURE-LOCK-001 — Resolved 2026-10-13: every app structure write takes the course advisory lock first (topic moves, chapter move and create, chapter rename through `rename_chapter`) and an AC4 regression test per path passes on the isolated runtime after failing with `55P03` on the baseline; migration `20261013090000` is not yet applied to root or hosted, and a direct client title update outside the app keeps the old order (accepted residual) (LF7, `be6bd6b`, `fca09f3`).
+- GRANT-001 — Resolved 2026-10-18: migration `20261018090000` revokes `anon` execute on `create_chapter_ordered` and `move_chapter_order`; applied to hosted and grant-checked read-only, with an integration test asserting it (PR 165, `051ec81`).

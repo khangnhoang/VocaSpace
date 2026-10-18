@@ -6,14 +6,14 @@ Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [AR2 plan](./implementation-plans/ar2/plan.md) r6 |
-| Current unit / checkpoint | AR2 CP3 (AC1–AC11 met) |
-| Status | in progress |
-| Completed evidence | AR2: read-only discovery of the review, planning and native workflow skills, `docs/agent-loops.md` and `docs/agent-self-review.md` on 2026-10-16 against `03fdeec`; re-checked for r5 on 2026-10-17 (`03fdeec` still `origin/main`). Codex plan review of r6 passed on 2026-10-17. CP2 deterministic checks passed on 2026-10-17 (milestone below). Codex implementation review passed on `00f7223`. CP3 on `00f7223` (Owner's machine): 3 cases passed; `gcw-fresh-managed-pass-cap` and `crq-fresh-plan-review-normal` partially passed, then partially passed again in one Owner-authorized extra sample each. On `6fe4aed`: review of the GCW correction passed and the one GCW probe passed. The Owner chose D14 for `crq-fresh-plan-review-normal`; under it the extra sample is adjudicated satisfied. The other three cases keep their `00f7223` results: the `6fe4aed` change touches only Main's capped-finding question, which none of them exercises. |
+| Spec revision | [AR2 plan](./implementation-plans/ar2/plan.md) r6 (last executed unit) |
+| Current unit / checkpoint | None active. AR2 is merged (PR 163, `5dbcbce`). |
+| Status | merged |
+| Completed evidence | Finished units are in the milestones; AR2 checkpoint evidence is in its commits and the PR 163 body. |
 | Accepted deviations | none |
-| Blockers / Owner decisions | AR2 decisions D1–D14 are in the plan §1.4 (D2 superseded by D8 on 2026-10-17; D14 added during CP3). No blocker |
-| Next action | Owner decides whether to open a PR for AR2 |
-| Current authority | AR2 r6 approved by the Owner on 2026-10-17: implementation, local commits per checkpoint, one push after the final self-review, then correction pushes each after its own self-review (D12); no PR or merge |
+| Blockers / Owner decisions | None. AR2 decisions D1–D14 stay in the plan §1.4. |
+| Next action | The Owner picks the next agent-rules unit; candidates are in [future-features.md](./future-features.md). |
+| Current authority | None active. A new unit needs its own plan and Owner grant. |
 
 ## Milestones
 
@@ -32,4 +32,5 @@ Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](
 - 2026-10-17 AR2 CP2: self-review evidence block, pass cap and cadence, plan review in `code-review-and-quality`, push order, native reporting field and five fresh-reader cases (`92f2f27`).
 - 2026-10-17 AR2 CP2 review fix: the push-order fresh-reader case now supplies `docs/agent-loops.md`; native test header shows 30 tests (`00f7223`).
 - 2026-10-17 AR2 CP3 correction: Main asks the Owner about capped findings with the structured question tool and the same options; native test assertion updated (`6fe4aed`).
-- 2026-10-17 AR2 CP3 closed: GCW probe passed on `6fe4aed`; Owner decision D14 sets the `crq-fresh-plan-review-normal` acceptance scope; AC11 met (this commit).
+- 2026-10-17 AR2 CP3 closed: GCW probe passed on `6fe4aed`; Owner decision D14 sets the `crq-fresh-plan-review-normal` acceptance scope; AC11 met (`6d5c750`).
+- 2026-10-18 AR2 merged (PR 163, `5dbcbce`).
