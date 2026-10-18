@@ -7,12 +7,13 @@ import { createQuestionGroupManagedMediaReference } from "@/lib/schemas/exercise
 // - Mục tiêu: kiểm tra media upload/delete/read giữ đúng topic-group authoring và lifecycle freeze.
 // - Loại test: real local Supabase Storage/RLS integration.
 // - Đối tượng: question_group_images/audios policies và private managed-media references.
-// - Case thành công: topic-group author/contributor delete trên draft, authorized read, admin moderation delete, canonical reference persistence và cleanup khi URL ngoài chỉ trùng object path.
-// - Case thất bại: admin không membership, student và topic pending không upload được; ordinary delete bị chặn ngoài draft/group/uploader boundary.
+// - Case thành công: topic-group author/contributor delete trên draft và published (object không còn được tham chiếu), authorized read, admin moderation delete, canonical reference persistence và cleanup khi URL ngoài chỉ trùng object path.
+//   - TFEAT1: thay media trên topic published — nội dung đổi thành công, topic vẫn published, object của người khác còn nguyên (Storage DELETE chỉ uploader/admin), uploader dọn được sau khi hết tham chiếu.
+// - Case thất bại: admin không membership, student và topic pending không upload được; ordinary delete bị chặn với topic pending/removed, ngoài group/uploader và khi object còn được tham chiếu (kể cả topic published).
 // - Bảo mật/phân quyền: upload và ordinary delete yêu cầu active topic-group membership; admin delete là quyền moderation riêng.
 // - Ổn định/resilience: object path server-owned theo course/topic/user/UUID, không overwrite.
 // - Invariant cần giữ: path/public URL không bypass topic read, authoring hoặc pending freeze.
-// - Kết quả verify gần nhất: 22/22 passed bằng `npm.cmd run test:integration -- __tests__/integration/question-group-media-storage.test.ts` sau local reset.
+// - Kết quả verify gần nhất: 24/24 passed bằng `npm run test:integration -- __tests__/integration/question-group-media-storage.test.ts` trên runtime E2E cô lập (API 45441) sau local reset (TFEAT1 CP1).
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -549,30 +550,133 @@ describe.sequential("question group media Storage integration", () => {
     expect(error).toBeNull();
   });
 
-  it("denies ordinary deletion of a published topic object and keeps it available", async () => {
+  async function publishTopic(topicId: string) {
+    const { error } = await supabaseAdmin
+      .from("topics")
+      .update({ status: "published", first_approved_at: new Date().toISOString() })
+      .eq("id", topicId);
+    expect(error).toBeNull();
+    const { data } = await supabaseAdmin.from("topics").select("status").eq("id", topicId).single();
+    expect(data?.status).toBe("published");
+  }
+
+  async function addStudentContributor(courseId: string, topicId: string) {
+    const { error: collaboratorError } = await supabaseAdmin.from("course_collaborators").insert({
+      course_id: courseId,
+      user_id: SEEDED_STUDENT_ID,
+      role: "editor",
+      added_by: SEEDED_TEACHER_ID,
+    });
+    expect(collaboratorError).toBeNull();
+    const { error: contributorError } = await teacherClient.rpc("add_topic_contributor", {
+      p_topic_id: topicId,
+      p_user_id: SEEDED_STUDENT_ID,
+    });
+    expect(contributorError).toBeNull();
+  }
+
+  async function createGroupWithImage(topicId: string, imageUrl: string | null) {
+    expect(imageUrl).not.toBeNull();
+    const created = await teacherClient.rpc("create_exercise_with_content", {
+      p_topic_id: topicId,
+      p_payload: {
+        title: `Published media exercise ${randomUUID()}`,
+        part_type: "part7",
+        groups: [{
+          passage_text: "A passage that keeps the group valid.",
+          image_url: imageUrl,
+          questions: [{
+            content: "Which option is correct?",
+            options: [
+              { content: "A", is_correct: true },
+              { content: "B", is_correct: false },
+            ],
+          }],
+        }],
+      },
+    });
+    expect(created.error).toBeNull();
+    const exerciseId = (created.data as { exercise_id: string }).exercise_id;
+    const group = await supabaseAdmin.from("question_groups").select("id, passage_text, image_url")
+      .eq("exercise_id", exerciseId).single();
+    expect(group.error).toBeNull();
+    if (!group.data) throw new Error("Group fixture missing");
+    return group.data as { id: string; passage_text: string; image_url: string | null };
+  }
+
+  it("allows the uploader to delete an unreferenced object on a published topic", async () => {
     const { courseId, topicId } = await createCourseTree();
     const path = testPath(courseId, topicId, "png");
     await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+    await publishTopic(topicId);
 
-    const { error: topicError } = await supabaseAdmin
-      .from("topics")
-      .update({
-        status: "published",
-        first_approved_at: new Date().toISOString(),
-      })
-      .eq("id", topicId);
-    expect(topicError).toBeNull();
-    const { data: publishedTopic } = await supabaseAdmin
-      .from("topics")
-      .select("status")
-      .eq("id", topicId)
-      .single();
-    expect(publishedTopic?.status).toBe("published");
+    const guard = await teacherClient.rpc("d1_question_group_media_delete_allowed", {
+      p_bucket_id: IMAGE_BUCKET,
+      p_object_name: path,
+    });
+    expect(guard.error).toBeNull();
+    expect(guard.data).toBe(true);
 
     const { error } = await teacherClient.storage.from(IMAGE_BUCKET).remove([path]);
 
-    await expectObjectExists(IMAGE_BUCKET, path);
     expect(error).toBeNull();
+    const remaining = await supabaseAdmin.storage.from(IMAGE_BUCKET).download(path);
+    expect(remaining.data).toBeNull();
+    forgetUpload(IMAGE_BUCKET, path);
+  });
+
+  it("keeps a published topic object that live content still references", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+    await createGroupWithImage(topicId, createQuestionGroupManagedMediaReference("image", path));
+    await publishTopic(topicId);
+
+    const guard = await teacherClient.rpc("d1_question_group_media_delete_allowed", {
+      p_bucket_id: IMAGE_BUCKET,
+      p_object_name: path,
+    });
+    expect(guard.error).toBeNull();
+    expect(guard.data).toBe(false);
+
+    expect((await teacherClient.storage.from(IMAGE_BUCKET).remove([path])).error).toBeNull();
+    await expectObjectExists(IMAGE_BUCKET, path);
+  });
+
+  it("replaces media on a published topic: the content update succeeds and only the uploader's cleanup deletes the old object", async () => {
+    const { courseId, topicId } = await createCourseTree();
+    await addStudentContributor(courseId, topicId);
+    const path = testPath(courseId, topicId, "png");
+    await uploadObject(teacherClient, IMAGE_BUCKET, path, pngBytes, "image/png");
+    const group = await createGroupWithImage(topicId, createQuestionGroupManagedMediaReference("image", path));
+    await publishTopic(topicId);
+
+    // Tác giả thứ hai (contributor) thay media của người khác tải lên: nội dung đổi, topic vẫn published.
+    const cleared = await studentClient.rpc("d1_update_question_group", {
+      p_group_id: group.id,
+      p_passage_text: group.passage_text,
+      p_audio_url: null,
+      p_image_url: null,
+    });
+    expect(cleared.error).toBeNull();
+    expect((await supabaseAdmin.from("question_groups").select("image_url").eq("id", group.id).single()).data?.image_url)
+      .toBeNull();
+    expect((await supabaseAdmin.from("topics").select("status").eq("id", topicId).single()).data?.status)
+      .toBe("published");
+
+    // Storage DELETE chỉ cho uploader hoặc admin: object của teacher còn nguyên, không lỗi.
+    const guardForStudent = await studentClient.rpc("d1_question_group_media_delete_allowed", {
+      p_bucket_id: IMAGE_BUCKET,
+      p_object_name: path,
+    });
+    expect(guardForStudent.data).toBe(true);
+    expect((await studentClient.storage.from(IMAGE_BUCKET).remove([path])).error).toBeNull();
+    await expectObjectExists(IMAGE_BUCKET, path);
+
+    // Uploader dọn được vì object không còn được tham chiếu.
+    expect((await teacherClient.storage.from(IMAGE_BUCKET).remove([path])).error).toBeNull();
+    expect((await supabaseAdmin.storage.from(IMAGE_BUCKET).download(path)).data).toBeNull();
+    forgetUpload(IMAGE_BUCKET, path);
   });
 
   it("denies an object owner after they leave the topic group", async () => {

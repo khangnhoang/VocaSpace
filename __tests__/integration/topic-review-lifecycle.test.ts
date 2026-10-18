@@ -10,15 +10,16 @@ import { randomUUID } from "node:crypto";
 //   - Chỉ matrix có active card và active exercise mới request được; reviewer hợp lệ approve được.
 //   - Từ chối chỉ đưa topic về draft; lần gửi thứ tư vẫn thành công; lịch sử từ chối tính theo topic và giống nhau với mọi caller.
 //   - Moderation topic/chapter/course và collaborator lifecycle đi qua boundary được phép; ordinary chapter hide bị chặn khi còn topic pending.
+//   - TFEAT1: card, exercise (cả hai overload), question group, question và restore trên topic published được sửa tại chỗ, topic vẫn published; cờ `p_confirm_published` cũ bị bỏ qua.
 // - Case thất bại:
-//   - Readiness thiếu content, self-review, direct status write, pending mutation, unconfirmed published mutation, self-delete profile và unauthorized role/capability đều bị từ chối.
+//   - Readiness thiếu content, self-review, direct status write, pending mutation, direct write vào content published, self-delete profile và unauthorized role/capability đều bị từ chối.
 // - Bảo mật/phân quyền:
 //   - Global admin không có membership không review/author nhưng vẫn moderation; capability derive từ membership role/flag.
 // - Ổn định/resilience:
-//   - Last-reviewer safety, published demotion rollback và request/delete race được kiểm tra trên local transaction boundary.
+//   - Last-reviewer safety, rollback khi sửa published thất bại (nội dung và status giữ nguyên) và request/delete race được kiểm tra trên local transaction boundary.
 // - Invariant cần giữ:
 //   - Không có topic pending thiếu required content; moderation không masquerade thành review rejection.
-// - Kết quả verify gần nhất: passed (35 test) trên runtime E2E cô lập (API 45441) bằng `npm run test:integration -- __tests__/integration/topic-review-lifecycle.test.ts`.
+// - Kết quả verify gần nhất: passed (35 test) bằng `npm run test:integration -- __tests__/integration/topic-review-lifecycle.test.ts` trên runtime E2E cô lập (API 45441) sau local reset (TFEAT1 CP1).
 // - Ghi chú: test chạy trên local Supabase với `ALLOW_DB_INTEGRATION_TESTS=true`.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -788,7 +789,7 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(!(topic.status === "pending" && ((count ?? 0) < 1 || (exerciseCount ?? 0) < 1))).toBe(true);
   });
 
-  it("requires explicit published confirmation and rolls back demotion on failed content mutation", async () => {
+  it("edits a published card in place with or without the legacy flag and rolls back a failed edit", async () => {
     const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
     expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
     const submission = await getPendingSubmission(fixture.topicId);
@@ -805,42 +806,41 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(directUpdate.error).not.toBeNull();
     expect((await getTopic(fixture.topicId)).status).toBe("published");
 
-    const unconfirmed = await clients.teacher.rpc("d1_update_card", {
+    // TFEAT1: không cần cờ xác nhận và topic vẫn published sau khi sửa.
+    const withoutFlag = await clients.teacher.rpc("d1_update_card", {
       p_card_id: card.id,
-      p_front_content: { word: "unconfirmed" },
-      p_back_content: { translation: "unchanged" },
+      p_front_content: { word: "edited without flag" },
+      p_back_content: { translation: "live" },
     });
-    expectRpcError(unconfirmed, "TOPIC_PUBLISHED_CONFIRM_REQUIRED");
+    expect(withoutFlag.error).toBeNull();
     expect((await getTopic(fixture.topicId)).status).toBe("published");
+    expect((await admin.from("cards").select("front_content").eq("id", card.id).single()).data?.front_content)
+      .toMatchObject({ word: "edited without flag" });
 
-    const confirmed = await clients.teacher.rpc("d1_update_card", {
+    // App cũ vẫn gửi p_confirm_published=true: cờ được chấp nhận và bị bỏ qua (G2).
+    const withLegacyFlag = await clients.teacher.rpc("d1_update_card", {
       p_card_id: card.id,
-      p_front_content: { word: "confirmed update" },
+      p_front_content: { word: "edited with legacy flag" },
       p_back_content: { translation: "updated" },
       p_confirm_published: true,
     });
-    expect(confirmed.error).toBeNull();
-    expect((await getTopic(fixture.topicId)).status).toBe("draft");
+    expect(withLegacyFlag.error).toBeNull();
+    expect((await getTopic(fixture.topicId)).status).toBe("published");
     expect((await admin.from("cards").select("front_content").eq("id", card.id).single()).data?.front_content)
-      .toMatchObject({ word: "confirmed update" });
-
-    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
-    const republishSubmission = await getPendingSubmission(fixture.topicId);
-    expect((await clients.student.rpc("approve_topic_review", { p_submission_id: republishSubmission.id })).error).toBeNull();
+      .toMatchObject({ word: "edited with legacy flag" });
 
     const failed = await clients.teacher.rpc("d1_update_card", {
       p_card_id: card.id,
       p_front_content: null,
       p_back_content: { translation: "must roll back" },
-      p_confirm_published: true,
     });
     expect(failed.error).not.toBeNull();
     expect((await getTopic(fixture.topicId)).status).toBe("published");
     expect((await admin.from("cards").select("front_content").eq("id", card.id).single()).data?.front_content)
-      .toMatchObject({ word: "confirmed update" });
+      .toMatchObject({ word: "edited with legacy flag" });
   });
 
-  it("blocks direct restore of removed published content and restores through the trusted boundary", async () => {
+  it("blocks direct restore of removed published content and restores through the trusted boundary without demotion", async () => {
     const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
     expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
     const submission = await getPendingSubmission(fixture.topicId);
@@ -858,19 +858,12 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(directRestore.error).not.toBeNull();
     expect((await getTopic(fixture.topicId)).status).toBe("published");
 
-    const unconfirmed = await clients.teacher.rpc("d1_restore_topic_content", {
-      p_content_type: "card",
-      p_content_id: card.id,
-    });
-    expectRpcError(unconfirmed, "TOPIC_PUBLISHED_CONFIRM_REQUIRED");
-
     const restored = await clients.teacher.rpc("d1_restore_topic_content", {
       p_content_type: "card",
       p_content_id: card.id,
-      p_confirm_published: true,
     });
     expect(restored.error).toBeNull();
-    expect(await getTopic(fixture.topicId)).toMatchObject({ status: "draft" });
+    expect(await getTopic(fixture.topicId)).toMatchObject({ status: "published" });
     expect((await admin.from("cards").select("removed_at").eq("id", card.id).single()).data?.removed_at)
       .toBeNull();
   });
@@ -898,7 +891,7 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(await getTopic(fixture.topicId)).toMatchObject({ status: "draft", removed_at: null });
   });
 
-  it("protects published exercise mutations and restores a removed exercise as draft", async () => {
+  it("creates, deletes and restores exercises on a published topic without demoting it", async () => {
     const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
     expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
     const submission = await getPendingSubmission(fixture.topicId);
@@ -915,32 +908,21 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
         ],
       }],
     };
-    const unconfirmed = await clients.teacher.rpc("create_exercise_with_content", {
+    // Cả overload 2 tham số lẫn 3 tham số (cờ false và true) đều chạy trên topic published.
+    const created = await clients.teacher.rpc("create_exercise_with_content", {
       p_topic_id: fixture.topicId,
       p_payload: payload,
       p_confirm_published: false,
     });
-    expectRpcError(unconfirmed, "TOPIC_PUBLISHED_CONFIRM_REQUIRED");
-
-    const created = await clients.teacher.rpc("create_exercise_with_content", {
-      p_topic_id: fixture.topicId,
-      p_payload: payload,
-      p_confirm_published: true,
-    });
     expect(created.error).toBeNull();
-    expect((await getTopic(fixture.topicId)).status).toBe("draft");
+    expect((await getTopic(fixture.topicId)).status).toBe("published");
     const createdExerciseId = (created.data as { exercise_id: string }).exercise_id;
-
-    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
-    const republishSubmission = await getPendingSubmission(fixture.topicId);
-    expect((await clients.student.rpc("approve_topic_review", { p_submission_id: republishSubmission.id })).error).toBeNull();
 
     const deleted = await clients.teacher.rpc("soft_delete_exercise_cascade", {
       p_exercise_id: createdExerciseId,
-      p_confirm_published: true,
     });
     expect(deleted.error).toBeNull();
-    expect(await getTopic(fixture.topicId)).toMatchObject({ status: "draft" });
+    expect(await getTopic(fixture.topicId)).toMatchObject({ status: "published" });
     expect((await admin.from("exercises").select("removed_at").eq("id", createdExerciseId).single()).data?.removed_at)
       .not.toBeNull();
 
@@ -951,10 +933,23 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(restored.error).toBeNull();
     expect((await admin.from("exercises").select("removed_at").eq("id", createdExerciseId).single()).data?.removed_at)
       .toBeNull();
-    expect((await getTopic(fixture.topicId)).status).toBe("draft");
+    expect((await getTopic(fixture.topicId)).status).toBe("published");
+
+    const legacyCreated = await clients.teacher.rpc("create_exercise_with_content", {
+      p_topic_id: fixture.topicId,
+      p_payload: { ...payload, title: "Legacy flag exercise" },
+      p_confirm_published: true,
+    });
+    expect(legacyCreated.error).toBeNull();
+    const legacyDeleted = await clients.teacher.rpc("soft_delete_exercise_cascade", {
+      p_exercise_id: (legacyCreated.data as { exercise_id: string }).exercise_id,
+      p_confirm_published: true,
+    });
+    expect(legacyDeleted.error).toBeNull();
+    expect((await getTopic(fixture.topicId)).status).toBe("published");
   });
 
-  it("keeps child mutations behind the same published confirmation boundary", async () => {
+  it("applies question group and question edits to a published topic without demoting it", async () => {
     const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
     const { data: exercise } = await admin.from("exercises").select("id").eq("topic_id", fixture.topicId).single();
     expect(exercise).toBeTruthy();
@@ -988,40 +983,30 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     const submission = await getPendingSubmission(fixture.topicId);
     expect((await clients.student.rpc("approve_topic_review", { p_submission_id: submission.id })).error).toBeNull();
 
-    const unconfirmedGroup = await clients.teacher.rpc("d1_update_question_group", {
+    const updatedGroup = await clients.teacher.rpc("d1_update_question_group", {
       p_group_id: groupId,
-      p_passage_text: "Unconfirmed passage",
+      p_passage_text: "Live passage",
       p_audio_url: null,
       p_image_url: null,
     });
-    expectRpcError(unconfirmedGroup, "TOPIC_PUBLISHED_CONFIRM_REQUIRED");
-
-    const confirmedGroup = await clients.teacher.rpc("d1_update_question_group", {
-      p_group_id: groupId,
-      p_passage_text: "Confirmed passage",
-      p_audio_url: null,
-      p_image_url: null,
-      p_confirm_published: true,
-    });
-    expect(confirmedGroup.error).toBeNull();
-    expect((await getTopic(fixture.topicId)).status).toBe("draft");
+    expect(updatedGroup.error).toBeNull();
+    expect((await getTopic(fixture.topicId)).status).toBe("published");
     expect((await admin.from("question_groups").select("passage_text").eq("id", groupId).single()).data?.passage_text)
-      .toBe("Confirmed passage");
+      .toBe("Live passage");
 
-    expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
-    const republishSubmission = await getPendingSubmission(fixture.topicId);
-    expect((await clients.student.rpc("approve_topic_review", { p_submission_id: republishSubmission.id })).error).toBeNull();
+    const exerciseRename = await clients.teacher.rpc("d1_update_exercise_basic", {
+      p_exercise_id: exercise.id,
+      p_title: "Renamed live exercise",
+    });
+    expect(exerciseRename.error).toBeNull();
+    expect((await admin.from("exercises").select("title").eq("id", exercise.id).single()).data?.title)
+      .toBe("Renamed live exercise");
 
-    const unconfirmedDelete = await clients.teacher.rpc("d1_delete_question", {
+    const deletedQuestion = await clients.teacher.rpc("d1_delete_question", {
       p_question_id: questionIds[0],
     });
-    expectRpcError(unconfirmedDelete, "TOPIC_PUBLISHED_CONFIRM_REQUIRED");
-    const confirmedDelete = await clients.teacher.rpc("d1_delete_question", {
-      p_question_id: questionIds[0],
-      p_confirm_published: true,
-    });
-    expect(confirmedDelete.error).toBeNull();
-    expect((await getTopic(fixture.topicId)).status).toBe("draft");
+    expect(deletedQuestion.error).toBeNull();
+    expect((await getTopic(fixture.topicId)).status).toBe("published");
 
     const restored = await clients.teacher.rpc("d1_restore_topic_content", {
       p_content_type: "question",
@@ -1030,9 +1015,15 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     expect(restored.error).toBeNull();
     expect((await admin.from("questions").select("removed_at").eq("id", questionIds[0]).single()).data?.removed_at)
       .toBeNull();
+
+    const deletedGroup = await clients.teacher.rpc("d1_delete_question_group", { p_group_id: groupId });
+    expect(deletedGroup.error).toBeNull();
+    expect((await admin.from("question_groups").select("removed_at").eq("id", groupId).single()).data?.removed_at)
+      .not.toBeNull();
+    expect((await getTopic(fixture.topicId)).status).toBe("published");
   });
 
-  it("serializes concurrent published edits without leaving a published mutation", async () => {
+  it("serializes concurrent published edits and keeps the topic published", async () => {
     const fixture = await createFixture({ cards: 1, exercises: 1, reviewer: "student" });
     expect((await clients.teacher.rpc("request_topic_review", { p_topic_id: fixture.topicId })).error).toBeNull();
     const submission = await getPendingSubmission(fixture.topicId);
@@ -1057,7 +1048,7 @@ describe.sequential("D1 trusted topic review lifecycle", () => {
     ]);
 
     expect(results.every((result) => result.error === null)).toBe(true);
-    expect((await getTopic(fixture.topicId)).status).toBe("draft");
+    expect((await getTopic(fixture.topicId)).status).toBe("published");
     expect(["concurrent one", "concurrent two"]).toContain(
       ((await admin.from("cards").select("front_content").eq("id", card.id).single()).data?.front_content as { word: string }).word,
     );

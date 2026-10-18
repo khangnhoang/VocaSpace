@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { runLocalPsql } from "./helpers/local-psql";
 
 // Test plan:
 // - Mục tiêu: chứng minh mọi content mutation của D1 dùng topic authorship group làm boundary.
@@ -8,18 +9,20 @@ import { randomUUID } from "node:crypto";
 // - Đối tượng: topic/card/exercise/question/option mutation RPC, direct table RLS và restore.
 // - Case thành công:
 //   - contributor được tạo/sửa content draft, gọi legacy RPC arity và restore topic/content.
-//   - responsible author giữ được published confirm + atomic demotion path.
+//   - TFEAT1: member của topic group sửa nội dung topic published tại chỗ qua RPC (có hoặc không có cờ cũ), topic vẫn published; cả hai overload của create_exercise_with_content, soft_delete_exercise_cascade, sync_question_with_options.
+//   - creator bị hạ xuống `previewer` vẫn sửa topic published qua RPC nội dung.
+//   - learner đã enroll đọc thẻ vừa sửa; đổi đáp án đúng giữ nguyên snapshot câu đã trả lời, lần sync D4 kế tiếp dùng đáp án hiện hành và `is_topic_completed` giữ sticky.
 //   - creator bị hạ xuống `previewer` vẫn tạo được exercise vì inner create path theo topic-content authority (M24).
 // - Case thất bại:
 //   - course collaborator ngoài topic group không được direct-write hoặc gọi legacy RPC bypass.
 //   - authenticated actor không gọi trực tiếp được `d1_create_exercise_with_content_unchecked`.
-//   - pending content bị frozen; published content thiếu confirm bị từ chối.
+//   - pending content bị frozen (cả hai overload wrapper); outsider (co_owner ngoài topic group) bị từ chối trên topic published.
+//   - ghi trực tiếp qua Data API vào mọi bảng content của topic published vẫn bị từ chối; `d1_lock_topic_for_mutation` không nhận published từ caller thường.
 // - Bảo mật/phân quyền: authenticated actors dùng client thường; service-role chỉ dựng fixture/assert/cleanup.
 //   `*_unchecked` vẫn chỉ service_role execute được sau khi nới authority của inner create path.
-// - Ổn định/resilience: published demotion và content write nằm cùng trusted transaction; mỗi fixture tách theo course.
-// - Invariant cần giữ: ngoài topic group chỉ read-only; pending không đổi; direct published write không bypass confirmation.
-// - Kết quả verify gần nhất: passed `8/8` bằng focused command trên file này; case M24 đã được chứng minh
-//   phân biệt được bằng cách tạm khôi phục gate cũ trong DB local rồi chạy lại (1 failed | 7 passed).
+// - Ổn định/resilience: dấu hiệu "trusted published edit" chỉ đúng một topic trong một transaction (kiểm bằng psql một transaction hai topic); mỗi fixture tách theo course.
+// - Invariant cần giữ: ngoài topic group chỉ read-only; pending không đổi; direct published write không bypass RPC tin cậy.
+// - Kết quả verify gần nhất: passed (14 test) bằng `npm run test:integration -- __tests__/integration/topic-group-content-boundary.test.ts` trên runtime E2E cô lập (API 45441) sau local reset (TFEAT1 CP1); với down.sql áp dụng thì 7 case published mới fail.
 // - Ghi chú: test chỉ dùng local Supabase với ALLOW_DB_INTEGRATION_TESTS=true.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -159,6 +162,32 @@ async function cleanup() {
 function expectRpcError(result: { error: { message?: string } | null }, code: string) {
   expect(result.error).not.toBeNull();
   expect(result.error?.message).toContain(code);
+}
+
+const syncOptions = [
+  { content: "A", is_correct: true },
+  { content: "B", is_correct: false },
+];
+
+function exercisePayload(title: string) {
+  return {
+    title,
+    part_type: "part5",
+    questions: [{
+      content: "Which answer is correct?",
+      options: [
+        { content: "A", is_correct: true },
+        { content: "B", is_correct: false },
+      ],
+    }],
+  };
+}
+
+async function publishTopic(topicId: string) {
+  const { error } = await service.from("topics")
+    .update({ status: "published", first_approved_at: new Date().toISOString() })
+    .eq("id", topicId);
+  if (error) throw new Error(`Publish fixture failed: ${error.message}`);
 }
 
 describe.sequential("D1 topic-group content boundary", () => {
@@ -491,7 +520,7 @@ describe.sequential("D1 topic-group content boundary", () => {
     expectRpcError(trustedUpdate, "TOPIC_PENDING_FROZEN");
   });
 
-  it("requires published confirmation and lets the delete tier restore as active draft", async () => {
+  it("edits published content in place, refuses direct writes and lets the delete tier restore as active draft", async () => {
     const fixture = await createFixture();
     await addStudentToTopic(fixture);
 
@@ -509,23 +538,27 @@ describe.sequential("D1 topic-group content boundary", () => {
     expect(directPublishedUpdate.data).toBeNull();
     expect(directPublishedUpdate.error).not.toBeNull();
 
-    const unconfirmed = await clients.student.rpc("d1_update_card", {
+    const unflagged = await clients.student.rpc("d1_update_card", {
       p_card_id: fixture.cardId,
-      p_front_content: { word: "blocked" },
-      p_back_content: { translation: "blocked" },
+      p_front_content: { word: "live edit" },
+      p_back_content: { translation: "unflagged" },
       p_confirm_published: false,
     });
-    expectRpcError(unconfirmed, "TOPIC_PUBLISHED_CONFIRM_REQUIRED");
+    expect(unflagged.error).toBeNull();
+    const stillPublished = await service.from("topics").select("status").eq("id", fixture.topicId).single();
+    expect(stillPublished.data?.status).toBe("published");
+    expect((await service.from("cards").select("front_content").eq("id", fixture.cardId).single()).data?.front_content)
+      .toMatchObject({ word: "live edit" });
 
-    const confirmed = await clients.student.rpc("d1_update_card", {
+    const legacyFlag = await clients.student.rpc("d1_update_card", {
       p_card_id: fixture.cardId,
-      p_front_content: { word: "confirmed" },
-      p_back_content: { translation: "demoted" },
+      p_front_content: { word: "legacy flag" },
+      p_back_content: { translation: "flag ignored" },
       p_confirm_published: true,
     });
-    expect(confirmed.error).toBeNull();
-    const demoted = await service.from("topics").select("status").eq("id", fixture.topicId).single();
-    expect(demoted.data?.status).toBe("draft");
+    expect(legacyFlag.error).toBeNull();
+    expect((await service.from("topics").select("status").eq("id", fixture.topicId).single()).data?.status)
+      .toBe("published");
 
     expect((await service.from("cards").update({ removed_at: new Date().toISOString() }).eq("id", fixture.cardId)).error).toBeNull();
     const restoredCard = await clients.student.rpc("d1_restore_topic_content", {
@@ -534,6 +567,8 @@ describe.sequential("D1 topic-group content boundary", () => {
       p_confirm_published: false,
     });
     expect(restoredCard.error).toBeNull();
+    expect((await service.from("topics").select("status").eq("id", fixture.topicId).single()).data?.status)
+      .toBe("published");
 
     expect((await service.from("topics").update({ removed_at: new Date().toISOString(), status: "draft" }).eq("id", fixture.topicId)).error).toBeNull();
     // D36: restore mirrors delete, so it is the delete tier — owner/co_owner,
@@ -553,5 +588,330 @@ describe.sequential("D1 topic-group content boundary", () => {
 
     const finalTopic = await service.from("topics").select("status, removed_at").eq("id", fixture.topicId).single();
     expect(finalTopic.data).toMatchObject({ status: "draft", removed_at: null });
+  });
+
+  it("refuses direct Data API writes to every published content table while the trusted RPC still works", async () => {
+    const fixture = await createFixture();
+    await addStudentToTopic(fixture);
+    const child = await createQuestionFixture(fixture.topicId, fixture.courseId);
+    const groupId = randomUUID();
+    expect((await service.from("question_groups").insert({
+      id: groupId, exercise_id: child.exerciseId, passage_text: "Original passage", order_index: 0,
+    })).error).toBeNull();
+    await publishTopic(fixture.topicId);
+
+    const refused = (result: { error: unknown; data: unknown }) => {
+      expect(result.error !== null || (Array.isArray(result.data) && result.data.length === 0)).toBe(true);
+    };
+    refused(await clients.student.from("cards").insert({
+      topic_id: fixture.topicId, front_content: { word: "direct" }, back_content: { translation: "direct" }, order_index: 5,
+    }).select("id"));
+    refused(await clients.student.from("exercises").update({ title: "Direct exercise title" })
+      .eq("id", child.exerciseId).select("id"));
+    refused(await clients.student.from("question_groups").update({ passage_text: "Direct passage" })
+      .eq("id", groupId).select("id"));
+    refused(await clients.student.from("questions").update({ content: "Direct question" })
+      .eq("id", child.questionId).select("id"));
+    refused(await clients.student.from("question_options").update({ content: "Direct option" })
+      .eq("question_id", child.questionId).select("id"));
+
+    expect((await service.from("cards").select("id").eq("topic_id", fixture.topicId)).data).toHaveLength(1);
+    expect((await service.from("exercises").select("title").eq("id", child.exerciseId).single()).data?.title)
+      .toBe("P2 child exercise");
+    expect((await service.from("question_groups").select("passage_text").eq("id", groupId).single()).data?.passage_text)
+      .toBe("Original passage");
+    expect((await service.from("questions").select("content").eq("id", child.questionId).single()).data?.content)
+      .toBe("Original question");
+    expect((await service.from("question_options").select("content").eq("question_id", child.questionId)
+      .order("order_index")).data?.map((row) => row.content)).toEqual(["A", "B"]);
+
+    // Hàm khóa public không nhận topic published từ caller thường nếu RPC tin cậy chưa đánh dấu.
+    expectRpcError(
+      await clients.student.rpc("d1_lock_topic_for_mutation", { p_topic_id: fixture.topicId }),
+      "TOPIC_PUBLISHED_MUTATION_REQUIRES_TRUSTED_BOUNDARY",
+    );
+
+    const trusted = await clients.student.rpc("d1_update_question_group", {
+      p_group_id: groupId,
+      p_passage_text: "Trusted passage",
+      p_audio_url: null,
+      p_image_url: null,
+    });
+    expect(trusted.error).toBeNull();
+    expect((await service.from("question_groups").select("passage_text").eq("id", groupId).single()).data?.passage_text)
+      .toBe("Trusted passage");
+  });
+
+  it("scopes the trusted published edit to the prepared topic inside one transaction", async () => {
+    const first = await createFixture();
+    const second = await createFixture();
+    await publishTopic(first.topicId);
+    await publishTopic(second.topicId);
+
+    // Một transaction: chuẩn bị topic A (published) rồi ghi vào topic B (published) với tư cách authenticated.
+    const asTeacher = (statements: string) => `
+      begin;
+      select set_config('request.jwt.claims', '{"sub":"${USERS.teacher.id}","role":"authenticated"}', true);
+      set local role service_role;
+      select public.d1_prepare_topic_content_mutation('${first.topicId}'::uuid, false);
+      ${statements}
+      rollback;
+    `;
+    expect(() => runLocalPsql(asTeacher(
+      `update public.cards set back_content = '{"translation":"cross topic"}'::jsonb where id = '${second.cardId}'::uuid;`,
+    ))).toThrow(/TOPIC_PUBLISHED_MUTATION_REQUIRES_TRUSTED_BOUNDARY/);
+
+    // Đối chứng: cùng transaction, ghi vào đúng topic A thì được.
+    expect(() => runLocalPsql(asTeacher(
+      `update public.cards set back_content = '{"translation":"same topic"}'::jsonb where id = '${first.cardId}'::uuid;`,
+    ))).not.toThrow();
+
+    expect((await service.from("cards").select("back_content").eq("id", second.cardId).single()).data?.back_content)
+      .toMatchObject({ translation: "P2 translation" });
+    expect((await service.from("cards").select("back_content").eq("id", first.cardId).single()).data?.back_content)
+      .toMatchObject({ translation: "P2 translation" });
+  });
+
+  it("lets a previewer creator edit a published topic through the content RPCs", async () => {
+    const fixture = await createFixture();
+    const child = await createQuestionFixture(fixture.topicId, fixture.courseId);
+    expect((await service.from("course_collaborators")
+      .update({ role: "previewer" }).eq("course_id", fixture.courseId).eq("user_id", USERS.teacher.id)).error).toBeNull();
+    await publishTopic(fixture.topicId);
+
+    expect((await clients.teacher.rpc("d1_update_topic", {
+      p_topic_id: fixture.topicId, p_title: "renamed live by previewer creator", p_confirm_published: false,
+    })).error).toBeNull();
+    const created = await clients.teacher.rpc("d1_create_card", {
+      p_topic_id: fixture.topicId,
+      p_front_content: { word: "previewer card" },
+      p_back_content: { translation: "live" },
+      p_confirm_published: false,
+    });
+    expect(created.error).toBeNull();
+    expect((await clients.teacher.rpc("d1_update_card", {
+      p_card_id: fixture.cardId,
+      p_front_content: { word: "previewer edit" },
+      p_back_content: { translation: "live" },
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("create_exercise_with_content", {
+      p_topic_id: fixture.topicId, p_payload: exercisePayload("Previewer exercise"),
+    })).error).toBeNull();
+    expect((await clients.teacher.rpc("sync_question_with_options", {
+      p_question_id: child.questionId,
+      p_content: "Previewer synced question",
+      p_explanation: null,
+      p_options: syncOptions,
+    })).error).toBeNull();
+
+    const topic = await service.from("topics").select("status, title").eq("id", fixture.topicId).single();
+    expect(topic.data).toMatchObject({ status: "published", title: "renamed live by previewer creator" });
+    expect((await service.from("questions").select("content").eq("id", child.questionId).single()).data?.content)
+      .toBe("Previewer synced question");
+
+    // Previewer vẫn không ghi trực tiếp được vào bảng.
+    const direct = await clients.teacher.from("cards").update({ back_content: { translation: "direct" } })
+      .eq("id", fixture.cardId).select("id");
+    expect(direct.error !== null || (direct.data ?? []).length === 0).toBe(true);
+  });
+
+  it("runs both overloads of each exercise wrapper on a published topic and refuses outsiders and pending", async () => {
+    const fixture = await createFixture();
+    await addStudentToTopic(fixture);
+    const child = await createQuestionFixture(fixture.topicId, fixture.courseId);
+    await publishTopic(fixture.topicId);
+    const status = async () => (await service.from("topics").select("status").eq("id", fixture.topicId).single()).data?.status;
+
+    const createdTwoArg = await clients.student.rpc("create_exercise_with_content", {
+      p_topic_id: fixture.topicId, p_payload: exercisePayload("Two-arg exercise"),
+    });
+    expect(createdTwoArg.error).toBeNull();
+    const createdThreeArg = await clients.student.rpc("create_exercise_with_content", {
+      p_topic_id: fixture.topicId, p_payload: exercisePayload("Three-arg exercise"), p_confirm_published: false,
+    });
+    expect(createdThreeArg.error).toBeNull();
+    const createdFlagged = await clients.student.rpc("create_exercise_with_content", {
+      p_topic_id: fixture.topicId, p_payload: exercisePayload("Flagged exercise"), p_confirm_published: true,
+    });
+    expect(createdFlagged.error).toBeNull();
+    expect(await status()).toBe("published");
+
+    expect((await clients.student.rpc("soft_delete_exercise_cascade", {
+      p_exercise_id: (createdTwoArg.data as { exercise_id: string }).exercise_id,
+    })).error).toBeNull();
+    expect((await clients.student.rpc("soft_delete_exercise_cascade", {
+      p_exercise_id: (createdThreeArg.data as { exercise_id: string }).exercise_id, p_confirm_published: false,
+    })).error).toBeNull();
+    expect((await clients.student.rpc("soft_delete_exercise_cascade", {
+      p_exercise_id: (createdFlagged.data as { exercise_id: string }).exercise_id, p_confirm_published: true,
+    })).error).toBeNull();
+    expect(await status()).toBe("published");
+
+    expect((await clients.student.rpc("sync_question_with_options", {
+      p_question_id: child.questionId, p_content: "Four-arg sync", p_explanation: null, p_options: syncOptions,
+    })).error).toBeNull();
+    expect((await clients.student.rpc("sync_question_with_options", {
+      p_question_id: child.questionId, p_content: "Five-arg sync", p_explanation: null, p_options: syncOptions,
+      p_confirm_published: false,
+    })).error).toBeNull();
+    expect((await clients.student.rpc("sync_question_with_options", {
+      p_question_id: child.questionId, p_content: "Flagged sync", p_explanation: null, p_options: syncOptions,
+      p_confirm_published: true,
+    })).error).toBeNull();
+    expect((await service.from("questions").select("content").eq("id", child.questionId).single()).data?.content)
+      .toBe("Flagged sync");
+    expect(await status()).toBe("published");
+
+    // Outsider (co_owner ngoài topic group) bị từ chối trên topic published ở mọi overload.
+    for (const confirm of [undefined, false, true]) {
+      const flag = confirm === undefined ? {} : { p_confirm_published: confirm };
+      expectRpcError(await clients.admin.rpc("create_exercise_with_content", {
+        p_topic_id: fixture.topicId, p_payload: exercisePayload("Outsider exercise"), ...flag,
+      }), "COURSE_EDIT_FORBIDDEN");
+      expectRpcError(await clients.admin.rpc("soft_delete_exercise_cascade", {
+        p_exercise_id: child.exerciseId, ...flag,
+      }), "COURSE_EDIT_FORBIDDEN");
+      expectRpcError(await clients.admin.rpc("sync_question_with_options", {
+        p_question_id: child.questionId, p_content: "Outsider sync", p_explanation: null, p_options: syncOptions, ...flag,
+      }), "COURSE_EDIT_FORBIDDEN");
+    }
+
+    // Pending vẫn đóng băng ở mọi overload.
+    expect((await service.from("topics").update({ status: "pending" }).eq("id", fixture.topicId)).error).toBeNull();
+    for (const confirm of [undefined, true]) {
+      const flag = confirm === undefined ? {} : { p_confirm_published: confirm };
+      expectRpcError(await clients.student.rpc("create_exercise_with_content", {
+        p_topic_id: fixture.topicId, p_payload: exercisePayload("Pending exercise"), ...flag,
+      }), "TOPIC_PENDING_FROZEN");
+      expectRpcError(await clients.student.rpc("soft_delete_exercise_cascade", {
+        p_exercise_id: child.exerciseId, ...flag,
+      }), "TOPIC_PENDING_FROZEN");
+      expectRpcError(await clients.student.rpc("sync_question_with_options", {
+        p_question_id: child.questionId, p_content: "Pending sync", p_explanation: null, p_options: syncOptions, ...flag,
+      }), "TOPIC_PENDING_FROZEN");
+    }
+    expect((await service.from("questions").select("content").eq("id", child.questionId).single()).data?.content)
+      .toBe("Flagged sync");
+  });
+});
+
+describe.sequential("TFEAT1 learner view of published edits", { timeout: 30_000 }, () => {
+  let learner: SupabaseClient;
+  let learnerId = "";
+
+  async function createPublishedLearnerFixture() {
+    const fixture = await createFixture();
+    const child = await createQuestionFixture(fixture.topicId, fixture.courseId);
+    const { data: options } = await service.from("question_options").select("id, is_correct")
+      .eq("question_id", child.questionId).order("order_index");
+    const correctId = options?.find((option) => option.is_correct)?.id as string;
+    const wrongId = options?.find((option) => !option.is_correct)?.id as string;
+    expect((await service.from("courses").update({ status: "published" }).eq("id", fixture.courseId)).error).toBeNull();
+    await publishTopic(fixture.topicId);
+    expect((await service.from("enrollments").insert({ course_id: fixture.courseId, user_id: learnerId })).error).toBeNull();
+    return { ...fixture, ...child, correctId, wrongId };
+  }
+
+  beforeAll(async () => {
+    assertSafeEnvironment();
+    learnerId = randomUUID();
+    const email = `tfeat1-learner-${learnerId}@example.com`;
+    const { error: authError } = await service.auth.admin.createUser({
+      id: learnerId, email, password: PASSWORD, email_confirm: true,
+    });
+    if (authError) throw new Error(`Learner fixture failed: ${authError.message}`);
+    const { error: profileError } = await service.from("profiles").upsert({
+      id: learnerId, email, full_name: "TFEAT1 Learner", username: `tf1_${learnerId.slice(0, 8)}`,
+      role: "student", removed_at: null,
+    });
+    if (profileError) throw new Error(`Learner profile failed: ${profileError.message}`);
+    learner = await signIn(email);
+    clients = {
+      admin: await signIn(USERS.admin.email),
+      teacher: await signIn(USERS.teacher.email),
+      student: await signIn(USERS.student.email),
+    };
+  });
+
+  afterEach(async () => {
+    for (const courseId of courseIds) {
+      const { data: topics } = await service.from("topics").select("id").eq("course_id", courseId);
+      const topicIds = (topics ?? []).map((row) => row.id);
+      const { data: questions } = await service.from("questions").select("id").eq("course_id", courseId);
+      await service.from("user_question_answers").delete().in("question_id", (questions ?? []).map((row) => row.id));
+      await service.from("user_topic_progress").delete().in("topic_id", topicIds);
+      await service.from("enrollments").delete().eq("course_id", courseId);
+    }
+    await cleanup();
+  });
+
+  afterAll(async () => {
+    await learner?.auth.signOut();
+    if (learnerId) await service.auth.admin.deleteUser(learnerId);
+  });
+
+  it("shows an enrolled learner the card an author just edited on a published topic", async () => {
+    const fixture = await createPublishedLearnerFixture();
+    const before = await learner.from("cards").select("front_content").eq("id", fixture.cardId).single();
+    expect(before.data?.front_content).toMatchObject({ word: "P2 card" });
+
+    const edit = await clients.teacher.rpc("d1_update_card", {
+      p_card_id: fixture.cardId,
+      p_front_content: { word: "live edit for learners" },
+      p_back_content: { translation: "ngay lập tức" },
+    });
+    expect(edit.error).toBeNull();
+
+    const after = await learner.from("cards").select("front_content, back_content").eq("id", fixture.cardId).single();
+    expect(after.error).toBeNull();
+    expect(after.data).toMatchObject({
+      front_content: { word: "live edit for learners" },
+      back_content: { translation: "ngay lập tức" },
+    });
+    expect((await service.from("topics").select("status").eq("id", fixture.topicId).single()).data?.status)
+      .toBe("published");
+  });
+
+  it("keeps the stored answer snapshot when the correct option changes and syncs against the live answer with sticky completion", async () => {
+    const fixture = await createPublishedLearnerFixture();
+    expect((await learner.from("user_flashcards").upsert(
+      { user_id: learnerId, card_id: fixture.cardId, last_rating: 3 }, { onConflict: "user_id,card_id" },
+    )).error).toBeNull();
+    expect((await learner.from("user_question_answers").upsert({
+      user_id: learnerId, question_id: fixture.questionId, selected_option_id: fixture.correctId, is_correct: true,
+    }, { onConflict: "user_id,question_id" })).error).toBeNull();
+    const completed = await learner.rpc("d4_sync_topic_progress", { p_topic_id: fixture.topicId });
+    expect(completed.error).toBeNull();
+    expect(completed.data).toMatchObject({ is_exercise_completed: true, is_topic_completed: true, newly_completed: true });
+
+    // Tác giả đổi đáp án đúng từ A sang B ngay trên topic published.
+    const swapped = await clients.teacher.rpc("sync_question_with_options", {
+      p_question_id: fixture.questionId,
+      p_content: "Original question",
+      p_explanation: null,
+      p_options: [
+        { id: fixture.correctId, content: "A", is_correct: false },
+        { id: fixture.wrongId, content: "B", is_correct: true },
+      ],
+    });
+    expect(swapped.error).toBeNull();
+    expect((await service.from("topics").select("status").eq("id", fixture.topicId).single()).data?.status)
+      .toBe("published");
+
+    // Snapshot đã lưu không bị chấm lại.
+    expect((await service.from("user_question_answers").select("selected_option_id, is_correct")
+      .eq("user_id", learnerId).eq("question_id", fixture.questionId).single()).data)
+      .toMatchObject({ selected_option_id: fixture.correctId, is_correct: true });
+
+    // Lần sync kế tiếp đọc đáp án hiện hành; hoàn thành topic vẫn sticky.
+    const resynced = await learner.rpc("d4_sync_topic_progress", { p_topic_id: fixture.topicId });
+    expect(resynced.error).toBeNull();
+    expect(resynced.data).toMatchObject({ is_exercise_completed: false, is_topic_completed: true, newly_completed: false });
+
+    expect((await learner.from("user_question_answers").upsert({
+      user_id: learnerId, question_id: fixture.questionId, selected_option_id: fixture.wrongId, is_correct: true,
+    }, { onConflict: "user_id,question_id" })).error).toBeNull();
+    const answeredAgain = await learner.rpc("d4_sync_topic_progress", { p_topic_id: fixture.topicId });
+    expect(answeredAgain.data).toMatchObject({ is_exercise_completed: true, is_topic_completed: true });
   });
 });
