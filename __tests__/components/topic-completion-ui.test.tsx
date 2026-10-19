@@ -31,8 +31,9 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - LF5 (AC4): chấm thẻ cuối, trả lời câu bài tập làm hoàn thành, hoặc câu đúng cuối của memory check làm bài học hoàn thành thì không có toast nào (cả toast hoàn thành bài lẫn toast chuyển bước/memory check) và màn hình hoàn thành thay cho bước; chưa hoàn thành thì vẫn có toast chuyển bước.
 // - LF6 (AC1): rời câu bài tập vừa làm hoàn thành bằng thanh tiến trình thì không bị kéo sang màn hình hoàn thành, không gửi lần hai, và lần vào đầu tiên từ "Xem kết quả chủ đề" vẫn chạy chuỗi.
 // - FEAT12 (AC1-AC7): chủ đề đã hoàn thành mà còn câu bài tập hoặc câu Memory check chưa đúng thì màn hình hoàn thành có hộp "Bài học vừa được cập nhật" trước thanh tiến độ; "Làm ngay" đi theo cổng (thẻ chờ -> Từ vựng, memory chưa qua -> Memory check ở câu chưa đúng đầu tiên, còn lại -> câu bài tập chưa đúng đầu tiên), không ghi tiến độ, không đổi trạng thái hoàn thành; hết việc hoặc `queueProgressUnavailable` thì không có hộp.
+// - FEAT12 Decision 41: chủ đề đã hoàn thành từ trước, câu trả lời đúng đóng câu mở cuối cùng (không phải câu cuối danh sách) chỉ còn nút "Hoàn thành" mở màn hình hoàn thành đã ổn định, không hộp, không chuỗi chuyển động; sai, còn câu mở khác, hay đã chuyển câu thì giữ nút như cũ.
 // - FEAT12 Owner QA: vào bước bài tập tự động (xong memory check, "Làm bài tập" ở bản xem lại, hết hàng đợi thẻ) mở câu đầu tiên chưa đúng thay vì câu 1; không còn câu nào thì luồng cũ giữ nguyên.
-// - Kết quả verify gần nhất: FEAT12 CP1 (2026-10-19) passed 37/37 bằng `npx vitest run __tests__/components/topic-completion-ui.test.tsx`; các nhóm D8-LUI/LF trước đó xem báo cáo checkpoint D8-LUI CP2.
+// - Kết quả verify gần nhất: FEAT12 CP1 (2026-10-19) passed 40/40 bằng `npx vitest run __tests__/components/topic-completion-ui.test.tsx`; các nhóm D8-LUI/LF trước đó xem báo cáo checkpoint D8-LUI CP2.
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
@@ -905,41 +906,96 @@ describe("FEAT12 catch-up prompt on the completion screen", () => {
       expect(completionHeading()).toBeNull();
     });
 
-    it("keeps the topic completed on the return path and shows the box-free screen once nothing is left", async () => {
-      render(
-        <LearningWorkspace
-          data={workspaceData({
-            exercises: [exerciseA, exerciseB],
-            answers: { [ids.standalone]: right(ids.standalone), [ids.groupedB]: right(ids.groupedB) },
-            progress: completedProgress(),
-          })}
-        />,
-      );
-      expect(courseProgress().getAttribute("aria-valuenow")).toBe("1");
-      fireEvent.click(screen.getByRole("button", { name: /Làm ngay/ }));
-      expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+    describe("closing the last open question of a completed topic (Decision 41)", () => {
+      const middleOpen = () =>
+        workspaceData({
+          exercises: [exerciseA, exerciseB],
+          answers: { [ids.standalone]: right(ids.standalone), [ids.groupedB]: right(ids.groupedB) },
+          progress: completedProgress(),
+        });
+      const openMiddleQuestion = () => {
+        fireEvent.click(screen.getByRole("button", { name: /Làm ngay/ }));
+        expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+      };
+      const answerCorrectly = () => {
+        mockedSubmit.mockResolvedValueOnce({
+          success: true,
+          isCorrect: true,
+          topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: false }),
+        });
+        return submitExerciseAnswer("Đúng Câu nhóm A");
+      };
 
-      mockedSubmit.mockResolvedValueOnce({
-        success: true,
-        isCorrect: true,
-        topicProgress: progress({ isExerciseCompleted: true, isTopicCompleted: true, newlyCompleted: false }),
+      it("offers only Hoàn thành after the answer that closes the last open question, and opens the settled screen without a box", async () => {
+        render(<LearningWorkspace data={middleOpen()} />);
+        expect(courseProgress().getAttribute("aria-valuenow")).toBe("1");
+        openMiddleQuestion();
+        await answerCorrectly();
+
+        expect(mockedSubmit).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+        // Nothing moves on its own.
+        act(() => {
+          vi.advanceTimersByTime(10_000);
+        });
+        expect(completionHeading()).toBeNull();
+
+        fireEvent.click(screen.getByRole("button", { name: "Hoàn thành" }));
+        expect(completionHeading()?.closest("section")?.getAttribute("data-motion")).toBe("settled");
+        expect(catchUpTitle()).toBeNull();
+        expect(courseProgress().getAttribute("aria-valuenow")).toBe("1");
+        expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
       });
-      await submitExerciseAnswer("Đúng Câu nhóm A");
 
-      // No auto-advance: the learner stays on the answered question and can still go to the next one.
-      expect(mockedSubmit).toHaveBeenCalledTimes(1);
-      expect(completionHeading()).toBeNull();
-      expect(screen.getByRole("button", { name: "Câu tiếp theo" })).not.toBeNull();
-      act(() => {
-        vi.advanceTimersByTime(10_000);
+      it("keeps Thử lại after a wrong answer and offers Hoàn thành only once the retry is correct", async () => {
+        render(<LearningWorkspace data={middleOpen()} />);
+        openMiddleQuestion();
+        mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: false, explanation: "Xem lại." });
+        await submitExerciseAnswer("Sai Câu nhóm A");
+
+        expect(screen.getByRole("button", { name: "Thử lại" })).not.toBeNull();
+        expect(screen.queryByRole("button", { name: "Hoàn thành" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "Câu tiếp theo" })).toBeNull();
+
+        fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
+        await answerCorrectly();
+        expect(screen.getByRole("button", { name: "Hoàn thành" })).not.toBeNull();
       });
-      expect(completionHeading()).toBeNull();
 
-      fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
-      expect(completionHeading()?.closest("section")?.getAttribute("data-motion")).toBe("settled");
-      expect(catchUpTitle()).toBeNull();
-      expect(courseProgress().getAttribute("aria-valuenow")).toBe("1");
-      expect(screen.getByText("Đã hoàn thành")).not.toBeNull();
+      it("keeps Câu tiếp theo while another question is still open", async () => {
+        render(
+          <LearningWorkspace
+            data={workspaceData({
+              exercises: [exerciseA, exerciseB],
+              answers: { [ids.groupedB]: right(ids.groupedB) },
+              progress: completedProgress(),
+            })}
+          />,
+        );
+        expect(screen.getByText("Còn 2 câu bài tập cần làm")).not.toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: /Làm ngay/ }));
+        mockedSubmit.mockResolvedValueOnce({
+          success: true,
+          isCorrect: true,
+          topicProgress: progress({ isExerciseCompleted: false, isTopicCompleted: true }),
+        });
+        await submitExerciseAnswer("Đúng Câu đơn");
+
+        expect(screen.getByRole("button", { name: "Câu tiếp theo" })).not.toBeNull();
+        expect(screen.queryByRole("button", { name: "Hoàn thành" })).toBeNull();
+      });
+
+      it("returns to Câu tiếp theo on other questions after the learner moves away", async () => {
+        render(<LearningWorkspace data={middleOpen()} />);
+        openMiddleQuestion();
+        await answerCorrectly();
+        expect(screen.getByRole("button", { name: "Hoàn thành" })).not.toBeNull();
+
+        goTo(1);
+        expect(screen.getByText("Câu đơn")).not.toBeNull();
+        expect(screen.getByRole("button", { name: "Câu tiếp theo" })).not.toBeNull();
+        expect(screen.queryByRole("button", { name: "Hoàn thành" })).toBeNull();
+      });
     });
 
     it("hides the box while the workspace already knows its local progress is unconfirmed", async () => {

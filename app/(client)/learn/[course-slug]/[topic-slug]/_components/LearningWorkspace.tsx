@@ -313,6 +313,9 @@ export default function LearningWorkspace({
   };
   // `animate`: chuỗi chuyển động chỉ chạy cho lần hiện đầu của một lần hoàn thành vừa xảy ra; `focus`: chỉ khi vào bằng thao tác.
   const [completionEntry, setCompletionEntry] = useState({ animate: false, focus: false });
+  // Owner QA FEAT12 (Decision 41): câu vừa được trả lời đúng trong phiên này và là câu cuối cùng còn mở của một chủ đề đã hoàn thành.
+  // Chỉ câu đó mới đổi nút kết thúc thành "Hoàn thành"; đổi bước hay nhảy sang câu khác thì xóa, nên các câu khác giữ nút như cũ.
+  const [closedLastOpenId, setClosedLastOpenId] = useState<string | null>(null);
   // Bản sao ref của cờ trên: callback async cuối hàng đợi thẻ đọc cờ tại thời điểm hết hàng, không phải lúc bắt đầu chấm (LF6 AC10).
   const topicCompletedRef = useRef(progress?.isTopicCompleted ?? false);
   const markTopicCompleted = (newlyCompleted: boolean) => {
@@ -467,6 +470,7 @@ export default function LearningWorkspace({
   // Mọi lần đổi bước đi qua đây để lời giải thích bước khóa luôn tắt khi bước đổi.
   const changeStage = (stage: LearningStage) => {
     setLockNotice(null);
+    setClosedLastOpenId(null);
     setLearningStage(stage);
   };
 
@@ -751,6 +755,7 @@ export default function LearningWorkspace({
   // The review list reports a pick; the memory-check gate is still enforced here.
   const jumpToQuestion = (questionId: string) => {
     if (exercisesLocked) return;
+    setClosedLastOpenId(null);
     const targetIndex = exerciseQuestionPositions.findIndex(
       (position) => position.questionId === questionId,
     );
@@ -940,6 +945,8 @@ export default function LearningWorkspace({
     heading.scrollIntoView?.({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
   };
 
+  const closesLastOpen = closedLastOpenId !== null && closedLastOpenId === currentQuestion?.id && remainingQuestions.length === 0;
+
   const renderExercise = () => {
     if (!currentExercise || !currentGroup || !currentQuestion || !arrangement) {
       return (
@@ -1005,7 +1012,7 @@ export default function LearningWorkspace({
               direction={entry.direction}
               focusOnEntry={entry.focus}
               // An answer that just completed the topic ends here even mid-list: its action is "Hoàn thành", not "Câu tiếp theo".
-              hasNext={hasNextQuestion && !pendingCompletion}
+              hasNext={hasNextQuestion && !pendingCompletion && !closesLastOpen}
               endAction={
                 pendingCompletion
                   ? { label: "Hoàn thành", onClick: goToComplete }
@@ -1021,12 +1028,16 @@ export default function LearningWorkspace({
                     : { label: "Về tổng quan khóa học", href: `/learn/${courseSlug}` }
               }
               onNext={handleNextQuestion}
-              onCorrectAnswer={(questionId, optionId) =>
+              onCorrectAnswer={(questionId, optionId) => {
+                // Giá trị ở closure là của lúc gửi đáp án: chỉ khi câu này là câu mở duy nhất của chủ đề đã hoàn thành từ trước.
+                if (isTopicCompleted && !pendingCompletion && remainingQuestions.length === 1 && remainingQuestions[0].questionId === questionId) {
+                  setClosedLastOpenId(questionId);
+                }
                 setUserAnswers((current) => ({
                   ...current,
                   [questionId]: optionId,
-                }))
-              }
+                }));
+              }}
               onIncorrectAnswer={(questionId) =>
                 setIncorrectIds((current) => ({ ...current, [questionId]: true }))
               }
