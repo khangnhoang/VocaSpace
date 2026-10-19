@@ -8,15 +8,15 @@ This file was migrated to the repository template and translated to English on 2
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [TFEAT1 plan](./implementation-plans/tfeat1/plan.md) r3. |
-| Current unit / checkpoint | TFEAT1 CP1 and CP2 implemented: `7b9f079` (DB), `d18d546` (app), corrections `2f58f4f` and `8babe1f` (Owner QA copy). Branch `feat/tfeat1-published-live-edit`, stacked on the docs cleanup `32cf5ac`; one PR later. LF9 r7 is merged (PR 164, `56f6269`); GRANT-001 is merged (PR 165, `051ec81`) and applied to hosted. |
-| Status | implemented; Owner manual QA passed on local 2026-10-18 (remaining notes are UI/UX, recorded as TFEAT-004 and FEAT-012). Codex CLI `gpt-6.1-sol` / `high` plan review PASS at round 3; implementation review PASS at round 2 (round 1: multi-correct options not compared, fixed in `2f58f4f`). LF9 is deployed and passed Owner production QA on 2026-10-18. |
-| Completed evidence | Finished units are in the milestones. TFEAT1 (Sonnet runs, isolated runtime): focused integration 108/108 with rollback down/up checked; unit 1750 passed (2 stray gitignored probe specs under `test-results/` fail); tsc, eslint, `git diff --check` clean; new smoke `published-topic-live-edit` and 5 related e2e specs 6/6. The full integration suite was not baselined (19 env-guard and auth-timeout failures); CI must confirm. GRANT-001 hosted postflight, 2026-10-18: a dry-run listed only `20261018090000_grant001_chapter_rpc_revoke_anon.sql`, one `db push` applied it, migration history lists it, and `has_function_privilege` gives `anon=false,authenticated=true,public=false,service_role=true` for `create_chapter_ordered(uuid, text)` and `move_chapter_order(uuid, text)`. The stale memory-check case in `learning-workspace-matrix` now follows LF9 (a confirmed pass opens the exercises by itself); the spec passes 10/10 on the isolated runtime. |
+| Spec revision | [FEAT12 plan](./implementation-plans/feat12/plan.md) r3. |
+| Current unit / checkpoint | FEAT12 CP1 (catch-up prompt on the completion screen), branch `feat/feat12-catch-up-prompt`. TFEAT1 is merged and deployed (PR 166, `7ce9b35`). |
+| Status | not started; plan approved 2026-10-19 after Codex CLI `gpt-6.1-sol` / `high` plan review PASS at round 3. |
+| Completed evidence | Finished units are in the milestones. TFEAT1 hosted postflight, 2026-10-18: a dry-run listed only `20261018120000`, one `db push` applied it, migration history lists it, the four changed functions match local by `md5(pg_get_functiondef)`, and `anon` cannot execute them. CI on PR 166 and on `main` after the merge passed; the Vercel production deploy of `7ce9b35` completed. |
 | Accepted deviations | none open. |
 | Blockers / Owner decisions | None. Noted at LF9 QA, unchanged: when the topic is already complete, the top-bar `Xem kết quả chủ đề` can appear together with the question's `Hoàn thành`; the navigator caption also shows in public Preview. Audible screen-reader output remains unverified. |
-| Next action | Push, PR and CI for TFEAT1 (needs Owner grant). Rollout: migration `20261018120000` on hosted before the app deploy. |
-| Current authority | Owner 2026-10-18: implement TFEAT1 with local commits through one `sonnet-high-implementor` session. Push, PR, merge, hosted migration and deploy are not granted. |
-| Hosted state | VocaSpace project `zmnfsorjuibfjowmjtxo` has `20261016173554`, `20261018040000` and `20261018090000` applied once each; LF9 r7 is deployed. |
+| Next action | Implement FEAT12 CP1 (one `sonnet-high-implementor` session), then Codex implementation review and Owner QA on local. |
+| Current authority | Owner 2026-10-19: implement FEAT12 with local commits through one `sonnet-high-implementor` session. Push, PR, merge and deploy are not granted. |
+| Hosted state | VocaSpace project `zmnfsorjuibfjowmjtxo` has `20261016173554`, `20261018040000`, `20261018090000` and `20261018120000` applied once each; TFEAT1 is deployed. FEAT12 needs no migration. |
 
 ## Milestones
 
@@ -163,4 +163,6 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-18 GRANT-001 hardening migration merged, applied to hosted once and grant-checked read-only (PR 165, `051ec81`).
 - 2026-10-18 State refreshed, GRANT-001 resolved and the stale memory-check matrix case aligned with LF9 (`32cf5ac`).
 - 2026-10-18 TFEAT1 planned: edit published topics in place (Decision 39), Codex plan review PASS at round 3, Owner approved with Sonnet implementation (`81ba336`).
-- 2026-10-18 TFEAT1 implemented locally (`7b9f079`, `d18d546`, `2f58f4f`, QA copy fix `8babe1f`); Codex implementation review PASS at round 2; Owner manual QA passed on local; TFEAT-004 and FEAT-012 recorded (this commit).
+- 2026-10-18 TFEAT1 implemented locally (`7b9f079`, `d18d546`, `2f58f4f`, QA copy fix `8babe1f`); Codex implementation review PASS at round 2; Owner manual QA passed on local; TFEAT-004 and FEAT-012 recorded (`b9618de`).
+- 2026-10-18 TFEAT1 merged after migration `20261018120000` was applied to hosted; `main` CI passed and production deploy completed (PR 166, `7ce9b35`).
+- 2026-10-19 FEAT12 planned: catch-up prompt on a completed topic, Codex plan review PASS at round 3, Owner approved with Sonnet implementation (this commit).
