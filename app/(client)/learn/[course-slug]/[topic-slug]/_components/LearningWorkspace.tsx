@@ -595,6 +595,39 @@ export default function LearningWorkspace({
   const { enqueue: enqueueSave, whenDrained: whenSavesDrained } =
     useCardReviewQueue({ onSaved: handleCardSaved, onFailed: handleCardSaveFailed });
 
+  // Đặt trước `runQueueEnd`: các lần tự vào bước bài tập (cuối hàng đợi thẻ, xong memory check) cũng mở câu đầu tiên chưa đúng.
+  // Every exercise question in learning order; "done" follows the local
+  // `answers` map, which uses the same current-answer-key predicate as the server.
+  const exerciseQuestionPositions = useMemo(
+    () =>
+      exercises.flatMap((exercise, exerciseIndex) =>
+        exerciseSegments(exercise).flatMap((segment, groupIndex) =>
+          segment.questions
+            .slice()
+            .sort(byOrderIndex)
+            .map((question, questionIndex) => ({
+              questionId: question.id,
+              exerciseIndex,
+              groupIndex,
+              questionIndex,
+            })),
+        ),
+      ),
+    [exercises],
+  );
+  const remainingQuestions = exerciseQuestionPositions.filter(
+    (position) => !userAnswers[position.questionId],
+  );
+
+  const goToFirstRemainingQuestion = () => {
+    const [first] = remainingQuestions;
+    if (!first) return;
+    setEntry({ direction: "next", focus: true });
+    setCurrentExerciseIndex(first.exerciseIndex);
+    setCurrentGroupIndex(first.groupIndex);
+    setCurrentQuestionIndex(first.questionIndex);
+  };
+
   // Quyết định cuối hàng đợi chạy một lần sau khi lưu xong, ưu tiên snapshot server vừa nhận thay vì closure trước render.
   const runQueueEnd = (generation: number) => {
     if (armedGenerationRef.current !== generation) return;
@@ -636,6 +669,8 @@ export default function LearningWorkspace({
       toast.success(queueKind === "first" ? "Đã nạp xong từ vựng! Chuyển sang memory check."
         : queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
     } else if (next === "exercise") {
+      // Owner QA FEAT12: vào bài tập sau khi xong bước trước thì mở câu đầu tiên chưa đúng, không phải câu 1.
+      goToFirstRemainingQuestion();
       goToStage("exercise");
       setPlaneFocusRequest((current) => current + 1);
       toast.success(queueKind === "first" ? "Đã nạp xong từ vựng! Chuyển sang bài tập."
@@ -678,38 +713,6 @@ export default function LearningWorkspace({
           (left.label || "").localeCompare(right.label || "") ||
           left.id.localeCompare(right.id),
       ) ?? [];
-
-  // Every exercise question in learning order; "done" follows the local
-  // `answers` map, which uses the same current-answer-key predicate as the server.
-  const exerciseQuestionPositions = useMemo(
-    () =>
-      exercises.flatMap((exercise, exerciseIndex) =>
-        exerciseSegments(exercise).flatMap((segment, groupIndex) =>
-          segment.questions
-            .slice()
-            .sort(byOrderIndex)
-            .map((question, questionIndex) => ({
-              questionId: question.id,
-              exerciseIndex,
-              groupIndex,
-              questionIndex,
-            })),
-        ),
-      ),
-    [exercises],
-  );
-  const remainingQuestions = exerciseQuestionPositions.filter(
-    (position) => !userAnswers[position.questionId],
-  );
-
-  const goToFirstRemainingQuestion = () => {
-    const [first] = remainingQuestions;
-    if (!first) return;
-    setEntry({ direction: "next", focus: true });
-    setCurrentExerciseIndex(first.exerciseIndex);
-    setCurrentGroupIndex(first.groupIndex);
-    setCurrentQuestionIndex(first.questionIndex);
-  };
 
   // FEAT12 G1: số câu còn lại của hộp "Bài học vừa được cập nhật" lấy từ cùng `userAnswers` với dấu tích bước và danh sách câu hỏi.
   const memoryRemainingCount = (memoryCheck?.questions ?? []).filter(
@@ -1152,6 +1155,7 @@ export default function LearningWorkspace({
               } else if (next === "complete") {
                 goToComplete();
               } else if (next) {
+                if (next === "exercise") goToFirstRemainingQuestion();
                 goToStage(next);
                 setPlaneFocusRequest((current) => current + 1);
               } else {
@@ -1160,7 +1164,10 @@ export default function LearningWorkspace({
                 setPlaneFocusRequest((current) => current + 1);
               }
             }}
-            onGoToExercises={() => goToStage("exercise")}
+            onGoToExercises={() => {
+              goToFirstRemainingQuestion();
+              goToStage("exercise");
+            }}
             onTopicCompleted={markTopicCompleted}
             onCardsRequired={recoverFromCardsRequired}
           />

@@ -31,7 +31,8 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - LF5 (AC4): chấm thẻ cuối, trả lời câu bài tập làm hoàn thành, hoặc câu đúng cuối của memory check làm bài học hoàn thành thì không có toast nào (cả toast hoàn thành bài lẫn toast chuyển bước/memory check) và màn hình hoàn thành thay cho bước; chưa hoàn thành thì vẫn có toast chuyển bước.
 // - LF6 (AC1): rời câu bài tập vừa làm hoàn thành bằng thanh tiến trình thì không bị kéo sang màn hình hoàn thành, không gửi lần hai, và lần vào đầu tiên từ "Xem kết quả chủ đề" vẫn chạy chuỗi.
 // - FEAT12 (AC1-AC7): chủ đề đã hoàn thành mà còn câu bài tập hoặc câu Memory check chưa đúng thì màn hình hoàn thành có hộp "Bài học vừa được cập nhật" trước thanh tiến độ; "Làm ngay" đi theo cổng (thẻ chờ -> Từ vựng, memory chưa qua -> Memory check ở câu chưa đúng đầu tiên, còn lại -> câu bài tập chưa đúng đầu tiên), không ghi tiến độ, không đổi trạng thái hoàn thành; hết việc hoặc `queueProgressUnavailable` thì không có hộp.
-// - Kết quả verify gần nhất: FEAT12 CP1 (2026-10-19) passed 33/33 bằng `npx vitest run __tests__/components/topic-completion-ui.test.tsx`; các nhóm D8-LUI/LF trước đó xem báo cáo checkpoint D8-LUI CP2.
+// - FEAT12 Owner QA: vào bước bài tập tự động (xong memory check, "Làm bài tập" ở bản xem lại, hết hàng đợi thẻ) mở câu đầu tiên chưa đúng thay vì câu 1; không còn câu nào thì luồng cũ giữ nguyên.
+// - Kết quả verify gần nhất: FEAT12 CP1 (2026-10-19) passed 37/37 bằng `npx vitest run __tests__/components/topic-completion-ui.test.tsx`; các nhóm D8-LUI/LF trước đó xem báo cáo checkpoint D8-LUI CP2.
 
 vi.mock("@/app/actions/progress", () => ({
   submitQuestionAnswer: vi.fn(),
@@ -971,6 +972,113 @@ describe("FEAT12 catch-up prompt on the completion screen", () => {
       fireEvent.click(screen.getByRole("button", { name: "Xem kết quả chủ đề" }));
       expect(completionHeading()).not.toBeNull();
       expect(catchUpTitle()).toBeNull();
+    });
+
+    describe("automatic entry into the exercise step (Owner QA)", () => {
+      const middleOpen = {
+        exercises: [exerciseA, exerciseB],
+        answers: { [ids.standalone]: right(ids.standalone), [ids.groupedB]: right(ids.groupedB) },
+      };
+      const memoryCheckOne = { id: ids.memory, questions: [question(ids.memoryQuestion, "Câu nhớ")] };
+
+      it("opens the open middle question, not question 1, after the last memory answer on a completed topic", async () => {
+        render(
+          <LearningWorkspace
+            data={workspaceData({
+              ...middleOpen,
+              isMemoryCheckPassed: false,
+              memoryCheck: memoryCheckOne,
+              progress: completedProgress(),
+            })}
+          />,
+        );
+        fireEvent.click(screen.getByRole("button", { name: /Làm ngay/ }));
+        mockedSubmit.mockResolvedValueOnce({
+          success: true,
+          isCorrect: true,
+          isMemoryCheckPassed: true,
+          topicProgress: progress({ isExerciseCompleted: false, isTopicCompleted: true }),
+        });
+        fireEvent.click(screen.getByRole("radio", { name: /Đúng Câu nhớ/ }));
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+        });
+
+        expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+        expect(screen.queryByText("Câu đơn")).toBeNull();
+        expect(mockedSubmit).toHaveBeenCalledTimes(1);
+      });
+
+      it("keeps today's flow when no exercise question is left after the last memory answer", async () => {
+        render(
+          <LearningWorkspace
+            data={workspaceData({
+              answers: { [ids.standalone]: right(ids.standalone), [ids.groupedA]: right(ids.groupedA) },
+              isMemoryCheckPassed: false,
+              memoryCheck: memoryCheckOne,
+              progress: completedProgress(),
+            })}
+          />,
+        );
+        fireEvent.click(screen.getByRole("button", { name: /Làm ngay/ }));
+        mockedSubmit.mockResolvedValueOnce({
+          success: true,
+          isCorrect: true,
+          isMemoryCheckPassed: true,
+          topicProgress: completedProgress(),
+        });
+        fireEvent.click(screen.getByRole("radio", { name: /Đúng Câu nhớ/ }));
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Kiểm tra đáp án" }));
+        });
+
+        expect(completionHeading()).not.toBeNull();
+        expect(catchUpTitle()).toBeNull();
+      });
+
+      it("opens the open middle question from the passed memory check's Làm bài tập", () => {
+        render(
+          <LearningWorkspace
+            data={workspaceData({
+              ...middleOpen,
+              memoryCheck: memoryCheckOne,
+              answers: { ...middleOpen.answers, [ids.memoryQuestion]: right(ids.memoryQuestion) },
+            })}
+          />,
+        );
+        const thread = within(screen.getByRole("list", { name: "Các bước của bài học" }));
+        fireEvent.click(thread.getByRole("button", { name: /^Memory check/ }));
+        fireEvent.click(screen.getByRole("button", { name: "Làm bài tập" }));
+
+        expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+        expect(screen.queryByText("Câu đơn")).toBeNull();
+      });
+
+      it("opens the open middle question when the last card rating moves on to the exercises", async () => {
+        const card = {
+          id: ids.card,
+          front_content: { word: "reliable" },
+          back_content: { translation: "đáng tin cậy" },
+          audio_url: null,
+          image_url: null,
+        };
+        render(
+          <LearningWorkspace
+            data={workspaceData({ ...middleOpen, flashcards: [card], unseenCardIds: [card.id] })}
+          />,
+        );
+        mockedReview.mockResolvedValueOnce({
+          success: true,
+          topicProgress: progress({ isFlashcardCompleted: true, isExerciseCompleted: false }),
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+        await act(async () => {
+          fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+        });
+
+        expect(screen.getByText("Câu nhóm A")).not.toBeNull();
+        expect(screen.queryByText("Câu đơn")).toBeNull();
+      });
     });
 
     describe("memory check entry", () => {
