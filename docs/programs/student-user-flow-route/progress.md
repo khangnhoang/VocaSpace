@@ -8,15 +8,15 @@ This file was migrated to the repository template and translated to English on 2
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [FEAT12 plan](./implementation-plans/feat12/plan.md) r3. |
-| Current unit / checkpoint | FEAT12 CP1 (catch-up prompt on the completion screen), branch `feat/feat12-catch-up-prompt`. TFEAT1 is merged and deployed (PR 166, `7ce9b35`). |
-| Status | Owner QA pass on local (2026-10-19); waiting on push/PR/CI, which the Owner has granted to Main. |
-| Completed evidence | FEAT12 CP1 automated checks (local, 2026-10-19): `npx vitest run __tests__/components/topic-completion-ui.test.tsx` 40 passed (22 new FEAT12 cases, including the two Owner QA additions); with `learning-workspace-presentation`, `learning-workspace` and `memory-check-stage` 183 passed across 4 files; `npx tsc --noEmit --incremental false` and ESLint on the three changed source and test files clean; `npm run docs:check` has only the baseline broken link. Finished units are in the milestones. |
-| Accepted deviations | Owner QA additions, 2026-10-19 (beyond the plan's Spec; recorded as master-plan Decision 41 instead of a plan edit). First: the automatic entries into the exercise step (after the last memory-check answer, `Làm bài tập` on the passed memory-check review, and the end of the flashcard queue) open the first exercise question not answered correctly instead of question 1, by reusing `goToFirstRemainingQuestion`; with no remaining question the flow is unchanged. The step-bar click, `Tới Bài tập`, navigator jumps, grading and completion are untouched. Second (Decision 41, amends Decision 38 for this case): on a completed topic, the correct answer that closes the last open exercise question, when it is not the last question in the list, offers only `Hoàn thành`, which opens the settled completion screen; a wrong answer, other open questions, a topic not yet completed and the last question keep their actions, and moving to another question or step ends the effect. Accepted by the Owner at QA, no change: a learner who revisits an already-correct question on a completed topic still sees `Câu tiếp theo` while later questions exist (Decision 38); the Owner may revisit this later. |
-| Blockers / Owner decisions | None. Noted at LF9 QA, unchanged: when the topic is already complete, the top-bar `Xem kết quả chủ đề` can appear together with the question's `Hoàn thành`; the navigator caption also shows in public Preview. Audible screen-reader output remains unverified. |
-| Next action | Main session: push the branch, open the PR and watch CI. |
-| Current authority | Owner 2026-10-19: FEAT12 implemented with local commits through one `sonnet-high-implementor` session. Owner 2026-10-19 after QA: push, PR and CI are granted to Main; merge and deploy are not granted. |
-| Hosted state | VocaSpace project `zmnfsorjuibfjowmjtxo` has `20261016173554`, `20261018040000`, `20261018090000` and `20261018120000` applied once each; TFEAT1 is deployed. FEAT12 needs no migration. |
+| Spec revision | [FEAT3 plan](./implementation-plans/feat3/plan.md) r3 + G6, Owner-approved 2026-10-19. |
+| Current unit / checkpoint | FEAT3 planning, branch `feat/feat3-learning-history`. FEAT12 is merged (PR 167, `fd5b429`); it needed no migration or separate deploy step. |
+| Status | Plan approved (Codex plan review PASS at round 5, Owner 2026-10-19); CP1 not started. |
+| Completed evidence | None for FEAT3 yet. |
+| Accepted deviations | None. |
+| Blockers / Owner decisions | The `/privacy` wording (AC9) needs Owner approval before merge. Noted at LF9 QA, unchanged: when the topic is already complete, the top-bar `Xem kết quả chủ đề` can appear together with the question's `Hoàn thành`; the navigator caption also shows in public Preview. Audible screen-reader output remains unverified. Noted at FEAT12 QA, accepted: revisiting an already correct question on a completed topic still shows `Câu tiếp theo` while later questions exist (Decision 38). |
+| Next action | `sonnet-high-implementor`: CP1, then CP2. |
+| Current authority | Owner 2026-10-19: FEAT3 plan approved; implementation of CP1 and CP2 by one `sonnet-high-implementor` session with local commits, including a non-reset `migration up` on the local root DB. No push, PR, hosted migration or deploy. |
+| Hosted state | VocaSpace project `zmnfsorjuibfjowmjtxo` has `20261016173554`, `20261018040000`, `20261018090000` and `20261018120000` applied once each; TFEAT1 is deployed. FEAT3 will need one hosted migration under a separate grant. |
 
 ## Milestones
 
@@ -169,4 +169,6 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-19 FEAT12 CP1 implemented locally: the completion screen of a completed topic shows `Bài học vừa được cập nhật` with the open exercise and memory-check count and `Làm ngay` to the first open question by the existing gate order; Decision 40 and FEAT-012 recorded, component tests and docs check pass, Codex review and Owner QA pending (`29ff9f9`).
 - 2026-10-19 FEAT12 Owner QA addition: automatic entry into the exercise step opens the first question not answered correctly instead of question 1 (`fc3cb3c`).
 - 2026-10-19 FEAT12 Owner QA addition 2 (Decision 41): on a completed topic, the correct answer that closes the last open exercise question, when it is not the last in the list, offers only `Hoàn thành`, which opens the settled completion screen with no box and an unchanged count; wrong answers, other open questions and moving to another question keep today's actions (`4036b8a`).
-- 2026-10-19 FEAT12 Owner QA passed on local: the catch-up box and `Làm ngay`, automatic entry to the first open exercise question, `Hoàn thành` after the last open question (Decision 41) and the memory-check pass going straight to the completion screen when exercises are complete; waiting on push, PR and CI (this commit).
+- 2026-10-19 FEAT12 Owner QA passed on local: the catch-up box and `Làm ngay`, automatic entry to the first open exercise question, `Hoàn thành` after the last open question (Decision 41) and the memory-check pass going straight to the completion screen when exercises are complete; waiting on push, PR and CI (`92272a8`).
+- 2026-10-19 FEAT12 merged: catch-up prompt on a completed topic, Owner QA pass, no migration (PR 167, `fd5b429`).
+- 2026-10-19 FEAT3 planned: learning days, streak and recent study (Decision 42); plan r3 with bounded reads, Codex plan review PASS at round 5, Owner-approved (this commit).
