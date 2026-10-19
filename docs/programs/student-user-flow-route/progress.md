@@ -10,12 +10,12 @@ This file was migrated to the repository template and translated to English on 2
 | --- | --- |
 | Spec revision | [FEAT12 plan](./implementation-plans/feat12/plan.md) r3. |
 | Current unit / checkpoint | FEAT12 CP1 (catch-up prompt on the completion screen), branch `feat/feat12-catch-up-prompt`. TFEAT1 is merged and deployed (PR 166, `7ce9b35`). |
-| Status | not started; plan approved 2026-10-19 after Codex CLI `gpt-6.1-sol` / `high` plan review PASS at round 3. |
-| Completed evidence | Finished units are in the milestones. TFEAT1 hosted postflight, 2026-10-18: a dry-run listed only `20261018120000`, one `db push` applied it, migration history lists it, the four changed functions match local by `md5(pg_get_functiondef)`, and `anon` cannot execute them. CI on PR 166 and on `main` after the merge passed; the Vercel production deploy of `7ce9b35` completed. |
+| Status | implemented locally; automated checks passed; Codex implementation review and Owner QA on local pending. |
+| Completed evidence | FEAT12 CP1 automated checks (local, 2026-10-19): `npx vitest run __tests__/components/topic-completion-ui.test.tsx` 33 passed (15 new FEAT12 cases); with `learning-workspace-presentation`, `learning-workspace` and `memory-check-stage` 176 passed across 4 files; `npx tsc --noEmit --incremental false` and ESLint on the three changed source and test files clean; `npm run docs:check` has only the baseline broken link. Finished units are in the milestones. |
 | Accepted deviations | none open. |
 | Blockers / Owner decisions | None. Noted at LF9 QA, unchanged: when the topic is already complete, the top-bar `Xem kết quả chủ đề` can appear together with the question's `Hoàn thành`; the navigator caption also shows in public Preview. Audible screen-reader output remains unverified. |
-| Next action | Implement FEAT12 CP1 (one `sonnet-high-implementor` session), then Codex implementation review and Owner QA on local. |
-| Current authority | Owner 2026-10-19: implement FEAT12 with local commits through one `sonnet-high-implementor` session. Push, PR, merge and deploy are not granted. |
+| Next action | Main session: Codex implementation review of the FEAT12 CP1 commit, then Owner QA on local (completed topic after a TFEAT1 live edit). |
+| Current authority | Owner 2026-10-19: FEAT12 implemented with local commits through one `sonnet-high-implementor` session. Corrections stay local; push, PR, merge and deploy are not granted. |
 | Hosted state | VocaSpace project `zmnfsorjuibfjowmjtxo` has `20261016173554`, `20261018040000`, `20261018090000` and `20261018120000` applied once each; TFEAT1 is deployed. FEAT12 needs no migration. |
 
 ## Milestones
@@ -165,4 +165,5 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-18 TFEAT1 planned: edit published topics in place (Decision 39), Codex plan review PASS at round 3, Owner approved with Sonnet implementation (`81ba336`).
 - 2026-10-18 TFEAT1 implemented locally (`7b9f079`, `d18d546`, `2f58f4f`, QA copy fix `8babe1f`); Codex implementation review PASS at round 2; Owner manual QA passed on local; TFEAT-004 and FEAT-012 recorded (`b9618de`).
 - 2026-10-18 TFEAT1 merged after migration `20261018120000` was applied to hosted; `main` CI passed and production deploy completed (PR 166, `7ce9b35`).
-- 2026-10-19 FEAT12 planned: catch-up prompt on a completed topic, Codex plan review PASS at round 3, Owner approved with Sonnet implementation (this commit).
+- 2026-10-19 FEAT12 planned: catch-up prompt on a completed topic, Codex plan review PASS at round 3, Owner approved with Sonnet implementation (`530ec57`).
+- 2026-10-19 FEAT12 CP1 implemented locally: the completion screen of a completed topic shows `Bài học vừa được cập nhật` with the open exercise and memory-check count and `Làm ngay` to the first open question by the existing gate order; Decision 40 and FEAT-012 recorded, component tests and docs check pass, Codex review and Owner QA pending (this commit).

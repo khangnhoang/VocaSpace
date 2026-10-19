@@ -711,6 +711,33 @@ export default function LearningWorkspace({
     setCurrentQuestionIndex(first.questionIndex);
   };
 
+  // FEAT12 G1: số câu còn lại của hộp "Bài học vừa được cập nhật" lấy từ cùng `userAnswers` với dấu tích bước và danh sách câu hỏi.
+  const memoryRemainingCount = (memoryCheck?.questions ?? []).filter(
+    (question) => !userAnswers[question.id],
+  ).length;
+
+  // FEAT12 G3: đích của "Làm ngay" đi theo các cổng (thẻ chờ, rồi memory check, rồi bài tập), không theo số đếm,
+  // nên không bao giờ mở bước đang khóa; việc chuyển bước và định vị câu dùng lại đúng các hàm hiện có.
+  const startCatchUp = () => {
+    if (memoryCardsLocked) {
+      goToStage("flashcard");
+    } else if (exercisesLocked) {
+      // Câu memory đã đúng mà học viên chưa bấm "Câu tiếp theo" sẽ hiện lại phản hồi khi vào bước; bỏ riêng kết quả đã chốt đúng đó
+      // để vào thẳng câu chưa đúng. Lần gửi đang chạy và lần lưu lỗi vẫn được giữ.
+      memoryCheck?.questions.forEach((question) => {
+        const attempt = attempts[question.id];
+        if (userAnswers[question.id] && attempt?.status === "settled" && attempt.outcome.kind === "correct") {
+          clearAttempt(question.id);
+        }
+      });
+      goToStage("memory");
+    } else {
+      goToFirstRemainingQuestion();
+      goToStage("exercise");
+    }
+    setPlaneFocusRequest((current) => current + 1);
+  };
+
   const currentPositionIndex = exerciseQuestionPositions.findIndex(
     (position) => position.questionId === currentQuestion?.id,
   );
@@ -1049,6 +1076,16 @@ export default function LearningWorkspace({
             reviewDueCards();
             goToStage("flashcard");
           }}
+          // FEAT12 AC7: khi đã biết tiến độ local chưa được xác nhận thì không hiện hộp; màn hình tải lại đã lo trạng thái đó.
+          catchUp={
+            queueProgressUnavailable
+              ? undefined
+              : {
+                  memoryCount: memoryRemainingCount,
+                  exerciseCount: remainingQuestions.length,
+                  onStart: startCatchUp,
+                }
+          }
           next={completionNext}
         />
       );

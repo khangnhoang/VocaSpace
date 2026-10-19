@@ -121,7 +121,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-012: Nhắc học viên làm bù khi bài học đã hoàn thành có nội dung mới
 
-- Trạng thái: Deferred, là unit riêng sau TFEAT1.
+- Trạng thái: In progress trong [FEAT12](./implementation-plans/feat12/plan.md) trên nhánh `feat/feat12-catch-up-prompt`; đã triển khai cục bộ, chưa merge, xem [progress.md](./progress.md).
 - Mô tả: khi bài học đã hoàn thành nhưng theo nội dung hiện tại còn câu hỏi hoặc thẻ chưa đạt (tác giả đổi đáp án đúng, thêm câu hoặc thêm thẻ), màn kết quả hiện một khung kiểu "Bài học có 1 câu mới cần làm" kèm nút đưa thẳng tới câu đầu tiên chưa đạt. Không hạ trạng thái hoàn thành, không đổi quy tắc chấm.
 - Lý do: Owner QA TFEAT1 (2026-10-18) thấy màn kết quả vẫn báo hoàn thành, dấu hiệu duy nhất là bước "Bài tập" mất dấu tích, học viên phải tự dò câu chưa làm. TFEAT1 làm trường hợp này thường gặp hơn. Owner chọn tách unit riêng thay vì gộp vào TFEAT1.
 - Liên kết: [TFEAT1 plan](./implementation-plans/tfeat1/plan.md).

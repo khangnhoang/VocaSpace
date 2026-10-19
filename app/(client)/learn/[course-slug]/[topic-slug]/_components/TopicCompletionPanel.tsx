@@ -23,6 +23,12 @@ interface TopicCompletionPanelProps {
   focusOnEntry: boolean;
   dueCount: number;
   onReviewDue: () => void;
+  /**
+   * FEAT12: work the current content still asks of a learner who already completed the topic (questions with no currently
+   * correct answer). Absent, or both counts zero, leaves the screen as it was. The panel only reports the click; the
+   * workspace picks the target step from its gates.
+   */
+  catchUp?: { memoryCount: number; exerciseCount: number; onStart: () => void };
   next:
     | { kind: "topic"; href: string; unitLabel: string; detail: string | null }
     | { kind: "overview"; href: string };
@@ -34,6 +40,13 @@ function prefersReducedMotion() {
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
+}
+
+function catchUpLine(memoryCount: number, exerciseCount: number) {
+  const parts: string[] = [];
+  if (memoryCount > 0) parts.push(`${memoryCount} câu Memory check`);
+  if (exerciseCount > 0) parts.push(`${exerciseCount} câu bài tập`);
+  return `Còn ${parts.join(" và ")} cần làm`;
 }
 
 const percent = (value: number, total: number) =>
@@ -110,6 +123,7 @@ export default function TopicCompletionPanel({
   focusOnEntry,
   dueCount,
   onReviewDue,
+  catchUp,
   next,
 }: TopicCompletionPanelProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -128,6 +142,10 @@ export default function TopicCompletionPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const catchUpLineText =
+    catchUp && (catchUp.memoryCount > 0 || catchUp.exerciseCount > 0)
+      ? catchUpLine(catchUp.memoryCount, catchUp.exerciseCount)
+      : null;
   const chapterFinished = chapter.total > 0 && chapter.completed >= chapter.total;
   const showChapterDone = chapterFinished && revealed;
   // The hint (and the chapter-done note) is the last step: it appears once both fills have finished.
@@ -159,6 +177,29 @@ export default function TopicCompletionPanel({
           Đã hoàn thành chủ đề “{topicTitle}”
         </h2>
       </div>
+
+      {catchUp && catchUpLineText && (
+        // The topic stays completed: this box is only a shortcut to the first question that is still open.
+        <div
+          data-catch-up
+          className="flex flex-col gap-3 rounded-xl border border-attention-line bg-attention-quiet p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+        >
+          <div className="flex min-w-0 flex-col gap-1">
+            <h3 className="break-words text-base font-bold text-slate-900 [overflow-wrap:anywhere]">
+              Bài học vừa được cập nhật
+            </h3>
+            <p className="text-sm font-medium text-slate-800">{catchUpLineText}</p>
+          </div>
+          <Button
+            size="lg"
+            className="w-full sm:w-auto sm:px-8"
+            aria-label={`${catchUpLineText}, Làm ngay`}
+            onClick={catchUp.onStart}
+          >
+            Làm ngay
+          </Button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
         <div className="flex flex-col gap-2">
