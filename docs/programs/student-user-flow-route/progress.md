@@ -9,12 +9,12 @@ This file was migrated to the repository template and translated to English on 2
 | Field | Value |
 | --- | --- |
 | Spec revision | [FEAT3 plan](./implementation-plans/feat3/plan.md) r3 + G6, Owner-approved 2026-10-19. |
-| Current unit / checkpoint | FEAT3 planning, branch `feat/feat3-learning-history`. FEAT12 is merged (PR 167, `fd5b429`); it needed no migration or separate deploy step. |
-| Status | Plan approved (Codex plan review PASS at round 5, Owner 2026-10-19); CP1 not started. |
-| Completed evidence | None for FEAT3 yet. |
+| Current unit / checkpoint | FEAT3 CP1 implemented locally (CP2 next), branch `feat/feat3-learning-history`. FEAT12 is merged (PR 167, `fd5b429`); it needed no migration or separate deploy step. |
+| Status | Plan approved (Codex plan review PASS at round 5, Owner 2026-10-19); CP1 (database layer) implemented and committed locally; CP2 (surfaces, `/privacy`, docs) not started. |
+| Completed evidence | FEAT3 CP1: the new integration suite `feat3-learning-activity.test.ts` (33 tests) and the touched isolated suites (`learner-integrity`, `lf2-memory-check-answer-gate`, `lf2-learning-action-rpcs`, `lf3-content-read-boundary`, `lf3-memory-check-cards-seen-gate`, `ad7-admin-hardening`, `a5-learner-deletion`; 203 tests in total) pass on a freshly reset isolated runtime (`.e2e-runtime`, API 45441). |
 | Accepted deviations | None. |
 | Blockers / Owner decisions | The `/privacy` wording (AC9) needs Owner approval before merge. Noted at LF9 QA, unchanged: when the topic is already complete, the top-bar `Xem kết quả chủ đề` can appear together with the question's `Hoàn thành`; the navigator caption also shows in public Preview. Audible screen-reader output remains unverified. Noted at FEAT12 QA, accepted: revisiting an already correct question on a completed topic still shows `Câu tiếp theo` while later questions exist (Decision 38). |
-| Next action | `sonnet-high-implementor`: CP1, then CP2. |
+| Next action | `sonnet-high-implementor`: root-DB `migration up` (non-reset), then CP2. |
 | Current authority | Owner 2026-10-19: FEAT3 plan approved; implementation of CP1 and CP2 by one `sonnet-high-implementor` session with local commits, including a non-reset `migration up` on the local root DB. No push, PR, hosted migration or deploy. |
 | Hosted state | VocaSpace project `zmnfsorjuibfjowmjtxo` has `20261016173554`, `20261018040000`, `20261018090000` and `20261018120000` applied once each; TFEAT1 is deployed. FEAT3 will need one hosted migration under a separate grant. |
 
@@ -171,4 +171,5 @@ This file was migrated to the repository template and translated to English on 2
 - 2026-10-19 FEAT12 Owner QA addition 2 (Decision 41): on a completed topic, the correct answer that closes the last open exercise question, when it is not the last in the list, offers only `Hoàn thành`, which opens the settled completion screen with no box and an unchanged count; wrong answers, other open questions and moving to another question keep today's actions (`4036b8a`).
 - 2026-10-19 FEAT12 Owner QA passed on local: the catch-up box and `Làm ngay`, automatic entry to the first open exercise question, `Hoàn thành` after the last open question (Decision 41) and the memory-check pass going straight to the completion screen when exercises are complete; waiting on push, PR and CI (`92272a8`).
 - 2026-10-19 FEAT12 merged: catch-up prompt on a completed topic, Owner QA pass, no migration (PR 167, `fd5b429`).
-- 2026-10-19 FEAT3 planned: learning days, streak and recent study (Decision 42); plan r3 with bounded reads, Codex plan review PASS at round 5, Owner-approved (this commit).
+- 2026-10-19 FEAT3 planned: learning days, streak and recent study (Decision 42); plan r3 with bounded reads, Codex plan review PASS at round 5, Owner-approved (`c7fe586`).
+- 2026-10-19 FEAT3 CP1 implemented locally: table `user_learning_activity` (one row per user, topic and minute, select-own RLS, no write grants), triggers on answer and rating writes that never fail the learning action, and the own-user `feat3_learning_summary` RPC with bounded reads; isolated integration suite and the touched isolated suites pass, CP2 pending (this commit).
