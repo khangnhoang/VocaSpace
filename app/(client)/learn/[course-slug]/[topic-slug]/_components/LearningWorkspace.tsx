@@ -313,6 +313,9 @@ export default function LearningWorkspace({
   };
   // `animate`: chuỗi chuyển động chỉ chạy cho lần hiện đầu của một lần hoàn thành vừa xảy ra; `focus`: chỉ khi vào bằng thao tác.
   const [completionEntry, setCompletionEntry] = useState({ animate: false, focus: false });
+  // Owner QA FEAT12 (Decision 41): câu vừa được trả lời đúng trong phiên này và là câu cuối cùng còn mở của một chủ đề đã hoàn thành.
+  // Chỉ câu đó mới đổi nút kết thúc thành "Hoàn thành"; đổi bước hay nhảy sang câu khác thì xóa, nên các câu khác giữ nút như cũ.
+  const [closedLastOpenId, setClosedLastOpenId] = useState<string | null>(null);
   // Bản sao ref của cờ trên: callback async cuối hàng đợi thẻ đọc cờ tại thời điểm hết hàng, không phải lúc bắt đầu chấm (LF6 AC10).
   const topicCompletedRef = useRef(progress?.isTopicCompleted ?? false);
   const markTopicCompleted = (newlyCompleted: boolean) => {
@@ -467,6 +470,7 @@ export default function LearningWorkspace({
   // Mọi lần đổi bước đi qua đây để lời giải thích bước khóa luôn tắt khi bước đổi.
   const changeStage = (stage: LearningStage) => {
     setLockNotice(null);
+    setClosedLastOpenId(null);
     setLearningStage(stage);
   };
 
@@ -595,6 +599,39 @@ export default function LearningWorkspace({
   const { enqueue: enqueueSave, whenDrained: whenSavesDrained } =
     useCardReviewQueue({ onSaved: handleCardSaved, onFailed: handleCardSaveFailed });
 
+  // Đặt trước `runQueueEnd`: các lần tự vào bước bài tập (cuối hàng đợi thẻ, xong memory check) cũng mở câu đầu tiên chưa đúng.
+  // Every exercise question in learning order; "done" follows the local
+  // `answers` map, which uses the same current-answer-key predicate as the server.
+  const exerciseQuestionPositions = useMemo(
+    () =>
+      exercises.flatMap((exercise, exerciseIndex) =>
+        exerciseSegments(exercise).flatMap((segment, groupIndex) =>
+          segment.questions
+            .slice()
+            .sort(byOrderIndex)
+            .map((question, questionIndex) => ({
+              questionId: question.id,
+              exerciseIndex,
+              groupIndex,
+              questionIndex,
+            })),
+        ),
+      ),
+    [exercises],
+  );
+  const remainingQuestions = exerciseQuestionPositions.filter(
+    (position) => !userAnswers[position.questionId],
+  );
+
+  const goToFirstRemainingQuestion = () => {
+    const [first] = remainingQuestions;
+    if (!first) return;
+    setEntry({ direction: "next", focus: true });
+    setCurrentExerciseIndex(first.exerciseIndex);
+    setCurrentGroupIndex(first.groupIndex);
+    setCurrentQuestionIndex(first.questionIndex);
+  };
+
   // Quyết định cuối hàng đợi chạy một lần sau khi lưu xong, ưu tiên snapshot server vừa nhận thay vì closure trước render.
   const runQueueEnd = (generation: number) => {
     if (armedGenerationRef.current !== generation) return;
@@ -636,6 +673,8 @@ export default function LearningWorkspace({
       toast.success(queueKind === "first" ? "Đã nạp xong từ vựng! Chuyển sang memory check."
         : queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
     } else if (next === "exercise") {
+      // Owner QA FEAT12: vào bài tập sau khi xong bước trước thì mở câu đầu tiên chưa đúng, không phải câu 1.
+      goToFirstRemainingQuestion();
       goToStage("exercise");
       setPlaneFocusRequest((current) => current + 1);
       toast.success(queueKind === "first" ? "Đã nạp xong từ vựng! Chuyển sang bài tập."
@@ -679,36 +718,31 @@ export default function LearningWorkspace({
           left.id.localeCompare(right.id),
       ) ?? [];
 
-  // Every exercise question in learning order; "done" follows the local
-  // `answers` map, which uses the same current-answer-key predicate as the server.
-  const exerciseQuestionPositions = useMemo(
-    () =>
-      exercises.flatMap((exercise, exerciseIndex) =>
-        exerciseSegments(exercise).flatMap((segment, groupIndex) =>
-          segment.questions
-            .slice()
-            .sort(byOrderIndex)
-            .map((question, questionIndex) => ({
-              questionId: question.id,
-              exerciseIndex,
-              groupIndex,
-              questionIndex,
-            })),
-        ),
-      ),
-    [exercises],
-  );
-  const remainingQuestions = exerciseQuestionPositions.filter(
-    (position) => !userAnswers[position.questionId],
-  );
+  // FEAT12 G1: số câu còn lại của hộp "Bài học vừa được cập nhật" lấy từ cùng `userAnswers` với dấu tích bước và danh sách câu hỏi.
+  const memoryRemainingCount = (memoryCheck?.questions ?? []).filter(
+    (question) => !userAnswers[question.id],
+  ).length;
 
-  const goToFirstRemainingQuestion = () => {
-    const [first] = remainingQuestions;
-    if (!first) return;
-    setEntry({ direction: "next", focus: true });
-    setCurrentExerciseIndex(first.exerciseIndex);
-    setCurrentGroupIndex(first.groupIndex);
-    setCurrentQuestionIndex(first.questionIndex);
+  // FEAT12 G3: đích của "Làm ngay" đi theo các cổng (thẻ chờ, rồi memory check, rồi bài tập), không theo số đếm,
+  // nên không bao giờ mở bước đang khóa; việc chuyển bước và định vị câu dùng lại đúng các hàm hiện có.
+  const startCatchUp = () => {
+    if (memoryCardsLocked) {
+      goToStage("flashcard");
+    } else if (exercisesLocked) {
+      // Câu memory đã đúng mà học viên chưa bấm "Câu tiếp theo" sẽ hiện lại phản hồi khi vào bước; bỏ riêng kết quả đã chốt đúng đó
+      // để vào thẳng câu chưa đúng. Lần gửi đang chạy và lần lưu lỗi vẫn được giữ.
+      memoryCheck?.questions.forEach((question) => {
+        const attempt = attempts[question.id];
+        if (userAnswers[question.id] && attempt?.status === "settled" && attempt.outcome.kind === "correct") {
+          clearAttempt(question.id);
+        }
+      });
+      goToStage("memory");
+    } else {
+      goToFirstRemainingQuestion();
+      goToStage("exercise");
+    }
+    setPlaneFocusRequest((current) => current + 1);
   };
 
   const currentPositionIndex = exerciseQuestionPositions.findIndex(
@@ -721,6 +755,7 @@ export default function LearningWorkspace({
   // The review list reports a pick; the memory-check gate is still enforced here.
   const jumpToQuestion = (questionId: string) => {
     if (exercisesLocked) return;
+    setClosedLastOpenId(null);
     const targetIndex = exerciseQuestionPositions.findIndex(
       (position) => position.questionId === questionId,
     );
@@ -910,6 +945,8 @@ export default function LearningWorkspace({
     heading.scrollIntoView?.({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
   };
 
+  const closesLastOpen = closedLastOpenId !== null && closedLastOpenId === currentQuestion?.id && remainingQuestions.length === 0;
+
   const renderExercise = () => {
     if (!currentExercise || !currentGroup || !currentQuestion || !arrangement) {
       return (
@@ -975,7 +1012,7 @@ export default function LearningWorkspace({
               direction={entry.direction}
               focusOnEntry={entry.focus}
               // An answer that just completed the topic ends here even mid-list: its action is "Hoàn thành", not "Câu tiếp theo".
-              hasNext={hasNextQuestion && !pendingCompletion}
+              hasNext={hasNextQuestion && !pendingCompletion && !closesLastOpen}
               endAction={
                 pendingCompletion
                   ? { label: "Hoàn thành", onClick: goToComplete }
@@ -991,12 +1028,16 @@ export default function LearningWorkspace({
                     : { label: "Về tổng quan khóa học", href: `/learn/${courseSlug}` }
               }
               onNext={handleNextQuestion}
-              onCorrectAnswer={(questionId, optionId) =>
+              onCorrectAnswer={(questionId, optionId) => {
+                // Giá trị ở closure là của lúc gửi đáp án: chỉ khi câu này là câu mở duy nhất của chủ đề đã hoàn thành từ trước.
+                if (isTopicCompleted && !pendingCompletion && remainingQuestions.length === 1 && remainingQuestions[0].questionId === questionId) {
+                  setClosedLastOpenId(questionId);
+                }
                 setUserAnswers((current) => ({
                   ...current,
                   [questionId]: optionId,
-                }))
-              }
+                }));
+              }}
               onIncorrectAnswer={(questionId) =>
                 setIncorrectIds((current) => ({ ...current, [questionId]: true }))
               }
@@ -1049,6 +1090,16 @@ export default function LearningWorkspace({
             reviewDueCards();
             goToStage("flashcard");
           }}
+          // FEAT12 AC7: khi đã biết tiến độ local chưa được xác nhận thì không hiện hộp; màn hình tải lại đã lo trạng thái đó.
+          catchUp={
+            queueProgressUnavailable
+              ? undefined
+              : {
+                  memoryCount: memoryRemainingCount,
+                  exerciseCount: remainingQuestions.length,
+                  onStart: startCatchUp,
+                }
+          }
           next={completionNext}
         />
       );
@@ -1115,6 +1166,7 @@ export default function LearningWorkspace({
               } else if (next === "complete") {
                 goToComplete();
               } else if (next) {
+                if (next === "exercise") goToFirstRemainingQuestion();
                 goToStage(next);
                 setPlaneFocusRequest((current) => current + 1);
               } else {
@@ -1123,7 +1175,10 @@ export default function LearningWorkspace({
                 setPlaneFocusRequest((current) => current + 1);
               }
             }}
-            onGoToExercises={() => goToStage("exercise")}
+            onGoToExercises={() => {
+              goToFirstRemainingQuestion();
+              goToStage("exercise");
+            }}
             onTopicCompleted={markTopicCompleted}
             onCardsRequired={recoverFromCardsRequired}
           />
