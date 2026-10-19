@@ -1,6 +1,6 @@
 # FEAT3 detail plan — Learning days, streak and recent study
 
-Revision: r3, 2026-10-19. Codex CLI `gpt-6.1-sol` / `high` plan review PASS at round 5 (r1, r2 and r4 findings applied; G6 bounded reads added after an Owner question). Owner approval: 2026-10-19, implementation by one `sonnet-high-implementor` session with local commits. Product decisions: Owner-confirmed 2026-10-19 (§1.4). Source: [FEAT-003](../../future-features.md). Master plan: [plan.md](../../plan.md).
+Revision: r4, 2026-10-19 (AC6a course-page card after Owner QA steer). Codex CLI `gpt-6.1-sol` / `high` plan review PASS at round 5 (r1, r2 and r4 findings applied; G6 bounded reads added after an Owner question). Owner approval: 2026-10-19, implementation by one `sonnet-high-implementor` session with local commits. Product decisions: Owner-confirmed 2026-10-19 (§1.4). Source: [FEAT-003](../../future-features.md). Master plan: [plan.md](../../plan.md).
 
 ## 1. Binding Spec
 
@@ -24,6 +24,7 @@ Nothing is derived from older data. The streak starts counting once the feature 
 | AC7 | The topic workspace header shows the course streak. It updates after a learning action in the same session without a reload, at least when the action starts a new learning day. |
 | AC8 | Only the learner can read their own activity. No other learner, teacher, author or admin screen or API path can read it. Learners cannot insert, change or delete activity rows directly; rows come only from the learning-action paths in AC1. Deleting the user deletes their activity. |
 | AC9 | `/privacy` states, in the same PR, that VocaSpace records the times of learning actions (per minute, with course and topic) to show the streak, recent study and study time, and that this data is visible only to the learner. The wording needs Owner approval before merge. |
+| AC6a | On `/courses/[course-slug]` for an enrolled learner, the right-hand card becomes an "đang học" card. It has no price, no access note and no cover image, and contains, in order: (1) the course streak and today's nudge; (2) `Đã xong x/y chủ đề` with a progress bar, from the existing `learner_progress.completed_topic_ids` and the visible topic count (no new read); (3) the primary button `Tiếp tục: <topic title>`, which opens the existing `next_topic_slug` destination; when there is no next topic it is labelled `Xem tổng quan khóa học` and opens `/learn/[course-slug]`; (4) up to 3 recent topics per AC6. The left column shows no learning-activity block, and the cover image appears in the left header (below the title at phone width). If the summary is unavailable, the card keeps its progress and button and shows the AC10 quiet state in place of streak and recent topics. Guests, non-enrolled visitors and the just-enrolled `Bắt đầu học` state keep today's sales card. |
 | AC10 | Failure to read the summary never blocks a page. The block shows a quiet unavailable state, and progress, learning and review keep working. A failure to record activity never fails or rolls back the learning action itself. |
 
 ### 1.2 Scope and non-goals
@@ -64,6 +65,7 @@ Nothing is derived from older data. The streak starts counting once the feature 
 - Study time is estimated from learning actions, with no client tracking.
 - Per-minute storage stays (clarity over write volume); same-minute ties in recent topics are accepted with a fixed order.
 - Days use fixed `Asia/Ho_Chi_Minh`. Browser timezone comes later, with the international format.
+- Owner QA steer (2026-10-19): on `/courses/[course-slug]` the enrolled learner's course activity moves out of the left column into the right-hand card (AC6a). The primary action keeps the LF3 Q7 "Học tiếp" destination but names that topic, the card adds `x/y` topic progress, and the cover image moves to the left header for enrolled learners only. The sales card for guests and non-enrolled visitors is unchanged.
 
 ## 2. Repository facts
 

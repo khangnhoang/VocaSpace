@@ -12,7 +12,10 @@ import CanonicalCourseDetailPage, {
 } from "@/app/(client)/courses/[course-slug]/page";
 import PublicCourseDetailLoading from "@/app/(client)/courses/[course-slug]/loading";
 import { PublicCourseDetailView } from "@/app/(client)/courses/_components/PublicCourseDetailView";
-import { PublicCourseEnrollmentCard } from "@/app/(client)/courses/_components/PublicCourseEnrollmentCard";
+import {
+  PublicCourseEnrollmentCard,
+  type PublicCourseLearnerCard,
+} from "@/app/(client)/courses/_components/PublicCourseEnrollmentCard";
 import PublicCoursePaymentModal, {
   PublicCoursePaymentModalCloseButton,
 } from "@/app/(client)/courses/_components/PublicCoursePaymentModal";
@@ -77,7 +80,7 @@ vi.mock("react", async (importOriginal) => {
 // - Bảo mật/phân quyền: không render protected counts/content/contact/internal role, quota/audit detail; khách và học viên chưa ghi danh không thấy link `/learn` nào (học viên đã ghi danh thì có, xem LF3 AC10).
 // - Ổn định/resilience: nullable/empty DTO vẫn render và free submit chống lặp.
 // - Invariant cần giữ: public detail chỉ thuộc canonical `/courses/[slug]`; payment contract không đổi.
-// - LF3 AC10: học viên đã ghi danh thấy mọi chủ đề (kể cả Preview và khi Preview bị tạm ngưng) là link `/learn` với Đã hoàn thành / Học tiếp / Sắp tới; "Tiếp tục học" mở chủ đề Học tiếp hoặc `/learn/<course>`; khách và chưa ghi danh render như cũ.
+// - LF3 AC10: học viên đã ghi danh thấy mọi chủ đề (kể cả Preview và khi Preview bị tạm ngưng) là link `/learn` với Đã hoàn thành / Học tiếp / Sắp tới; nút chính của thẻ đang học (FEAT3 AC6a: "Tiếp tục: <tên chủ đề>" hoặc "Xem tổng quan khóa học") mở chủ đề Học tiếp hoặc `/learn/<course>`; khách và chưa ghi danh render như cũ.
 // - LF3 AC7: đăng ký xong (miễn phí và trả phí) ở lại trang, không tự điều hướng; nút chính thành "Bắt đầu học" và chỉ mở chủ đề đầu khi bấm.
 // - Kết quả verify gần nhất: `npx vitest run __tests__/components/public-course-detail.test.tsx` đạt 27 tests (2026-10-11, sau LF3 CP7); targeted ESLint đạt.
 
@@ -208,7 +211,11 @@ function findElement(
   return undefined;
 }
 
-function getEnrollmentModalWithState(course: PublicCourseDetail, justEnrolled = false) {
+function getEnrollmentModalWithState(
+  course: PublicCourseDetail,
+  justEnrolled = false,
+  learnerCard?: PublicCourseLearnerCard,
+) {
   const setModalOpen = vi.fn();
   const setPaymentData = vi.fn();
   const setPaymentId = vi.fn();
@@ -221,7 +228,7 @@ function getEnrollmentModalWithState(course: PublicCourseDetail, justEnrolled = 
     .mockReturnValueOnce(["stale-payment-id", setPaymentId])
     .mockReturnValueOnce([justEnrolled, setJustEnrolled]);
 
-  const enrollmentCard = PublicCourseEnrollmentCard({ course });
+  const enrollmentCard = PublicCourseEnrollmentCard({ course, learnerCard });
   const modal = React.Children.toArray(enrollmentCard.props.children).find(
     (child) =>
       React.isValidElement(child) && child.type === PublicCoursePaymentModal,
@@ -498,7 +505,8 @@ describe("public course detail routes and presentation", () => {
       <PublicCourseEnrollmentCard course={detail({ price: 0 })} />,
     );
 
-    expect(enrolledHtml).toContain(">Tiếp tục học</button>");
+    // AC6a: không có chủ đề "Học tiếp" thì nút chính mở tổng quan khóa học.
+    expect(enrolledHtml).toContain(">Xem tổng quan khóa học</button>");
     expect(paidHtml).toContain(">Đăng ký khóa học</button>");
     expect(freeHtml).toContain(">Đăng ký miễn phí</button>");
     expect(paidHtml).toContain('aria-hidden="true"');
@@ -617,9 +625,9 @@ describe("public course detail routes and presentation", () => {
       error: null,
       topicSlug: "chu-de-mo-dau",
     });
-    // Đã ghi danh từ trước: vẫn là "Tiếp tục học".
+    // Đã ghi danh từ trước (thẻ đang học), chưa có chủ đề "Học tiếp": nút mở tổng quan khóa học.
     const returning = getEnrollmentModalWithState(detail({ is_enrolled: true }));
-    expect(returning.primaryButton?.props.children).toBe("Tiếp tục học");
+    expect(returning.primaryButton?.props.children).toBe("Xem tổng quan khóa học");
 
     // Chưa tải lại DTO (is_enrolled còn false) nhưng vừa đăng ký xong: "Bắt đầu học".
     const state = getEnrollmentModalWithState(detail({ price: 0 }), true);
@@ -635,8 +643,12 @@ describe("public course detail routes and presentation", () => {
   });
 
   it("opens the projected next topic from Tiếp tục học without the first-topic lookup", () => {
-    const state = getEnrollmentModalWithState(enrolledDetail());
-    expect(state.primaryButton?.props.children).toBe("Tiếp tục học");
+    const state = getEnrollmentModalWithState(enrolledDetail(), false, {
+      completedTopicCount: 1,
+      totalTopicCount: 2,
+      nextTopicTitle: "Chủ đề luyện tập",
+    });
+    expect(state.primaryButton?.props.children).toBe("Tiếp tục: Chủ đề luyện tập");
 
     state.primaryButton?.props.onClick();
 

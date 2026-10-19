@@ -1,16 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { BookOpen, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { createCheckoutSession } from "@/app/actions/payment";
 import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
+import {
+  CourseActivityUnavailable,
+  CourseStreakLine,
+  RecentTopicsList,
+} from "@/components/learning-activity/CourseLearningActivity";
 import { Button } from "@/components/ui/button";
+import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type { CheckoutResponse } from "@/lib/schemas/payment";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
+import { PublicCourseCover } from "./PublicCourseCover";
 import PublicCoursePaymentModal from "./PublicCoursePaymentModal";
+
+/**
+ * FEAT3 AC6a: dữ liệu cho thẻ "đang học" của học viên đã ghi danh. Tính ở server từ dữ liệu công khai đã có (đề cương, tiến độ) nên
+ * không thêm lần đọc nào; `summary` đi riêng khỏi payload công khai đã cache (G5).
+ */
+export type PublicCourseLearnerCard = {
+  completedTopicCount: number;
+  totalTopicCount: number;
+  nextTopicTitle: string | null;
+  summary?: CourseLearningSummaryResult;
+};
 
 type PublicCourseEnrollmentCardProps = {
   course: Pick<
@@ -23,10 +40,12 @@ type PublicCourseEnrollmentCardProps = {
     | "is_enrolled"
     | "learner_progress"
   >;
+  learnerCard?: PublicCourseLearnerCard;
 };
 
 export function PublicCourseEnrollmentCard({
   course,
+  learnerCard,
 }: PublicCourseEnrollmentCardProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -116,65 +135,101 @@ export function PublicCourseEnrollmentCard({
     course.price === 0
       ? "Miễn phí"
       : `${course.price.toLocaleString("vi-VN")} ₫`;
+  // AC6a: học viên đã ghi danh từ trước thấy thẻ "đang học"; khách, người chưa ghi danh và trạng thái vừa đăng ký giữ thẻ bán hàng.
+  const isLearningCard = course.is_enrolled && !justEnrolled;
+  const nextTopicSlug = course.learner_progress?.next_topic_slug ?? null;
+  const continueLabel = nextTopicSlug
+    ? learnerCard?.nextTopicTitle
+      ? `Tiếp tục: ${learnerCard.nextTopicTitle}`
+      : "Tiếp tục học"
+    : "Xem tổng quan khóa học";
   const actionLabel = justEnrolled
     ? "Bắt đầu học"
     : course.is_enrolled
-      ? "Tiếp tục học"
+      ? continueLabel
       : course.price === 0
         ? "Đăng ký miễn phí"
         : "Đăng ký khóa học";
 
   return (
     <>
-      <section
-        aria-labelledby="public-course-enrollment-title"
-        className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg"
-      >
-        <div className="relative aspect-video bg-linear-to-br from-blue-50 to-cyan-50">
-          {course.thumbnail_url ? (
-            <Image
-              src={course.thumbnail_url}
-              alt={`Ảnh bìa khóa học ${course.title}`}
-              fill
-              priority
-              sizes="(max-width: 1023px) 100vw, 352px"
-              className="object-cover"
-            />
-          ) : (
-            <div
-              role="img"
-              aria-label={`Chưa có ảnh bìa cho khóa học ${course.title}`}
-              className="flex h-full items-center justify-center text-blue-400"
+      {isLearningCard ? (
+        <section
+          aria-labelledby="public-course-enrollment-title"
+          className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg"
+        >
+          <div className="p-6">
+            <h2
+              id="public-course-enrollment-title"
+              className="text-xl font-extrabold text-gray-900"
             >
-              <BookOpen aria-hidden="true" className="size-14" />
-            </div>
+              Bạn đang học khóa này
+            </h2>
+            {learnerCard?.summary &&
+              (learnerCard.summary.success ? (
+                <div className="mt-4">
+                  <CourseStreakLine data={learnerCard.summary.data} as="h3" />
+                </div>
+              ) : (
+                <CourseActivityUnavailable className="mt-4" />
+              ))}
+            {learnerCard && <LearnerProgress card={learnerCard} courseTitle={course.title} />}
+            <Button
+              type="button"
+              size="lg"
+              className="mt-5 h-auto min-h-11 w-full whitespace-normal py-2.5"
+              onClick={() => void handlePrimaryAction()}
+            >
+              {actionLabel}
+            </Button>
+            {learnerCard?.summary?.success && (
+              <RecentTopicsList
+                courseSlug={course.slug}
+                topics={learnerCard.summary.data.recentTopics}
+                className="mt-6"
+              />
+            )}
+          </div>
+        </section>
+      ) : (
+        <section
+          aria-labelledby="public-course-enrollment-title"
+          className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg"
+        >
+          {/* Học viên đã ghi danh có ảnh bìa ở phần đầu trang; thẻ không lặp lại ảnh đó. */}
+          {!course.is_enrolled && (
+            <PublicCourseCover
+              title={course.title}
+              thumbnailUrl={course.thumbnail_url}
+              sizes="(max-width: 1023px) 100vw, 352px"
+            />
           )}
-        </div>
 
-        <div className="p-6">
-          <h2
-            id="public-course-enrollment-title"
-            className="text-xl font-extrabold text-gray-900"
-          >
-            Bắt đầu khóa học
-          </h2>
-          <p className="mt-3 text-3xl font-extrabold text-blue-600">
-            {priceLabel}
-          </p>
-          <Button
-            type="button"
-            size="lg"
-            className="mt-5 w-full"
-            onClick={() => void handlePrimaryAction()}
-          >
-            {actionLabel}
-          </Button>
-          <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-gray-500">
-            <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-cyan-600" />
-            Nội dung học chỉ mở sau khi tài khoản có quyền truy cập khóa học.
-          </p>
-        </div>
-      </section>
+          <div className="p-6">
+            <h2
+              id="public-course-enrollment-title"
+              className="text-xl font-extrabold text-gray-900"
+            >
+              Bắt đầu khóa học
+            </h2>
+            <p className="mt-3 text-3xl font-extrabold text-blue-600">
+              {priceLabel}
+            </p>
+            <Button
+              type="button"
+              size="lg"
+              className="mt-5 w-full"
+              onClick={() => void handlePrimaryAction()}
+            >
+              {actionLabel}
+            </Button>
+            <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-gray-500">
+              <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-cyan-600" />
+              Nội dung học chỉ mở sau khi tài khoản có quyền truy cập khóa học.
+            </p>
+          </div>
+        </section>
+      )}
 
       <PublicCoursePaymentModal
         courseId={course.id}
@@ -194,5 +249,29 @@ export function PublicCourseEnrollmentCard({
         }}
       />
     </>
+  );
+}
+
+function LearnerProgress({ card, courseTitle }: { card: PublicCourseLearnerCard; courseTitle: string }) {
+  const { completedTopicCount, totalTopicCount } = card;
+  const percentage = totalTopicCount > 0 ? Math.round((completedTopicCount / totalTopicCount) * 100) : 0;
+
+  return (
+    <div className="mt-5">
+      <p className="text-sm font-bold text-gray-900">
+        Đã xong {completedTopicCount}/{totalTopicCount} chủ đề
+      </p>
+      <div
+        role="progressbar"
+        aria-label={`Tiến độ khóa học ${courseTitle}`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percentage}
+        aria-valuetext={`${completedTopicCount} trên ${totalTopicCount} chủ đề đã hoàn thành`}
+        className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100"
+      >
+        <div className="h-full rounded-full bg-recall" style={{ width: `${percentage}%` }} />
+      </div>
+    </div>
   );
 }

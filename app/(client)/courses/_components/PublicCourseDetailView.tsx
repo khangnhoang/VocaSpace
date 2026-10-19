@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { AlertCircle, ChevronRight } from "lucide-react";
-import CourseLearningActivity from "@/components/learning-activity/CourseLearningActivity";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
-import { PublicCourseEnrollmentCard } from "./PublicCourseEnrollmentCard";
+import { PublicCourseCover } from "./PublicCourseCover";
+import { PublicCourseEnrollmentCard, type PublicCourseLearnerCard } from "./PublicCourseEnrollmentCard";
 import { PublicCourseInstructors } from "./PublicCourseInstructors";
 import { PublicCourseStats } from "./PublicCourseStats";
 import { PublicCourseSyllabus } from "./PublicCourseSyllabus";
@@ -14,6 +14,20 @@ type PublicCourseDetailViewProps = {
   // FEAT3 G5: chỉ có khi học viên đã đăng nhập và ghi danh; đi riêng khỏi `course` để dữ liệu người học không vào payload công khai.
   learningSummary?: CourseLearningSummaryResult;
 };
+
+// FEAT3 AC6a: số liệu thẻ "đang học" lấy từ đề cương và tiến độ đã có trong payload công khai, không đọc thêm gì.
+function buildLearnerCard(course: PublicCourseDetail, summary: CourseLearningSummaryResult | undefined): PublicCourseLearnerCard {
+  const topics = course.syllabus.flatMap((chapter) => chapter.topics);
+  const completed = new Set(course.learner_progress?.completed_topic_ids);
+  const nextSlug = course.learner_progress?.next_topic_slug ?? null;
+
+  return {
+    completedTopicCount: topics.filter((topic) => completed.has(topic.id)).length,
+    totalTopicCount: topics.length,
+    nextTopicTitle: nextSlug ? (topics.find((topic) => topic.slug === nextSlug)?.title ?? null) : null,
+    summary,
+  };
+}
 
 export function PublicCourseDetailView({ course, learningSummary }: PublicCourseDetailViewProps) {
   return (
@@ -53,16 +67,29 @@ export function PublicCourseDetailView({ course, learningSummary }: PublicCourse
 
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] xl:gap-10">
           <header className="min-w-0 rounded-3xl border border-blue-100 bg-white p-6 shadow-sm md:p-8 lg:col-start-1 lg:row-start-1">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-500">
-                Lộ trình học tại VocaSpace
-              </p>
-              <h1 className="mt-3 break-words text-3xl font-extrabold leading-tight tracking-tight text-gray-950 md:text-4xl">
-                {course.title}
-              </h1>
-              <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-gray-600 md:text-base">
+            {/* Học viên đã ghi danh: ảnh bìa ở đây (dưới tiêu đề khi màn hình hẹp) thay vì trong thẻ bên phải (AC6a). */}
+            <div className={course.is_enrolled ? "grid gap-x-8 gap-y-4 md:grid-cols-[minmax(0,1fr)_15rem]" : undefined}>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-500">
+                  Lộ trình học tại VocaSpace
+                </p>
+                <h1 className="mt-3 break-words text-3xl font-extrabold leading-tight tracking-tight text-gray-950 md:text-4xl">
+                  {course.title}
+                </h1>
+              </div>
+              {course.is_enrolled && (
+                <PublicCourseCover
+                  title={course.title}
+                  thumbnailUrl={course.thumbnail_url}
+                  sizes="(max-width: 767px) 100vw, 240px"
+                  className="overflow-hidden rounded-2xl md:col-start-2 md:row-span-2 md:row-start-1"
+                />
+              )}
+              <p className="whitespace-pre-wrap text-sm leading-7 text-gray-600 md:text-base">
                 {course.description ||
                   "Thông tin giới thiệu khóa học đang được cập nhật."}
               </p>
+            </div>
           </header>
 
           <aside
@@ -79,14 +106,12 @@ export function PublicCourseDetailView({ course, learningSummary }: PublicCourse
                 is_enrolled: course.is_enrolled,
                 learner_progress: course.learner_progress,
               }}
+              learnerCard={course.is_enrolled ? buildLearnerCard(course, learningSummary) : undefined}
             />
           </aside>
 
           <div className="min-w-0 space-y-9 lg:col-start-1 lg:row-start-2">
             <PublicCourseStats course={course} />
-            {learningSummary && (
-              <CourseLearningActivity courseSlug={course.slug} result={learningSummary} />
-            )}
             {course.is_preview_suspended && (
               <p
                 role="status"
