@@ -3,7 +3,7 @@
  */
 
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getCourseLearningSummary } from "@/app/actions/learning-activity";
 import { useCourseLearningSummary } from "@/hooks/use-course-learning-summary";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
@@ -16,7 +16,8 @@ import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activit
 // - Case thành công: chưa học hôm nay -> một hành động đọc lại đúng một lần với courseId và cập nhật chuỗi mới.
 // - Case thất bại: đọc lỗi hoặc ném lỗi giữ kết quả cũ và cho phép thử lại ở hành động sau.
 // - Ổn định/resilience: đã học hôm nay hoặc trang không truyền kết quả thì không gọi action; hành động liên tiếp khi đang đọc chỉ gọi một lần.
-// - Invariant cần giữ: hook không tự tính ngày hay chuỗi.
+// - Qua nửa đêm: cùng một workspace đang mở, ngày VN (Asia/Ho_Chi_Minh) đổi thì hành động đầu tiên của ngày mới đọc lại và chuỗi 2 -> 3.
+// - Invariant cần giữ: hook không tự tính chuỗi; chỉ so khóa ngày VN để biết khi nào cần đọc lại.
 // - Kết quả verify gần nhất: xem milestone FEAT3 CP2 trong progress.md.
 
 vi.mock("@/app/actions/learning-activity", () => ({ getCourseLearningSummary: vi.fn() }));
@@ -32,6 +33,28 @@ const result = (streak: number, studiedToday: boolean): CourseLearningSummaryRes
 describe("useCourseLearningSummary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("re-reads on the first saved action after Vietnam midnight in the same mounted workspace (streak 2 to 3)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-10T16:30:00Z")); // 23:30 ngày 10/03 giờ VN
+    mockedGet.mockResolvedValue(result(3, true));
+    const { result: hook } = renderHook(() => useCourseLearningSummary(COURSE_ID, result(2, true)));
+
+    act(() => hook.current.noteLearningAction());
+    expect(mockedGet).not.toHaveBeenCalled();
+
+    vi.setSystemTime(new Date("2026-03-10T17:05:00Z")); // 00:05 ngày 11/03 giờ VN
+    act(() => hook.current.noteLearningAction());
+    await waitFor(() => expect(hook.current.summary).toEqual(result(3, true)));
+    expect(mockedGet).toHaveBeenCalledExactlyOnceWith(COURSE_ID);
+
+    act(() => hook.current.noteLearningAction());
+    expect(mockedGet).toHaveBeenCalledTimes(1);
   });
 
   it("re-reads once after a saved action when the learner has not studied today, then stops", async () => {

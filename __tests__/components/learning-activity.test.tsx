@@ -20,14 +20,14 @@ import type {
 } from "@/lib/schemas/learning-activity";
 
 // Test plan:
-// - Mục tiêu: FEAT3 CP2 - các khối trình bày chuỗi ngày học (AC5, AC6, AC7) và các trạng thái lặng lẽ khi chưa tải được (AC10).
+// - Mục tiêu: FEAT3 CP2 - các khối trình bày chuỗi ngày học (AC5, AC6, AC7) và các trạng thái lặng lẽ khi chưa tải được (AC10, gồm cả chip header).
 // - Loại test: component render thuần từ kết quả đã có; không gọi action hay database. Dữ liệu và quy tắc ngày do SQL sở hữu
 //   (đã kiểm ở integration), nên ở đây chỉ kiểm cách trình bày kết quả.
 // - Đối tượng: LearningStreakCard (/learn), CourseLearningActivity (trang khóa học và tổng quan), CourseStreakChip (header workspace)
 //   và các hàm định dạng.
 // - Case thành công: thẻ /learn có đủ 4 trạng thái (chưa có chuỗi, đã học hôm nay, mới học hôm qua, chưa tải được), dải 7 ngày đọc được
 //   bằng chữ, thời gian học có "khoảng"/ước tính; khối khóa học có tối đa 3 chủ đề kèm ngày tương đối và liên kết vào workspace.
-// - Case thất bại: kết quả `success: false` chỉ hiện dòng "chưa tải được" (role status), không ném lỗi, chip header không hiện gì.
+// - Case thất bại: kết quả `success: false` chỉ hiện dòng "chưa tải được" (role status), không ném lỗi; chip header hiện một dòng status lặng lẽ.
 // - Ổn định/resilience: chip không hiện khi streak 0; chuỗi hôm qua có lời nhắc giữ chuỗi; định dạng không dựa đồng hồ trình duyệt.
 // - Invariant cần giữ: khối chỉ trình bày dữ liệu server đưa vào; không tự tính ngày hay streak.
 // - Kết quả verify gần nhất: xem milestone FEAT3 CP2 trong progress.md.
@@ -218,9 +218,15 @@ describe("CourseStreakChip (workspace header)", () => {
     expect(screen.getByRole("status").textContent).toContain("Học hôm nay để giữ chuỗi");
   });
 
+  it("shows a quiet unavailable status when the summary could not be read", () => {
+    render(<CourseStreakChip summary={{ success: false, error: "x" }} />);
+
+    expect(screen.getByRole("status").textContent).toBe("Chưa tải được chuỗi ngày học");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it.each([
     ["no streak", { success: true as const, data: course() }],
-    ["an unavailable summary", { success: false as const, error: "x" }],
     ["no summary at all", undefined],
   ])("renders nothing for %s", (_name, summary) => {
     const { container } = render(<CourseStreakChip summary={summary} />);

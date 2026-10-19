@@ -2,11 +2,19 @@ import { Flame } from "lucide-react";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 
 /**
- * FEAT3 AC7: chip chuỗi ngày học của khóa trong header của không gian học. Chỉ hiện khi đã có chuỗi; chưa tải được hoặc
- * chưa có chuỗi thì không hiện gì (AC10), vì việc học không phụ thuộc vào chip này.
+ * FEAT3 AC7: chip chuỗi ngày học của khóa trong header của không gian học. Chưa có chuỗi thì không hiện gì; chưa tải được
+ * hiện một dòng lặng lẽ (AC10) vì việc học không phụ thuộc vào chip này. Trang không truyền kết quả nào thì không hiện gì.
  */
 export default function CourseStreakChip({ summary }: { summary: CourseLearningSummaryResult | undefined }) {
-  if (!summary?.success || summary.data.streak === 0) return null;
+  if (!summary) return null;
+  if (!summary.success) {
+    return (
+      <span role="status" className="inline-flex shrink-0 items-center text-sm text-slate-500">
+        Chưa tải được chuỗi ngày học
+      </span>
+    );
+  }
+  if (summary.data.streak === 0) return null;
   const { streak, studiedToday } = summary.data;
 
   return (
