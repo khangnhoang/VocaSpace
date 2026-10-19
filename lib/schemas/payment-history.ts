@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { paymentStatusSchema } from "@/lib/schemas/payment";
 
-export const PAYMENT_HISTORY_PAGE_SIZE = 10;
+export const PAYMENT_HISTORY_PAGE_SIZE = 5;
 
 export const paymentHistoryFilterSchema = z.enum([
   "all",

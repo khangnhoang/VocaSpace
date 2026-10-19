@@ -11,7 +11,7 @@
 --   - 1 dòng paid miễn phí (gateway = 'free') để kiểm tra dòng này bị loại;
 --   - 2 dòng đang chờ cùng expires_at = 2090-01-01 (sớm hơn các dòng seed hạn 2099; dòng created_at mới hơn đứng trước);
 --   - 1 dòng đang chờ có expires_at null (đứng cuối trong thẻ /learn, không có dòng "Hạn").
--- Cộng 5 dòng seed là 17 dòng không miễn phí, nên danh sách "Tất cả" có 2 trang.
+-- Cộng 5 dòng seed là 17 dòng không miễn phí, nên danh sách "Tất cả" có 4 trang (5 dòng mỗi trang).
 -- Các dòng đang chờ đặt trên khóa học 7, 8, 9 của B2 nơi học viên chưa có khoản đang chờ nào, để không vi phạm uq_active_payment.
 
 begin;

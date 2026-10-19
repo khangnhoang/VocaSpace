@@ -14,7 +14,7 @@ Outcome: a signed-in learner sees all of their own paid transactions (paid, pend
 | AC2 | Below `lg`, the profile card gets a third tab, `Thanh toán`, that shows the same history section; there is no right column. `/profile?tab=payments` opens that tab below `lg`. From `lg` up the param is ignored, because the history is always visible, and the left card opens on `Hồ sơ cá nhân`. |
 | AC3 | The history lists the learner's own payments whose `gateway` is not `free`, newest first (`created_at desc, id desc`). Each row shows: the course title, linking to `/courses/[course-slug]`; `amount_final` in VND, plus a `Giảm X ₫` line when `amount_discount > 0`; a status badge; the creation date and time (`dd/mm/yyyy HH:mm`, `Asia/Ho_Chi_Minh`); and the order code (`gateway_order_id`). Status labels: `paid` is `Đã thanh toán`, `pending` is `Đang chờ thanh toán`, `creating` is `Đang tạo thanh toán`, `cancelled` is `Đã hủy`, `expired` is `Hết hạn`, `failed` is `Thất bại`. A `creating` or `pending` row whose `expires_at` is in the future also shows `Hạn dd/mm/yyyy` and a `Tiếp tục thanh toán` link to `/courses/[course-slug]` (Decision 17). If the course can no longer be read, the row shows `Khóa học không còn khả dụng`, with no link and no continue link. |
 | AC4 | Filter chips above the list: `Tất cả`, `Đã thanh toán` (`paid`), `Đang chờ` (`creating`, `pending`) and `Khác` (`cancelled`, `expired`, `failed`). Changing the filter returns to page 1. |
-| AC5 | Pages hold 10 rows. `Trước` and `Sau` buttons sit around `Trang n/m`; `Trước` is disabled on page 1 and `Sau` on the last page, and the pager is hidden when the current filter has 10 rows or fewer. The server reads only the rows of the requested page plus an exact count. A page past the end (rows changed since the count) returns the last existing page with its real page number, so the UI never shows `n > m` or `m = 0`. Changing page or filter does not reload the whole page, and the list keeps its previous rows visible until the new page arrives. Only the response for the current filter and page updates the list; a slower earlier response is ignored. |
+| AC5 | Pages hold 5 rows (changed from 10 during Owner QA, 2026-10-20). `Trước` and `Sau` buttons sit around `Trang n/m`; `Trước` is disabled on page 1 and `Sau` on the last page, and the pager is hidden when the current filter has 5 rows or fewer. The server reads only the rows of the requested page plus an exact count. A page past the end (rows changed since the count) returns the last existing page with its real page number, so the UI never shows `n > m` or `m = 0`. Changing page or filter does not reload the whole page, and the list keeps its previous rows visible until the new page arrives. Only the response for the current filter and page updates the list; a slower earlier response is ignored. |
 | AC6 | Empty states: there are no paid transactions at all (`Bạn chưa có giao dịch thanh toán nào.`), or the current filter has none. A failed read shows a quiet unavailable state with `Thử lại`; the profile card keeps working. |
 | AC7 | A learner can never see another user's payments, and the history response never contains `gateway_metadata`, `discount_id`, `user_id` or any gateway transaction data. |
 | AC8 | On `/learn`, the pending block becomes one compact white card in the dashboard card style (the streak card's border, radius and type scale). It shows only the visible (not dismissed) payment with the nearest `expires_at`, ties broken by newest `created_at`; payments with no `expires_at` (the column is nullable) come after all dated ones and still show when they are the only ones left. The card has: a small attention dot, the course title on one line, `Hạn dd/mm/yyyy` (omitted when `expires_at` is null), a text link `Tiếp tục thanh toán` to `/courses/[course-slug]`, and the existing `X` dismiss. When more visible payments exist, a line `+N khoản khác · Xem trong hồ sơ` links to `/profile?tab=payments`. The `Xem tất cả` sheet is removed. Dismissing hides the shown payment for the session (existing sessionStorage rule, Decision 18) and the next one takes its place. The card is absent when nothing is visible. Solid filled buttons are not used in this card. |
@@ -51,7 +51,7 @@ Outcome: a signed-in learner sees all of their own paid transactions (paid, pend
 ### 1.4 Owner decisions that bind this unit (2026-10-20)
 
 - History lives in `/profile`: about 40/60 columns on desktop, and a third `Thanh toán` tab on phone.
-- 10 rows per page with `Trước`/`Sau`; full row content plus status filter chips.
+- 5 rows per page with `Trước`/`Sau` (changed from 10 during Owner QA on 2026-10-20: the list on `/profile` was too long and needed scrolling); full row content plus status filter chips.
 - Free enrolments are not shown.
 - `/learn` shows one compact card (nearest deadline) with `+N khoản khác · Xem trong hồ sơ`; the `X` stays; the sheet goes.
 - Overdue display needs no special rule: hosted `pg_cron` job `expire-stale-payments-every-5-minutes` runs `expire_stale_payments(100)` every 5 minutes (checked 2026-10-20), so the DB status is shown as is.
@@ -94,14 +94,14 @@ Baseline: `93ce589`, checked 2026-10-20.
   - one row on a course this learner cannot read (unpublished, not enrolled);
   - two active rows with the same `expires_at`;
   - one active row with a null `expires_at`.
-  That gives more than 10 non-free rows, so the `Tất cả` list has two pages. The implementor applies it to the local root DB with `psql` (never a reset) and records it in progress.md. Never reset the root or hosted DB.
+  That gives more than 5 non-free rows (17 with the seed rows), so the `Tất cả` list has four pages. The implementor applies it to the local root DB with `psql` (never a reset) and records it in progress.md. Never reset the root or hosted DB.
 - Owner QA steps:
 
 | Step | Expected |
 | --- | --- |
-| Open `/profile` at desktop width | Two columns; history shows 10 rows newest first and `Trang 1/2`; the free enrolment is absent (AC1, AC3, AC5). |
+| Open `/profile` at desktop width | Two columns; history shows 5 rows newest first and `Trang 1/4`; the free enrolment is absent (AC1, AC3, AC5). |
 | Look at a discounted row and the unreadable-course row | A `Giảm X ₫` line; `Khóa học không còn khả dụng` with no links (AC3). |
-| Click `Đang chờ`, then `Khác` | Rows match the status group, back on page 1; the pager hides at 10 rows or fewer (AC4, AC5). |
+| Click `Đang chờ`, then `Khác` | Rows match the status group, back on page 1; the pager hides at 5 rows or fewer (AC4, AC5). |
 | Click `Sau`, then `Trước` quickly | The list ends on the page shown in `Trang n/m` (AC5). |
 | Narrow to phone width; open `/profile?tab=payments` | The `Thanh toán` tab is selected and shows the same history (AC2). |
 | Open `/learn` | One compact card for the nearest deadline (of the tie, the newer one) and `+N khoản khác · Xem trong hồ sơ` (AC8). |

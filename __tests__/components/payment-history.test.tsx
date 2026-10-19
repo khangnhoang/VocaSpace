@@ -49,7 +49,7 @@ function item(overrides: Partial<PaymentHistoryItem> & { paymentId: string }): P
 }
 
 function ok(items: PaymentHistoryItem[], total = items.length, page = 1): PaymentHistoryResult {
-  return { success: true, data: { items, total, page, pageSize: 10 } };
+  return { success: true, data: { items, total, page, pageSize: 5 } };
 }
 
 function deferred<T>() {
@@ -172,8 +172,8 @@ describe("PaymentHistory", () => {
 
   it("returns to page 1 when the filter changes and marks the active chip", async () => {
     mocks.getPaymentHistory
-      .mockResolvedValueOnce(ok(rows(10), 25, 1))
-      .mockResolvedValueOnce(ok(rows(10, "q"), 25, 2))
+      .mockResolvedValueOnce(ok(rows(5), 13, 1))
+      .mockResolvedValueOnce(ok(rows(5, "q"), 13, 2))
       .mockResolvedValueOnce(ok(rows(3, "r"), 3, 1));
 
     render(<PaymentHistory />);
@@ -195,9 +195,9 @@ describe("PaymentHistory", () => {
 
   it("disables Trước on the first page and Sau on the last page, and walks between them", async () => {
     mocks.getPaymentHistory
-      .mockResolvedValueOnce(ok(rows(10), 12, 1))
-      .mockResolvedValueOnce(ok(rows(2, "q"), 12, 2))
-      .mockResolvedValueOnce(ok(rows(10), 12, 1));
+      .mockResolvedValueOnce(ok(rows(5), 7, 1))
+      .mockResolvedValueOnce(ok(rows(2, "q"), 7, 2))
+      .mockResolvedValueOnce(ok(rows(5), 7, 1));
 
     render(<PaymentHistory />);
     await screen.findByText("Trang 1/2");
@@ -218,8 +218,8 @@ describe("PaymentHistory", () => {
     await screen.findByText("Trang 1/2");
   });
 
-  it("hides the pager when the current filter has ten rows or fewer", async () => {
-    mocks.getPaymentHistory.mockResolvedValue(ok(rows(10), 10, 1));
+  it("hides the pager when the current filter has five rows or fewer", async () => {
+    mocks.getPaymentHistory.mockResolvedValue(ok(rows(5), 5, 1));
 
     render(<PaymentHistory />);
 
@@ -228,12 +228,12 @@ describe("PaymentHistory", () => {
   });
 
   it("shows and navigates from the page the server returns when it clamps a past-the-end page", async () => {
-    // Học viên ở trang 2/3 bấm Sau để xin trang 3, nhưng tổng đã giảm còn 15 nên server trả trang 2 (trang cuối thật).
+    // Học viên ở trang 2/3 bấm Sau để xin trang 3, nhưng tổng đã giảm còn 8 nên server trả trang 2 (trang cuối thật).
     mocks.getPaymentHistory
-      .mockResolvedValueOnce(ok(rows(10), 25, 1))
-      .mockResolvedValueOnce(ok(rows(10, "q"), 25, 2))
-      .mockResolvedValueOnce(ok(rows(5, "r"), 15, 2))
-      .mockResolvedValueOnce(ok(rows(10), 15, 1));
+      .mockResolvedValueOnce(ok(rows(5), 13, 1))
+      .mockResolvedValueOnce(ok(rows(5, "q"), 13, 2))
+      .mockResolvedValueOnce(ok(rows(3, "r"), 8, 2))
+      .mockResolvedValueOnce(ok(rows(5), 8, 1));
 
     render(<PaymentHistory />);
     await screen.findByText("Trang 1/3");
@@ -258,7 +258,7 @@ describe("PaymentHistory", () => {
   it("keeps the previous rows visible until the next page arrives", async () => {
     const second = deferred<PaymentHistoryResult>();
     mocks.getPaymentHistory
-      .mockResolvedValueOnce(ok(rows(10), 12, 1))
+      .mockResolvedValueOnce(ok(rows(5), 7, 1))
       .mockReturnValueOnce(second.promise);
 
     render(<PaymentHistory />);
@@ -269,7 +269,7 @@ describe("PaymentHistory", () => {
     expect(screen.getByText("Trang 1/2")).toBeTruthy();
 
     await act(async () => {
-      second.resolve(ok(rows(2, "q"), 12, 2));
+      second.resolve(ok(rows(2, "q"), 7, 2));
     });
     expect(await screen.findByText("Khóa q1")).toBeTruthy();
     expect(screen.queryByText("Khóa p1")).toBeNull();
@@ -304,7 +304,7 @@ describe("PaymentHistory", () => {
     const page1 = deferred<PaymentHistoryResult>();
     const page2 = deferred<PaymentHistoryResult>();
     mocks.getPaymentHistory
-      .mockResolvedValueOnce(ok(rows(10), 12, 1))
+      .mockResolvedValueOnce(ok(rows(5), 7, 1))
       .mockReturnValueOnce(page2.promise)
       .mockReturnValueOnce(page1.promise);
 
@@ -314,10 +314,10 @@ describe("PaymentHistory", () => {
     fireEvent.click(screen.getByRole("button", { name: /Trước/ }));
 
     await act(async () => {
-      page1.resolve(ok(rows(10, "back"), 12, 1));
+      page1.resolve(ok(rows(5, "back"), 7, 1));
     });
     await act(async () => {
-      page2.resolve(ok(rows(2, "fwd"), 12, 2));
+      page2.resolve(ok(rows(2, "fwd"), 7, 2));
     });
 
     expect(await screen.findByText("Khóa back1")).toBeTruthy();

@@ -13,7 +13,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Bảo mật/phân quyền: lọc tường minh user_id = người dùng đăng nhập; danh sách cột không có gateway_metadata, discount_id,
 //   user_id; chỉ client session được tạo (không có đường service role trong action).
 // - Ổn định/resilience: lỗi thô của Supabase không lọt ra kết quả.
-// - Invariant cần giữ: học viên chỉ đọc được dòng của mình, mỗi trang tối đa 10 dòng và không bao giờ trả trang vượt tổng.
+// - Invariant cần giữ: học viên chỉ đọc được dòng của mình, mỗi trang tối đa 5 dòng và không bao giờ trả trang vượt tổng.
 // - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/payment-history.test.ts`.
 // - Ghi chú: RLS và trang vượt cuối thật của PostgREST được kiểm bằng __tests__/integration/feat6-payment-history.test.ts.
 
@@ -151,7 +151,7 @@ describe("getPaymentHistory", () => {
         ],
         total: 23,
         page: 3,
-        pageSize: 10,
+        pageSize: 5,
       },
     });
     expect(callsOf(query, "eq")).toEqual([["eq", "user_id", "user-one"]]);
@@ -161,7 +161,7 @@ describe("getPaymentHistory", () => {
       ["order", "created_at", { ascending: false }],
       ["order", "id", { ascending: false }],
     ]);
-    expect(callsOf(query, "range")).toEqual([["range", 20, 29]]);
+    expect(callsOf(query, "range")).toEqual([["range", 10, 14]]);
     const [, columns, options] = callsOf(query, "select")[0];
     expect(options).toEqual({ count: "exact" });
     for (const forbidden of ["gateway_metadata", "discount_id", "user_id"]) {
@@ -215,10 +215,10 @@ describe("getPaymentHistory", () => {
 
     expect(result).toMatchObject({
       success: true,
-      data: { total: 12, page: 2, pageSize: 10 },
+      data: { total: 12, page: 3, pageSize: 5 },
     });
-    expect(callsOf(pastEnd, "range")).toEqual([["range", 40, 49]]);
-    expect(callsOf(lastPage, "range")).toEqual([["range", 10, 19]]);
+    expect(callsOf(pastEnd, "range")).toEqual([["range", 20, 24]]);
+    expect(callsOf(lastPage, "range")).toEqual([["range", 10, 14]]);
     if (result.success) expect(result.data.items).toHaveLength(2);
   });
 
@@ -229,7 +229,32 @@ describe("getPaymentHistory", () => {
 
     await expect(getPaymentHistory({ page: 2, filter: "paid" })).resolves.toEqual({
       success: true,
-      data: { items: [], total: 0, page: 1, pageSize: 10 },
+      data: { items: [], total: 0, page: 1, pageSize: 5 },
+    });
+  });
+
+  it("clamps to the last page when PostgREST answers 200 with no rows because the offset equals the total", async () => {
+    // Tổng 5 là bội của cỡ trang: xin trang 2 có offset 5 = tổng, PostgREST không trả 416 mà trả danh sách rỗng.
+    const emptyPage = createQuery({ data: [], count: 5 });
+    const recount = createQuery({ data: [row(1)], count: 5 });
+    const lastPage = createQuery({ data: [row(1), row(2), row(3), row(4), row(5)], count: 5 });
+    mockSupabase([emptyPage, recount, lastPage]);
+
+    const result = await getPaymentHistory({ page: 2, filter: "paid" });
+
+    expect(result).toMatchObject({ success: true, data: { total: 5, page: 1, pageSize: 5 } });
+    expect(callsOf(emptyPage, "range")).toEqual([["range", 5, 9]]);
+    expect(callsOf(lastPage, "range")).toEqual([["range", 0, 4]]);
+    if (result.success) expect(result.data.items).toHaveLength(5);
+  });
+
+  it("does not recount when page 1 is simply empty", async () => {
+    const only = createQuery({ data: [], count: 0 });
+    mockSupabase([only]);
+
+    await expect(getPaymentHistory({ page: 1, filter: "all" })).resolves.toEqual({
+      success: true,
+      data: { items: [], total: 0, page: 1, pageSize: 5 },
     });
   });
 

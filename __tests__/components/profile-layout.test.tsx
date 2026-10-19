@@ -83,7 +83,7 @@ describe("profile layout", () => {
     });
     mocks.getPaymentHistory.mockResolvedValue({
       success: true,
-      data: { items: [], total: 0, page: 1, pageSize: 10 },
+      data: { items: [], total: 0, page: 1, pageSize: 5 },
     });
   });
   afterEach(() => {

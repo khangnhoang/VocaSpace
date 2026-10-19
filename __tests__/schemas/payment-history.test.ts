@@ -88,17 +88,17 @@ describe("paymentHistoryItemSchema", () => {
 });
 
 describe("paymentHistoryDataSchema", () => {
-  it("rejects a page with more than ten items", () => {
-    const items = Array.from({ length: 11 }, (_, index) => ({
+  it("rejects a page with more than five items", () => {
+    const items = Array.from({ length: 6 }, (_, index) => ({
       ...validItem,
       paymentId: `payment-${index}`,
     }));
     expect(
       paymentHistoryDataSchema.safeParse({
         items,
-        total: 11,
+        total: 6,
         page: 1,
-        pageSize: 10,
+        pageSize: 5,
       }).success,
     ).toBe(false);
   });

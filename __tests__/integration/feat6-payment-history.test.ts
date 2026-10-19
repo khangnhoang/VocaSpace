@@ -9,7 +9,7 @@ import { getPaymentHistory } from "@/app/actions/payment-history";
 //   (`@/utils/supabase/server`) được thay bằng client đã đăng nhập của từng học viên.
 // - Đối tượng: getPaymentHistory và bảng public.payments (chính sách "Users can view their own payments", quyền đọc bảng courses).
 // - Thành công: học viên A chỉ thấy dòng của A; bản ghi gateway free bị loại khỏi danh sách lẫn tổng; bốn bộ lọc ra đúng nhóm trạng thái;
-//   thứ tự created_at giảm dần, hòa thì id giảm dần; mỗi trang tối đa 10 dòng cùng tổng chính xác; khóa học không đọc được (nháp)
+//   thứ tự created_at giảm dần, hòa thì id giảm dần; mỗi trang tối đa 5 dòng cùng tổng chính xác; khóa học không đọc được (nháp)
 //   trả course null thay vì làm hỏng cả dòng.
 // - Thất bại: chưa đăng nhập nhận AUTH_REQUIRED; trang vượt cuối (PostgREST 416/PGRST103 thật) trả trang cuối thật; tổng 0 trả trang 1 rỗng.
 // - Bảo mật/phân quyền: A không đọc được dòng của B qua action lẫn qua truy vấn trực tiếp bằng user_id của B; kết quả không chứa
@@ -191,16 +191,18 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
 
     const first = await getPaymentHistory({ page: 1, filter: "all" });
     const second = await getPaymentHistory({ page: 2, filter: "all" });
+    const third = await getPaymentHistory({ page: 3, filter: "all" });
 
-    expect(first.success && second.success).toBe(true);
-    if (!first.success || !second.success) return;
+    expect(first.success && second.success && third.success).toBe(true);
+    if (!first.success || !second.success || !third.success) return;
     expect(first.data.total).toBe(12);
-    expect(first.data.items).toHaveLength(10);
-    expect(second.data.items).toHaveLength(2);
-    expect(second.data.page).toBe(2);
-    expect([...first.data.items, ...second.data.items].map((item) => item.paymentId)).toEqual(
-      idsNewestFirst(),
-    );
+    expect(first.data.items).toHaveLength(5);
+    expect(second.data.items).toHaveLength(5);
+    expect(third.data.items).toHaveLength(2);
+    expect(third.data.page).toBe(3);
+    expect(
+      [...first.data.items, ...second.data.items, ...third.data.items].map((item) => item.paymentId),
+    ).toEqual(idsNewestFirst());
   });
 
   it("never returns learner B's rows to A and keeps B's own rows for B", async () => {
@@ -278,8 +280,8 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
   it("carries discount amounts and the order code and keeps gateway data out of the result", async () => {
     authenticated.client = learnerA;
 
-    // Dòng giảm giá là dòng cũ nhất nên nằm ở trang 2.
-    const result = await getPaymentHistory({ page: 2, filter: "all" });
+    // Dòng giảm giá là dòng cũ nhất nên nằm ở trang cuối (trang 3).
+    const result = await getPaymentHistory({ page: 3, filter: "all" });
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -300,7 +302,7 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.data.page).toBe(2);
+    expect(result.data.page).toBe(3);
     expect(result.data.total).toBe(12);
     expect(result.data.items).toHaveLength(2);
   });
@@ -310,7 +312,7 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
 
     await expect(getPaymentHistory({ page: 3, filter: "paid" })).resolves.toEqual({
       success: true,
-      data: { items: [], total: 0, page: 1, pageSize: 10 },
+      data: { items: [], total: 0, page: 1, pageSize: 5 },
     });
   });
 

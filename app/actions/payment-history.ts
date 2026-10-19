@@ -101,7 +101,11 @@ export async function getPaymentHistory(
     let servedPage = page;
     let result = await readPage(supabase, user.id, filter, servedPage);
 
-    if (result.error?.code === RANGE_NOT_SATISFIABLE) {
+    // PostgREST trả 416 khi offset vượt tổng, nhưng khi offset đúng bằng tổng (số dòng là bội của cỡ trang) nó trả 200 với danh sách rỗng.
+    const isPastEnd =
+      result.error?.code === RANGE_NOT_SATISFIABLE ||
+      (!result.error && page > 1 && (result.data ?? []).length === 0);
+    if (isPastEnd) {
       // Số dòng đã giảm sau lần đếm trước: đếm lại rồi trả trang cuối thực sự tồn tại (G3).
       const counted = await baseQuery(supabase, user.id, filter).limit(1);
       if (counted.error) {
