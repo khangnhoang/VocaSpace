@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AlertCircle, ChevronRight } from "lucide-react";
+import CourseLearningActivity from "@/components/learning-activity/CourseLearningActivity";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
+import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { PublicCourseEnrollmentCard } from "./PublicCourseEnrollmentCard";
 import { PublicCourseInstructors } from "./PublicCourseInstructors";
@@ -9,9 +11,11 @@ import { PublicCourseSyllabus } from "./PublicCourseSyllabus";
 
 type PublicCourseDetailViewProps = {
   course: PublicCourseDetail;
+  // FEAT3 G5: chỉ có khi học viên đã đăng nhập và ghi danh; đi riêng khỏi `course` để dữ liệu người học không vào payload công khai.
+  learningSummary?: CourseLearningSummaryResult;
 };
 
-export function PublicCourseDetailView({ course }: PublicCourseDetailViewProps) {
+export function PublicCourseDetailView({ course, learningSummary }: PublicCourseDetailViewProps) {
   return (
     <article className="bg-gray-50 pb-16">
       <div className="container mx-auto px-4 py-8 md:py-12">
@@ -80,6 +84,9 @@ export function PublicCourseDetailView({ course }: PublicCourseDetailViewProps) 
 
           <div className="min-w-0 space-y-9 lg:col-start-1 lg:row-start-2">
             <PublicCourseStats course={course} />
+            {learningSummary && (
+              <CourseLearningActivity courseSlug={course.slug} result={learningSummary} />
+            )}
             {course.is_preview_suspended && (
               <p
                 role="status"

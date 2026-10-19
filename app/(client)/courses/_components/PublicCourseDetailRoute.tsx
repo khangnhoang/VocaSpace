@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
+import { getCourseLearningSummary } from "@/app/actions/learning-activity";
 import { getPublicCourseDetail } from "@/app/actions/public-course";
 import { PublicCourseDetailView } from "./PublicCourseDetailView";
 import { PublicCourseFeedback } from "./PublicCourseStates";
@@ -29,5 +30,10 @@ export async function PublicCourseDetailRoute({
     );
   }
 
-  return <PublicCourseDetailView course={result.data} />;
+  // FEAT3 G5: học viên đã ghi danh mới đọc chuỗi ngày học, và đọc riêng ngoài payload công khai; khách và người chưa ghi danh không tốn truy vấn nào.
+  const learningSummary = result.data.is_enrolled
+    ? await getCourseLearningSummary(result.data.id)
+    : undefined;
+
+  return <PublicCourseDetailView course={result.data} learningSummary={learningSummary} />;
 }

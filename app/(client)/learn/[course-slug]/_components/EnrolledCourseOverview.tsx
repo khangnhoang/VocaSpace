@@ -8,7 +8,9 @@ import {
   Circle,
   PlayCircle,
 } from "lucide-react";
+import CourseLearningActivity from "@/components/learning-activity/CourseLearningActivity";
 import { Button } from "@/components/ui/button";
+import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type { EnrolledCourseOverviewData } from "@/lib/schemas/enrolled-course-overview";
 
 function getCourseInitials(title: string) {
@@ -320,8 +322,10 @@ function LearningPath({ data }: { data: EnrolledCourseOverviewData }) {
 
 export default function EnrolledCourseOverview({
   data,
+  learningSummary,
 }: {
   data: EnrolledCourseOverviewData;
+  learningSummary?: CourseLearningSummaryResult;
 }) {
   return (
     <div className="min-h-full bg-slate-50 px-4 py-8 sm:px-6 md:py-10 lg:px-8 lg:py-12">
@@ -354,6 +358,9 @@ export default function EnrolledCourseOverview({
             }
           >
             <ProgressCard data={data} />
+            {learningSummary && data.status !== "no-content" && (
+              <CourseLearningActivity courseSlug={data.courseSlug} result={learningSummary} className="mt-6" />
+            )}
           </div>
           {data.status !== "no-content" && (
             <div className="min-w-0 lg:col-span-8 lg:col-start-1 lg:row-start-1">

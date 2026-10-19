@@ -213,6 +213,7 @@ describe("getEnrolledCourseOverview", () => {
     await expect(getEnrolledCourseOverview(course.slug)).resolves.toEqual({
       status: "success",
       data: {
+        courseId: course.id,
         courseSlug: course.slug,
         courseTitle: course.title,
         courseThumbnailUrl: null,

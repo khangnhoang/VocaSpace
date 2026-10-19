@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
+import { getCourseLearningSummary } from "@/app/actions/learning-activity";
 import { getLearningWorkspace } from "@/app/actions/learning-workspace";
 import { SIGN_IN_REQUIRED_LOGIN_PATH } from "@/lib/auth/sign-in-reason";
 import LearningWorkspace from "./_components/LearningWorkspace";
@@ -46,5 +47,8 @@ export default async function LearningWorkspacePage(props: PageProps) {
     dueCardIds.join(","),
   ].join("|");
 
-  return <LearningWorkspace key={workspaceKey} data={result.data} />;
+  // Chuỗi ngày học của khóa cho header; lỗi không chặn không gian học (AC10).
+  const learningSummary = await getCourseLearningSummary(result.data.courseId);
+
+  return <LearningWorkspace key={workspaceKey} data={result.data} learningSummary={learningSummary} />;
 }

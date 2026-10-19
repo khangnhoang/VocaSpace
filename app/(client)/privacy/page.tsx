@@ -32,7 +32,9 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Dữ liệu học tập:</strong> khoá học bạn tham gia, tiến độ học, trạng thái mở khoá các nội dung học,
-            bài làm và kết quả ôn tập.
+            bài làm và kết quả ôn tập. Mỗi khi bạn trả lời một câu hỏi hoặc chấm điểm một thẻ ôn tập, chúng tôi ghi
+            lại thời điểm đó (theo từng phút, kèm khoá học và bài học liên quan) để hiển thị chuỗi ngày học, các bài
+            học gần đây và thời gian học ước tính của bạn.
           </li>
           <li>
             <strong>Nội dung của giáo viên:</strong> khoá học, bài học, câu hỏi, hình ảnh và tệp mà giáo viên tải lên.
@@ -59,6 +61,10 @@ export default function PrivacyPage() {
           trị viên VocaSpace xem được; riêng email còn có thể hiển thị cho các cộng tác viên có quyền xem danh sách
           thành viên, thông tin tác giả/người duyệt hoặc ghi chú của khoá học, bao gồm người chỉ xem trước và cộng
           tác viên có tài khoản học viên.
+        </p>
+        <p>
+          Dữ liệu về thời điểm học của bạn chỉ bạn xem được trong VocaSpace; giáo viên, học viên khác và quản trị viên
+          không xem được dữ liệu này.
         </p>
         <p>
           Khi quản trị viên VocaSpace duyệt, hạ về bản nháp hoặc gỡ một khoá học, họ sẽ xem được tên tác giả và nội dung của

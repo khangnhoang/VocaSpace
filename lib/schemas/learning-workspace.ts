@@ -98,6 +98,8 @@ export const learningWorkspaceMemoryCheckSchema = z.strictObject({
 });
 
 export const learningWorkspaceDataSchema = z.strictObject({
+  // FEAT3: định danh khóa học để đọc và làm mới chuỗi ngày học của khóa này trong header.
+  courseId: z.uuid(),
   courseSlug: publicCourseSlugSchema,
   courseTitle: z.string().trim().min(1),
   syllabus: z.array(learningWorkspaceChapterSchema),

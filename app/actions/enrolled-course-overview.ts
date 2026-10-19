@@ -187,6 +187,7 @@ export async function getEnrolledCourseOverview(
     return parseOverviewResult({
       status: "success",
       data: {
+        courseId: course.id,
         courseSlug: course.slug,
         courseTitle: course.title,
         courseThumbnailUrl: course.thumbnail_url,

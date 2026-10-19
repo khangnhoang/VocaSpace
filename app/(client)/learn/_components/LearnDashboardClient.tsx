@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import type { OverallLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type {
   LearnDashboardCourse,
   LearnDashboardResult,
@@ -41,6 +42,7 @@ import {
   WIDE_COURSES_PER_PAGE,
 } from "./learning-dashboard-state";
 import { PendingPaymentPreview, PendingPaymentsPanel } from "./PendingPayments";
+import LearningStreakCard from "./LearningStreakCard";
 import ReviewSheet from "./ReviewSheet";
 
 const DISMISSED_PAYMENT_STORAGE_KEY =
@@ -392,6 +394,7 @@ function DashboardAside({
   isDesktop,
   isPaymentsOpen,
   learningCardCount,
+  learningSummary,
   onDismissPayment,
   onOpenPaymentsChange,
   onOpenReview,
@@ -403,6 +406,7 @@ function DashboardAside({
   isDesktop: boolean;
   isPaymentsOpen: boolean;
   learningCardCount: number;
+  learningSummary?: OverallLearningSummaryResult;
   onDismissPayment: (paymentId: string) => void;
   onOpenPaymentsChange: (open: boolean) => void;
   onOpenReview: () => void;
@@ -416,6 +420,7 @@ function DashboardAside({
         learningCardCount={learningCardCount}
         totalCardCount={totalCardCount}
       />
+      {learningSummary && <LearningStreakCard result={learningSummary} />}
       <Sheet open={isPaymentsOpen} onOpenChange={onOpenPaymentsChange}>
         <PendingPaymentPreview
           isDesktop={isDesktop}
@@ -433,8 +438,11 @@ function DashboardAside({
 
 export default function LearnDashboardClient({
   result,
+  learningSummary,
 }: {
   result: LearnDashboardResult;
+  // FEAT3: kết quả đọc chuỗi ngày học; vắng mặt thì không hiện thẻ (ví dụ các test cũ), thất bại thì thẻ hiện trạng thái chưa tải được.
+  learningSummary?: OverallLearningSummaryResult;
 }) {
   const router = useRouter();
   const isAtLeastTablet = useMediaQuery("(min-width: 768px)");
@@ -538,6 +546,7 @@ export default function LearnDashboardClient({
       isDesktop={isDesktop}
       isPaymentsOpen={isPaymentsOpen}
       learningCardCount={reviewSummary.learningCardCount}
+      learningSummary={learningSummary}
       onDismissPayment={handleDismissPayment}
       onOpenPaymentsChange={setIsPaymentsOpen}
       onOpenReview={() => {

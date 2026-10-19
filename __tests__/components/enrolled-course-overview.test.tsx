@@ -47,6 +47,7 @@ function overviewData(
   overrides: Partial<EnrolledCourseOverviewData> = {},
 ): EnrolledCourseOverviewData {
   return {
+    courseId: "c0c0c0c0-0000-4000-8000-000000000001",
     courseSlug: "toeic-nen-tang",
     courseTitle: "TOEIC nền tảng",
     courseThumbnailUrl: null,

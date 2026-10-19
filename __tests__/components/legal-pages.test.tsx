@@ -48,6 +48,13 @@ describe("/privacy", () => {
     expect(screen.getByRole("heading", { level: 2, name: "8. Người dưới 16 tuổi" })).toBeTruthy();
   });
 
+  it("discloses the per-minute learning-action times and who can see them (FEAT3 AC9)", () => {
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/ghi\s+lại thời điểm đó \(theo từng phút, kèm khoá học và bài học liên quan\)/)).toBeTruthy();
+    expect(screen.getByText(/Dữ liệu về thời điểm học của bạn chỉ bạn xem được trong VocaSpace/)).toBeTruthy();
+  });
+
   it("exports the browser tab title", () => {
     expect(privacyMetadata.title).toBe("Chính sách quyền riêng tư | VocaSpace");
   });

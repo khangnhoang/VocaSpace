@@ -374,6 +374,7 @@ function buildTopicData(
   );
 
   return {
+    courseId: course.id,
     courseSlug: course.slug,
     courseTitle: course.title,
     syllabus,
