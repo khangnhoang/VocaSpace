@@ -227,17 +227,32 @@ describe("PaymentHistory", () => {
     expect(screen.queryByRole("navigation", { name: "Phân trang lịch sử thanh toán" })).toBeNull();
   });
 
-  it("shows the real page when the server clamps a past-the-end page", async () => {
+  it("shows and navigates from the page the server returns when it clamps a past-the-end page", async () => {
+    // Học viên ở trang 2/3 bấm Sau để xin trang 3, nhưng tổng đã giảm còn 15 nên server trả trang 2 (trang cuối thật).
     mocks.getPaymentHistory
-      .mockResolvedValueOnce(ok(rows(10), 12, 1))
-      .mockResolvedValueOnce(ok(rows(2, "q"), 12, 2));
+      .mockResolvedValueOnce(ok(rows(10), 25, 1))
+      .mockResolvedValueOnce(ok(rows(10, "q"), 25, 2))
+      .mockResolvedValueOnce(ok(rows(5, "r"), 15, 2))
+      .mockResolvedValueOnce(ok(rows(10), 15, 1));
 
     render(<PaymentHistory />);
-    await screen.findByText("Trang 1/2");
+    await screen.findByText("Trang 1/3");
+    fireEvent.click(screen.getByRole("button", { name: /Sau/ }));
+    await screen.findByText("Trang 2/3");
     fireEvent.click(screen.getByRole("button", { name: /Sau/ }));
 
     expect(await screen.findByText("Trang 2/2")).toBeTruthy();
+    expect(mocks.getPaymentHistory).toHaveBeenLastCalledWith({ filter: "all", page: 3 });
     expect(screen.queryByText(/Trang 3\//)).toBeNull();
+    expect((screen.getByRole("button", { name: /Sau/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /Trước/ }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+
+    // Trước phải đi từ trang server trả về (2 -> 1), không phải từ trang đã xin (3 -> 2).
+    fireEvent.click(screen.getByRole("button", { name: /Trước/ }));
+    expect(await screen.findByText("Trang 1/2")).toBeTruthy();
+    expect(mocks.getPaymentHistory).toHaveBeenLastCalledWith({ filter: "all", page: 1 });
   });
 
   it("keeps the previous rows visible until the next page arrives", async () => {

@@ -43,7 +43,7 @@ This file was migrated to the repository templates and translated to English on 
 
 ### FUTURE-PAYMENT-001: Deeper payment dashboard and history
 
-- Status: Deferred.
+- Status: Deferred for a deeper payment dashboard. The payment history part is implemented locally by FEAT6 ([FEAT6 plan](./implementation-plans/feat6/plan.md)) on `feat/feat6-payment-history`, pending Owner QA and rollout; not resolved until then.
 - Problem: the dashboard only needs a pending-payment reminder; full payment history and dashboard are a separate scope.
 - Evidence: current dashboard shows only the pending payment reminder (`FEAT-006`, plan unit D9).
 - Direction: keep the initial DTO narrow and add deeper payment history only when the product need is clear. Verification needed: behavior of pending, paid, cancelled, expired and failed states.
