@@ -866,6 +866,9 @@ describe("FEAT12 catch-up prompt on the completion screen", () => {
 
       expect(screen.getByText("Còn 2 câu bài tập cần làm")).not.toBeNull();
       fireEvent.click(screen.getByRole("button", { name: /Làm ngay/ }));
+      // Every memory answer is correct, so the memory step has no question left to show and names the change instead.
+      expect(completionHeading()).toBeNull();
+      expect(screen.getByRole("heading", { name: "Memory check vừa thay đổi" })).not.toBeNull();
       expect(screen.queryByRole("heading", { name: "Bài tập đang khóa" })).toBeNull();
       expect(screen.queryByText("Câu đơn")).toBeNull();
     });
