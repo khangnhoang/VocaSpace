@@ -1,7 +1,7 @@
 // app/(client)/profile/_components/profile-sidebar.tsx
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition, useCallback } from "react";
+import React, { useState, useEffect, useRef, useTransition, useCallback, type ReactNode } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -11,8 +11,21 @@ import { UserProfileDTO } from "@/lib/schemas/profile";
 import EditProfileForm from "./edit-profile-form";
 import ChangePasswordForm from "./change-pwd-form";
 
-export default function ProfileSidebar() {
-  const [activeTab, setActiveTab] = useState<"profile" | "security">("profile");
+export type ProfileTab = "profile" | "security" | "payments";
+
+export default function ProfileSidebar({
+  initialTab = "profile",
+  isDesktop,
+  paymentsPanel,
+}: {
+  initialTab?: ProfileTab;
+  // null: chưa biết chiều rộng màn hình (SSR/hydration). Từ lg trở lên lịch sử thanh toán luôn hiện ở cột phải nên tab "Thanh toán" bị bỏ.
+  isDesktop: boolean | null;
+  paymentsPanel: ReactNode;
+}) {
+  const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
+  const visibleTab: ProfileTab =
+    isDesktop === true && activeTab === "payments" ? "profile" : activeTab;
   const [profileData, setProfileData] = useState<UserProfileDTO | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -137,9 +150,10 @@ export default function ProfileSidebar() {
 
       <div className="flex border-b border-slate-100 bg-slate-50/30">
         <button
+          aria-current={visibleTab === "profile" ? "true" : undefined}
           onClick={() => setActiveTab("profile")}
           className={`flex-1 py-3.5 text-sm font-bold transition-colors ${
-            activeTab === "profile" 
+            visibleTab === "profile"
               ? "border-b-2 border-route text-route bg-white"
               : "text-slate-500 hover:text-slate-800"
           }`}
@@ -147,23 +161,39 @@ export default function ProfileSidebar() {
           Hồ sơ cá nhân
         </button>
         <button
+          aria-current={visibleTab === "security" ? "true" : undefined}
           onClick={() => setActiveTab("security")}
           className={`flex-1 py-3.5 text-sm font-bold transition-colors ${
-            activeTab === "security" 
+            visibleTab === "security"
               ? "border-b-2 border-route text-route bg-white"
               : "text-slate-500 hover:text-slate-800"
           }`}
         >
           Bảo mật
         </button>
+        {isDesktop !== true && (
+          <button
+            aria-current={visibleTab === "payments" ? "true" : undefined}
+            onClick={() => setActiveTab("payments")}
+            className={`flex-1 py-3.5 text-sm font-bold transition-colors lg:hidden ${
+              visibleTab === "payments"
+                ? "border-b-2 border-route text-route bg-white"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Thanh toán
+          </button>
+        )}
       </div>
 
       <div className="p-6">
-        {isLoading ? (
+        {visibleTab === "payments" ? (
+          paymentsPanel
+        ) : isLoading ? (
           <div className="flex justify-center items-center py-12">
             <Loader2 className="animate-spin w-8 h-8 text-route" />
           </div>
-        ) : activeTab === "profile" ? (
+        ) : visibleTab === "profile" ? (
           <EditProfileForm 
             initialData={profileData} 
             onRefreshData={handleRefreshData} 

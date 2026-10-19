@@ -1,0 +1,292 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getPaymentHistory } from "@/app/actions/payment-history";
+import { createClient } from "@/utils/supabase/server";
+
+// Test plan:
+// - Mục tiêu: ranh giới đọc lịch sử thanh toán FEAT6 (AC3-AC7, G1-G3).
+// - Loại test: Server Action với Supabase boundary mock (chuỗi query được ghi lại để đối chiếu).
+// - Đối tượng: getPaymentHistory.
+// - Case thành công: map bộ lọc sang nhóm trạng thái; loại gateway free; range/count theo trang; thứ tự created_at, id giảm dần;
+//   course null thành course null; trang vượt cuối (PGRST103) trả trang cuối thật; tổng 0 trả trang 1 rỗng.
+// - Case thất bại: chưa đăng nhập, input sai (trang 0, bộ lọc lạ, trường thừa) không chạm DB; lỗi query khác PGRST103 vẫn là lỗi;
+//   lỗi lạ khi đếm lại; output sai hợp đồng thành INVALID_DATA; ngoại lệ thành QUERY_FAILED.
+// - Bảo mật/phân quyền: lọc tường minh user_id = người dùng đăng nhập; danh sách cột không có gateway_metadata, discount_id,
+//   user_id; chỉ client session được tạo (không có đường service role trong action).
+// - Ổn định/resilience: lỗi thô của Supabase không lọt ra kết quả.
+// - Invariant cần giữ: học viên chỉ đọc được dòng của mình, mỗi trang tối đa 10 dòng và không bao giờ trả trang vượt tổng.
+// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/payment-history.test.ts`.
+// - Ghi chú: RLS và trang vượt cuối thật của PostgREST được kiểm bằng __tests__/integration/feat6-payment-history.test.ts.
+
+vi.mock("@/utils/supabase/server", () => ({
+  createClient: vi.fn(),
+}));
+
+const mockedCreateClient = vi.mocked(createClient);
+
+type Call = [method: string, ...args: unknown[]];
+
+interface QueryResult {
+  data?: unknown[];
+  count?: number | null;
+  error?: { code?: string; message: string } | null;
+}
+
+function createQuery(result: QueryResult) {
+  const calls: Call[] = [];
+  const query: Record<string, unknown> = { calls };
+  for (const method of [
+    "select",
+    "eq",
+    "neq",
+    "in",
+    "order",
+    "range",
+    "limit",
+  ]) {
+    query[method] = vi.fn((...args: unknown[]) => {
+      calls.push([method, ...args]);
+      return query;
+    });
+  }
+  query.then = (
+    resolve: (value: unknown) => unknown,
+    reject: (reason: unknown) => unknown,
+  ) =>
+    Promise.resolve({
+      data: result.data ?? [],
+      count: result.count ?? null,
+      error: result.error ?? null,
+    }).then(resolve, reject);
+  return query as { calls: Call[] };
+}
+
+function mockSupabase(
+  queries: Array<{ calls: Call[] }>,
+  user: unknown = { id: "user-one" },
+) {
+  const queue = [...queries];
+  const from = vi.fn(() => queue.shift());
+  mockedCreateClient.mockResolvedValue({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user },
+        error: null,
+      }),
+    },
+    from,
+  } as never);
+  return from;
+}
+
+const row = (index: number, overrides: Record<string, unknown> = {}) => ({
+  id: `payment-${index}`,
+  status: "paid",
+  amount_original: 200000,
+  amount_discount: 20000,
+  amount_final: 180000,
+  currency: "VND",
+  gateway_order_id: `10000${index}`,
+  created_at: "2026-10-01T08:00:00+00:00",
+  expires_at: null,
+  course: { slug: `course-${index}`, title: `Khóa ${index}` },
+  ...overrides,
+});
+
+const callsOf = (query: { calls: Call[] }, method: string) =>
+  query.calls.filter((call) => call[0] === method);
+
+describe("getPaymentHistory", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  it("rejects an unauthenticated caller before reading payments", async () => {
+    const from = mockSupabase([], null);
+
+    await expect(getPaymentHistory({ page: 1, filter: "all" })).resolves.toEqual({
+      success: false,
+      errorCode: "AUTH_REQUIRED",
+      error: "Vui lòng đăng nhập để xem lịch sử thanh toán.",
+    });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["page zero", { page: 0, filter: "all" }],
+    ["fractional page", { page: 1.5, filter: "all" }],
+    ["unknown filter", { page: 1, filter: "free" }],
+    ["client user_id", { page: 1, filter: "all", user_id: "other-user" }],
+    ["no input", undefined],
+  ])("returns INVALID_INPUT for %s without creating a client", async (_name, input) => {
+    await expect(getPaymentHistory(input)).resolves.toMatchObject({
+      success: false,
+      errorCode: "INVALID_INPUT",
+    });
+    expect(mockedCreateClient).not.toHaveBeenCalled();
+  });
+
+  it("reads only the caller's non-free rows, newest first, with an exact count and the page range", async () => {
+    const query = createQuery({ data: [row(1)], count: 23 });
+    mockSupabase([query], { id: "user-one" });
+
+    const result = await getPaymentHistory({ page: 3, filter: "all" });
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        items: [
+          {
+            paymentId: "payment-1",
+            status: "paid",
+            amountOriginal: 200000,
+            amountDiscount: 20000,
+            amountFinal: 180000,
+            currency: "VND",
+            orderCode: "100001",
+            createdAt: "2026-10-01T08:00:00+00:00",
+            expiresAt: null,
+            course: { slug: "course-1", title: "Khóa 1" },
+          },
+        ],
+        total: 23,
+        page: 3,
+        pageSize: 10,
+      },
+    });
+    expect(callsOf(query, "eq")).toEqual([["eq", "user_id", "user-one"]]);
+    expect(callsOf(query, "neq")).toEqual([["neq", "gateway", "free"]]);
+    expect(callsOf(query, "in")).toEqual([]);
+    expect(callsOf(query, "order")).toEqual([
+      ["order", "created_at", { ascending: false }],
+      ["order", "id", { ascending: false }],
+    ]);
+    expect(callsOf(query, "range")).toEqual([["range", 20, 29]]);
+    const [, columns, options] = callsOf(query, "select")[0];
+    expect(options).toEqual({ count: "exact" });
+    for (const forbidden of ["gateway_metadata", "discount_id", "user_id"]) {
+      expect(columns as string).not.toContain(forbidden);
+    }
+  });
+
+  it.each([
+    ["paid", ["paid"]],
+    ["pending", ["creating", "pending"]],
+    ["other", ["cancelled", "expired", "failed"]],
+  ] as const)("maps the %s filter to its status group", async (filter, statuses) => {
+    const query = createQuery({ data: [], count: 0 });
+    mockSupabase([query]);
+
+    await getPaymentHistory({ page: 1, filter });
+
+    expect(callsOf(query, "in")).toEqual([["in", "status", statuses]]);
+  });
+
+  it("filters by the signed-in session user", async () => {
+    const query = createQuery({ data: [], count: 0 });
+    mockSupabase([query], { id: "session-user" });
+
+    await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(callsOf(query, "eq")).toEqual([["eq", "user_id", "session-user"]]);
+  });
+
+  it("returns a null course when the course can no longer be read", async () => {
+    const query = createQuery({ data: [row(1, { course: null })], count: 1 });
+    mockSupabase([query]);
+
+    const result = await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { items: [{ paymentId: "payment-1", course: null }] },
+    });
+  });
+
+  it("returns the last existing page when the requested page is past the end", async () => {
+    const pastEnd = createQuery({
+      error: { code: "PGRST103", message: "Requested range not satisfiable" },
+    });
+    const recount = createQuery({ data: [row(1)], count: 12 });
+    const lastPage = createQuery({ data: [row(11), row(12)], count: 12 });
+    mockSupabase([pastEnd, recount, lastPage]);
+
+    const result = await getPaymentHistory({ page: 5, filter: "all" });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { total: 12, page: 2, pageSize: 10 },
+    });
+    expect(callsOf(pastEnd, "range")).toEqual([["range", 40, 49]]);
+    expect(callsOf(lastPage, "range")).toEqual([["range", 10, 19]]);
+    if (result.success) expect(result.data.items).toHaveLength(2);
+  });
+
+  it("returns page 1 with no rows when a past-the-end page meets an empty total", async () => {
+    const pastEnd = createQuery({ error: { code: "PGRST103", message: "x" } });
+    const recount = createQuery({ data: [], count: 0 });
+    mockSupabase([pastEnd, recount]);
+
+    await expect(getPaymentHistory({ page: 2, filter: "paid" })).resolves.toEqual({
+      success: true,
+      data: { items: [], total: 0, page: 1, pageSize: 10 },
+    });
+  });
+
+  it("keeps any other query error an error without leaking the raw message", async () => {
+    mockSupabase([
+      createQuery({ error: { code: "42501", message: "sensitive rls detail" } }),
+    ]);
+
+    const result = await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(result).toEqual({
+      success: false,
+      errorCode: "QUERY_FAILED",
+      error: "Không thể tải lịch sử thanh toán lúc này.",
+    });
+    expect(JSON.stringify(result)).not.toContain("sensitive");
+  });
+
+  it("fails the read when the recount after a past-the-end page fails", async () => {
+    mockSupabase([
+      createQuery({ error: { code: "PGRST103", message: "x" } }),
+      createQuery({ error: { code: "XX000", message: "count failed" } }),
+    ]);
+
+    await expect(getPaymentHistory({ page: 4, filter: "all" })).resolves.toMatchObject({
+      success: false,
+      errorCode: "QUERY_FAILED",
+    });
+  });
+
+  it("reports INVALID_DATA when a row breaks the output contract", async () => {
+    mockSupabase([
+      createQuery({ data: [row(1, { status: "refunded" })], count: 1 }),
+    ]);
+
+    await expect(getPaymentHistory({ page: 1, filter: "all" })).resolves.toMatchObject({
+      success: false,
+      errorCode: "INVALID_DATA",
+    });
+  });
+
+  it("turns an unexpected throw into QUERY_FAILED", async () => {
+    mockedCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-one" } },
+          error: null,
+        }),
+      },
+      from: vi.fn(() => {
+        throw new Error("network down");
+      }),
+    } as never);
+
+    await expect(getPaymentHistory({ page: 1, filter: "all" })).resolves.toMatchObject({
+      success: false,
+      errorCode: "QUERY_FAILED",
+    });
+  });
+});
