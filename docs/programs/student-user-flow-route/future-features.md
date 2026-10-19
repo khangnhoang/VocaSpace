@@ -46,7 +46,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-003: Lưu learning history và hoạt động học gần đây
 
-- Trạng thái: Deferred.
+- Trạng thái: Implemented locally (2026-10-19), awaiting Owner QA: [FEAT3 plan](./implementation-plans/feat3/plan.md).
 - Mô tả: Thêm bảng hoặc cơ chế lưu lịch sử học tập như thời gian truy cập topic, thời lượng học và streak để hỗ trợ dashboard analytics và gamification.
 - Lý do hoãn: B2 chỉ dùng `user_topic_progress` hiện có. Learning history cần schema mới và product design cho analytics dashboard.
 - Wave/phạm vi dự kiến: Wave D hoặc scope riêng sau khi dashboard/workspace ổn định.

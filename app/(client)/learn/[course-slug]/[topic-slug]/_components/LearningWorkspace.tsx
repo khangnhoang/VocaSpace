@@ -30,6 +30,7 @@ import {
   type CardReviewRequest,
   type CardReviewSuccess,
 } from "@/hooks/use-card-review-queue";
+import { useCourseLearningSummary } from "@/hooks/use-course-learning-summary";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
 import { resolveLandingStage, resolveNextUnfinishedStage } from "@/lib/learning-landing";
 import type {
@@ -39,8 +40,10 @@ import type {
   QuestionGroupDTO,
   QuestionOptionDTO,
 } from "@/lib/schemas/learn";
+import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 import ChapterSidebar from "./ChapterSidebar";
+import CourseStreakChip from "./CourseStreakChip";
 import ExerciseContext from "./ExerciseContext";
 import FlashcardStage from "./FlashcardStage";
 import MemoryCheckStage from "./MemoryCheckStage";
@@ -246,8 +249,11 @@ const relockedTopicIds = new Set<string>();
 
 export default function LearningWorkspace({
   data,
+  learningSummary,
 }: {
   data: LearningWorkspaceData;
+  // FEAT3 AC7: chuỗi ngày học của khóa lúc tải trang; vắng mặt thì header không hiện chip.
+  learningSummary?: CourseLearningSummaryResult;
 }) {
   const {
     courseSlug,
@@ -262,6 +268,7 @@ export default function LearningWorkspace({
     isMemoryCheckPassed,
   } = data;
   const router = useRouter();
+  const { summary: courseSummary, noteLearningAction } = useCourseLearningSummary(data.courseId, learningSummary);
   const initialClearedMemoryCards = new Set(data.memoryGateClearedCardIds ?? []);
   const initialPendingMemoryCards = memoryCheck
     ? flashcards.filter((card) => !initialClearedMemoryCards.has(card.id)).map((card) => card.id)
@@ -375,11 +382,14 @@ export default function LearningWorkspace({
   const [attempts, setAttempts] = useState<Record<string, AnswerAttempt>>({});
   const startAttempt = (questionId: string, optionId: string) =>
     setAttempts((current) => ({ ...current, [questionId]: { status: "pending", optionId } }));
-  const settleAttempt = (questionId: string, optionId: string, outcome: AttemptOutcome) =>
+  const settleAttempt = (questionId: string, optionId: string, outcome: AttemptOutcome) => {
+    // Câu trả lời đã được server lưu (đúng hoặc sai) là một hành động học: làm mới chuỗi ngày học của header (AC7).
+    if (outcome.kind !== "error") noteLearningAction();
     setAttempts((current) => ({
       ...current,
       [questionId]: { status: "settled", optionId, outcome },
     }));
+  };
   const clearAttempt = (questionId: string) =>
     setAttempts((current) => {
       const next = { ...current };
@@ -549,6 +559,7 @@ export default function LearningWorkspace({
 
   const handleCardSaved = (request: CardReviewRequest, result: CardReviewSuccess) => {
     settlePendingCard(request.cardId);
+    noteLearningAction();
     announceTopicProgress(result, markTopicCompleted);
     // Lần chấm đã ghi: thẻ này đã xem; Ổn/Dễ thì xong, Lại/Khó thì chưa (lần chấm gần nhất quyết định, như server).
     const passed = request.rating === Rating.Good || request.rating === Rating.Easy;
@@ -1299,6 +1310,7 @@ export default function LearningWorkspace({
                     Đã hoàn thành
                   </span>
                 )}
+                <CourseStreakChip summary={courseSummary} />
               </div>
             </div>
           </div>

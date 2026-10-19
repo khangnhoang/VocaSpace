@@ -388,6 +388,14 @@ export interface UserQuestionAnswer {
   updated_at: string;
 }
 
+// Bảng user_learning_activity: mỗi dòng là một phút người học có hành động học trong một topic (chỉ trigger ghi, học viên chỉ đọc dòng của mình)
+export interface UserLearningActivity {
+  user_id: string;
+  topic_id: string;
+  course_id: string;
+  activity_minute: string;
+}
+
 export interface Discount {
   id: string;
   course_id: string;

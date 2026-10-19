@@ -408,6 +408,7 @@ describe("LearningWorkspace route ownership", () => {
   ];
 
   const data = {
+    courseId: "c0c0c0c0-0000-4000-8000-000000000001",
     courseSlug: "toeic-foundation",
     courseTitle: "TOEIC Foundation",
     syllabus,
@@ -460,5 +461,47 @@ describe("LearningWorkspace route ownership", () => {
     expect(source).not.toContain("popstate");
     expect(source).not.toContain("getTopicContent");
     expect(source).not.toContain("getTopicLearningHistory");
+  });
+});
+
+// FEAT3 AC5/AC10: thẻ chuỗi ngày học nằm trong cột phải cùng `Ôn tập hôm nay`; thất bại không làm mất phần còn lại của trang.
+describe("FEAT3 learning streak card on /learn", () => {
+  const summary = {
+    streak: 3,
+    studiedToday: true,
+    days: Array.from({ length: 7 }, (_, index) => ({ date: `2026-03-${String(5 + index).padStart(2, "0")}`, studied: index >= 4 })),
+    weekStudyMinutes: 80,
+  };
+
+  it("shows the streak card in the aside next to the review card and keeps the course list", () => {
+    const html = renderToStaticMarkup(
+      <LearnDashboardClient result={successResult()} learningSummary={{ success: true, data: summary }} />,
+    );
+
+    const aside = html.slice(html.indexOf("<aside"));
+    expect(aside).toContain("Ôn tập hôm nay");
+    expect(aside).toContain("3 ngày liên tiếp");
+    expect(aside).toContain("khoảng 1 giờ 20 phút");
+    expect(html.indexOf("Ôn tập hôm nay")).toBeLessThan(html.indexOf("3 ngày liên tiếp"));
+    expect(html).toContain('href="/learn/toeic-foundation/topic-two"');
+  });
+
+  it("shows a quiet unavailable card and still renders the courses, review and memory cards when the summary failed", () => {
+    const html = renderToStaticMarkup(
+      <LearnDashboardClient
+        result={successResult()}
+        learningSummary={{ success: false, error: "Không thể tải chuỗi ngày học lúc này." }}
+      />,
+    );
+
+    expect(html).toContain("Chưa tải được chuỗi ngày học");
+    expect(html).not.toContain('role="alert"');
+    expect(html).toContain("Ôn tập hôm nay");
+    expect(html).toContain("NHỊP GHI NHỚ");
+    expect(html).toContain('href="/learn/toeic-foundation/topic-two"');
+  });
+
+  it("shows no streak card when the page passed no summary", () => {
+    expect(renderDashboard(successResult())).not.toContain("CHUỖI NGÀY HỌC");
   });
 });

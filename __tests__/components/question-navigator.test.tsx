@@ -116,6 +116,7 @@ function workspaceData(overrides: Partial<LearningWorkspaceData> = {}): Learning
     chapterId: "11111111-1111-4111-8111-111111111111",
   };
   return {
+    courseId: "c0c0c0c0-0000-4000-8000-000000000001",
     courseSlug: "toeic-foundation",
     courseTitle: "TOEIC Foundation",
     syllabus: [

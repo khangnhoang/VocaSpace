@@ -19,6 +19,8 @@ export const enrolledCourseOverviewChapterSchema = z.strictObject({
 });
 
 export const enrolledCourseOverviewDataSchema = z.strictObject({
+  // FEAT3: định danh khóa học để đọc chuỗi ngày học riêng của khóa này.
+  courseId: z.string().min(1),
   courseSlug: publicCourseSlugSchema,
   courseTitle: z.string().trim().min(1),
   courseThumbnailUrl: z.string().nullable(),
