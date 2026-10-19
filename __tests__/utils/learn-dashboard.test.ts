@@ -6,6 +6,7 @@ import {
   buildPendingPaymentSummaries,
   buildReviewSummary,
   getVisiblePendingPayments,
+  selectNearestPendingPayment,
   type LearnDashboardChapterRow,
   type LearnDashboardEnrollmentRow,
   type LearnDashboardTopicProgressRow,
@@ -392,5 +393,66 @@ describe("dashboard summaries", () => {
       learningCardCount: 2,
       dueCardCount: 2,
     });
+  });
+});
+
+describe("selectNearestPendingPayment", () => {
+  const pay = (
+    paymentId: string,
+    expiresAt: string | null,
+    createdAt: string,
+  ) => ({
+    paymentId,
+    courseId: `course-${paymentId}`,
+    courseSlug: `slug-${paymentId}`,
+    courseTitle: `Khóa ${paymentId}`,
+    status: "pending" as const,
+    createdAt,
+    expiresAt,
+  });
+  const idOf = (payments: Parameters<typeof selectNearestPendingPayment>[0]) =>
+    selectNearestPendingPayment(payments)?.paymentId ?? null;
+
+  it("returns null for an empty list", () => {
+    expect(selectNearestPendingPayment([])).toBeNull();
+  });
+
+  it("picks the earliest expires_at whatever the input order", () => {
+    const soon = pay("soon", "2026-08-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z");
+    const later = pay("later", "2026-09-01T00:00:00.000Z", "2026-07-20T00:00:00.000Z");
+    expect(idOf([later, soon])).toBe("soon");
+    expect(idOf([soon, later])).toBe("soon");
+  });
+
+  it("breaks a deadline tie by the newer created_at, then the larger payment id", () => {
+    const older = pay("a", "2026-08-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z");
+    const newer = pay("b", "2026-08-01T00:00:00.000Z", "2026-07-02T00:00:00.000Z");
+    expect(idOf([older, newer])).toBe("b");
+    expect(idOf([newer, older])).toBe("b");
+
+    const sameTimeLow = pay("m-1", "2026-08-01T00:00:00.000Z", "2026-07-02T00:00:00.000Z");
+    const sameTimeHigh = pay("m-2", "2026-08-01T00:00:00.000Z", "2026-07-02T00:00:00.000Z");
+    expect(idOf([sameTimeLow, sameTimeHigh])).toBe("m-2");
+    expect(idOf([sameTimeHigh, sameTimeLow])).toBe("m-2");
+  });
+
+  it("places payments without a deadline after every dated one, even a far-future one", () => {
+    const dated = pay("dated", "2099-01-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z");
+    const undated = pay("undated", null, "2026-07-30T00:00:00.000Z");
+    expect(idOf([undated, dated])).toBe("dated");
+    expect(idOf([dated, undated])).toBe("dated");
+  });
+
+  it("falls back to the newest created_at when no payment has a deadline", () => {
+    const older = pay("older", null, "2026-07-01T00:00:00.000Z");
+    const newer = pay("newer", null, "2026-07-05T00:00:00.000Z");
+    expect(idOf([older, newer])).toBe("newer");
+    expect(idOf([newer, older])).toBe("newer");
+  });
+
+  it("treats an unparseable deadline like a missing one", () => {
+    const broken = pay("broken", "not-a-date", "2026-07-30T00:00:00.000Z");
+    const dated = pay("dated", "2099-01-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z");
+    expect(idOf([broken, dated])).toBe("dated");
   });
 });

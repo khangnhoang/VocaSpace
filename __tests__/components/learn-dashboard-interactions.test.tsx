@@ -21,17 +21,17 @@ import type {
 } from "@/lib/schemas/learn-dashboard";
 
 // Test plan:
-// - Mục tiêu: kiểm tra hành vi filter, pagination, hierarchy và payment overlay từ góc nhìn learner.
+// - Mục tiêu: kiểm tra hành vi filter, pagination, hierarchy và thẻ thanh toán từ góc nhìn learner.
 // - Loại test: component interaction trong jsdom.
 // - Đối tượng: LearnDashboardClient, CoursePagination và PendingPayments.
 // - Case thành công:
 //   - filter đổi đúng danh sách và reset về trang đầu;
 //   - next/previous, disabled, aria-current và hai pagination hoạt động độc lập;
-//   - payment sheet mở/đóng, dismiss theo paymentId và cập nhật preview/count.
+//   - thẻ thanh toán chọn khoản có hạn gần nhất; ẩn khoản đang hiện thì khoản kế tiếp thay chỗ và vẫn ẩn sau khi tải lại cùng tab.
 // - Case thất bại:
 //   - không có enrollment chỉ render một global empty state;
 //   - không có in-progress không render empty Học tiếp;
-//   - dismiss payment cuối đóng overlay và ẩn khu vực payment.
+//   - ẩn khoản cuối cùng thì không còn thẻ thanh toán.
 // - Bảo mật/phân quyền: không áp dụng; auth và DTO boundary được kiểm tra ở action/page tests.
 // - Ổn định/resilience: due=0 dùng copy trung tính; completed CTA giữ semantic outline.
 // - Invariant cần giữ: filter/pagination độc lập, payment dismiss theo paymentId và không suy diễn trạng thái từ DTO.
@@ -362,7 +362,7 @@ describe("LearnDashboardClient course interactions", () => {
       screen.queryByRole("heading", { name: "Các khóa học còn lại" }),
     ).toBeNull();
     expect(
-      screen.getByRole("heading", { name: "Thanh toán cần xử lý" }),
+      screen.getByRole("region", { name: "Thanh toán cần xử lý" }),
     ).toBeTruthy();
   });
 
@@ -419,8 +419,31 @@ describe("LearnDashboardClient course interactions", () => {
   });
 });
 
-describe("LearnDashboardClient payment interactions", () => {
-  it("uses shared primary and quiet controls without changing the payment destination", () => {
+describe("LearnDashboardClient payment card", () => {
+  function pendingPayment(
+    id: string,
+    expiresAt: string | null,
+    createdAt: string,
+  ): PendingPaymentSummary {
+    return {
+      paymentId: id,
+      courseId: `course-${id}`,
+      courseSlug: `slug-${id}`,
+      courseTitle: `Khóa ${id}`,
+      status: "pending",
+      createdAt,
+      expiresAt,
+    };
+  }
+
+  const nearest = pendingPayment("near", "2026-08-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z");
+  const tieOlder = pendingPayment("tie-old", "2026-08-05T00:00:00.000Z", "2026-07-02T00:00:00.000Z");
+  const tieNewer = pendingPayment("tie-new", "2026-08-05T00:00:00.000Z", "2026-07-03T00:00:00.000Z");
+  const undatedNewest = pendingPayment("undated", null, "2026-07-09T00:00:00.000Z");
+  const dismissLabel = (id: string) => `Ẩn nhắc nhở này: Khóa ${id}`;
+  const cardName = "Thanh toán cần xử lý";
+
+  it("shows one quiet card for the nearest deadline with a text link, the dismiss button, and no sheet", () => {
     renderDashboard(
       successResult({
         courses: [buildCourse(1, "in-progress")],
@@ -428,157 +451,136 @@ describe("LearnDashboardClient payment interactions", () => {
       }),
     );
 
-    const resume = screen.getByRole("link", {
+    const card = screen.getByRole("region", { name: cardName });
+    expect(within(card).getByText("Khóa học thanh toán 1")).toBeTruthy();
+    expect(within(card).getByText("Hạn 25/07/2026")).toBeTruthy();
+    expect(screen.queryByText("Khóa học thanh toán 2")).toBeNull();
+    const resume = within(card).getByRole("link", {
       name: "Tiếp tục thanh toán cho Khóa học thanh toán 1",
     });
     expect(resume.getAttribute("href")).toBe("/courses/payment-course-1");
-    expect(resume.getAttribute("data-variant")).toBe("default");
-    expect(resume.className).toContain("bg-action");
-    expect(resume.className).not.toContain("bg-amber-700");
-    const dismiss = screen.getByRole("button", {
+    // Không dùng nút đặc trong thẻ này (AC8).
+    expect(resume.getAttribute("data-variant")).toBeNull();
+    expect(resume.className).not.toContain("bg-action");
+    const dismiss = within(card).getByRole("button", {
       name: "Ẩn nhắc nhở này: Khóa học thanh toán 1",
     });
     expect(dismiss.getAttribute("data-variant")).toBe("ghost");
     expect(dismiss.getAttribute("data-icon-only")).toBe("true");
+    const more = within(card).getByRole("link", {
+      name: "+3 khoản khác · Xem trong hồ sơ",
+    });
+    expect(more.getAttribute("href")).toBe("/profile?tab=payments");
+    expect(screen.queryByText(/Xem tất cả/)).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("opens and closes the payment sheet and returns focus to the trigger", async () => {
+  it("omits the +N line when only one payment is visible", () => {
     renderDashboard(
       successResult({
         courses: [buildCourse(1, "in-progress")],
-        pendingPayments: buildPayments(4),
+        pendingPayments: buildPayments(1),
       }),
     );
 
-    const trigger = screen.getByRole("button", {
-      name: "Xem tất cả 4 khoản thanh toán",
-    });
-    fireEvent.click(trigger);
+    expect(screen.getByText("Khóa học thanh toán 1")).toBeTruthy();
+    expect(screen.queryByText(/khoản khác/)).toBeNull();
+  });
 
-    const dialog = await screen.findByRole("dialog", {
-      name: "Thanh toán đang chờ",
-    });
-    const close = within(dialog).getByRole("button", {
-      name: "Đóng danh sách thanh toán",
-    });
-    expect(close.getAttribute("data-icon-only")).toBe("true");
-    expect(close.className).toContain("group/button");
+  it("picks the nearest deadline, then the newer payment on a tie, and puts undated payments last", () => {
+    renderDashboard(
+      successResult({
+        courses: [buildCourse(1, "in-progress")],
+        pendingPayments: [undatedNewest, tieOlder, tieNewer, nearest],
+      }),
+    );
+    expect(screen.getByText("Khóa near")).toBeTruthy();
+    cleanup();
+
+    renderDashboard(
+      successResult({
+        courses: [buildCourse(1, "in-progress")],
+        pendingPayments: [undatedNewest, tieOlder, tieNewer],
+      }),
+    );
+    expect(screen.getByText("Khóa tie-new")).toBeTruthy();
+    expect(screen.queryByText("Khóa tie-old")).toBeNull();
     expect(
-      within(dialog).getByText("Khóa học thanh toán 4"),
+      screen.getByRole("link", { name: "+2 khoản khác · Xem trong hồ sơ" }),
+    ).toBeTruthy();
+  });
+
+  it("shows an undated payment when it is the only one left, without a Hạn line", () => {
+    renderDashboard(
+      successResult({
+        courses: [buildCourse(1, "in-progress")],
+        pendingPayments: [undatedNewest],
+      }),
+    );
+
+    const card = screen.getByRole("region", { name: cardName });
+    expect(within(card).getByText("Khóa undated")).toBeTruthy();
+    expect(within(card).queryByText(/Hạn/)).toBeNull();
+  });
+
+  it("falls back to the newest payment when none has a deadline", () => {
+    const older = pendingPayment("older", null, "2026-07-01T00:00:00.000Z");
+    const newer = pendingPayment("newer", null, "2026-07-05T00:00:00.000Z");
+    renderDashboard(
+      successResult({
+        courses: [buildCourse(1, "in-progress")],
+        pendingPayments: [older, newer],
+      }),
+    );
+
+    expect(screen.getByText("Khóa newer")).toBeTruthy();
+    expect(screen.queryByText("Khóa older")).toBeNull();
+  });
+
+  it("dismisses the shown payment so the next one takes its place, then removes the card", () => {
+    renderDashboard(
+      successResult({
+        courses: [buildCourse(1, "in-progress")],
+        pendingPayments: [undatedNewest, tieOlder, nearest],
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: dismissLabel("near") }));
+    expect(screen.queryByText("Khóa near")).toBeNull();
+    expect(screen.getByText("Khóa tie-old")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "+1 khoản khác · Xem trong hồ sơ" }),
     ).toBeTruthy();
 
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Đóng danh sách thanh toán",
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: dismissLabel("tie-old") }));
+    const card = screen.getByRole("region", { name: cardName });
+    expect(within(card).getByText("Khóa undated")).toBeTruthy();
+    expect(within(card).queryByText(/Hạn/)).toBeNull();
+    expect(screen.queryByText(/khoản khác/)).toBeNull();
 
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Thanh toán đang chờ" }),
-      ).toBeNull();
-    });
-    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(screen.getByRole("button", { name: dismissLabel("undated") }));
+    expect(screen.queryByRole("region", { name: cardName })).toBeNull();
   });
 
-  it("dismisses the selected payment and updates the visible count and preview", async () => {
+  it("keeps a dismissed payment hidden after a reload in the same tab and does not hide the others", async () => {
+    const payments = [tieOlder, nearest];
+    const first = renderDashboard(
+      successResult({ courses: [buildCourse(1, "in-progress")], pendingPayments: payments }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: dismissLabel("near") }));
+    first.unmount();
+
     renderDashboard(
-      successResult({
-        courses: [buildCourse(1, "in-progress")],
-        pendingPayments: buildPayments(4),
-      }),
+      successResult({ courses: [buildCourse(1, "in-progress")], pendingPayments: payments }),
     );
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Xem tất cả 4 khoản thanh toán",
-      }),
-    );
-    const dialog = await screen.findByRole("dialog", {
-      name: "Thanh toán đang chờ",
-    });
-
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Ẩn nhắc nhở này: Khóa học thanh toán 2",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(
-        within(dialog).queryByText("Khóa học thanh toán 2"),
-      ).toBeNull();
-    });
-    expect(within(dialog).getByText("3 khoản · Giữ nguyên thứ tự hiện tại"))
-      .toBeTruthy();
-
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Đóng danh sách thanh toán",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Thanh toán đang chờ" }),
-      ).toBeNull();
-    });
-    const updatedTrigger = screen.getByRole("button", {
-      name: "Xem tất cả 3 khoản thanh toán",
-    });
-    expect(screen.queryByText("Khóa học thanh toán 2")).toBeNull();
-    expect(screen.getByText("Khóa học thanh toán 1")).toBeTruthy();
-
-    fireEvent.click(updatedTrigger);
-    const updatedDialog = await screen.findByRole("dialog", {
-      name: "Thanh toán đang chờ",
-    });
-    expect(within(updatedDialog).queryByText("Khóa học thanh toán 2")).toBeNull();
-    expect(within(updatedDialog).getByText("Khóa học thanh toán 3")).toBeTruthy();
-    expect(within(updatedDialog).getByText("Khóa học thanh toán 4")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Khóa near")).toBeNull());
+    expect(screen.getByText("Khóa tie-old")).toBeTruthy();
   });
 
-  it("closes the sheet and removes the payment section after dismissing the final item", async () => {
-    renderDashboard(
-      successResult({
-        courses: [buildCourse(1, "in-progress")],
-        pendingPayments: buildPayments(2),
-      }),
-    );
+  it("renders no card when there are no payments", () => {
+    renderDashboard(successResult({ courses: [buildCourse(1, "in-progress")] }));
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Xem tất cả 2 khoản thanh toán",
-      }),
-    );
-    const dialog = await screen.findByRole("dialog", {
-      name: "Thanh toán đang chờ",
-    });
-
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Ẩn nhắc nhở này: Khóa học thanh toán 1",
-      }),
-    );
-    await waitFor(() => {
-      expect(
-        within(dialog).queryByText("Khóa học thanh toán 1"),
-      ).toBeNull();
-    });
-
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Ẩn nhắc nhở này: Khóa học thanh toán 2",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("dialog", { name: "Thanh toán đang chờ" }),
-      ).toBeNull();
-      expect(
-        screen.queryByRole("heading", { name: "Thanh toán cần xử lý" }),
-      ).toBeNull();
-    });
+    expect(screen.queryByRole("region", { name: cardName })).toBeNull();
   });
 });

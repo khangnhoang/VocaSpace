@@ -315,3 +315,42 @@ export function addDismissedPaymentId(
     ? dismissedPaymentIds
     : [...dismissedPaymentIds, paymentId];
 }
+
+function getDeadlineTime(payment: PendingPaymentSummary) {
+  if (!payment.expiresAt) return null;
+  const time = Date.parse(payment.expiresAt);
+  return Number.isNaN(time) ? null : time;
+}
+
+/**
+ * FEAT6 AC8: khoản thanh toán đang chờ hiển thị trên thẻ /learn là khoản có hạn gần nhất.
+ * Cùng hạn thì lấy khoản tạo mới hơn (rồi paymentId lớn hơn để thứ tự ổn định); khoản không có hạn đứng sau mọi khoản có hạn.
+ */
+export function selectNearestPendingPayment(
+  payments: PendingPaymentSummary[],
+): PendingPaymentSummary | null {
+  let nearest: PendingPaymentSummary | null = null;
+  for (const payment of payments) {
+    if (nearest === null || comparePaymentUrgency(payment, nearest) < 0) {
+      nearest = payment;
+    }
+  }
+  return nearest;
+}
+
+function comparePaymentUrgency(
+  left: PendingPaymentSummary,
+  right: PendingPaymentSummary,
+) {
+  const leftDeadline = getDeadlineTime(left);
+  const rightDeadline = getDeadlineTime(right);
+  if (leftDeadline !== rightDeadline) {
+    if (leftDeadline === null) return 1;
+    if (rightDeadline === null) return -1;
+    return leftDeadline - rightDeadline;
+  }
+  return (
+    Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
+    right.paymentId.localeCompare(left.paymentId)
+  );
+}

@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Sheet } from "@/components/ui/sheet";
 import type { OverallLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type {
   LearnDashboardCourse,
@@ -41,7 +40,7 @@ import {
   type RemainingCourseFilter,
   WIDE_COURSES_PER_PAGE,
 } from "./learning-dashboard-state";
-import { PendingPaymentPreview, PendingPaymentsPanel } from "./PendingPayments";
+import { PendingPaymentCard } from "./PendingPayments";
 import LearningStreakCard from "./LearningStreakCard";
 import ReviewSheet from "./ReviewSheet";
 
@@ -391,24 +390,18 @@ function MemoryRhythmCard({
 function DashboardAside({
   className = "",
   dueCardCount,
-  isDesktop,
-  isPaymentsOpen,
   learningCardCount,
   learningSummary,
   onDismissPayment,
-  onOpenPaymentsChange,
   onOpenReview,
   payments,
   totalCardCount,
 }: {
   className?: string;
   dueCardCount: number;
-  isDesktop: boolean;
-  isPaymentsOpen: boolean;
   learningCardCount: number;
   learningSummary?: OverallLearningSummaryResult;
   onDismissPayment: (paymentId: string) => void;
-  onOpenPaymentsChange: (open: boolean) => void;
   onOpenReview: () => void;
   payments: PendingPaymentSummary[];
   totalCardCount: number;
@@ -421,17 +414,7 @@ function DashboardAside({
         totalCardCount={totalCardCount}
       />
       {learningSummary && <LearningStreakCard result={learningSummary} />}
-      <Sheet open={isPaymentsOpen} onOpenChange={onOpenPaymentsChange}>
-        <PendingPaymentPreview
-          isDesktop={isDesktop}
-          payments={payments}
-          onDismiss={onDismissPayment}
-        />
-        <PendingPaymentsPanel
-          onDismiss={onDismissPayment}
-          payments={payments}
-        />
-      </Sheet>
+      <PendingPaymentCard payments={payments} onDismiss={onDismissPayment} />
     </aside>
   );
 }
@@ -446,10 +429,8 @@ export default function LearnDashboardClient({
 }) {
   const router = useRouter();
   const isAtLeastTablet = useMediaQuery("(min-width: 768px)");
-  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const reviewOpener = useRef<HTMLElement | null>(null);
-  const [isPaymentsOpen, setIsPaymentsOpen] = useState(false);
   const [dismissedPaymentIds, setDismissedPaymentIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -499,15 +480,8 @@ export default function LearnDashboardClient({
         }
         return next;
       });
-
-      if (
-        visiblePayments.length === 1 &&
-        visiblePayments[0]?.paymentId === paymentId
-      ) {
-        setIsPaymentsOpen(false);
-      }
     },
-    [visiblePayments],
+    [],
   );
 
   const handleReviewComplete = useCallback(() => {
@@ -543,12 +517,9 @@ export default function LearnDashboardClient({
     <DashboardAside
       className="mt-10 lg:float-right lg:mt-0 lg:w-[calc((100%-4rem)/3)]"
       dueCardCount={reviewSummary.dueCardCount}
-      isDesktop={isDesktop}
-      isPaymentsOpen={isPaymentsOpen}
       learningCardCount={reviewSummary.learningCardCount}
       learningSummary={learningSummary}
       onDismissPayment={handleDismissPayment}
-      onOpenPaymentsChange={setIsPaymentsOpen}
       onOpenReview={() => {
         reviewOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         setIsReviewOpen(true);

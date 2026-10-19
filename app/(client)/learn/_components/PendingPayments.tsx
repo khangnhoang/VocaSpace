@@ -1,208 +1,78 @@
 "use client";
 
 import Link from "next/link";
-import { AlertCircle, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { selectNearestPendingPayment } from "@/lib/learn-dashboard";
+import { formatPaymentDate } from "@/lib/payment-history-format";
 import type { PendingPaymentSummary } from "@/lib/schemas/learn-dashboard";
-import { cn } from "@/lib/utils";
-import { getPaymentPreviewLimit } from "./learning-dashboard-state";
 
-function formatPaymentDeadline(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
-}
+const CARD_CLASS =
+  "rounded-[20px] border border-blue-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.06)] lg:p-6";
 
-export function PaymentRow({
-  payment,
+/**
+ * FEAT6 AC8: thẻ gọn cho khoản thanh toán đang chờ. Chỉ hiện khoản có hạn gần nhất trong các khoản chưa ẩn;
+ * các khoản còn lại gom thành một dòng dẫn tới lịch sử trong hồ sơ. Không có khoản nào thì không render gì.
+ */
+export function PendingPaymentCard({
   onDismiss,
-  surface = "panel",
+  payments,
 }: {
-  payment: PendingPaymentSummary;
   onDismiss: (paymentId: string) => void;
-  surface?: "panel" | "preview";
+  payments: PendingPaymentSummary[];
 }) {
-  const deadline = payment.expiresAt
-    ? formatPaymentDeadline(payment.expiresAt)
-    : null;
-  const statusLabel =
-    payment.status === "creating"
-      ? "Đang tạo thanh toán"
-      : "Đang chờ thanh toán";
+  const payment = selectNearestPendingPayment(payments);
+  if (!payment) return null;
+
+  const deadline = payment.expiresAt ? formatPaymentDate(payment.expiresAt) : null;
+  const otherCount = payments.length - 1;
 
   return (
-    <article
-      className={cn(
-        "grid min-h-30 min-w-0 grid-cols-[24px_minmax(0,1fr)] items-start gap-x-3 gap-y-3 p-3 sm:grid-cols-[24px_minmax(0,1fr)_auto] sm:items-center sm:p-4",
-        surface === "preview" ? "bg-transparent" : "bg-white",
-      )}
-    >
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-attention-quiet text-xs font-extrabold text-attention">
-        <span aria-hidden="true">!</span>
-        <span className="sr-only">Cần xử lý</span>
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="line-clamp-2 wrap-break-word text-sm font-bold leading-5 text-slate-950 sm:text-base sm:leading-6">
-          {payment.courseTitle}
-        </h3>
-        <p className="mt-1 text-xs leading-4.5 text-attention">
-          {statusLabel}
-        </p>
-        {deadline && (
-          <p className="mt-0.5 text-xs leading-4.5 text-slate-600">
-            Hạn {deadline}
-          </p>
-        )}
-      </div>
-      <div className="col-start-2 flex shrink-0 items-center gap-2 sm:col-start-3 sm:row-start-1">
-        <Button asChild className="h-11 [@media(hover:hover)_and_(pointer:fine)]:h-9">
+    <section aria-label="Thanh toán cần xử lý" className={CARD_CLASS}>
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="mt-2 size-2 shrink-0 rounded-full bg-attention"
+        />
+        <div className="min-w-0 flex-1">
+          <h2
+            title={payment.courseTitle}
+            className="truncate text-base font-bold text-slate-950"
+          >
+            {payment.courseTitle}
+          </h2>
+          {deadline && (
+            <p className="mt-0.5 text-xs leading-5 text-slate-600">
+              Hạn {deadline}
+            </p>
+          )}
           <Link
             href={`/courses/${payment.courseSlug}`}
             aria-label={`Tiếp tục thanh toán cho ${payment.courseTitle}`}
+            className="mt-2 inline-flex min-h-11 items-center text-xs font-bold text-route underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:min-h-9"
           >
             Tiếp tục thanh toán
           </Link>
-        </Button>
+        </div>
         <Button
           type="button"
           variant="ghost"
           size="icon"
           aria-label={`Ẩn nhắc nhở này: ${payment.courseTitle}`}
           onClick={() => onDismiss(payment.paymentId)}
+          className="-mr-2 -mt-2 shrink-0"
         >
           <X aria-hidden="true" />
         </Button>
       </div>
-    </article>
-  );
-}
-
-export function PendingPaymentPreview({
-  isDesktop,
-  onDismiss,
-  payments,
-}: {
-  isDesktop: boolean;
-  onDismiss: (paymentId: string) => void;
-  payments: PendingPaymentSummary[];
-}) {
-  if (payments.length === 0) return null;
-
-  const previewLimit = getPaymentPreviewLimit(isDesktop);
-  const previewPayments = payments.slice(0, previewLimit);
-  const hasMore = payments.length > previewLimit;
-
-  return (
-    <section aria-labelledby="pending-payments-title" className="min-w-0">
-      <div className="mb-3 flex items-center gap-2">
-        <AlertCircle aria-hidden="true" className="size-5 text-attention" />
-        <div className="min-w-0">
-          <h2
-            id="pending-payments-title"
-            className="text-lg font-bold text-slate-950"
-          >
-            Thanh toán cần xử lý
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-slate-600">
-            Hoàn tất đăng ký khóa học còn đang chờ.
-          </p>
-        </div>
-      </div>
-      <div className="overflow-hidden rounded-[20px] border border-attention-line bg-attention-quiet shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
-        <div className="divide-y divide-attention-line">
-          {previewPayments.map((payment) => (
-            <PaymentRow
-              key={payment.paymentId}
-              payment={payment}
-              onDismiss={onDismiss}
-              surface="preview"
-            />
-          ))}
-        </div>
-        {hasMore && (
-          <div className="border-t border-attention-line p-1">
-            <SheetTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full text-route underline-offset-4 [@media(hover:hover)_and_(pointer:fine)]:h-9 [@media(hover:hover)_and_(pointer:fine)]:border-transparent [@media(hover:hover)_and_(pointer:fine)]:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:border-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:bg-transparent [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
-              >
-                Xem tất cả {payments.length} khoản thanh toán
-              </Button>
-            </SheetTrigger>
-          </div>
-        )}
-      </div>
+      {otherCount > 0 && (
+        <Link
+          href="/profile?tab=payments"
+          className="mt-3 flex min-h-11 items-center border-t border-slate-100 pt-3 text-xs font-bold text-route underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:min-h-9"
+        >
+          {`+${otherCount} khoản khác · Xem trong hồ sơ`}
+        </Link>
+      )}
     </section>
-  );
-}
-
-export function PendingPaymentsPanel({
-  onDismiss,
-  payments,
-}: {
-  onDismiss: (paymentId: string) => void;
-  payments: PendingPaymentSummary[];
-}) {
-  return (
-    <SheetContent
-      side="right"
-      showCloseButton={false}
-      className="h-dvh! w-screen! max-w-none! gap-0 overflow-hidden border-0 bg-white p-0 shadow-[0_12px_30px_-12px_rgba(15,23,42,0.24)] md:w-105! md:max-w-105! lg:w-120! lg:max-w-120!"
-    >
-      <SheetHeader className="relative min-h-26 shrink-0 justify-center border-b border-attention-line bg-attention-quiet px-5 py-5 pr-20 lg:min-h-30 lg:px-6">
-        <SheetTitle className="text-xl font-bold leading-7 text-attention lg:text-2xl lg:leading-8">
-          Thanh toán đang chờ
-        </SheetTitle>
-        <SheetDescription className="text-xs leading-4.5 text-attention">
-          {payments.length} khoản · Giữ nguyên thứ tự hiện tại
-        </SheetDescription>
-        <SheetClose asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Đóng danh sách thanh toán"
-            className="absolute right-5 top-5 lg:right-6 lg:top-6"
-          >
-            <X aria-hidden="true" />
-          </Button>
-        </SheetClose>
-      </SheetHeader>
-
-      <div
-        data-testid="pending-payments-scroll-area"
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white p-4 md:p-5"
-      >
-        <div className="divide-y divide-slate-200">
-          {payments.map((payment) => (
-            <PaymentRow
-              key={payment.paymentId}
-              payment={payment}
-              onDismiss={onDismiss}
-            />
-          ))}
-        </div>
-      </div>
-
-      <SheetFooter className="min-h-18 shrink-0 justify-center border-t border-slate-200 bg-white px-5 py-4">
-        <p className="text-xs leading-4.5 text-slate-600">
-          Ẩn nhắc nhở không hủy thanh toán · Danh sách cuộn bên trong
-        </p>
-      </SheetFooter>
-    </SheetContent>
   );
 }

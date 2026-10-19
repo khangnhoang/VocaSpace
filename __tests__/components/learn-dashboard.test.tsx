@@ -10,11 +10,9 @@ import CourseRow, {
 import {
   filterRemainingCourses,
   getInProgressCourses,
-  getPaymentPreviewLimit,
   getRemainingCourses,
   paginateCourses,
 } from "@/app/(client)/learn/_components/learning-dashboard-state";
-import { PaymentRow } from "@/app/(client)/learn/_components/PendingPayments";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import type {
   LearnDashboardCourse,
@@ -26,11 +24,11 @@ import type {
 // Test plan:
 // - Mục tiêu: bảo vệ Option A responsive, trạng thái course/payment và workspace route seam.
 // - Loại test: component static render, helper thuần và source contract không thể quan sát qua DOM.
-// - Đối tượng: LearnDashboardClient, CourseThumbnail, PaymentRow và LearningWorkspace.
+// - Đối tượng: LearnDashboardClient, CourseThumbnail và LearningWorkspace.
 // - Case thành công: phân nhóm/pagination/fast-path CTA/overview entry/thumbnail/payment đúng contract và route.
 // - Case thất bại: error, empty, no-content và thumbnail null.
 // - Bảo mật/phân quyền: auth redirect được bảo vệ ở action/page test.
-// - Ổn định/resilience: hai cột Desktop độc lập, payment mobile preview một item và workspace không nội dung không throw.
+// - Ổn định/resilience: hai cột Desktop độc lập, thẻ thanh toán chỉ một khoản và workspace không nội dung không throw.
 // - Invariant cần giữ: thứ tự DTO không đổi; remaining loại in-progress; Desktop không dùng row-span; workspace navigation dùng URL chuẩn.
 // - Kết quả verify gần nhất: focused Vitest 5 files / 55 tests đạt; payment geometry/capability đã kiểm tra browser local.
 
@@ -258,7 +256,7 @@ describe("LearnDashboardClient", () => {
     ).toContain("Chưa thể tải không gian học tập");
   });
 
-  it("uses a one-item mobile payment preview and hides the section at zero", () => {
+  it("renders a single payment card for the nearest deadline, with the +N link, and hides it at zero", () => {
     const html = renderDashboard(
       successResult({ pendingPayments: buildPayments(4) }),
     );
@@ -267,7 +265,9 @@ describe("LearnDashboardClient", () => {
     expect(html).not.toContain("Khóa học thanh toán 2");
     expect(html).not.toContain("Khóa học thanh toán 4");
     expect(html).toContain('href="/courses/payment-course-1"');
-    expect(html).toContain("Xem tất cả 4 khoản thanh toán");
+    expect(html).toContain("+3 khoản khác · Xem trong hồ sơ");
+    expect(html).toContain('href="/profile?tab=payments"');
+    expect(html).not.toContain("Xem tất cả");
     expect(renderDashboard(successResult())).not.toContain(
       "Thanh toán cần xử lý",
     );
@@ -324,10 +324,6 @@ describe("learning dashboard presentation helpers", () => {
     ).toEqual(["not-started", "completed"]);
   });
 
-  it("uses responsive preview limits from the approved specification", () => {
-    expect(getPaymentPreviewLimit(false)).toBe(1);
-    expect(getPaymentPreviewLimit(true)).toBe(3);
-  });
 
   it("renders thumbnail fallback and a valid object-cover image", () => {
     const fallbackHtml = renderToStaticMarkup(
@@ -349,28 +345,6 @@ describe("learning dashboard presentation helpers", () => {
     expect(imageHtml).toContain("object-cover");
   });
 
-  it("hides a null deadline and keeps the canonical payment action", () => {
-    const withoutDeadline = renderToStaticMarkup(
-      <PaymentRow payment={buildPayments(2)[1]} onDismiss={vi.fn()} />,
-    );
-    const withDeadline = renderToStaticMarkup(
-      <PaymentRow payment={buildPayments(1)[0]} onDismiss={vi.fn()} />,
-    );
-
-    expect(withoutDeadline).not.toContain("Hạn ");
-    expect(withDeadline).toContain("Hạn 25/07/2026");
-    expect(withDeadline).toContain(
-      'aria-label="Ẩn nhắc nhở này: Khóa học thanh toán 1"',
-    );
-    expect(withDeadline).toContain(
-      'href="/courses/payment-course-1"',
-    );
-    expect(withDeadline).toContain("Tiếp tục thanh toán");
-    expect(withDeadline).toContain("bg-action");
-    expect(withDeadline).not.toContain("bg-amber-700");
-    expect(withDeadline).toContain("text-attention");
-    expect(withDeadline).not.toContain("bg-blue-600");
-  });
 });
 
 describe("LearningWorkspace route ownership", () => {
