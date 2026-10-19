@@ -46,7 +46,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-003: Lưu learning history và hoạt động học gần đây
 
-- Trạng thái: Implemented locally (2026-10-19), awaiting Owner QA: [FEAT3 plan](./implementation-plans/feat3/plan.md).
+- Trạng thái: Done (2026-10-19): merged in PR 168 (`93ce589`), hosted migration `20261019090000` applied, production deployed; [FEAT3 plan](./implementation-plans/feat3/plan.md).
 - Mô tả: Thêm bảng hoặc cơ chế lưu lịch sử học tập như thời gian truy cập topic, thời lượng học và streak để hỗ trợ dashboard analytics và gamification.
 - Lý do hoãn: B2 chỉ dùng `user_topic_progress` hiện có. Learning history cần schema mới và product design cho analytics dashboard.
 - Wave/phạm vi dự kiến: Wave D hoặc scope riêng sau khi dashboard/workspace ổn định.
@@ -75,7 +75,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-006: Dashboard và lịch sử thanh toán đầy đủ hơn
 
-- Trạng thái: Deferred.
+- Trạng thái: Planned (2026-10-20): [FEAT6 plan](./implementation-plans/feat6/plan.md).
 - Mô tả: Bổ sung dashboard thanh toán đầy đủ với lịch sử `paid`/`cancelled`/`expired`/`failed` thay vì chỉ hiển thị pending payment reminder.
 - Lý do hoãn: B2 chỉ cần pending payment reminder với phạm vi hẹp. Full history cần product design và có thể cần route riêng.
 - Wave/phạm vi dự kiến: Wave D.
@@ -121,7 +121,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-012: Nhắc học viên làm bù khi bài học đã hoàn thành có nội dung mới
 
-- Trạng thái: In progress trong [FEAT12](./implementation-plans/feat12/plan.md) trên nhánh `feat/feat12-catch-up-prompt`; đã triển khai cục bộ, chưa merge, xem [progress.md](./progress.md).
+- Trạng thái: Done (2026-10-19): merged in PR 167 (`fd5b429`); [FEAT12 plan](./implementation-plans/feat12/plan.md).
 - Mô tả: khi bài học đã hoàn thành nhưng theo nội dung hiện tại còn câu hỏi hoặc thẻ chưa đạt (tác giả đổi đáp án đúng, thêm câu hoặc thêm thẻ), màn kết quả hiện một khung kiểu "Bài học có 1 câu mới cần làm" kèm nút đưa thẳng tới câu đầu tiên chưa đạt. Không hạ trạng thái hoàn thành, không đổi quy tắc chấm.
 - Lý do: Owner QA TFEAT1 (2026-10-18) thấy màn kết quả vẫn báo hoàn thành, dấu hiệu duy nhất là bước "Bài tập" mất dấu tích, học viên phải tự dò câu chưa làm. TFEAT1 làm trường hợp này thường gặp hơn. Owner chọn tách unit riêng thay vì gộp vào TFEAT1.
 - Liên kết: [TFEAT1 plan](./implementation-plans/tfeat1/plan.md).
