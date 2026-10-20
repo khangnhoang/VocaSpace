@@ -79,6 +79,31 @@ function readPage(
     .range(from, from + PAYMENT_HISTORY_PAGE_SIZE - 1);
 }
 
+/**
+ * AC10 / G7: tên thật của khóa học mà phép join không đọc được. Chỉ gọi khi trang có dòng course rỗng và chỉ với id của các
+ * dòng đó; hàm trong DB tự giới hạn theo chủ payment. Lỗi ở đây không làm hỏng cả trang: dòng giữ chữ dự phòng.
+ */
+async function readHiddenCourseTitles(
+  supabase: SupabaseServerClient,
+  rows: PaymentHistoryRow[],
+): Promise<Map<string, string>> {
+  const titles = new Map<string, string>();
+  const hiddenIds = rows.filter((row) => row.course === null).map((row) => row.id);
+  if (hiddenIds.length === 0) return titles;
+
+  const { data, error } = await supabase.rpc("get_own_payment_course_titles", {
+    p_payment_ids: hiddenIds,
+  });
+  if (error) {
+    console.error("Payment history hidden course titles failed", error);
+    return titles;
+  }
+  for (const entry of (data ?? []) as Array<{ payment_id: string; course_title: string }>) {
+    if (entry.course_title) titles.set(entry.payment_id, entry.course_title);
+  }
+  return titles;
+}
+
 export async function getPaymentHistory(
   input: unknown,
 ): Promise<PaymentHistoryResult> {
@@ -134,6 +159,7 @@ export async function getPaymentHistory(
     }
 
     const rows = (result.data ?? []) as unknown as PaymentHistoryRow[];
+    const hiddenTitles = await readHiddenCourseTitles(supabase, rows);
     const parsedData = paymentHistoryDataSchema.safeParse({
       items: rows.map((row) => ({
         paymentId: row.id,
@@ -148,6 +174,7 @@ export async function getPaymentHistory(
         course: row.course
           ? { slug: row.course.slug, title: row.course.title }
           : null,
+        hiddenCourseTitle: row.course ? null : (hiddenTitles.get(row.id) ?? null),
       })),
       total: result.count ?? rows.length,
       page: servedPage,

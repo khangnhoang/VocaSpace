@@ -6,11 +6,13 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, ReceiptText } from "lucide-react";
 import { getPaymentHistory } from "@/app/actions/payment-history";
 import { Button } from "@/components/ui/button";
+import { getResumePaymentPath } from "@/lib/public-courses/routes";
 import {
   canContinuePayment,
   formatPaymentDate,
   formatPaymentDateTime,
   formatVnd,
+  hasLivePaymentDeadline,
   PAYMENT_STATUS_LABELS,
 } from "@/lib/payment-history-format";
 import type {
@@ -75,19 +77,35 @@ function PaymentRow({
   const createdAt = formatPaymentDateTime(item.createdAt);
   const canContinue = canContinuePayment(item, readAt);
   const deadline =
-    canContinue && item.expiresAt ? formatPaymentDate(item.expiresAt) : null;
+    hasLivePaymentDeadline(item, readAt) && item.expiresAt
+      ? formatPaymentDate(item.expiresAt)
+      : null;
 
   return (
     <li className="py-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {item.course ? (
-            <Link
-              href={`/courses/${item.course.slug}`}
-              className="line-clamp-2 wrap-break-word text-sm font-bold leading-5 text-slate-950 underline-offset-4 hover:text-route hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2"
-            >
-              {item.course.title}
-            </Link>
+            // AC9: line-clamp biến phần tử thành hộp khối nên gạch chân của chính nó chỉ phủ dòng đầu; để link là phần tử inline
+            // trong khối clamp thì gạch chân phủ mọi dòng khi hover và khi focus bàn phím.
+            <p className="line-clamp-2 wrap-break-word text-sm font-bold leading-5">
+              <Link
+                href={`/courses/${item.course.slug}`}
+                className="text-slate-950 underline-offset-4 hover:text-route hover:underline focus-visible:text-route focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2"
+              >
+                {item.course.title}
+              </Link>
+            </p>
+          ) : item.hiddenCourseTitle ? (
+            // AC10: học viên không còn đọc được khóa học nhưng vẫn thấy tên khóa đã mua; chữ thường, không link.
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="line-clamp-2 wrap-break-word text-sm font-bold leading-5 text-slate-950">
+                {item.hiddenCourseTitle}
+              </p>
+              <span className="inline-flex shrink-0 items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                Không còn khả dụng
+              </span>
+            </div>
           ) : (
             <p className="text-sm font-semibold leading-5 text-slate-500">
               Khóa học không còn khả dụng
@@ -124,7 +142,7 @@ function PaymentRow({
         )}
         {canContinue && item.course && (
           <Link
-            href={`/courses/${item.course.slug}`}
+            href={getResumePaymentPath(item.course.slug)}
             className="text-xs font-bold text-route underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2"
           >
             Tiếp tục thanh toán

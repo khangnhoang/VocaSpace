@@ -27,7 +27,7 @@ import type {
 // - Case thành công:
 //   - filter đổi đúng danh sách và reset về trang đầu;
 //   - next/previous, disabled, aria-current và hai pagination hoạt động độc lập;
-//   - thẻ thanh toán chọn khoản có hạn gần nhất; ẩn khoản đang hiện thì khoản kế tiếp thay chỗ và vẫn ẩn sau khi tải lại cùng tab.
+//   - thẻ thanh toán chọn khoản có hạn gần nhất, và chỉ khoản pending còn hạn mới có link "Tiếp tục thanh toán" tới ?thanh-toan=tiep-tuc; ẩn khoản đang hiện thì khoản kế tiếp thay chỗ và vẫn ẩn sau khi tải lại cùng tab.
 // - Case thất bại:
 //   - không có enrollment chỉ render một global empty state;
 //   - không có in-progress không render empty Học tiếp;
@@ -121,7 +121,7 @@ function buildPayments(count: number): PendingPaymentSummary[] {
     courseTitle: `Khóa học thanh toán ${index + 1}`,
     status: index === 1 ? ("creating" as const) : ("pending" as const),
     createdAt: `2026-07-${String(20 - index).padStart(2, "0")}T00:00:00.000Z`,
-    expiresAt: index === 0 ? "2026-07-25T00:00:00.000Z" : null,
+    expiresAt: index === 0 ? "2099-07-25T00:00:00.000Z" : null,
   }));
 }
 
@@ -453,12 +453,12 @@ describe("LearnDashboardClient payment card", () => {
 
     const card = screen.getByRole("region", { name: cardName });
     expect(within(card).getByText("Khóa học thanh toán 1")).toBeTruthy();
-    expect(within(card).getByText("Hạn 25/07/2026")).toBeTruthy();
+    expect(within(card).getByText("Hạn 25/07/2099")).toBeTruthy();
     expect(screen.queryByText("Khóa học thanh toán 2")).toBeNull();
     const resume = within(card).getByRole("link", {
       name: "Tiếp tục thanh toán cho Khóa học thanh toán 1",
     });
-    expect(resume.getAttribute("href")).toBe("/courses/payment-course-1");
+    expect(resume.getAttribute("href")).toBe("/courses/payment-course-1?thanh-toan=tiep-tuc");
     // Không dùng nút đặc trong thẻ này (AC8).
     expect(resume.getAttribute("data-variant")).toBeNull();
     expect(resume.className).not.toContain("bg-action");
@@ -473,6 +473,38 @@ describe("LearnDashboardClient payment card", () => {
     expect(more.getAttribute("href")).toBe("/profile?tab=payments");
     expect(screen.queryByText(/Xem tất cả/)).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("offers the continue link only for a pending payment that has not expired, never for creating or past-due ones", () => {
+    const continueName = /Tiếp tục thanh toán cho/;
+    const visible = (payment: PendingPaymentSummary) => {
+      renderDashboard(
+        successResult({
+          courses: [buildCourse(1, "in-progress")],
+          pendingPayments: [payment],
+        }),
+      );
+      const card = screen.getByRole("region", { name: cardName });
+      const link = within(card).queryByRole("link", { name: continueName });
+      const title = within(card).getByRole("heading", { level: 2 });
+      cleanup();
+      return { link, titleText: title.textContent };
+    };
+
+    const eligible = visible({ ...nearest, expiresAt: "2099-01-01T00:00:00.000Z" });
+    expect(eligible.link?.getAttribute("href")).toBe("/courses/slug-near?thanh-toan=tiep-tuc");
+    // Tiêu đề vẫn là heading một dòng, không phải link (AC9).
+    expect(eligible.titleText).toBe("Khóa near");
+
+    for (const payment of [
+      { ...nearest, status: "creating" as const, expiresAt: "2099-01-01T00:00:00.000Z" },
+      { ...nearest, expiresAt: "2020-01-01T00:00:00.000Z" },
+      { ...nearest, expiresAt: null },
+    ]) {
+      const result = visible(payment);
+      expect(result.link).toBeNull();
+      expect(result.titleText).toBe("Khóa near");
+    }
   });
 
   it("omits the +N line when only one payment is visible", () => {

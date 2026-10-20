@@ -27,6 +27,7 @@ const validItem = {
   createdAt: "2026-10-01T08:00:00+00:00",
   expiresAt: null,
   course: { slug: "toeic", title: "TOEIC" },
+  hiddenCourseTitle: null,
 };
 
 describe("paymentHistoryInputSchema", () => {
@@ -67,6 +68,22 @@ describe("paymentHistoryItemSchema", () => {
     expect(
       paymentHistoryItemSchema.safeParse({ ...validItem, course: null }).success,
     ).toBe(true);
+  });
+
+  it("accepts the real title of a hidden course, and rejects an empty or missing one", () => {
+    expect(
+      paymentHistoryItemSchema.safeParse({
+        ...validItem,
+        course: null,
+        hiddenCourseTitle: "Khóa đã ẩn",
+      }).success,
+    ).toBe(true);
+    expect(
+      paymentHistoryItemSchema.safeParse({ ...validItem, hiddenCourseTitle: "" }).success,
+    ).toBe(false);
+    const withoutHidden: Record<string, unknown> = { ...validItem };
+    delete withoutHidden.hiddenCourseTitle;
+    expect(paymentHistoryItemSchema.safeParse(withoutHidden).success).toBe(false);
   });
 
   it.each(["gateway_metadata", "discount_id", "user_id", "gatewayMetadata"])(

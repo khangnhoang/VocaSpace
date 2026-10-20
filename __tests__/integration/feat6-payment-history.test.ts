@@ -10,9 +10,11 @@ import { getPaymentHistory } from "@/app/actions/payment-history";
 // - Đối tượng: getPaymentHistory và bảng public.payments (chính sách "Users can view their own payments", quyền đọc bảng courses).
 // - Thành công: học viên A chỉ thấy dòng của A; bản ghi gateway free bị loại khỏi danh sách lẫn tổng; bốn bộ lọc ra đúng nhóm trạng thái;
 //   thứ tự created_at giảm dần, hòa thì id giảm dần; mỗi trang tối đa 5 dòng cùng tổng chính xác; khóa học không đọc được (nháp)
-//   trả course null thay vì làm hỏng cả dòng.
+//   trả course null thay vì làm hỏng cả dòng, kèm tên thật của khóa đó qua hàm own-payment (AC10, G7).
 // - Thất bại: chưa đăng nhập nhận AUTH_REQUIRED; trang vượt cuối (PostgREST 416/PGRST103 thật) trả trang cuối thật; tổng 0 trả trang 1 rỗng.
-// - Bảo mật/phân quyền: A không đọc được dòng của B qua action lẫn qua truy vấn trực tiếp bằng user_id của B; kết quả không chứa
+// - Bảo mật/phân quyền: hàm get_own_payment_course_titles chỉ trả tiêu đề cho payment của chính người gọi (A không lấy được tiêu đề qua id
+//   payment của B và ngược lại), chỉ trả hai cột (payment_id, course_title), và anon không gọi được;
+//   A không đọc được dòng của B qua action lẫn qua truy vấn trực tiếp bằng user_id của B; kết quả không chứa
 //   gateway_metadata, discount_id, user_id hay dữ liệu cổng thanh toán (dò bằng mã đánh dấu trong gateway_metadata).
 // - Ổn định/resilience: dòng chèn bằng service role chỉ để dựng dữ liệu; dọn sạch trong afterAll.
 // - Invariant cần giữ: mỗi học viên chỉ thấy các giao dịch trả tiền của mình, đúng trang, đúng tổng, không lộ dữ liệu cổng.
@@ -55,6 +57,9 @@ let publishedCourse = { id: "", slug: "", title: "" };
 let activeCourseOne = { id: "", slug: "", title: "" };
 let activeCourseTwo = { id: "", slug: "", title: "" };
 let draftCourseId = "";
+let draftCourseTitle = "";
+let draftPaymentIdOfA = "";
+let paymentIdOfB = "";
 const expectedNonFree: Array<{ id: string; status: Status; createdAt: string }> = [];
 
 async function insert(table: string, rows: Record<string, unknown> | Record<string, unknown>[]) {
@@ -119,7 +124,9 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
     publishedCourse = await createCourse(true);
     activeCourseOne = await createCourse(true);
     activeCourseTwo = await createCourse(true);
-    draftCourseId = (await createCourse(false)).id;
+    const draftCourse = await createCourse(false);
+    draftCourseId = draftCourse.id;
+    draftCourseTitle = draftCourse.title;
 
     // 12 dòng trả tiền của A: paid 5 (một dòng trên khóa nháp), pending-group 2, other 5; cộng một dòng free bị loại.
     const dated = (minute: number) => `2026-09-01T08:${String(minute).padStart(2, "0")}:00+00:00`;
@@ -160,6 +167,8 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
       paymentRow({ user_id: learnerBId, status: "failed", created_at: dated(14) }),
     ];
     await insert("payments", [...rowsOfA, freeRow, ...rowsOfB]);
+    draftPaymentIdOfA = rowsOfA.find((row) => row.course_id === draftCourseId)!.id as string;
+    paymentIdOfB = rowsOfB[0].id as string;
     for (const row of rowsOfA) {
       expectedNonFree.push({
         id: row.id as string,
@@ -273,8 +282,52 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
     if (!result.success) return;
     const nullCourse = result.data.items.filter((item) => item.course === null);
     expect(nullCourse).toHaveLength(1);
+    // AC10: khóa nháp không đọc được nhưng học viên vẫn thấy tên khóa mình đã trả tiền; khóa đọc được không cần hàm.
+    expect(nullCourse[0].hiddenCourseTitle).toBe(draftCourseTitle);
+    for (const item of result.data.items.filter((entry) => entry.course !== null)) {
+      expect(item.hiddenCourseTitle).toBeNull();
+    }
     const readable = result.data.items.find((item) => item.course !== null);
     expect(readable?.course).toEqual({ slug: publishedCourse.slug, title: publishedCourse.title });
+  });
+
+  it("returns the title of the caller's own hidden-course payment and only the two documented columns", async () => {
+    const result = await learnerA.rpc("get_own_payment_course_titles", {
+      p_payment_ids: [draftPaymentIdOfA],
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.data).toEqual([{ payment_id: draftPaymentIdOfA, course_title: draftCourseTitle }]);
+  });
+
+  it("returns nothing for another learner's payment id, in both directions", async () => {
+    const aAsksForB = await learnerA.rpc("get_own_payment_course_titles", { p_payment_ids: [paymentIdOfB] });
+    const bAsksForA = await learnerB.rpc("get_own_payment_course_titles", { p_payment_ids: [draftPaymentIdOfA] });
+    const mixed = await learnerA.rpc("get_own_payment_course_titles", {
+      p_payment_ids: [paymentIdOfB, draftPaymentIdOfA],
+    });
+
+    expect(aAsksForB.error).toBeNull();
+    expect(aAsksForB.data).toEqual([]);
+    expect(bAsksForA.error).toBeNull();
+    expect(bAsksForA.data).toEqual([]);
+    // Id lẫn của người khác không làm lộ gì ngoài dòng của chính người gọi.
+    expect(mixed.data).toEqual([{ payment_id: draftPaymentIdOfA, course_title: draftCourseTitle }]);
+  });
+
+  it("returns nothing for unknown ids and for an empty list", async () => {
+    const unknown = await learnerA.rpc("get_own_payment_course_titles", { p_payment_ids: [randomUUID()] });
+    const empty = await learnerA.rpc("get_own_payment_course_titles", { p_payment_ids: [] });
+
+    expect(unknown.data).toEqual([]);
+    expect(empty.data).toEqual([]);
+  });
+
+  it("refuses the title function to anon", async () => {
+    const result = await anonymous.rpc("get_own_payment_course_titles", { p_payment_ids: [draftPaymentIdOfA] });
+
+    expect(result.data).toBeNull();
+    expect(result.error?.code).toBe("42501");
   });
 
   it("carries discount amounts and the order code and keeps gateway data out of the result", async () => {

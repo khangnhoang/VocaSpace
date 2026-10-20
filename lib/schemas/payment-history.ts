@@ -45,6 +45,8 @@ export const paymentHistoryItemSchema = z.strictObject({
   course: z
     .strictObject({ slug: z.string().min(1), title: z.string().min(1) })
     .nullable(),
+  // AC10: tên thật của khóa học học viên không còn đọc được; chỉ có khi `course` là null và hàm own-payment trả về tiêu đề.
+  hiddenCourseTitle: z.string().min(1).nullable(),
 });
 
 export const paymentHistoryDataSchema = z.strictObject({

@@ -41,3 +41,12 @@ export interface PaymentRealtimePayload {
     status?: PaymentStatus;
   };
 }
+
+// FEAT6 AC11: kết quả mở lại mã QR của khoản `pending` còn hạn. Không bao giờ tạo thanh toán mới (G8).
+export const resumeCheckoutInputSchema = z.strictObject({
+  courseId: z.string().min(1),
+});
+
+export type ResumeCheckoutResult =
+  | { status: "resume"; paymentId: string; data: CheckoutResponse }
+  | { status: "none"; reason: "unauthenticated" | "unavailable" };

@@ -52,10 +52,9 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentHistoryItem["status"], string>
 };
 
 /**
- * Hàng `creating`/`pending` còn hạn mới được "Tiếp tục thanh toán" (Decision 17). Dùng `now` truyền vào
- * để kết quả không phụ thuộc đồng hồ ẩn trong test.
+ * Hàng `creating`/`pending` còn hạn thì hiện "Hạn dd/mm/yyyy" (AC3). Dùng `now` truyền vào để kết quả không phụ thuộc đồng hồ ẩn trong test.
  */
-export function canContinuePayment(
+export function hasLivePaymentDeadline(
   item: Pick<PaymentHistoryItem, "status" | "expiresAt">,
   now: number,
 ): boolean {
@@ -63,4 +62,14 @@ export function canContinuePayment(
   if (!item.expiresAt) return false;
   const expiresAt = new Date(item.expiresAt).getTime();
   return !Number.isNaN(expiresAt) && expiresAt > now;
+}
+
+/**
+ * Chỉ hàng `pending` còn hạn mới được "Tiếp tục thanh toán" (Decision 17, AC11): `creating` chưa có mã QR để mở.
+ */
+export function canContinuePayment(
+  item: Pick<PaymentHistoryItem, "status" | "expiresAt">,
+  now: number,
+): boolean {
+  return item.status === "pending" && hasLivePaymentDeadline(item, now);
 }

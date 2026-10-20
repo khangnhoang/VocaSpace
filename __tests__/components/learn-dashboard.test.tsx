@@ -96,7 +96,7 @@ function buildPayments(count: number): PendingPaymentSummary[] {
     status: index === 1 ? ("creating" as const) : ("pending" as const),
     createdAt: `2026-07-${String(20 - index).padStart(2, "0")}T00:00:00.000Z`,
     expiresAt:
-      index === 0 ? "2026-07-25T00:00:00.000Z" : null,
+      index === 0 ? "2099-07-25T00:00:00.000Z" : null,
   }));
 }
 
@@ -264,7 +264,7 @@ describe("LearnDashboardClient", () => {
     expect(html).toContain("Khóa học thanh toán 1");
     expect(html).not.toContain("Khóa học thanh toán 2");
     expect(html).not.toContain("Khóa học thanh toán 4");
-    expect(html).toContain('href="/courses/payment-course-1"');
+    expect(html).toContain('href="/courses/payment-course-1?thanh-toan=tiep-tuc"');
     expect(html).toContain("+3 khoản khác · Xem trong hồ sơ");
     expect(html).toContain('href="/profile?tab=payments"');
     expect(html).not.toContain("Xem tất cả");

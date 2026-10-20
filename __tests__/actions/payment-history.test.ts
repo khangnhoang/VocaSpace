@@ -15,6 +15,8 @@ import { createClient } from "@/utils/supabase/server";
 // - Ổn định/resilience: lỗi thô của Supabase không lọt ra kết quả.
 // - Invariant cần giữ: học viên chỉ đọc được dòng của mình, mỗi trang tối đa 5 dòng và không bao giờ trả trang vượt tổng.
 // - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/payment-history.test.ts`.
+// - AC10/G7: tiêu đề khóa học bị ẩn chỉ được đọc qua hàm own-payment khi trang có dòng course rỗng, chỉ với id của các dòng đó;
+//   lỗi của hàm không làm hỏng trang.
 // - Ghi chú: RLS và trang vượt cuối thật của PostgREST được kiểm bằng __tests__/integration/feat6-payment-history.test.ts.
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -22,6 +24,7 @@ vi.mock("@/utils/supabase/server", () => ({
 }));
 
 const mockedCreateClient = vi.mocked(createClient);
+const rpcMock = vi.fn();
 
 type Call = [method: string, ...args: unknown[]];
 
@@ -74,6 +77,7 @@ function mockSupabase(
       }),
     },
     from,
+    rpc: rpcMock,
   } as never);
   return from;
 }
@@ -98,6 +102,7 @@ const callsOf = (query: { calls: Call[] }, method: string) =>
 describe("getPaymentHistory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    rpcMock.mockResolvedValue({ data: [], error: null });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -147,6 +152,7 @@ describe("getPaymentHistory", () => {
             createdAt: "2026-10-01T08:00:00+00:00",
             expiresAt: null,
             course: { slug: "course-1", title: "Khóa 1" },
+            hiddenCourseTitle: null,
           },
         ],
         total: 23,
@@ -201,6 +207,62 @@ describe("getPaymentHistory", () => {
       success: true,
       data: { items: [{ paymentId: "payment-1", course: null }] },
     });
+  });
+
+  it("does not call the own-payment title function when every course on the page was readable", async () => {
+    mockSupabase([createQuery({ data: [row(1), row(2)], count: 2 })]);
+
+    const result = await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      success: true,
+      data: { items: [{ hiddenCourseTitle: null }, { hiddenCourseTitle: null }] },
+    });
+  });
+
+  it("asks the function for only the ids whose course join was empty and shows the real title as hiddenCourseTitle", async () => {
+    mockSupabase([
+      createQuery({
+        data: [row(1), row(2, { course: null }), row(3, { course: null })],
+        count: 3,
+      }),
+    ]);
+    rpcMock.mockResolvedValue({
+      data: [{ payment_id: "payment-2", course_title: "Khóa đã ẩn" }],
+      error: null,
+    });
+
+    const result = await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+    expect(rpcMock).toHaveBeenCalledWith("get_own_payment_course_titles", {
+      p_payment_ids: ["payment-2", "payment-3"],
+    });
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        items: [
+          { paymentId: "payment-1", course: { title: "Khóa 1" }, hiddenCourseTitle: null },
+          { paymentId: "payment-2", course: null, hiddenCourseTitle: "Khóa đã ẩn" },
+          // Hàm không trả tiêu đề (dòng course đã mất): giữ null để giao diện dùng chữ dự phòng.
+          { paymentId: "payment-3", course: null, hiddenCourseTitle: null },
+        ],
+      },
+    });
+  });
+
+  it("keeps the page when the title function fails, with the fallback for the hidden course", async () => {
+    mockSupabase([createQuery({ data: [row(1, { course: null })], count: 1 })]);
+    rpcMock.mockResolvedValue({ data: null, error: { code: "42501", message: "denied detail" } });
+
+    const result = await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { items: [{ course: null, hiddenCourseTitle: null }] },
+    });
+    expect(JSON.stringify(result)).not.toContain("denied detail");
   });
 
   it("returns the last existing page when the requested page is past the end", async () => {

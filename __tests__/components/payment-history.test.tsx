@@ -9,11 +9,12 @@ import type {
 } from "@/lib/schemas/payment-history";
 
 // Test plan:
-// - Mục tiêu: danh sách lịch sử thanh toán trong /profile theo FEAT6 AC3-AC6 và G6.
+// - Mục tiêu: danh sách lịch sử thanh toán trong /profile theo FEAT6 AC3-AC6, AC9-AC11 và G6.
 // - Loại test: component interaction trong jsdom; Server Action getPaymentHistory được mock (DB/RLS kiểm ở integration test).
 // - Đối tượng: PaymentHistory.
 // - Case thành công: nhãn và huy hiệu của cả sáu trạng thái; dòng giảm giá; link khóa học; ngày giờ dd/mm/yyyy HH:mm theo
-//   Asia/Ho_Chi_Minh; chỉ hàng creating/pending còn hạn có "Hạn" và "Tiếp tục thanh toán"; chip đổi về trang 1;
+//   Asia/Ho_Chi_Minh; hàng creating/pending còn hạn có "Hạn", chỉ pending còn hạn có "Tiếp tục thanh toán" tới ?thanh-toan=tiep-tuc;
+//   gạch chân phủ mọi dòng của tiêu đề dài; khóa học ẩn hiện tên thật dạng chữ thường kèm huy hiệu "Không còn khả dụng"; chip đổi về trang 1;
 //   Trước/Sau và "Trang n/m"; trang bị kẹp về trang cuối thật; Thử lại sau lỗi.
 // - Case thất bại: khóa học không đọc được thì không có link; trống hoàn toàn và trống theo nhóm; đọc lỗi (kết quả lỗi lẫn ném ngoại lệ).
 // - Bảo mật/phân quyền: không áp dụng ở tầng này; giao diện chỉ gửi bộ lọc và trang.
@@ -44,6 +45,7 @@ function item(overrides: Partial<PaymentHistoryItem> & { paymentId: string }): P
       slug: `course-${overrides.paymentId}`,
       title: `Khóa ${overrides.paymentId}`,
     },
+    hiddenCourseTitle: null,
     ...overrides,
   };
 }
@@ -96,6 +98,7 @@ describe("PaymentHistory", () => {
       expect(await screen.findByText(label)).toBeTruthy();
     }
     const link = screen.getByRole("link", { name: "Khóa a" });
+    // Link tiêu đề đi tới trang khóa học, không kèm tham số tiếp tục thanh toán (AC11).
     expect(link.getAttribute("href")).toBe("/courses/course-a");
     expect(screen.getAllByText(/01\/10\/2026 15:00 · Mã đơn order-a/)).toHaveLength(1);
   });
@@ -115,7 +118,7 @@ describe("PaymentHistory", () => {
     expect(screen.getByText("Giảm 20.000 ₫")).toBeTruthy();
   });
 
-  it("offers Hạn and Tiếp tục thanh toán only for creating or pending rows that have not expired", async () => {
+  it("offers Hạn for creating or pending rows that have not expired, and Tiếp tục thanh toán only for the pending ones", async () => {
     mocks.getPaymentHistory.mockResolvedValue(
       ok([
         item({ paymentId: "live-pending", status: "pending", expiresAt: FUTURE }),
@@ -131,13 +134,49 @@ describe("PaymentHistory", () => {
     await screen.findByText("Khóa live-pending");
     const continues = screen.getAllByRole("link", { name: "Tiếp tục thanh toán" });
     expect(continues.map((link) => link.getAttribute("href"))).toEqual([
-      "/courses/course-live-pending",
-      "/courses/course-live-creating",
+      "/courses/course-live-pending?thanh-toan=tiep-tuc",
     ]);
     expect(screen.getAllByText("Hạn 15/06/2099")).toHaveLength(2);
   });
 
-  it("shows a course that can no longer be read without any link", async () => {
+  it("underlines every line of a wrapped course title on hover and keyboard focus (AC9)", async () => {
+    mocks.getPaymentHistory.mockResolvedValue(ok([item({ paymentId: "long" })]));
+
+    render(<PaymentHistory />);
+
+    const link = await screen.findByRole("link", { name: "Khóa long" });
+    // Gạch chân đặt trên phần tử inline nên phủ mọi dòng; line-clamp (hộp khối) nằm ở phần tử bao ngoài, không nằm trên link.
+    expect(link.className).toContain("hover:underline");
+    expect(link.className).toContain("focus-visible:underline");
+    expect(link.className).not.toMatch(/line-clamp|block|flex|-webkit-box/);
+    expect(link.parentElement?.className).toContain("line-clamp-2");
+    expect(link.parentElement?.tagName).toBe("P");
+  });
+
+  it("shows the real title of a hidden course as plain text with a neutral badge and no link (AC10)", async () => {
+    mocks.getPaymentHistory.mockResolvedValue(
+      ok([
+        item({
+          paymentId: "hidden",
+          status: "pending",
+          expiresAt: FUTURE,
+          course: null,
+          hiddenCourseTitle: "Khóa đã ẩn",
+        }),
+      ]),
+    );
+
+    render(<PaymentHistory />);
+
+    const title = await screen.findByText("Khóa đã ẩn");
+    expect(title.closest("a")).toBeNull();
+    expect(screen.getByText("Không còn khả dụng")).toBeTruthy();
+    // Có tên thật thì không dùng chữ dự phòng.
+    expect(screen.queryByText("Khóa học không còn khả dụng")).toBeNull();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("falls back to the muted text when even the title cannot be read, without any link", async () => {
     mocks.getPaymentHistory.mockResolvedValue(
       ok([item({ paymentId: "gone", status: "pending", expiresAt: FUTURE, course: null })]),
     );
@@ -145,6 +184,7 @@ describe("PaymentHistory", () => {
     render(<PaymentHistory />);
 
     expect(await screen.findByText("Khóa học không còn khả dụng")).toBeTruthy();
+    expect(screen.queryByText("Không còn khả dụng")).toBeNull();
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 

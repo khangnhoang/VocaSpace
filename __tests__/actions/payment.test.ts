@@ -263,6 +263,27 @@ describe("createCheckoutSession", () => {
     expect(mockedPayosCreate).not.toHaveBeenCalled();
   });
 
+  it("reuses a pending payment whose expires_at comes back from PostgREST with a +00:00 offset", async () => {
+    setupHarness({
+      activePayment: {
+        id: "33333333-3333-4333-8333-333333333333",
+        status: "pending",
+        gateway_order_id: "12344",
+        gateway_metadata: { checkout_url: "https://pay.payos.vn/web/12344" },
+        amount_final: 250000,
+        amount_discount: 0,
+        discount_id: null,
+        expires_at: "2099-01-01T00:00:00+00:00",
+      },
+    });
+
+    // Cùng bộ dựng phản hồi với resumePendingCheckout; checkout schema chỉ nhận "Z" nên phải chuẩn hóa.
+    await expect(createCheckoutSession({ courseId })).resolves.toMatchObject({
+      type: "paid",
+      data: { expiresAt: "2099-01-01T00:00:00.000Z", qrCodeUrl: "https://pay.payos.vn/web/12344" },
+    });
+  });
+
   it("marks a new payment failed and releases its reserved discount when PayOS fails", async () => {
     const { paymentQuery } = setupHarness();
     mockedResolveDiscount.mockResolvedValue({

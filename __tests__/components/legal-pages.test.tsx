@@ -55,6 +55,14 @@ describe("/privacy", () => {
     expect(screen.getByText(/Dữ liệu về thời điểm học của bạn chỉ bạn xem được trong VocaSpace/)).toBeTruthy();
   });
 
+  it("discloses that a learner still sees the title of a paid course after it is hidden (FEAT6 AC10)", () => {
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/Bạn vẫn xem được tên khoá học đã thanh toán trong lịch sử thanh toán của mình, kể cả khi khoá\s+học đó sau này bị ẩn/),
+    ).toBeTruthy();
+  });
+
   it("exports the browser tab title", () => {
     expect(privacyMetadata.title).toBe("Chính sách quyền riêng tư | VocaSpace");
   });

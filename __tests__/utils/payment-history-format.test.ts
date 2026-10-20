@@ -4,6 +4,7 @@ import {
   formatPaymentDate,
   formatPaymentDateTime,
   formatVnd,
+  hasLivePaymentDeadline,
 } from "@/lib/payment-history-format";
 
 // Test plan:
@@ -11,7 +12,7 @@ import {
 // - Loại test: unit thuần.
 // - Đối tượng: formatPaymentDate, formatPaymentDateTime, formatVnd, canContinuePayment.
 // - Case thành công: ngày giờ dd/mm/yyyy HH:mm theo Asia/Ho_Chi_Minh kể cả khi UTC còn là ngày hôm trước; tiền có dấu chấm và ₫;
-//   chỉ creating/pending còn hạn mới được tiếp tục.
+//   creating/pending còn hạn có "Hạn", nhưng chỉ pending còn hạn mới được tiếp tục (creating chưa có mã QR).
 // - Case thất bại: chuỗi thời gian lạ cho null; hết hạn, không có hạn, hoặc trạng thái khác không được tiếp tục.
 // - Bảo mật/phân quyền: không áp dụng.
 // - Ổn định/resilience: mốc "bây giờ" được truyền vào nên kết quả không phụ thuộc đồng hồ.
@@ -39,14 +40,17 @@ describe("payment history formatting", () => {
   describe("canContinuePayment", () => {
     const now = Date.parse("2026-10-20T00:00:00Z");
 
-    it.each(["creating", "pending"] as const)(
-      "allows a %s payment that has not expired",
-      (status) => {
-        expect(
-          canContinuePayment({ status, expiresAt: "2026-10-21T00:00:00Z" }, now),
-        ).toBe(true);
-      },
-    );
+    it("allows a pending payment that has not expired", () => {
+      expect(
+        canContinuePayment({ status: "pending", expiresAt: "2026-10-21T00:00:00Z" }, now),
+      ).toBe(true);
+    });
+
+    it("refuses a creating payment even before its deadline, because it has no QR to open", () => {
+      expect(
+        canContinuePayment({ status: "creating", expiresAt: "2026-10-21T00:00:00Z" }, now),
+      ).toBe(false);
+    });
 
     it("refuses an expired deadline, a missing deadline and non-active statuses", () => {
       expect(
@@ -58,6 +62,20 @@ describe("payment history formatting", () => {
           canContinuePayment({ status, expiresAt: "2099-01-01T00:00:00Z" }, now),
         ).toBe(false);
       }
+    });
+  });
+
+  describe("hasLivePaymentDeadline", () => {
+    const now = Date.parse("2026-10-20T00:00:00Z");
+
+    it.each(["creating", "pending"] as const)("is true for a %s payment before its deadline", (status) => {
+      expect(hasLivePaymentDeadline({ status, expiresAt: "2026-10-21T00:00:00Z" }, now)).toBe(true);
+    });
+
+    it("is false after the deadline, without a deadline, or for a settled status", () => {
+      expect(hasLivePaymentDeadline({ status: "pending", expiresAt: "2026-10-19T00:00:00Z" }, now)).toBe(false);
+      expect(hasLivePaymentDeadline({ status: "creating", expiresAt: null }, now)).toBe(false);
+      expect(hasLivePaymentDeadline({ status: "paid", expiresAt: "2099-01-01T00:00:00Z" }, now)).toBe(false);
     });
   });
 });

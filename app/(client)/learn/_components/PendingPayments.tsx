@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { selectNearestPendingPayment } from "@/lib/learn-dashboard";
-import { formatPaymentDate } from "@/lib/payment-history-format";
+import { canContinuePayment, formatPaymentDate } from "@/lib/payment-history-format";
+import { getResumePaymentPath } from "@/lib/public-courses/routes";
 import type { PendingPaymentSummary } from "@/lib/schemas/learn-dashboard";
 
 const CARD_CLASS =
@@ -21,8 +23,13 @@ export function PendingPaymentCard({
   onDismiss: (paymentId: string) => void;
   payments: PendingPaymentSummary[];
 }) {
+  // Mốc "bây giờ" chốt một lần khi thẻ mount để quyết định hiện link tiếp tục mà không gọi đồng hồ ở mỗi lần render.
+  const [now] = useState(() => Date.now());
   const payment = selectNearestPendingPayment(payments);
   if (!payment) return null;
+
+  // AC11: chỉ khoản `pending` còn hạn mới có mã QR để mở; `creating` hoặc đã quá hạn chỉ hiện thông tin.
+  const canContinue = canContinuePayment(payment, now);
 
   const deadline = payment.expiresAt ? formatPaymentDate(payment.expiresAt) : null;
   const otherCount = payments.length - 1;
@@ -46,13 +53,15 @@ export function PendingPaymentCard({
               Hạn {deadline}
             </p>
           )}
-          <Link
-            href={`/courses/${payment.courseSlug}`}
-            aria-label={`Tiếp tục thanh toán cho ${payment.courseTitle}`}
-            className="mt-2 inline-flex min-h-11 items-center text-xs font-bold text-route underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:min-h-9"
-          >
-            Tiếp tục thanh toán
-          </Link>
+          {canContinue && (
+            <Link
+              href={getResumePaymentPath(payment.courseSlug)}
+              aria-label={`Tiếp tục thanh toán cho ${payment.courseTitle}`}
+              className="mt-2 inline-flex min-h-11 items-center text-xs font-bold text-route underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:min-h-9"
+            >
+              Tiếp tục thanh toán
+            </Link>
+          )}
         </div>
         <Button
           type="button"
