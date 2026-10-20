@@ -124,6 +124,18 @@ describe("PublicCourseEnrollmentCard resume entry (AC11)", () => {
     expect(mocks.replace).toHaveBeenCalledWith("/courses/toeic-nen-tang");
   });
 
+  it("removes only the thanh-toan parameter and keeps other parameters and the hash", () => {
+    window.history.pushState(null, "", "/courses/toeic-nen-tang?thanh-toan=tiep-tuc&x=1#section");
+    try {
+      render(<PublicCourseEnrollmentCard course={COURSE} resume={resumeResult()} />);
+
+      expect(mocks.replace).toHaveBeenCalledTimes(1);
+      expect(mocks.replace).toHaveBeenCalledWith("/courses/toeic-nen-tang?x=1#section");
+    } finally {
+      window.history.pushState(null, "", "/");
+    }
+  });
+
   it("shows a toast and no modal when no pending payment is eligible, and creates nothing", async () => {
     render(
       <PublicCourseEnrollmentCard

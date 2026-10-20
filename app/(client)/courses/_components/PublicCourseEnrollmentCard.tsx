@@ -13,7 +13,7 @@ import {
 } from "@/components/learning-activity/CourseLearningActivity";
 import { Button } from "@/components/ui/button";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
-import { getPublicCourseDetailPath } from "@/lib/public-courses/routes";
+import { getPublicCourseDetailPath, RESUME_PAYMENT_PARAM } from "@/lib/public-courses/routes";
 import type { CheckoutResponse, ResumeCheckoutResult } from "@/lib/schemas/payment";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { PublicCourseCover } from "./PublicCourseCover";
@@ -283,7 +283,13 @@ function ResumePaymentEntry({
     if (resume.status === "none" && resume.reason === "unavailable") {
       toast.info("Khoản thanh toán này không còn chờ");
     }
-    router.replace(getPublicCourseDetailPath(courseSlug));
+    // Chỉ gỡ đúng tham số `thanh-toan`; các tham số khác và hash của URL hiện tại được giữ nguyên.
+    const remaining = new URLSearchParams(window.location.search);
+    remaining.delete(RESUME_PAYMENT_PARAM);
+    const query = remaining.toString();
+    router.replace(
+      `${getPublicCourseDetailPath(courseSlug)}${query ? `?${query}` : ""}${window.location.hash}`,
+    );
   }, [resume, router, courseSlug]);
 
   return null;

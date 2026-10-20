@@ -112,7 +112,7 @@ Baseline: `93ce589`, checked 2026-10-20.
   - two active rows with the same `expires_at`;
   - one active row with a null `expires_at`.
   - CP3 adds, on a published course this learner is not enrolled in and has no other active payment for, one `pending` row with a future `expires_at` and a local `gateway_metadata` holding a fake `qr_code` and `checkout_url` (no real PayOS call), for AC11.
-  That gives more than 5 non-free rows (17 with the seed rows), so the `Tất cả` list has four pages. The implementor applies it to the local root DB with `psql` (never a reset) and records it in progress.md. Never reset the root or hosted DB.
+  That gives more than 5 non-free rows (18 with the seed rows), so the `Tất cả` list has four pages. The implementor applies it to the local root DB with `psql` (never a reset) and records it in progress.md. Never reset the root or hosted DB.
 - Owner QA steps:
 
 | Step | Expected |
