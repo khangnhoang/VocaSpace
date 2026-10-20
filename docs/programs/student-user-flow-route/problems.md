@@ -43,11 +43,30 @@ This file was migrated to the repository templates and translated to English on 
 
 ### FUTURE-PAYMENT-001: Deeper payment dashboard and history
 
-- Status: Deferred.
+- Status: Deferred for a deeper payment dashboard. The payment history part is implemented locally by FEAT6 ([FEAT6 plan](./implementation-plans/feat6/plan.md)) on `feat/feat6-payment-history`, pending Owner QA and rollout; not resolved until then.
 - Problem: the dashboard only needs a pending-payment reminder; full payment history and dashboard are a separate scope.
 - Evidence: current dashboard shows only the pending payment reminder (`FEAT-006`, plan unit D9).
 - Direction: keep the initial DTO narrow and add deeper payment history only when the product need is clear. Verification needed: behavior of pending, paid, cancelled, expired and failed states.
 - Exit condition: the product need is clear and a payment unit with its data and query boundary is delivered.
+
+### PAYMENT-GRANT-001: `anon` holds broad grants on `payments` and `expire_stale_payments`
+
+- Status: Open (found 2026-10-20 during FEAT6; outside the FEAT6 scope, not fixed).
+- Problem: the baseline schema grants `ALL` on table `public.payments` and `ALL` (EXECUTE) on the `SECURITY DEFINER` function `public.expire_stale_payments(integer)` to `anon` (and `authenticated`). No later migration revokes them.
+- Evidence:
+  - `supabase/migrations/20260609114505_remote_schema.sql:2042` (table grant) and `:1910` (function grant).
+  - Table rows stay protected because RLS is enabled (`:1658`) and the only policies are `SELECT` for `authenticated` (`:1569`, `:1629`). This is defense in depth, not an observed leak.
+  - The function is callable by anyone with the anon key. It only moves `creating`/`pending` rows that are already past `expires_at` to `expired` and releases their discount reservations, the same work the hosted pg_cron job does every 5 minutes. It does take row locks (`FOR UPDATE SKIP LOCKED`) with a caller-chosen `p_limit`.
+- Direction: in its own unit, revoke `anon` (and the write privileges of `authenticated`) on `payments`, and revoke EXECUTE on `expire_stale_payments` from `public`, `anon`, `authenticated`, keeping it for the cron owner and `service_role`. First confirm on hosted that no app path relies on these grants. A hosted migration needs separate authority.
+- Exit condition: a migration removes these grants locally and on hosted, with a test proving that `anon` cannot touch `payments` or call `expire_stale_payments`.
+
+### PAYMENT-EXPIRY-001: lazy expiry and resume only consider `pending`, not `creating`
+
+- Status: Open (found 2026-10-20 during FEAT6; outside the FEAT6 scope, not fixed).
+- Problem: `expireStalePendingPayments` in `app/actions/payment.ts` expires only `status = 'pending'` rows, while `expire_stale_payments` also expires `creating` rows. A `creating` row stuck after a failed PayOS call stays as it is until the next cron run, which is at most about 5 minutes. FEAT6 resume (`resumePendingCheckout`) also matches only `pending`, so a stuck `creating` row cannot be resumed (this matches the FEAT6 contract).
+- Evidence: `app/actions/payment.ts` `expireStalePendingPayments` (`.match({ ..., status: "pending" })`); `supabase/migrations/20260609114505_remote_schema.sql` `expire_stale_payments` (`WHERE status IN ('creating', 'pending')`).
+- Direction: decide in a payment unit whether checkout should also clean up or reuse a stale `creating` row. Low impact while the 5-minute cron runs.
+- Exit condition: checkout handles a stale `creating` row, or the Owner accepts the cron-only cleanup and closes the entry.
 
 ## Resolved
 

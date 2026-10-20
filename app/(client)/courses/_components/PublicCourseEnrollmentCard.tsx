@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -13,7 +13,8 @@ import {
 } from "@/components/learning-activity/CourseLearningActivity";
 import { Button } from "@/components/ui/button";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
-import type { CheckoutResponse } from "@/lib/schemas/payment";
+import { getPublicCourseDetailPath, RESUME_PAYMENT_PARAM } from "@/lib/public-courses/routes";
+import type { CheckoutResponse, ResumeCheckoutResult } from "@/lib/schemas/payment";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { PublicCourseCover } from "./PublicCourseCover";
 import PublicCoursePaymentModal from "./PublicCoursePaymentModal";
@@ -41,16 +42,22 @@ type PublicCourseEnrollmentCardProps = {
     | "learner_progress"
   >;
   learnerCard?: PublicCourseLearnerCard;
+  // FEAT6 AC11: kết quả mở lại mã QR khi vào bằng link "Tiếp tục thanh toán"; chỉ được đọc một lần lúc mount.
+  resume?: ResumeCheckoutResult;
 };
 
 export function PublicCourseEnrollmentCard({
   course,
   learnerCard,
+  resume,
 }: PublicCourseEnrollmentCardProps) {
   const router = useRouter();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [paymentData, setPaymentData] = useState<CheckoutResponse | null>(null);
-  const [paymentId, setPaymentId] = useState<string | null>(null);
+  // Khoản pending còn hạn chỉ làm giá trị khởi tạo của state: modal mở ở bước QR ngay lần render đầu, không cần click và không tạo thanh toán mới.
+  // Sau đó `resume` biến mất khỏi props (tham số bị gỡ) cũng không đóng hay mở lại gì.
+  const resumed = resume?.status === "resume" ? resume : null;
+  const [isModalOpen, setIsModalOpen] = useState(resumed !== null);
+  const [paymentData, setPaymentData] = useState<CheckoutResponse | null>(resumed?.data ?? null);
+  const [paymentId, setPaymentId] = useState<string | null>(resumed?.paymentId ?? null);
   // LF3 AC7: vừa đăng ký xong thì ở lại trang, nút chính đổi thành "Bắt đầu học" và chỉ mở chủ đề đầu khi bấm.
   const [justEnrolled, setJustEnrolled] = useState(false);
 
@@ -153,6 +160,7 @@ export function PublicCourseEnrollmentCard({
 
   return (
     <>
+      {resume && <ResumePaymentEntry resume={resume} courseSlug={course.slug} />}
       {isLearningCard ? (
         <section
           aria-labelledby="public-course-enrollment-title"
@@ -237,6 +245,7 @@ export function PublicCourseEnrollmentCard({
         onClose={() => setIsModalOpen(false)}
         paymentData={paymentData}
         paymentId={paymentId}
+        openAtQr={resumed !== null}
         coursePrice={course.price}
         thumbnailUrl={course.thumbnail_url}
         courseTitle={course.title}
@@ -250,6 +259,40 @@ export function PublicCourseEnrollmentCard({
       />
     </>
   );
+}
+
+/**
+ * FEAT6 AC11: xử lý tham số `?thanh-toan=tiep-tuc` đúng một lần cho mỗi lần tải trang. Báo khi không còn khoản nào chờ
+ * (người chưa đăng nhập không có toast vì họ đi theo luồng đăng nhập hiện có), rồi gỡ tham số khỏi URL để tải lại hay Back
+ * không mở lại modal. Không tạo thanh toán nào.
+ */
+function ResumePaymentEntry({
+  resume,
+  courseSlug,
+}: {
+  resume: ResumeCheckoutResult;
+  courseSlug: string;
+}) {
+  const router = useRouter();
+  const handledRef = useRef(false);
+
+  useEffect(() => {
+    if (handledRef.current) return;
+    handledRef.current = true;
+
+    if (resume.status === "none" && resume.reason === "unavailable") {
+      toast.info("Khoản thanh toán này không còn chờ");
+    }
+    // Chỉ gỡ đúng tham số `thanh-toan`; các tham số khác và hash của URL hiện tại được giữ nguyên.
+    const remaining = new URLSearchParams(window.location.search);
+    remaining.delete(RESUME_PAYMENT_PARAM);
+    const query = remaining.toString();
+    router.replace(
+      `${getPublicCourseDetailPath(courseSlug)}${query ? `?${query}` : ""}${window.location.hash}`,
+    );
+  }, [resume, router, courseSlug]);
+
+  return null;
 }
 
 function LearnerProgress({ card, courseTitle }: { card: PublicCourseLearnerCard; courseTitle: string }) {

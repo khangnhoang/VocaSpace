@@ -30,6 +30,8 @@ interface PaymentModalProps {
   thumbnailUrl?: string | null;
   onGeneratePayment: (couponCode?: string) => Promise<boolean>;
   onSuccess: () => void | Promise<void>;
+  // FEAT6 AC11: mở thẳng bước QR khi đã có sẵn phiên thanh toán (chỉ đọc lúc mount); bước đếm ngược dùng lại nguyên cách cũ.
+  openAtQr?: boolean;
 }
 
 type PublicCoursePaymentModalCloseButtonProps = {
@@ -64,9 +66,10 @@ export default function PublicCoursePaymentModal({
   thumbnailUrl,
   onGeneratePayment,
   onSuccess,
+  openAtQr = false,
 }: PaymentModalProps) {
   // STATE CỦA STAGE 1 (DISCOUNT)
-  const [stage, setStage] = useState<1 | 2>(1);
+  const [stage, setStage] = useState<1 | 2>(openAtQr && paymentData ? 2 : 1);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCouponCode, setAppliedCouponCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);

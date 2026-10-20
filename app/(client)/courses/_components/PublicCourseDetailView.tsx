@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertCircle, ChevronRight } from "lucide-react";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
+import type { ResumeCheckoutResult } from "@/lib/schemas/payment";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { PublicCourseCover } from "./PublicCourseCover";
 import { PublicCourseEnrollmentCard, type PublicCourseLearnerCard } from "./PublicCourseEnrollmentCard";
@@ -13,6 +14,8 @@ type PublicCourseDetailViewProps = {
   course: PublicCourseDetail;
   // FEAT3 G5: chỉ có khi học viên đã đăng nhập và ghi danh; đi riêng khỏi `course` để dữ liệu người học không vào payload công khai.
   learningSummary?: CourseLearningSummaryResult;
+  // FEAT6 AC11: kết quả mở lại mã QR khi vào bằng link "Tiếp tục thanh toán"; không có tham số thì không có giá trị.
+  resumeCheckout?: ResumeCheckoutResult;
 };
 
 // FEAT3 AC6a: số liệu thẻ "đang học" lấy từ đề cương và tiến độ đã có trong payload công khai, không đọc thêm gì.
@@ -29,7 +32,7 @@ function buildLearnerCard(course: PublicCourseDetail, summary: CourseLearningSum
   };
 }
 
-export function PublicCourseDetailView({ course, learningSummary }: PublicCourseDetailViewProps) {
+export function PublicCourseDetailView({ course, learningSummary, resumeCheckout }: PublicCourseDetailViewProps) {
   return (
     <article className="bg-gray-50 pb-16">
       <div className="container mx-auto px-4 py-8 md:py-12">
@@ -107,6 +110,7 @@ export function PublicCourseDetailView({ course, learningSummary }: PublicCourse
                 learner_progress: course.learner_progress,
               }}
               learnerCard={course.is_enrolled ? buildLearnerCard(course, learningSummary) : undefined}
+              resume={resumeCheckout}
             />
           </aside>
 

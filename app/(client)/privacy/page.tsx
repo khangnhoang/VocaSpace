@@ -41,7 +41,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Thông tin thanh toán:</strong> mã đơn hàng, khoá học, số tiền, mã giảm giá đã dùng và trạng thái
-            thanh toán. Chúng tôi không lưu số thẻ hay thông tin tài khoản ngân hàng của bạn.
+            thanh toán. Bạn vẫn xem được tên khoá học đã thanh toán trong lịch sử thanh toán của mình, kể cả khi khoá
+            học đó sau này bị ẩn. Chúng tôi không lưu số thẻ hay thông tin tài khoản ngân hàng của bạn.
           </li>
         </ul>
       </LegalSection>

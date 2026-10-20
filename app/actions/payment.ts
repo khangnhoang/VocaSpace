@@ -6,6 +6,8 @@ import crypto from "node:crypto";
 import {
   checkoutInputSchema,
   checkoutResponseSchema,
+  resumeCheckoutInputSchema,
+  type ResumeCheckoutResult,
 } from "@/lib/schemas/payment";
 import { payosService } from "@/services/payos";
 import {
@@ -57,6 +59,39 @@ async function expireStalePendingPayments(params: {
         }),
       ),
   );
+}
+
+type PendingPaymentRow = {
+  id: string;
+  gateway_order_id: string;
+  gateway_metadata: unknown;
+  amount_final: number | string;
+  expires_at: string | null;
+};
+
+// Dùng chung cho nhánh "đã có khoản pending" của createCheckoutSession và cho resumePendingCheckout (FEAT6 G8),
+// để hai đường trả cùng một hình dạng phản hồi mà không sao chép.
+function buildPendingCheckoutResponse(payment: PendingPaymentRow) {
+  const meta = (payment.gateway_metadata ?? {}) as {
+    checkout_url?: string;
+    qr_code?: string;
+  };
+
+  const qrCodeUrl = meta.qr_code
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(meta.qr_code)}`
+    : meta.checkout_url;
+
+  return checkoutResponseSchema.parse({
+    qrCodeUrl,
+    amount: Number(payment.amount_final),
+    orderId: payment.gateway_order_id,
+    bankMessage: `VOCASPACE ${payment.gateway_order_id}`,
+    accountNumber: "Quét mã QR tại cổng PayOS để hiển thị số tài khoản",
+    // PostgREST trả timestamptz dạng "+00:00" còn checkoutResponseSchema chỉ nhận "Z"; chuẩn hóa để khoản đọc lại từ DB parse được.
+    expiresAt: payment.expires_at
+      ? new Date(payment.expires_at).toISOString()
+      : payment.expires_at,
+  });
 }
 
 export async function createCheckoutSession(rawInput: unknown) {
@@ -159,26 +194,10 @@ export async function createCheckoutSession(rawInput: unknown) {
       .maybeSingle();
 
     if (activePayment) {
-      const meta = activePayment.gateway_metadata as {
-        checkout_url?: string;
-        qr_code?: string;
-      };
-
-      const qrCodeUrl = meta.qr_code
-        ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(meta.qr_code)}`
-        : meta.checkout_url;
-
       return {
         type: "paid",
         paymentId: activePayment.id,
-        data: checkoutResponseSchema.parse({
-          qrCodeUrl,
-          amount: Number(activePayment.amount_final),
-          orderId: activePayment.gateway_order_id,
-          bankMessage: `VOCASPACE ${activePayment.gateway_order_id}`,
-          accountNumber: "Quét mã QR tại cổng PayOS để hiển thị số tài khoản",
-          expiresAt: activePayment.expires_at,
-        }),
+        data: buildPendingCheckoutResponse(activePayment),
       };
     }
 
@@ -340,6 +359,80 @@ export async function createCheckoutSession(rawInput: unknown) {
     };
   } catch {
     return { error: "Hệ thống gặp sự cố ngoài dự kiến." };
+  }
+}
+
+/**
+ * FEAT6 AC11 / G8: mở lại mã QR của khoản `pending` còn hạn từ link "Tiếp tục thanh toán".
+ * Chỉ đọc: không tạo thanh toán, không expire/cập nhật dòng nào, không gọi PayOS. Lặp lại các kiểm tra đủ điều kiện của
+ * createCheckoutSession (đăng nhập, khóa học đang mở bán và chưa gỡ, chưa ghi danh) và đòi `expires_at > now()` ngay trong
+ * truy vấn. Mọi lý do không đủ điều kiện hay lỗi đọc đều trả "none" để trang vẫn hiển thị bình thường.
+ */
+export async function resumePendingCheckout(
+  rawInput: unknown,
+): Promise<ResumeCheckoutResult> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { status: "none", reason: "unauthenticated" };
+  }
+
+  const inputValidation = resumeCheckoutInputSchema.safeParse(rawInput);
+
+  if (!inputValidation.success) {
+    return { status: "none", reason: "unavailable" };
+  }
+
+  const { courseId } = inputValidation.data;
+
+  try {
+    const { data: course, error: courseError } = await supabaseAdmin
+      .from("courses")
+      .select("id")
+      .eq("id", courseId)
+      .eq("status", "published")
+      .is("removed_at", null)
+      .maybeSingle();
+
+    if (courseError || !course) {
+      return { status: "none", reason: "unavailable" };
+    }
+
+    const { data: existingEnroll, error: enrollError } = await supabaseAdmin
+      .from("enrollments")
+      .select("id")
+      .match({ user_id: user.id, course_id: courseId })
+      .maybeSingle();
+
+    if (enrollError || existingEnroll) {
+      return { status: "none", reason: "unavailable" };
+    }
+
+    const { data: pendingPayment, error: paymentError } = await supabaseAdmin
+      .from("payments")
+      .select(
+        "id, gateway_order_id, gateway_metadata, amount_final, expires_at",
+      )
+      .match({ user_id: user.id, course_id: courseId, status: "pending" })
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+
+    if (paymentError || !pendingPayment) {
+      return { status: "none", reason: "unavailable" };
+    }
+
+    return {
+      status: "resume",
+      paymentId: pendingPayment.id,
+      data: buildPendingCheckoutResponse(pendingPayment),
+    };
+  } catch {
+    return { status: "none", reason: "unavailable" };
   }
 }
 

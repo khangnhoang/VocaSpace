@@ -4,10 +4,15 @@ import {
   getCachedPublicCourseDetail,
   PublicCourseDetailRoute,
 } from "../_components/PublicCourseDetailRoute";
-import { getPublicCourseDetailPath } from "@/lib/public-courses/routes";
+import {
+  getPublicCourseDetailPath,
+  RESUME_PAYMENT_PARAM,
+  RESUME_PAYMENT_VALUE,
+} from "@/lib/public-courses/routes";
 
 type CourseDetailPageProps = {
   params: Promise<{ "course-slug": string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export async function generateMetadata({
@@ -39,7 +44,12 @@ export async function generateMetadata({
 
 export default async function PublicCourseDetailPage({
   params,
+  searchParams,
 }: CourseDetailPageProps) {
   const courseSlug = (await params)["course-slug"];
-  return PublicCourseDetailRoute({ courseSlug });
+  // FEAT6 AC11: chỉ đúng giá trị `tiep-tuc` mới bật đường mở lại mã QR; giá trị khác bị bỏ qua như không có tham số.
+  const resumeParam = (await searchParams)?.[RESUME_PAYMENT_PARAM];
+  const resumePayment =
+    (Array.isArray(resumeParam) ? resumeParam[0] : resumeParam) === RESUME_PAYMENT_VALUE;
+  return PublicCourseDetailRoute({ courseSlug, resumePayment });
 }

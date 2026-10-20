@@ -40,7 +40,3 @@ export function getCourseStatusCount(
 ) {
   return courses.filter((course) => course.status === status).length;
 }
-
-export function getPaymentPreviewLimit(isDesktop: boolean) {
-  return isDesktop ? 3 : 1;
-}
