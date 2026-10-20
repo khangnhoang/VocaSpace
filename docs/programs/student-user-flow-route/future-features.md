@@ -75,7 +75,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-006: Dashboard và lịch sử thanh toán đầy đủ hơn
 
-- Trạng thái: Implemented locally (2026-10-20), Owner QA PASS (2026-10-20), chờ push/PR/CI và các grant merge, migration hosted, deploy: [FEAT6 plan](./implementation-plans/feat6/plan.md).
+- Trạng thái: Done (2026-10-20): merged in PR 169 (`c05080a`), hosted migration `20261020120000` applied, production deployed; [FEAT6 plan](./implementation-plans/feat6/plan.md). Dashboard thanh toán sâu hơn vẫn nằm trong [FUTURE-PAYMENT-001](./problems.md#future-payment-001-deeper-payment-dashboard-and-history).
 - Mô tả: Bổ sung dashboard thanh toán đầy đủ với lịch sử `paid`/`cancelled`/`expired`/`failed` thay vì chỉ hiển thị pending payment reminder.
 - Lý do hoãn: B2 chỉ cần pending payment reminder với phạm vi hẹp. Full history cần product design và có thể cần route riêng.
 - Wave/phạm vi dự kiến: Wave D.
@@ -103,7 +103,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-009: Chuỗi giai đoạn trong trang học bấm được để nhảy tới giai đoạn đã mở khóa
 
-- Trạng thái: Completed trong [LF6](./implementation-plans/lf6/plan.md) (AC1 đến AC4, AC10) trên nhánh `feat/lf6-stage-thread-review-polish`; chưa merge, xem [progress.md](./progress.md).
+- Trạng thái: Completed trong [LF6](./implementation-plans/lf6/plan.md) (AC1 đến AC4, AC10), merged in PR 150 (`971702e`).
 - Mô tả: Trong workspace `/learn/[course-slug]/[topic-slug]`, chuỗi giai đoạn (Từ vựng / Memory check / Bài tập) cho phép bấm để nhảy thẳng tới một giai đoạn đã mở khóa, thay vì bấm lặp lại các nút bước. Giai đoạn đang khóa vẫn bấm được nhưng không đổi giai đoạn, chỉ hiện lý do khóa; cổng memory check và `exercisesLocked` vẫn là nơi sở hữu quyền truy cập. Bàn phím và focus phải được xử lý (thứ tự Tab, kích hoạt bằng Enter/Space, focus đặt vào nội dung giai đoạn sau khi nhảy, trạng thái hiện tại và trạng thái khóa đọc được bằng trình đọc màn hình).
 - Ghi chú thêm (QA thủ công LF5, Owner chốt 2026-10-12, Q9): PR này làm chuỗi giai đoạn bấm được rồi thay ba nút `Xem lại Từ vựng` / `Xem lại Memory check` / `Xem lại Bài tập` trên màn hình hoàn thành bằng một nút `Xem lại` duy nhất, bấm vào sẽ kéo sự chú ý tới chuỗi giai đoạn, kèm một dòng giải thích ngắn và nút `Chủ đề tiếp theo`. LF5 giữ ba nút `Xem lại …` cho tới khi PR này được làm. (Cập nhật QA Owner 2026-10-13: nút `Xem lại` duy nhất và vòng nổi bật bị bỏ; thay bằng một dòng gợi ý nhỏ dưới chuỗi giai đoạn ở mọi giai đoạn khi chuỗi có hơn một bước.)
 - Lý do hoãn: Owner đề xuất khi QA thủ công LF1 (2026-10-10); ngoài phạm vi LF1 (luật hoàn thành flashcard và giải thích khi trả lời đúng).
