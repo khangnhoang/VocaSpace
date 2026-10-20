@@ -6,7 +6,7 @@ import { createClient } from "@/utils/supabase/server";
 // - Mục tiêu: kiểm tra auth và read boundary không có enrollment của learner dashboard.
 // - Loại test: Server Action với Supabase boundary mock.
 // - Đối tượng: getLearnDashboard.
-// - Case thành công: authenticated learner không có enrollment nhận DTO rỗng hợp lệ.
+// - Case thành công: authenticated learner không có enrollment nhận DTO rỗng hợp lệ; khoản chờ trên khóa đã ghi danh bị loại khỏi thẻ và số đếm.
 // - Case thất bại: unauthenticated user nhận mã AUTH_REQUIRED và không query dữ liệu.
 // - Bảo mật/phân quyền: action luôn xác thực bằng getUser trước khi đọc bảng.
 // - Ổn định/resilience: kết quả rỗng vẫn giữ đủ review/payment summary.
@@ -109,6 +109,41 @@ describe("getLearnDashboard", () => {
         pendingPaymentCount: 0,
       },
     });
+  });
+
+  it("leaves out pending payments on courses the learner is already enrolled in, and out of the count (FEAT6 QA round 2)", async () => {
+    const payment = (id: string, courseId: string, createdAt: string) => ({
+      id,
+      course_id: courseId,
+      status: "pending",
+      created_at: createdAt,
+      expires_at: "2099-01-01T00:00:00+00:00",
+      course: { slug: `slug-${courseId}`, title: `Khóa ${courseId}` },
+    });
+    const queries: Record<string, unknown> = {
+      enrollments: createQuery([visibleEnrollment]),
+      user_flashcards: createQuery(),
+      payments: createQuery([
+        payment("pay-enrolled", "course-one", "2026-10-02T00:00:00+00:00"),
+        payment("pay-open", "course-two", "2026-10-01T00:00:00+00:00"),
+      ]),
+    };
+    mockedCreateClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-one" } },
+          error: null,
+        }),
+      },
+      from: vi.fn((table: string) => queries[table] ?? createQuery()),
+    } as never);
+
+    const result = await getLearnDashboard();
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.pendingPayments.map((entry) => entry.paymentId)).toEqual(["pay-open"]);
+    expect(result.data.pendingPaymentCount).toBe(1);
   });
 
   it("returns a safe error when a primary dashboard query fails", async () => {

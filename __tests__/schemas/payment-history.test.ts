@@ -28,6 +28,7 @@ const validItem = {
   expiresAt: null,
   course: { slug: "toeic", title: "TOEIC" },
   hiddenCourseTitle: null,
+  isEnrolled: false,
 };
 
 describe("paymentHistoryInputSchema", () => {
@@ -84,6 +85,14 @@ describe("paymentHistoryItemSchema", () => {
     const withoutHidden: Record<string, unknown> = { ...validItem };
     delete withoutHidden.hiddenCourseTitle;
     expect(paymentHistoryItemSchema.safeParse(withoutHidden).success).toBe(false);
+  });
+
+  it("requires a boolean isEnrolled", () => {
+    expect(paymentHistoryItemSchema.safeParse({ ...validItem, isEnrolled: true }).success).toBe(true);
+    expect(paymentHistoryItemSchema.safeParse({ ...validItem, isEnrolled: "yes" }).success).toBe(false);
+    const withoutFlag: Record<string, unknown> = { ...validItem };
+    delete withoutFlag.isEnrolled;
+    expect(paymentHistoryItemSchema.safeParse(withoutFlag).success).toBe(false);
   });
 
   it.each(["gateway_metadata", "discount_id", "user_id", "gatewayMetadata"])(

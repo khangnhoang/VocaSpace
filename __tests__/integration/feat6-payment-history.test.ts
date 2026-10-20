@@ -167,6 +167,11 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
       paymentRow({ user_id: learnerBId, status: "failed", created_at: dated(14) }),
     ];
     await insert("payments", [...rowsOfA, freeRow, ...rowsOfB]);
+    // A đã ghi danh khóa có khoản pending (Owner QA round 2); B ghi danh khóa còn lại của A để chắc ghi danh của người khác không tính cho A.
+    await insert("enrollments", [
+      { user_id: learnerAId, course_id: activeCourseOne.id },
+      { user_id: learnerBId, course_id: activeCourseTwo.id },
+    ]);
     draftPaymentIdOfA = rowsOfA.find((row) => row.course_id === draftCourseId)!.id as string;
     paymentIdOfB = rowsOfB[0].id as string;
     for (const row of rowsOfA) {
@@ -179,6 +184,7 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
   });
 
   afterAll(async () => {
+    await service.from("enrollments").delete().in("user_id", userIds);
     await service.from("payments").delete().in("user_id", userIds);
     await service.from("courses").delete().in("id", courseIds);
     for (const id of userIds.splice(0)) await service.auth.admin.deleteUser(id);
@@ -289,6 +295,25 @@ describe.sequential("FEAT6 payment history", { timeout: 60_000 }, () => {
     }
     const readable = result.data.items.find((item) => item.course !== null);
     expect(readable?.course).toEqual({ slug: publishedCourse.slug, title: publishedCourse.title });
+  });
+
+  it("flags only the courses the caller is enrolled in, from the caller's own enrollments", async () => {
+    authenticated.client = learnerA;
+
+    const result = await getPaymentHistory({ page: 1, filter: "pending" });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const bySlug = new Map(result.data.items.map((item) => [item.course?.slug, item.isEnrolled]));
+    // Khoản pending trên khóa A đã ghi danh: vẫn hiện, được đánh dấu. Khóa mà chỉ B ghi danh không tính cho A.
+    expect(bySlug.get(activeCourseOne.slug)).toBe(true);
+    expect(bySlug.get(activeCourseTwo.slug)).toBe(false);
+    const paid = await getPaymentHistory({ page: 1, filter: "paid" });
+    if (paid.success) {
+      for (const item of paid.data.items) {
+        if (item.course?.slug === publishedCourse.slug) expect(item.isEnrolled).toBe(false);
+      }
+    }
   });
 
   it("returns the title of the caller's own hidden-course payment and only the two documented columns", async () => {

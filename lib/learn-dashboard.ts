@@ -275,11 +275,14 @@ export function buildReviewSummary(
 
 export function buildPendingPaymentSummaries(
   rows: LearnDashboardPaymentRow[],
+  // Owner QA round 2: khoản chờ trên khóa học đã ghi danh không còn gì để thanh toán nên không vào thẻ /learn và không tính vào "+N".
+  enrolledCourseIds: ReadonlySet<string> = new Set(),
 ): PendingPaymentSummary[] {
   return rows
     .filter(
       (row) =>
         row.course !== null &&
+        !enrolledCourseIds.has(row.course_id) &&
         (row.status === "creating" || row.status === "pending"),
     )
     .sort(

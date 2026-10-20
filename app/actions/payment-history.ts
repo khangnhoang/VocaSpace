@@ -21,6 +21,7 @@ const HISTORY_COLUMNS = `
   gateway_order_id,
   created_at,
   expires_at,
+  course_id,
   course:courses (slug, title)
 `;
 
@@ -37,6 +38,7 @@ interface PaymentHistoryRow {
   gateway_order_id: string;
   created_at: string;
   expires_at: string | null;
+  course_id: string;
   course: { slug: string; title: string } | null;
 }
 
@@ -104,6 +106,31 @@ async function readHiddenCourseTitles(
   return titles;
 }
 
+/**
+ * Owner QA round 2: khóa học nào trên trang mà học viên đã ghi danh. Đọc bằng session client (RLS chỉ cho đọc ghi danh của chính mình)
+ * kèm user_id tường minh, chỉ với id khóa học của trang này. Lỗi đọc không làm hỏng trang: dòng coi như chưa ghi danh, và trang
+ * khóa học vẫn tự kiểm tra lại khi bấm "Tiếp tục thanh toán".
+ */
+async function readEnrolledCourseIds(
+  supabase: SupabaseServerClient,
+  userId: string,
+  rows: PaymentHistoryRow[],
+): Promise<Set<string>> {
+  const courseIds = Array.from(new Set(rows.map((row) => row.course_id).filter(Boolean)));
+  if (courseIds.length === 0) return new Set();
+
+  const { data, error } = await supabase
+    .from("enrollments")
+    .select("course_id")
+    .eq("user_id", userId)
+    .in("course_id", courseIds);
+  if (error) {
+    console.error("Payment history enrollments failed", error);
+    return new Set();
+  }
+  return new Set((data ?? []).map((entry) => entry.course_id as string));
+}
+
 export async function getPaymentHistory(
   input: unknown,
 ): Promise<PaymentHistoryResult> {
@@ -159,7 +186,10 @@ export async function getPaymentHistory(
     }
 
     const rows = (result.data ?? []) as unknown as PaymentHistoryRow[];
-    const hiddenTitles = await readHiddenCourseTitles(supabase, rows);
+    const [hiddenTitles, enrolledCourseIds] = await Promise.all([
+      readHiddenCourseTitles(supabase, rows),
+      readEnrolledCourseIds(supabase, user.id, rows),
+    ]);
     const parsedData = paymentHistoryDataSchema.safeParse({
       items: rows.map((row) => ({
         paymentId: row.id,
@@ -175,6 +205,7 @@ export async function getPaymentHistory(
           ? { slug: row.course.slug, title: row.course.title }
           : null,
         hiddenCourseTitle: row.course ? null : (hiddenTitles.get(row.id) ?? null),
+        isEnrolled: enrolledCourseIds.has(row.course_id),
       })),
       total: result.count ?? rows.length,
       page: servedPage,

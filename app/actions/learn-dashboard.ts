@@ -193,6 +193,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
 
     const pendingPayments = buildPendingPaymentSummaries(
       (paymentResult.data ?? []) as unknown as LearnDashboardPaymentRow[],
+      new Set(enrollments.map((enrollment) => enrollment.course_id)),
     );
     const parsedData = learnDashboardDataSchema.safeParse({
       courses: buildLearnDashboardCourses({

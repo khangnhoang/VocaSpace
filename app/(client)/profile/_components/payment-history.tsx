@@ -86,12 +86,11 @@ function PaymentRow({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {item.course ? (
-            // AC9: line-clamp biến phần tử thành hộp khối nên gạch chân của chính nó chỉ phủ dòng đầu; để link là phần tử inline
-            // trong khối clamp thì gạch chân phủ mọi dòng khi hover và khi focus bàn phím.
+            // AC9: link là phần tử inline trong khối line-clamp; hover chỉ đổi màu chữ, không gạch chân; focus bàn phím giữ vòng focus.
             <p className="line-clamp-2 wrap-break-word text-sm font-bold leading-5">
               <Link
                 href={`/courses/${item.course.slug}`}
-                className="text-slate-950 underline-offset-4 hover:text-route hover:underline focus-visible:text-route focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2"
+                className="text-slate-950 hover:text-route focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2"
               >
                 {item.course.title}
               </Link>

@@ -17,6 +17,8 @@ import { createClient } from "@/utils/supabase/server";
 // - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/actions/payment-history.test.ts`.
 // - AC10/G7: tiêu đề khóa học bị ẩn chỉ được đọc qua hàm own-payment khi trang có dòng course rỗng, chỉ với id của các dòng đó;
 //   lỗi của hàm không làm hỏng trang.
+// - Owner QA round 2: isEnrolled lấy từ ghi danh của chính người gọi (session client, user_id tường minh) chỉ cho id khóa học của trang;
+//   không có dòng course_id thì không gọi; lỗi đọc ghi danh không làm hỏng trang.
 // - Ghi chú: RLS và trang vượt cuối thật của PostgREST được kiểm bằng __tests__/integration/feat6-payment-history.test.ts.
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -25,6 +27,8 @@ vi.mock("@/utils/supabase/server", () => ({
 
 const mockedCreateClient = vi.mocked(createClient);
 const rpcMock = vi.fn();
+// Truy vấn ghi danh dùng chung cho mọi test; test nào cần dữ liệu thì thay bằng createQuery riêng.
+let enrollmentsQuery: { calls: Call[] };
 
 type Call = [method: string, ...args: unknown[]];
 
@@ -68,7 +72,9 @@ function mockSupabase(
   user: unknown = { id: "user-one" },
 ) {
   const queue = [...queries];
-  const from = vi.fn(() => queue.shift());
+  const from = vi.fn((table: string) =>
+    table === "enrollments" ? enrollmentsQuery : queue.shift(),
+  );
   mockedCreateClient.mockResolvedValue({
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -84,6 +90,7 @@ function mockSupabase(
 
 const row = (index: number, overrides: Record<string, unknown> = {}) => ({
   id: `payment-${index}`,
+  course_id: `course-id-${index}`,
   status: "paid",
   amount_original: 200000,
   amount_discount: 20000,
@@ -103,6 +110,7 @@ describe("getPaymentHistory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     rpcMock.mockResolvedValue({ data: [], error: null });
+    enrollmentsQuery = createQuery({ data: [] });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -153,6 +161,7 @@ describe("getPaymentHistory", () => {
             expiresAt: null,
             course: { slug: "course-1", title: "Khóa 1" },
             hiddenCourseTitle: null,
+            isEnrolled: false,
           },
         ],
         total: 23,
@@ -250,6 +259,56 @@ describe("getPaymentHistory", () => {
         ],
       },
     });
+  });
+
+  it("marks only the rows whose course the caller is enrolled in, reading the caller's own enrollments for this page's course ids", async () => {
+    mockSupabase([
+      createQuery({
+        data: [row(1), row(2), row(3, { course: null }), row(4, { course_id: "course-id-1" })],
+        count: 4,
+      }),
+    ]);
+    enrollmentsQuery = createQuery({
+      data: [{ course_id: "course-id-1" }, { course_id: "course-id-3" }],
+    });
+
+    const result = await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        items: [
+          { paymentId: "payment-1", isEnrolled: true },
+          { paymentId: "payment-2", isEnrolled: false },
+          // Khóa ẩn nhưng đã ghi danh vẫn được đánh dấu.
+          { paymentId: "payment-3", isEnrolled: true },
+          { paymentId: "payment-4", isEnrolled: true },
+        ],
+      },
+    });
+    expect(callsOf(enrollmentsQuery, "select")).toEqual([["select", "course_id"]]);
+    expect(callsOf(enrollmentsQuery, "eq")).toEqual([["eq", "user_id", "user-one"]]);
+    expect(callsOf(enrollmentsQuery, "in")).toEqual([
+      ["in", "course_id", ["course-id-1", "course-id-2", "course-id-3"]],
+    ]);
+  });
+
+  it("does not read enrollments for an empty page", async () => {
+    const from = mockSupabase([createQuery({ data: [], count: 0 })]);
+
+    await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(from).not.toHaveBeenCalledWith("enrollments");
+  });
+
+  it("keeps the page, with every row not enrolled, when the enrollment read fails", async () => {
+    mockSupabase([createQuery({ data: [row(1)], count: 1 })]);
+    enrollmentsQuery = createQuery({ data: [], error: { code: "42501", message: "enrollment detail" } });
+
+    const result = await getPaymentHistory({ page: 1, filter: "all" });
+
+    expect(result).toMatchObject({ success: true, data: { items: [{ isEnrolled: false }] } });
+    expect(JSON.stringify(result)).not.toContain("enrollment detail");
   });
 
   it("keeps the page when the title function fails, with the fallback for the hidden course", async () => {

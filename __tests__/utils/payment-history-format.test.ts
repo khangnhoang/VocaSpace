@@ -46,6 +46,21 @@ describe("payment history formatting", () => {
       ).toBe(true);
     });
 
+    it("refuses a pending payment on a course the learner is already enrolled in", () => {
+      expect(
+        canContinuePayment(
+          { status: "pending", expiresAt: "2026-10-21T00:00:00Z", isEnrolled: true },
+          now,
+        ),
+      ).toBe(false);
+      expect(
+        canContinuePayment(
+          { status: "pending", expiresAt: "2026-10-21T00:00:00Z", isEnrolled: false },
+          now,
+        ),
+      ).toBe(true);
+    });
+
     it("refuses a creating payment even before its deadline, because it has no QR to open", () => {
       expect(
         canContinuePayment({ status: "creating", expiresAt: "2026-10-21T00:00:00Z" }, now),

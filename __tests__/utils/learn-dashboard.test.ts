@@ -338,6 +338,24 @@ describe("dashboard summaries", () => {
     ]);
   });
 
+  it("skips pending payments on enrolled courses, so they are not shown or counted", () => {
+    const row = (id: string, courseId: string) => ({
+      id,
+      course_id: courseId,
+      status: "pending",
+      created_at: "2026-07-02T00:00:00.000Z",
+      expires_at: null,
+      course: { slug: `slug-${courseId}`, title: `Khóa ${courseId}` },
+    });
+    const rows = [row("payment-enrolled", "course-a"), row("payment-open", "course-b")];
+
+    expect(
+      buildPendingPaymentSummaries(rows, new Set(["course-a"])).map((payment) => payment.paymentId),
+    ).toEqual(["payment-open"]);
+    // Không truyền tập ghi danh thì hành vi cũ: giữ cả hai.
+    expect(buildPendingPaymentSummaries(rows)).toHaveLength(2);
+  });
+
   it("dismisses reminders by payment id without hiding another payment for the same course", () => {
     const payments = buildPendingPaymentSummaries([
       {

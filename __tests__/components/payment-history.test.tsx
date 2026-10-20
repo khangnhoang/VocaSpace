@@ -14,7 +14,8 @@ import type {
 // - Đối tượng: PaymentHistory.
 // - Case thành công: nhãn và huy hiệu của cả sáu trạng thái; dòng giảm giá; link khóa học; ngày giờ dd/mm/yyyy HH:mm theo
 //   Asia/Ho_Chi_Minh; hàng creating/pending còn hạn có "Hạn", chỉ pending còn hạn có "Tiếp tục thanh toán" tới ?thanh-toan=tiep-tuc;
-//   gạch chân phủ mọi dòng của tiêu đề dài; khóa học ẩn hiện tên thật dạng chữ thường kèm huy hiệu "Không còn khả dụng"; chip đổi về trang 1;
+//   hover chỉ đổi màu tiêu đề (không gạch chân, vòng focus còn);
+//   khóa đã ghi danh vẫn hiện trạng thái nhưng không có "Tiếp tục thanh toán"; khóa học ẩn hiện tên thật dạng chữ thường kèm huy hiệu "Không còn khả dụng"; chip đổi về trang 1;
 //   Trước/Sau và "Trang n/m"; trang bị kẹp về trang cuối thật; Thử lại sau lỗi.
 // - Case thất bại: khóa học không đọc được thì không có link; trống hoàn toàn và trống theo nhóm; đọc lỗi (kết quả lỗi lẫn ném ngoại lệ).
 // - Bảo mật/phân quyền: không áp dụng ở tầng này; giao diện chỉ gửi bộ lọc và trang.
@@ -46,6 +47,7 @@ function item(overrides: Partial<PaymentHistoryItem> & { paymentId: string }): P
       title: `Khóa ${overrides.paymentId}`,
     },
     hiddenCourseTitle: null,
+    isEnrolled: false,
     ...overrides,
   };
 }
@@ -139,18 +141,39 @@ describe("PaymentHistory", () => {
     expect(screen.getAllByText("Hạn 15/06/2099")).toHaveLength(2);
   });
 
-  it("underlines every line of a wrapped course title on hover and keyboard focus (AC9)", async () => {
+  it("changes only the colour of the course title on hover, with no underline and a visible focus ring (AC9)", async () => {
     mocks.getPaymentHistory.mockResolvedValue(ok([item({ paymentId: "long" })]));
 
     render(<PaymentHistory />);
 
     const link = await screen.findByRole("link", { name: "Khóa long" });
-    // Gạch chân đặt trên phần tử inline nên phủ mọi dòng; line-clamp (hộp khối) nằm ở phần tử bao ngoài, không nằm trên link.
-    expect(link.className).toContain("hover:underline");
-    expect(link.className).toContain("focus-visible:underline");
+    expect(link.className).toContain("hover:text-route");
+    expect(link.className).not.toContain("underline");
+    expect(link.className).toContain("focus-visible:ring-2");
+    // Link inline nằm trong khối line-clamp để tiêu đề dài vẫn bị cắt sau hai dòng.
     expect(link.className).not.toMatch(/line-clamp|block|flex|-webkit-box/);
     expect(link.parentElement?.className).toContain("line-clamp-2");
     expect(link.parentElement?.tagName).toBe("P");
+  });
+
+  it("keeps the real status of a pending row on an enrolled course but offers no Tiếp tục thanh toán (QA regression)", async () => {
+    mocks.getPaymentHistory.mockResolvedValue(
+      ok([
+        item({ paymentId: "enrolled", status: "pending", expiresAt: FUTURE, isEnrolled: true }),
+        item({ paymentId: "open", status: "pending", expiresAt: FUTURE }),
+      ]),
+    );
+
+    render(<PaymentHistory />);
+
+    await screen.findByText("Khóa enrolled");
+    expect(screen.getAllByText("Đang chờ thanh toán")).toHaveLength(2);
+    const continues = screen.getAllByRole("link", { name: "Tiếp tục thanh toán" });
+    expect(continues.map((link) => link.getAttribute("href"))).toEqual([
+      "/courses/course-open?thanh-toan=tiep-tuc",
+    ]);
+    // Dòng đã ghi danh vẫn hiện hạn như mọi khoản chờ khác, và link tiêu đề vẫn tới trang khóa học.
+    expect(screen.getByRole("link", { name: "Khóa enrolled" }).getAttribute("href")).toBe("/courses/course-enrolled");
   });
 
   it("shows the real title of a hidden course as plain text with a neutral badge and no link (AC10)", async () => {
