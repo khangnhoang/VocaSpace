@@ -171,7 +171,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Run integration tests
-        run: npm run test:integration -- --exclude __tests__/integration/learner-integrity.test.ts --exclude __tests__/integration/lf2-memory-check-answer-gate.test.ts --exclude __tests__/integration/lf2-learning-action-rpcs.test.ts --exclude __tests__/integration/lf3-content-read-boundary.test.ts --exclude __tests__/integration/lf3-memory-check-cards-seen-gate.test.ts --exclude __tests__/integration/ad7-admin-hardening.test.ts --exclude __tests__/integration/feat3-learning-activity.test.ts
+        run: npm run test:integration -- --exclude __tests__/integration/learner-integrity.test.ts --exclude __tests__/integration/lf2-memory-check-answer-gate.test.ts --exclude __tests__/integration/lf2-learning-action-rpcs.test.ts --exclude __tests__/integration/lf3-content-read-boundary.test.ts --exclude __tests__/integration/lf3-memory-check-cards-seen-gate.test.ts --exclude __tests__/integration/ad7-admin-hardening.test.ts --exclude __tests__/integration/feat3-learning-activity.test.ts --exclude __tests__/integration/feat6-payment-history.test.ts
 
   learner-integrity:
     name: Learner integrity tests on isolated Supabase
@@ -205,7 +205,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY="${ANON_KEY:-${PUBLISHABLE_KEY}}" \
           SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-${SECRET_KEY}}" \
           E2E_SUPABASE_WORKDIR=.e2e-runtime \
-          npm run test:integration -- __tests__/integration/learner-integrity.test.ts __tests__/integration/lf2-memory-check-answer-gate.test.ts __tests__/integration/lf2-learning-action-rpcs.test.ts __tests__/integration/lf3-content-read-boundary.test.ts __tests__/integration/lf3-memory-check-cards-seen-gate.test.ts __tests__/integration/ad7-admin-hardening.test.ts __tests__/integration/feat3-learning-activity.test.ts
+          npm run test:integration -- __tests__/integration/learner-integrity.test.ts __tests__/integration/lf2-memory-check-answer-gate.test.ts __tests__/integration/lf2-learning-action-rpcs.test.ts __tests__/integration/lf3-content-read-boundary.test.ts __tests__/integration/lf3-memory-check-cards-seen-gate.test.ts __tests__/integration/ad7-admin-hardening.test.ts __tests__/integration/feat3-learning-activity.test.ts __tests__/integration/feat6-payment-history.test.ts
 
   production-gate:
     name: production-gate
