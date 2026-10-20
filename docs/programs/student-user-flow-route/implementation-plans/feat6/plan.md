@@ -134,6 +134,8 @@ Baseline: `93ce589`, checked 2026-10-20.
 | Read `/privacy` | The new AC10 sentence and date are present; Owner approves the wording. |
 | Dismiss with `X` until nothing is left, reloading once in the same tab | The next payment takes its place each time; the null-deadline payment comes last with no `Hạn` line; dismissed ones stay hidden after reload (AC8). |
 
+**QA result: PASS, Owner, 2026-10-20.** Every row above passed on local, including the round-2 fixes (`3971cb6`: no title underline and no `Tiếp tục thanh toán` on an enrolled course; `71e78ec`: unknown enrolment offers no continue link) and the `/privacy` wording. Not yet done: push, PR, CI, merge, the hosted migration `20261020120000` (before deploy) and deploy, each needing its own Owner grant.
+
 ## 5. Risks, rollout and rollback
 
 | Risk | Mitigation |

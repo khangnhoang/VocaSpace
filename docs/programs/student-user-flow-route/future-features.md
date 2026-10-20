@@ -75,7 +75,7 @@ Khi một feature liên kết tới `problems.md`, file này sở hữu product 
 
 ## FEAT-006: Dashboard và lịch sử thanh toán đầy đủ hơn
 
-- Trạng thái: Implemented locally (2026-10-20), chờ Owner QA: [FEAT6 plan](./implementation-plans/feat6/plan.md).
+- Trạng thái: Implemented locally (2026-10-20), Owner QA PASS (2026-10-20), chờ push/PR/CI và các grant merge, migration hosted, deploy: [FEAT6 plan](./implementation-plans/feat6/plan.md).
 - Mô tả: Bổ sung dashboard thanh toán đầy đủ với lịch sử `paid`/`cancelled`/`expired`/`failed` thay vì chỉ hiển thị pending payment reminder.
 - Lý do hoãn: B2 chỉ cần pending payment reminder với phạm vi hẹp. Full history cần product design và có thể cần route riêng.
 - Wave/phạm vi dự kiến: Wave D.
