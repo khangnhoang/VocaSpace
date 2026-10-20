@@ -15,14 +15,6 @@ This file was migrated to the repository templates and translated to English on 
 - Update (2026-10-09): D8-LUI (Decision 24) changes only semantic colors on `/learn`; hierarchy, density, card height and responsive rhythm are not revisited by it, so this entry stays open.
 - Exit condition: that polish task is delivered.
 
-### PERF-ACTION-001: LF2 missed the card-rating and answer latency targets in production
-
-- Status: Open (found 2026-10-11 after the LF2 production measurement; the Owner decided not to do further card latency work in LF3, LF3 plan Q4).
-- Problem: after LF2 the production browser medians (fetch start to the end of the response body of the Server Action POST) are rating-first 444 ms (n = 14), rating-update 471 ms (n = 10), memory answer 525 ms (n = 5) and exercise answer 640 ms (n = 8), against the Owner targets of 300 ms or less for a card rating and 500 ms or less for an answer. The baseline medians were 597, 524, 1602 and 4464 ms.
-- Evidence: LF2 plan r4 section 2 (baseline and per-step preview timing) and the 2026-10-11 production re-measurement in [progress.md](./progress.md). Memory and exercise answers improved 3 to 7 times; the card rating improved by about 10 to 26 percent; the preview step timing (`auth.getUser` 47 to 56 ms, other steps 47 to 92 ms each) suggests the remaining cost is mostly hosted round trips and auth, which an in-database change does not remove (an inference, not a new measurement).
-- Direction: [LF8](./implementation-plans/lf8/plan.md) (Decision 32) is the UI-only step: the next card shows at once and the unchanged `submitCardReview` saves in the background, so the learner no longer waits for the 300 ms server target. It does not change the server latency, so this entry stays open until the Owner measures production after LF8 and either the card-rating target is met or the Owner accepts the measured level; moving auth validation off the critical path would still be a separate Owner decision with its own plan.
-- Exit condition: the card-rating target is met on production, or the Owner accepts the measured level and closes the entry.
-
 ### FUTURE-OWNERSHIP-001: Ownership transfer is not available
 
 - Status: Deferred (the singular-owner invariant was closed in D1; only ownership transfer remains).
@@ -43,30 +35,19 @@ This file was migrated to the repository templates and translated to English on 
 
 ### FUTURE-PAYMENT-001: Deeper payment dashboard and history
 
-- Status: Deferred for a deeper payment dashboard. The payment history part is implemented locally by FEAT6 ([FEAT6 plan](./implementation-plans/feat6/plan.md)) on `feat/feat6-payment-history`, pending Owner QA and rollout; not resolved until then.
-- Problem: the dashboard only needs a pending-payment reminder; full payment history and dashboard are a separate scope.
-- Evidence: current dashboard shows only the pending payment reminder (`FEAT-006`, plan unit D9).
+- Status: Deferred for a deeper payment dashboard. The payment history part is done: FEAT6 ([FEAT6 plan](./implementation-plans/feat6/plan.md)) merged in PR 169 (`c05080a`) and rolled out on 2026-10-20.
+- Problem: a deeper payment dashboard (summaries, totals or anything beyond the `/profile` history and the `/learn` pending card) is a separate scope.
+- Evidence: `/profile` shows the learner's own payment history and `/learn` a compact pending card (Decision 43); no other payment dashboard exists (plan unit D9).
 - Direction: keep the initial DTO narrow and add deeper payment history only when the product need is clear. Verification needed: behavior of pending, paid, cancelled, expired and failed states.
 - Exit condition: the product need is clear and a payment unit with its data and query boundary is delivered.
 
-### PAYMENT-GRANT-001: `anon` holds broad grants on `payments` and `expire_stale_payments`
+### PAYMENT-LATE-001: a late checkout can revive an expired `creating` payment or release its discount twice
 
-- Status: Open (found 2026-10-20 during FEAT6; outside the FEAT6 scope, not fixed).
-- Problem: the baseline schema grants `ALL` on table `public.payments` and `ALL` (EXECUTE) on the `SECURITY DEFINER` function `public.expire_stale_payments(integer)` to `anon` (and `authenticated`). No later migration revokes them.
-- Evidence:
-  - `supabase/migrations/20260609114505_remote_schema.sql:2042` (table grant) and `:1910` (function grant).
-  - Table rows stay protected because RLS is enabled (`:1658`) and the only policies are `SELECT` for `authenticated` (`:1569`, `:1629`). This is defense in depth, not an observed leak.
-  - The function is callable by anyone with the anon key. It only moves `creating`/`pending` rows that are already past `expires_at` to `expired` and releases their discount reservations, the same work the hosted pg_cron job does every 5 minutes. It does take row locks (`FOR UPDATE SKIP LOCKED`) with a caller-chosen `p_limit`.
-- Direction: in its own unit, revoke `anon` (and the write privileges of `authenticated`) on `payments`, and revoke EXECUTE on `expire_stale_payments` from `public`, `anon`, `authenticated`, keeping it for the cron owner and `service_role`. First confirm on hosted that no app path relies on these grants. A hosted migration needs separate authority.
-- Exit condition: a migration removes these grants locally and on hosted, with a test proving that `anon` cannot touch `payments` or call `expire_stale_payments`.
-
-### PAYMENT-EXPIRY-001: lazy expiry and resume only consider `pending`, not `creating`
-
-- Status: Open (found 2026-10-20 during FEAT6; outside the FEAT6 scope, not fixed).
-- Problem: `expireStalePendingPayments` in `app/actions/payment.ts` expires only `status = 'pending'` rows, while `expire_stale_payments` also expires `creating` rows. A `creating` row stuck after a failed PayOS call stays as it is until the next cron run, which is at most about 5 minutes. FEAT6 resume (`resumePendingCheckout`) also matches only `pending`, so a stuck `creating` row cannot be resumed (this matches the FEAT6 contract).
-- Evidence: `app/actions/payment.ts` `expireStalePendingPayments` (`.match({ ..., status: "pending" })`); `supabase/migrations/20260609114505_remote_schema.sql` `expire_stale_payments` (`WHERE status IN ('creating', 'pending')`).
-- Direction: decide in a payment unit whether checkout should also clean up or reuse a stale `creating` row. Low impact while the 5-minute cron runs.
-- Exit condition: checkout handles a stale `creating` row, or the Owner accepts the cron-only cleanup and closes the entry.
+- Status: Open (found 2026-10-21 during PAYGRANT planning; pre-existing, not fixed).
+- Problem: `createCheckoutSession` moves its row to `pending` or `failed` by payment id only. If the cron expires a `creating` row (15 minutes after insert) while that checkout's PayOS call is still running, the row can come back as `pending` after its reservation was released, or the `failed` branch releases the discount a second time.
+- Evidence: `app/actions/payment.ts:299-302` and `:322-329` (no status guard); `expire_stale_payments` expires `creating` rows and releases their reservations (`20260609114505_remote_schema.sql:282-319`); [PAYGRANT plan](./implementation-plans/paygrant/plan.md) §2.
+- Direction: in a payment unit, guard both updates on `status = 'creating'`, check the affected row count, and release the discount only when this checkout's own transition succeeded. Low impact: it needs a PayOS call that takes more than 15 minutes.
+- Exit condition: the checkout transitions are status-guarded with a test for the late-completion case, or the Owner accepts the risk and closes the entry.
 
 ## Resolved
 
@@ -91,8 +72,8 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - AUTH-002 — Moved 2026-10-02 to the [Auth onboarding problems](../auth-onboarding/problems.md) with the same ID; it is no longer tracked here.
 - E2E-001 — Resolved 2026-10-07: co-owner/draft fixtures with D1/D2 provenance, current teacher routes and public syllabus expectations restore the four affected specs in two full local smoke runs; AUTH-010 remains open and this correction is local only.
 
-- FUTURE-REVIEW-001 — Resolved 2026-10-13: a dedicated review route is not needed (Owner, 2026-10-12; `FEAT-005` Dropped), and the motion and colour notes of 2026-10-08 are delivered by LF6 AC5 (shared rating colours) and AC6 (400 ms flip, 300 ms entry); merge pending, see [progress.md](./progress.md).
-- HEADER-001 — Resolved 2026-10-13 (not reproducible on the current code, no header change): the Owner's manual check on :3000 with reduced motion showed every account-menu item on the first open and on a reopen, and the reduced-motion account-menu smoke passes for the student, teacher and admin roles (`0323b8d`); the root cause of the original 2026-10-12 report is unknown, and the smoke stays as the regression guard (LF6 AC7, merge pending, see [progress.md](./progress.md)).
+- FUTURE-REVIEW-001 — Resolved 2026-10-13: a dedicated review route is not needed (Owner, 2026-10-12; `FEAT-005` Dropped), and the motion and colour notes of 2026-10-08 are delivered by LF6 AC5 (shared rating colours) and AC6 (400 ms flip, 300 ms entry), merged in PR 150 (`971702e`).
+- HEADER-001 — Resolved 2026-10-13 (not reproducible on the current code, no header change): the Owner's manual check on :3000 with reduced motion showed every account-menu item on the first open and on a reopen, and the reduced-motion account-menu smoke passes for the student, teacher and admin roles (`0323b8d`); the root cause of the original 2026-10-12 report is unknown, and the smoke stays as the regression guard (LF6 AC7, merged in PR 150, `971702e`).
 - STUDENT-004 — Resolved 2026-10-09: the review-session completion and return correction (existing due counts for next-batch eligibility, congratulation on exhaustion, `Quay lại`, no empty reload) was verified on the zero/2/51-card journeys, accepted by the Owner on 2026-10-08 and merged in L1 (PR 142, `a92f371`); optional motion/color polish stays in FUTURE-REVIEW-001.
 - STUDENT-008 — Resolved 2026-10-09: CSS owns the dashboard column placement with one DOM tree, so desktop no longer flashes a narrow layout before hydration; responsive loading evidence recorded and merged in L1 (PR 142, `a92f371`).
 - NAVIGATION-001 — Resolved 2026-10-08: mobile/desktop account destinations, logout and keyboard close/focus parity merged in F1 (PR 139, `ee46176`); D6 CP2 names the avatar and verifies first-open/navigation/reopen on seeded roles. The reported blank first-open was not reproduced; no mount fix is claimed.
@@ -105,3 +86,6 @@ One line each. Details stay in Git (`git show eb36618:docs/refactors/student-use
 - QUALITY-001 — Resolved 2026-10-13: `npm run lint` is green (0 errors and 0 warnings) after three generated output folders were ignored and the tracked-file errors and warnings were fixed, and CI now runs it; the warning policy was reconciled by fixing every warning rather than tolerating them (LF7, `08ca4d8`, `a4485b7`).
 - STRUCTURE-LOCK-001 — Resolved 2026-10-13: every app structure write takes the course advisory lock first (topic moves, chapter move and create, chapter rename through `rename_chapter`) and an AC4 regression test per path passes on the isolated runtime after failing with `55P03` on the baseline; migration `20261013090000` is not yet applied to root or hosted, and a direct client title update outside the app keeps the old order (accepted residual) (LF7, `be6bd6b`, `fca09f3`).
 - GRANT-001 — Resolved 2026-10-18: migration `20261018090000` revokes `anon` execute on `create_chapter_ordered` and `move_chapter_order`; applied to hosted and grant-checked read-only, with an integration test asserting it (PR 165, `051ec81`).
+- PERF-ACTION-001 — Resolved 2026-10-21 by Owner acceptance: card rating is optimistic since LF8 (PR 161, `03fdeec`), so the learner does not wait for the save; the measured answer latency (memory 525 ms, exercise 640 ms after LF2) is accepted as it is (Decision 44).
+- PAYMENT-EXPIRY-001 — Resolved 2026-10-21 as cron-only cleanup under the Owner's cheap-only rule (Decision 44): a safe lazy `creating` expiry needs the guarded transitions now tracked in PAYMENT-LATE-001. Correction: a PayOS error marks the row `failed`, so a `creating` row is stuck only when the process dies mid-checkout or the `failed` update errors, until the 5-minute cron expires it.
+- PAYMENT-GRANT-001 — Resolved 2026-10-21: PAYGRANT migration `20261021090000` revokes `anon`/`authenticated`/`PUBLIC` EXECUTE on `handle_payment_success`, `reserve_discount_usage` and `expire_stale_payments`, leaves `authenticated` only `SELECT` on `payments` and removes both roles from `payos_order_code_seq`; applied to hosted under Owner grant and catalog-checked read-only, with `payment-privileges.test.ts` proving the denials ([PAYGRANT plan](./implementation-plans/paygrant/plan.md); merge pending, see [progress.md](./progress.md)).
