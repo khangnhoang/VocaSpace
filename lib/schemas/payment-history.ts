@@ -48,7 +48,8 @@ export const paymentHistoryItemSchema = z.strictObject({
   // AC10: tên thật của khóa học học viên không còn đọc được; chỉ có khi `course` là null và hàm own-payment trả về tiêu đề.
   hiddenCourseTitle: z.string().min(1).nullable(),
   // Owner QA round 2: học viên đã ghi danh khóa này thì dòng vẫn hiện đúng trạng thái nhưng không có "Tiếp tục thanh toán".
-  isEnrolled: z.boolean(),
+  // `null` nghĩa là không đọc được ghi danh (lỗi đọc): không suy ra "chưa ghi danh", nên dòng đó không có "Tiếp tục thanh toán".
+  isEnrolled: z.boolean().nullable(),
 });
 
 export const paymentHistoryDataSchema = z.strictObject({

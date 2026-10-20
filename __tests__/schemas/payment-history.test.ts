@@ -87,8 +87,9 @@ describe("paymentHistoryItemSchema", () => {
     expect(paymentHistoryItemSchema.safeParse(withoutHidden).success).toBe(false);
   });
 
-  it("requires a boolean isEnrolled", () => {
+  it("requires isEnrolled to be a boolean or null (unknown)", () => {
     expect(paymentHistoryItemSchema.safeParse({ ...validItem, isEnrolled: true }).success).toBe(true);
+    expect(paymentHistoryItemSchema.safeParse({ ...validItem, isEnrolled: null }).success).toBe(true);
     expect(paymentHistoryItemSchema.safeParse({ ...validItem, isEnrolled: "yes" }).success).toBe(false);
     const withoutFlag: Record<string, unknown> = { ...validItem };
     delete withoutFlag.isEnrolled;

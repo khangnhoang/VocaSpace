@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getPaymentHistory } from "@/app/actions/payment-history";
 import { createClient } from "@/utils/supabase/server";
+import { canContinuePayment } from "@/lib/payment-history-format";
 
 // Test plan:
 // - Mục tiêu: ranh giới đọc lịch sử thanh toán FEAT6 (AC3-AC7, G1-G3).
@@ -18,7 +19,7 @@ import { createClient } from "@/utils/supabase/server";
 // - AC10/G7: tiêu đề khóa học bị ẩn chỉ được đọc qua hàm own-payment khi trang có dòng course rỗng, chỉ với id của các dòng đó;
 //   lỗi của hàm không làm hỏng trang.
 // - Owner QA round 2: isEnrolled lấy từ ghi danh của chính người gọi (session client, user_id tường minh) chỉ cho id khóa học của trang;
-//   không có dòng course_id thì không gọi; lỗi đọc ghi danh không làm hỏng trang.
+//   không có dòng course_id thì không gọi; lỗi đọc ghi danh không làm hỏng trang nhưng đặt isEnrolled = null (không rõ) nên không dòng nào tiếp tục được.
 // - Ghi chú: RLS và trang vượt cuối thật của PostgREST được kiểm bằng __tests__/integration/feat6-payment-history.test.ts.
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -301,13 +302,28 @@ describe("getPaymentHistory", () => {
     expect(from).not.toHaveBeenCalledWith("enrollments");
   });
 
-  it("keeps the page, with every row not enrolled, when the enrollment read fails", async () => {
-    mockSupabase([createQuery({ data: [row(1)], count: 1 })]);
+  it("keeps the page but treats enrolment as unknown (null) for every row when the enrollment read fails, so no row can continue", async () => {
+    mockSupabase([
+      createQuery({
+        data: [
+          row(1, { status: "pending", expires_at: "2099-01-01T00:00:00+00:00" }),
+          row(2, { status: "pending", expires_at: "2099-01-01T00:00:00+00:00" }),
+        ],
+        count: 2,
+      }),
+    ]);
     enrollmentsQuery = createQuery({ data: [], error: { code: "42501", message: "enrollment detail" } });
 
     const result = await getPaymentHistory({ page: 1, filter: "all" });
 
-    expect(result).toMatchObject({ success: true, data: { items: [{ isEnrolled: false }] } });
+    expect(result).toMatchObject({
+      success: true,
+      data: { items: [{ isEnrolled: null }, { isEnrolled: null }] },
+    });
+    if (!result.success) return;
+    for (const item of result.data.items) {
+      expect(canContinuePayment(item, Date.parse("2026-10-20T00:00:00Z"))).toBe(false);
+    }
     expect(JSON.stringify(result)).not.toContain("enrollment detail");
   });
 

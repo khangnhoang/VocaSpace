@@ -108,14 +108,14 @@ async function readHiddenCourseTitles(
 
 /**
  * Owner QA round 2: khóa học nào trên trang mà học viên đã ghi danh. Đọc bằng session client (RLS chỉ cho đọc ghi danh của chính mình)
- * kèm user_id tường minh, chỉ với id khóa học của trang này. Lỗi đọc không làm hỏng trang: dòng coi như chưa ghi danh, và trang
- * khóa học vẫn tự kiểm tra lại khi bấm "Tiếp tục thanh toán".
+ * kèm user_id tường minh, chỉ với id khóa học của trang này. Lỗi đọc không làm hỏng trang nhưng cũng không được suy ra "chưa ghi danh":
+ * trả null để mọi dòng của trang có isEnrolled = null (không rõ) và không dòng nào có "Tiếp tục thanh toán".
  */
 async function readEnrolledCourseIds(
   supabase: SupabaseServerClient,
   userId: string,
   rows: PaymentHistoryRow[],
-): Promise<Set<string>> {
+): Promise<Set<string> | null> {
   const courseIds = Array.from(new Set(rows.map((row) => row.course_id).filter(Boolean)));
   if (courseIds.length === 0) return new Set();
 
@@ -126,7 +126,7 @@ async function readEnrolledCourseIds(
     .in("course_id", courseIds);
   if (error) {
     console.error("Payment history enrollments failed", error);
-    return new Set();
+    return null;
   }
   return new Set((data ?? []).map((entry) => entry.course_id as string));
 }
@@ -205,7 +205,7 @@ export async function getPaymentHistory(
           ? { slug: row.course.slug, title: row.course.title }
           : null,
         hiddenCourseTitle: row.course ? null : (hiddenTitles.get(row.id) ?? null),
-        isEnrolled: enrolledCourseIds.has(row.course_id),
+        isEnrolled: enrolledCourseIds ? enrolledCourseIds.has(row.course_id) : null,
       })),
       total: result.count ?? rows.length,
       page: servedPage,

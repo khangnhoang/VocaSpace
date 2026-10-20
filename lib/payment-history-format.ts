@@ -66,11 +66,16 @@ export function hasLivePaymentDeadline(
 
 /**
  * Chỉ hàng `pending` còn hạn, trên khóa học học viên chưa ghi danh, mới được "Tiếp tục thanh toán" (Decision 17, AC11):
- * `creating` chưa có mã QR để mở, và khóa đã ghi danh thì không còn gì để thanh toán. `isEnrolled` vắng mặt nghĩa là chưa ghi danh.
+ * `creating` chưa có mã QR để mở, và khóa đã ghi danh thì không còn gì để thanh toán. `isEnrolled` vắng mặt (nguồn không theo dõi ghi danh,
+ * như thẻ /learn đã tự loại khóa đã ghi danh) nghĩa là chưa ghi danh; `null` là không rõ nên cũng không cho tiếp tục.
  */
 export function canContinuePayment(
-  item: Pick<PaymentHistoryItem, "status" | "expiresAt"> & { isEnrolled?: boolean },
+  item: Pick<PaymentHistoryItem, "status" | "expiresAt"> & { isEnrolled?: boolean | null },
   now: number,
 ): boolean {
-  return item.status === "pending" && !item.isEnrolled && hasLivePaymentDeadline(item, now);
+  return (
+    item.status === "pending" &&
+    (item.isEnrolled === undefined || item.isEnrolled === false) &&
+    hasLivePaymentDeadline(item, now)
+  );
 }

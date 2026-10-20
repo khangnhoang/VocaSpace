@@ -156,6 +156,18 @@ describe("PaymentHistory", () => {
     expect(link.parentElement?.tagName).toBe("P");
   });
 
+  it("offers no Tiếp tục thanh toán on a row whose enrolment could not be read (isEnrolled null)", async () => {
+    mocks.getPaymentHistory.mockResolvedValue(
+      ok([item({ paymentId: "unknown", status: "pending", expiresAt: FUTURE, isEnrolled: null })]),
+    );
+
+    render(<PaymentHistory />);
+
+    await screen.findByText("Khóa unknown");
+    expect(screen.getByText("Đang chờ thanh toán")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Tiếp tục thanh toán" })).toBeNull();
+  });
+
   it("keeps the real status of a pending row on an enrolled course but offers no Tiếp tục thanh toán (QA regression)", async () => {
     mocks.getPaymentHistory.mockResolvedValue(
       ok([
