@@ -1,19 +1,19 @@
 # Teacher course portfolio redesign plan
 
-Revision: r3, 2026-10-21. Baseline: `0fd187a91a694d9180365d8827ffebfe4ab3aff6` on `feat/teacher-courses-redesign`. The Owner accepted the `Ưu tiên tiếp tục` UI composition from the interactive aid on 2026-10-21 and subsequently authorized committing the current planning/design checkpoint and pushing this branch. The data-read mechanism remains a technical proposal. The earlier independent `gpt-6.1-sol/high` review and local plan checkpoint covered r2 (`979053b`); that PASS is not r3 review evidence. This delivery grant does not authorize runtime implementation, a pull request, merge, deployment, or database changes for the redesign.
+Revision: r4, 2026-10-21. Baseline: `0fd187a91a694d9180365d8827ffebfe4ab3aff6` on `feat/teacher-courses-redesign`. The Owner accepted the `Ưu tiên tiếp tục` UI composition from the interactive aid on 2026-10-21 and subsequently authorized committing the current planning/design checkpoint and pushing this branch. r4 records the Owner's acceptance of the four section 1.5 proposals on 2026-10-21; the read mechanism is now an accepted CP1 decision procedure rather than a pending proposal. The earlier independent `gpt-6.1-sol/high` review and local plan checkpoint covered r2 (`979053b`); that PASS is not r3 or r4 review evidence. No grant so far authorizes runtime implementation, a pull request, merge, deployment, or database changes for the redesign.
 
 ## State
 
 | Field | Value |
 | --- | --- |
-| Spec revision | `docs/teacher-course-portfolio-plan.md` r3 |
+| Spec revision | `docs/teacher-course-portfolio-plan.md` r4 |
 | Current unit / checkpoint | Planning complete; no implementation checkpoint active |
-| Status | UI composition accepted; read mechanism pending; implementation not started |
-| Completed evidence | r2 independently reviewed and committed in `979053b`; Owner accepted the selected `Ưu tiên tiếp tục` aid on 2026-10-21. Prototype checks from the preceding task covered queue filters, search, representative states, and horizontal overflow at 320/375/768/1024px, with zero console errors; these are not production evidence. |
+| Status | UI composition and all section 1.5 proposals accepted; implementation not started |
+| Completed evidence | r2 independently reviewed and committed in `979053b`; Owner accepted the selected `Ưu tiên tiếp tục` aid and the section 1.5 proposals on 2026-10-21. Prototype checks from the preceding task covered queue filters, search, representative states, and horizontal overflow at 320/375/768/1024px, with zero console errors; these are not production evidence. |
 | Accepted deviations | None |
-| Blockers / Owner decisions | UI composition is resolved. Remaining technical work: map visible fields and queue eligibility to existing reads, establish any gap, and select the smallest safe read mechanism. Runtime implementation authority remains ungranted. |
-| Next action | Reconcile the accepted UI's data needs with current queries before deciding whether a new RPC is necessary |
-| Current authority | Commit the current planning/design checkpoint and normally push `feat/teacher-courses-redesign` to `origin`, as requested by the Owner on 2026-10-21. No runtime implementation, PR, merge, rollout, or redesign database change is granted. |
+| Blockers / Owner decisions | No open product decision. Runtime implementation authority remains ungranted, and r3/r4 have no independent review yet. |
+| Next action | Obtain implementation authority; CP1 then maps the accepted UI's data needs to current reads before deciding whether a new RPC is necessary |
+| Current authority | Local commit of the r4 plan update (Owner, 2026-10-21); no push. No runtime implementation, PR, merge, rollout, or redesign database change is granted. |
 
 ## 1. Binding specification candidate
 
@@ -94,16 +94,12 @@ Confirmed by the current request:
 - (2026-10-21, design review) inspect an aid before deciding the final interface or whether an RPC is necessary; the read mechanism must follow the visible data requirements.
 - (2026-10-21, acceptance) `chốt giao diện`, with `Ưu tiên tiếp tục` selected in the aid. Accept that variant's page composition: header utility/count/create, continuation and subordinate course rows, and the adjacent bounded attention queue with its real category filters. The `Danh sách trước` alternative is not selected. This is UI acceptance, not acceptance of synthetic records, permission changes, a specific RPC, or runtime implementation authority.
 - (2026-10-21, delivery) commit the current branch's planning/design changes and push `feat/teacher-courses-redesign` to `origin`; runtime implementation remains a later step.
+- (2026-10-21, proposals) dense threshold: five or more courses switch to the dense list with search/filter/sort, derived from the unfiltered count (AC5, G6).
+- (2026-10-21, proposals) continuation: the AC6 rule with the section 4.2 comparator (correction before review, oldest actionable timestamp first, stable identity tie-break; newest active collaboration and course ID as fallback); queue filters do not change it.
+- (2026-10-21, proposals) read mechanism: CP1 first maps every visible field and queue eligibility rule to existing reads using the existing permission semantics. Reuse safe existing reads when they meet the contract; otherwise add one read-only `get_teacher_course_portfolio()` (provisional name) migration under G3, and report that selection with its evidence to the Owner before CP2.
+- (2026-10-21, proposals) delivery scope: exclude cross-course content-readiness calculations; deliver one vertical pull request with three sequential checkpoints (CP1 read, CP2 route, CP3 validation), with no separate PR for CP1.
 
-Remaining proposals to reconcile before implementation:
-
-- use five courses as the threshold at which search/filter/dense scanning becomes warranted;
-- use the deterministic continuation rule in AC6 rather than claiming behavioral recency the system does not record;
-- implement the accepted queue's review/correction categories using the existing permission semantics, with the field/read mapping confirmed first;
-- exclude cross-course content-readiness calculations from this delivery because the existing readiness read is course-local and would create an expensive, competing portfolio concern;
-- deliver the work as one vertical pull request with three sequential checkpoints. The confirmed read contract comes first inside that branch, but does not require a separate PR or necessarily a migration.
-
-The selected visual composition is accepted. The five-course threshold, continuation comparator, and technical read strategy remain proposals; the aid does not establish backend necessity. A change to the accepted composition, attention taxonomy, or reviewer/correction ownership must be reconciled before dependent implementation continues.
+These acceptances settle product and scope choices only; they do not grant runtime implementation, a migration apply, or any remote action. A change to the accepted composition, attention taxonomy, or reviewer/correction ownership must be reconciled before dependent implementation continues.
 
 ## 2. Governing design contract
 
@@ -257,7 +253,8 @@ Before implementation begins:
 - every proposed permission rule must match the effective database contract rather than UI inference;
 - predicted files remain hypotheses unless required by a semantic owner;
 - no closed program is reopened and no prior design aid is misreported as shipped runtime;
-- the Owner explicitly accepts the pending proposals in section 1.5.
+- the Owner explicitly accepts the pending proposals in section 1.5 (done 2026-10-21, r4);
+- the Owner grants runtime implementation authority.
 
 Before reporting implementation complete:
 
