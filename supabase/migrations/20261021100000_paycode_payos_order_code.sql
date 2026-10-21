@@ -20,7 +20,8 @@ grant execute on function public.next_payos_order_code() to service_role;
 -- raise exception và cả migration rollback, không đổi gì.
 -- Thứ tự bắt buộc: kiểm khoảng -> ALTER SEQUENCE -> setval. setval không tự rollback, nhưng ALTER SEQUENCE cấp storage
 -- mới cho sequence trong transaction này nên setval chạy sau nó được rollback cùng migration nếu bước sau đó lỗi.
--- Điều kiện target < 9999999999999 (target >= last_value) cũng bảo đảm ALTER MAXVALUE không vướng giá trị hiện tại.
+-- Điều kiện target < 9999999999999 cũng bảo đảm ALTER MAXVALUE không vướng giá trị hiện tại: target >= last_value
+-- khi is_called, và >= last_value - 1 khi chưa is_called (mã kế tiếp chính là last_value), nên last_value <= 9999999999999.
 do $paycode$
 declare
   seq_last bigint;
