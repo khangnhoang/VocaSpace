@@ -284,6 +284,92 @@ describe("createCheckoutSession", () => {
     });
   });
 
+  it("takes the PayOS order code from the next_payos_order_code RPC and uses it everywhere", async () => {
+    const { paymentQuery } = setupHarness();
+    mocks.adminRpc.mockResolvedValue({ data: 9000000000123, error: null });
+
+    const result = await createCheckoutSession({ courseId });
+
+    expect(mocks.adminRpc).toHaveBeenCalledTimes(1);
+    expect(mocks.adminRpc).toHaveBeenCalledWith("next_payos_order_code");
+    expect(paymentQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gateway: "payos",
+        gateway_order_id: "9000000000123",
+      }),
+    );
+    expect(mockedPayosCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderCode: 9000000000123,
+        description: "VOCASPACE 9000000000123",
+      }),
+    );
+    expect(paymentQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gateway_metadata: expect.objectContaining({
+          payos_order_code: 9000000000123,
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      type: "paid",
+      data: { orderId: "9000000000123", bankMessage: "VOCASPACE 9000000000123" },
+    });
+  });
+
+  it.each([
+    ["an RPC error", { data: null, error: { message: "permission denied for function next_payos_order_code" } }],
+    ["a null value", { data: null, error: null }],
+    ["a non-integer value", { data: 12.5, error: null }],
+    ["a zero value", { data: 0, error: null }],
+    ["a negative value", { data: -7, error: null }],
+    ["a value above the safe integer range", { data: 9007199254740993, error: null }],
+    ["a numeric string", { data: "9000000000123", error: null }],
+  ])(
+    "fails closed with a safe error, a server log and no side effects when the order code RPC returns %s",
+    async (_, rpcResult) => {
+      const { paymentQuery } = setupHarness();
+      mocks.adminRpc.mockResolvedValue(rpcResult);
+      mockedResolveDiscount.mockResolvedValue({
+        ok: true,
+        originalAmount: 250000,
+        discountAmount: 50000,
+        finalAmount: 200000,
+        discountId: "44444444-4444-4444-8444-444444444444",
+        discountMeta: {
+          id: "44444444-4444-4444-8444-444444444444",
+          code: "SAVE20",
+          type: "fixed",
+          value: 50000,
+          maxDiscountAmount: null,
+        },
+      });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        await expect(
+          createCheckoutSession({ courseId, couponCode: "SAVE20" }),
+        ).resolves.toEqual({ error: "Hệ thống gặp sự cố ngoài dự kiến." });
+
+        // Bước dọn đơn pending hết hạn chạy trước khi lấy mã và được giữ nguyên.
+        expect(paymentQuery.lt).toHaveBeenCalledWith(
+          "expires_at",
+          expect.any(String),
+        );
+        expect(mockedReserveDiscount).not.toHaveBeenCalled();
+        expect(paymentQuery.insert).not.toHaveBeenCalled();
+        expect(mockedPayosCreate).not.toHaveBeenCalled();
+        expect(consoleError).toHaveBeenCalledTimes(1);
+        expect(consoleError).toHaveBeenCalledWith(
+          "🚨 [CHECKOUT_ORDER_CODE_FAILED]:",
+          expect.anything(),
+        );
+      } finally {
+        consoleError.mockRestore();
+      }
+    },
+  );
+
   it("marks a new payment failed and releases its reserved discount when PayOS fails", async () => {
     const { paymentQuery } = setupHarness();
     mockedResolveDiscount.mockResolvedValue({

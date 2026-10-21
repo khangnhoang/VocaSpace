@@ -4,22 +4,28 @@ import { randomUUID } from "node:crypto";
 import { waitForLocalPostgresQuery } from "./helpers/local-postgres-coordination";
 
 // Test plan:
-// - Mục tiêu: kiểm tra PAYGRANT, chỉ service_role (và postgres cho pg_cron) chạy được RPC thanh toán và ghi payments.
+// - Mục tiêu: kiểm tra PAYGRANT, chỉ service_role (và postgres cho pg_cron) chạy được RPC thanh toán và ghi payments;
+//   và PAYCODE, mã đơn PayOS chỉ cấp được qua RPC next_payos_order_code của service_role.
 // - Loại test: integration/RPC/grant trên Supabase local thật.
-// - Đối tượng: handle_payment_success, reserve_discount_usage, expire_stale_payments, bảng payments, sequence payos_order_code_seq.
+// - Đối tượng: handle_payment_success, reserve_discount_usage, expire_stale_payments, next_payos_order_code, bảng payments, sequence payos_order_code_seq.
 // - Case thành công:
-//   - service_role vẫn có EXECUTE trên ba hàm và mọi quyền trên payments/sequence; authenticated vẫn SELECT được payment của mình.
+//   - service_role vẫn có EXECUTE trên bốn hàm và mọi quyền trên payments/sequence; authenticated vẫn SELECT được payment của mình.
+//   - service_role gọi next_payos_order_code hai lần: hai số nguyên 13 chữ số, tăng chặt, trong khoảng 9000000000000..9999999999999.
 // - Case thất bại:
 //   - anon và học viên chủ đơn gọi handle_payment_success trên đơn creating/pending thật có giữ discount: 42501.
 //   - anon và học viên gọi reserve_discount_usage và expire_stale_payments: 42501.
+//   - anon và học viên gọi next_payos_order_code: 42501.
 // - Bảo mật/phân quyền:
-//   - catalog: anon/authenticated/public không EXECUTE ba hàm; anon không có quyền nào trên payments (kể cả REFERENCES, TRIGGER, MAINTAIN); authenticated chỉ SELECT; service_role giữ đủ; anon/authenticated không có quyền trên sequence.
+//   - catalog: anon/authenticated/public không EXECUTE bốn hàm; anon không có quyền nào trên payments (kể cả REFERENCES, TRIGGER, MAINTAIN); authenticated chỉ SELECT; service_role giữ đủ; anon/authenticated không có quyền trên sequence.
 //   - sau mỗi lần bị từ chối: trạng thái payment, enrollment và reserved_count/uses_count của discount không đổi.
+//   - hết dải 13 chữ số (nextval báo 2200H) và hành vi migration PAYCODE trên dữ liệu có sẵn được kiểm bằng script scenario psql
+//     trên runtime cô lập (kế hoạch PAYCODE §3), không nằm trong file này vì setval/nextval không rollback được.
 // - Ổn định/resilience: fixture cô lập theo course/user UUID, mỗi case tự tạo và dọn payment vì uq_active_payment chỉ cho một đơn active; lỗi dọn dẹp làm test fail thay vì để sót dữ liệu.
 // - Invariant cần giữ: người dùng không thể tự đánh dấu paid hoặc tự ghi danh khóa học trả phí.
-// - Kết quả verify gần nhất: passed (8/8) sau migration PAYGRANT trên root runtime (45321) và runtime cô lập (45441) bằng
+// - Kết quả verify gần nhất: passed (11/11) sau migration PAYCODE `20261021100000` trên runtime cô lập (45441, sau `db reset` đầy đủ) và trên
+//   root runtime (45321, sau `migration up --local`) bằng
 //   `ALLOW_DB_INTEGRATION_TESTS=true npm run test:integration -- __tests__/integration/payment-privileges.test.ts`;
-//   trước migration 7 case fail (anon gọi handle_payment_success trả về SUCCESS).
+//   trước migration PAYCODE (runtime cô lập reset về `20261021090000`) 4 case fail (PGRST202, chưa có RPC).
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -186,6 +192,7 @@ describe.sequential("payment privileges (PAYGRANT)", () => {
       "public.handle_payment_success(text, text, text)",
       "public.reserve_discount_usage(uuid)",
       "public.expire_stale_payments(integer)",
+      "public.next_payos_order_code()",
     ]) {
       const grants = await waitForLocalPostgresQuery(
         `select string_agg(r || '=' || has_function_privilege(r, '${signature}', 'execute')::text, ',' order by r)
@@ -260,6 +267,31 @@ describe.sequential("payment privileges (PAYGRANT)", () => {
       expect(expire.error?.code).toBe("42501");
 
       expect(await snapshot(stale.id)).toEqual(before);
+    });
+  }
+
+  it("hands service_role two strictly increasing 13-digit PayOS order codes", async () => {
+    const first = await service.rpc("next_payos_order_code");
+    const second = await service.rpc("next_payos_order_code");
+
+    expect(first.error).toBeNull();
+    expect(second.error).toBeNull();
+    for (const code of [first.data, second.data]) {
+      expect(Number.isSafeInteger(code)).toBe(true);
+      expect(String(code)).toMatch(/^\d{13}$/);
+      expect(code).toBeGreaterThanOrEqual(9000000000000);
+      expect(code).toBeLessThanOrEqual(9999999999999);
+    }
+    expect(second.data).toBeGreaterThan(first.data);
+  });
+
+  for (const caller of ["anon", "learner"] as const) {
+    it(`refuses ${caller} drawing a PayOS order code`, async () => {
+      const actor = caller === "anon" ? anonymous : learner;
+      const { data, error } = await actor.rpc("next_payos_order_code");
+
+      expect(data).toBeNull();
+      expect(error?.code).toBe("42501");
     });
   }
 
