@@ -19,12 +19,12 @@ Three rules below are standing Owner permissions that apply without asking again
 
 ## Preflight reading
 
-- Claude Code does not load the skills in `.agents/skills/` on its own. Before the first tool call of any task that is not a pure read-only question, read `docs/agent-loops.md` and the `SKILL.md` of every skill whose row in the `AGENTS.md` routing table matches the task.
+- Claude Code does not load the skills in `.agents/skills/` on its own. Before the first tool call of any task that is not a pure read-only question, read `docs/agent-loops.md` and the whole `SKILL.md` of every skill whose row in the `AGENTS.md` routing table matches the task.
 
 ## Implementation through Sonnet
 
 - When the Owner hands a plan to Sonnet (orchestrator mode), start one implementor session for all checkpoints with `start_session`, not a subagent: model `claude-sonnet-5-5`, effort `high`, in the product checkout on the current branch (`use_worktree: false`). Do this only for an approved plan with no open decision; otherwise ask the Owner first. The handoff grants local commits only.
-- The session has no agent definition, so the brief states the implementor limits itself: before the first edit, read `docs/agent-loops.md` and the `SKILL.md` of every skill the `AGENTS.md` routing table matches for the plan; do only the assigned checkpoints, stop and report on any mismatch with the plan, and no push, no PR, no merge.
+- The session has no agent definition, so the brief states the implementor limits itself: before the first edit, read `docs/agent-loops.md` and the whole `SKILL.md` of every skill the `AGENTS.md` routing table matches for the plan; do only the assigned checkpoints, stop and report on any mismatch with the plan, and no push, no PR, no merge.
 - When the session ends a turn, Main is called to handle the next step. That note quotes only the start of the report, so read the full report and check the diff and commits before trusting it.
 - Send corrections and later checkpoints to the same session with SendMessage; do not start a new session, a subagent or an independent review per checkpoint. Reviews or evidence that the plan or a skill requires (for example a fresh-reader round) still run at their checkpoint.
 - While an implementor owns the plan, Main does not edit product code or tests, even for small QA fixes.
