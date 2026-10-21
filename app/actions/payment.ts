@@ -212,6 +212,29 @@ export async function createCheckoutSession(rawInput: unknown) {
       return { error: "Hệ thống gặp sự cố ngoài dự kiến." };
     }
 
+    // Lấy mã trước khi giữ chỗ coupon để lỗi ở bước này không cần nhả chỗ. Không fallback sang
+    // Date.now(): mã đó có thể trùng với mã của deployment cũ hoặc của đơn khác.
+    const { data: orderCode, error: orderCodeError } = await supabaseAdmin.rpc(
+      "next_payos_order_code",
+    );
+
+    if (
+      orderCodeError ||
+      typeof orderCode !== "number" ||
+      !Number.isSafeInteger(orderCode) ||
+      orderCode <= 0
+    ) {
+      console.error(
+        "🚨 [CHECKOUT_ORDER_CODE_FAILED]:",
+        orderCodeError ?? {
+          invalidOrderCode: orderCode,
+        },
+      );
+      return { error: "Hệ thống gặp sự cố ngoài dự kiến." };
+    }
+
+    const orderCodeStr = String(orderCode);
+
     const resolvedDiscount = await resolveDiscountPricing({
       supabaseAdmin,
       courseId,
@@ -238,12 +261,6 @@ export async function createCheckoutSession(rawInput: unknown) {
       reservedDiscountId = resolvedDiscount.discountId;
     }
 
-    const { data: seqData, error: seqError } = await supabaseAdmin.rpc(
-      "get_next_sequence_value",
-      { seq_name: "payos_order_code_seq" },
-    );
-
-    const orderCodeStr = seqError ? Date.now().toString() : String(seqData);
     const localPaymentId = crypto.randomUUID();
 
     const PAYMENT_TIMEOUT_MS = 15 * 60 * 1000;
