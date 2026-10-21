@@ -81,6 +81,10 @@ describe("teacherCoursePortfolioSchema", () => {
   it.each([
     ["a topic item without topic identity", { ...reviewItem, topic_id: null, topic_title: null }],
     ["a course rejection that carries a topic", { ...courseItem, topic_id: topicId, topic_title: "x" }],
+    ["a topic item with only a topic id", { ...reviewItem, topic_title: null }],
+    ["a topic item with only a topic title", { ...reviewItem, topic_id: null }],
+    ["a course rejection with only a topic id", { ...courseItem, topic_id: topicId }],
+    ["a course rejection with only a topic title", { ...courseItem, topic_title: "x" }],
     ["a review item with a rejection reason", { ...reviewItem, reason: "không được có" }],
     ["a correction item without a reason", { ...correctionItem, reason: null }],
     ["a course rejection with a blank reason", { ...courseItem, reason: "   " }],

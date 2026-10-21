@@ -34,8 +34,11 @@ export const teacherAttentionItemSchema = z
     ordering_at: timestampSchema,
   })
   .superRefine((item, ctx) => {
+    // Topic item cần cả hai field định danh; course_rejection phải không có field nào (không chấp nhận một nửa).
+    const hasTopicId = item.topic_id !== null;
+    const hasTopicTitle = item.topic_title !== null;
     const isTopicItem = item.kind !== "course_rejection";
-    if (isTopicItem !== (item.topic_id !== null && item.topic_title !== null)) {
+    if (isTopicItem ? !(hasTopicId && hasTopicTitle) : hasTopicId || hasTopicTitle) {
       ctx.addIssue({
         code: "custom",
         message: "Topic attention items need topic identity; course items must not carry one.",

@@ -18,6 +18,18 @@ const unavailable = (): TeacherCoursePortfolioResult => ({
 export async function getTeacherCoursePortfolio(): Promise<TeacherCoursePortfolioResult> {
   try {
     const supabase = await createClient();
+    // anon bị thu hồi execute nên không session sẽ nhận 42501 (không phải AUTH_REQUIRED); kiểm session trước để UI phân biệt được.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return {
+        success: false,
+        errorCode: "AUTH_REQUIRED",
+        error: "Vui lòng đăng nhập lại!",
+      };
+    }
+
     const { data, error } = await supabase.rpc("get_teacher_course_portfolio");
 
     if (error) {

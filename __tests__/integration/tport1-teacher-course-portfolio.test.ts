@@ -14,7 +14,7 @@ import { runLocalPsql } from "./helpers/local-psql";
 //   - Course bị từ chối hiện `course_rejection` cho owner/editor.
 // - Case thất bại:
 //   - Anon bị từ chối bằng lỗi quyền (không phải kết quả rỗng); RPC không nhận tham số danh tính nên đối số thừa bị PostgREST từ chối.
-//   - Người ngoài khóa học, course/topic đã xóa mềm, mất cộng tác không có dữ liệu.
+//   - Người ngoài khóa học, course/topic đã xóa mềm, profile bị xóa mềm (FORBIDDEN dù session còn hạn), mất cộng tác không có dữ liệu.
 // - Bảo mật/phân quyền:
 //   - Người nộp, original creator, responsible, contributor, exclusion lịch sử, editor không có can_review_topics không nhận `topic_review`.
 //   - Previewer không có quyền sửa topic/course không nhận correction; previewer là responsible vẫn nhận `topic_correction`, không nhận `course_rejection`.
@@ -22,6 +22,7 @@ import { runLocalPsql } from "./helpers/local-psql";
 //   - `can_create_course` theo profile.role toàn cục, độc lập vai trò course.
 // - Ổn định/resilience:
 //   - Bản nộp mới nhất theo mọi người gửi (A bị từ chối rồi B nộp): không correction cho ai, review cho reviewer hợp lệ.
+//   - Topic về draft nhưng còn lần từ chối cũ của A: B cancelled/approved (kể cả delete/restore) không correction; hai lần từ chối khác người nộp chỉ ra một dòng với lý do mới nhất; submitted_at bằng nhau phân xử bằng id DESC.
 //   - Withdraw sau rejection rồi delete/restore, và approve sau rejection: không correction.
 //   - Một người giữ nhiều vai trò trên cùng topic chỉ nhận một dòng.
 // - Invariant cần giữ:
@@ -176,6 +177,30 @@ async function reject(actor: ActorName, topicId: string, reason: string) {
     p_reason: reason,
   });
   expect(result.error).toBeNull();
+}
+
+async function expectTopicStatus(topicId: string, status: "draft" | "pending" | "published") {
+  const { data, error } = await service.from("topics").select("status, removed_at").eq("id", topicId).single();
+  expect(error).toBeNull();
+  expect(data?.status).toBe(status);
+}
+
+async function submissionStatuses(topicId: string) {
+  const { data, error } = await service.from("topic_review_submissions")
+    .select("status, submitted_by_user_id").eq("topic_id", topicId).order("submitted_at").order("id");
+  expect(error).toBeNull();
+  return data ?? [];
+}
+
+async function rpcOk(actor: ActorName, name: string, args: Record<string, unknown>) {
+  const result = await actors[actor].client.rpc(name, args);
+  expect(result.error).toBeNull();
+}
+
+// Contributor phải là editor trở lên; trách nhiệm chỉ chuyển được cho contributor (hoặc owner/co_owner).
+async function handOver(fromOwner: ActorName, topicId: string, to: ActorName) {
+  await rpcOk(fromOwner, "add_topic_contributor", { p_topic_id: topicId, p_user_id: actors[to].id });
+  await rpcOk(fromOwner, "transfer_topic_responsibility", { p_topic_id: topicId, p_recipient_user_id: actors[to].id });
 }
 
 // exercises/topics/chapters tham chiếu course không cascade; xóa theo thứ tự và báo lỗi để không để lại dữ liệu mồ côi.
@@ -450,6 +475,7 @@ describe.sequential("TPORT1 teacher course portfolio read boundary", () => {
       });
       expect(transfer.error).toBeNull();
       await submit("editor", fixture.topicId);
+      await expectTopicStatus(fixture.topicId, "pending");
 
       for (const name of ["author", "editor"] as const) {
         expect(await attentionFor(name, fixture)).toEqual([]);
@@ -469,6 +495,7 @@ describe.sequential("TPORT1 teacher course portfolio read boundary", () => {
         p_submission_id: await pendingSubmissionId(fixture.topicId),
       });
       expect(approve.error).toBeNull();
+      await expectTopicStatus(fixture.topicId, "published");
 
       expect(await attentionFor("author", fixture)).toEqual([]);
       expect(await attentionFor("reviewer", fixture)).toEqual([]);
@@ -561,6 +588,213 @@ describe.sequential("TPORT1 teacher course portfolio read boundary", () => {
       const resubmitted = await createFixture({ members: [{ actor: "author", role: "owner" }] });
       await rejectCourse(resubmitted.courseId, "Đã gửi lại", "pending");
       expect(await attentionFor("author", resubmitted)).toEqual([]);
+    });
+  });
+
+  // Các case dưới đây đưa topic về `draft` với một lần từ chối cũ còn trong lịch sử, nên chỉ việc chọn
+  // bản nộp mới nhất (không phải trạng thái topic) mới quyết định có correction hay không.
+  describe("latest submission selection with the topic back in draft", () => {
+    const reviewerSetup = {
+      members: [
+        { actor: "author", role: "owner" },
+        { actor: "reviewer", role: "co_owner" },
+        { actor: "editor", role: "editor" },
+      ] satisfies Member[],
+    };
+
+    it("ignores an older rejection by A when B's later submission was cancelled, even after delete and restore", async () => {
+      const fixture = await createFixture(reviewerSetup);
+      await submit("author", fixture.topicId);
+      await reject("reviewer", fixture.topicId, "A bị từ chối");
+      await handOver("author", fixture.topicId, "editor");
+      await submit("editor", fixture.topicId);
+      await rpcOk("editor", "withdraw_review_to_draft", { p_topic_id: fixture.topicId });
+
+      await expectTopicStatus(fixture.topicId, "draft");
+      expect((await submissionStatuses(fixture.topicId)).map((row) => row.status)).toEqual(["rejected", "cancelled"]);
+      expect(await attentionFor("author", fixture)).toEqual([]);
+      expect(await attentionFor("editor", fixture)).toEqual([]);
+
+      await rpcOk("author", "d1_delete_topic", { p_topic_id: fixture.topicId });
+      await rpcOk("author", "d1_restore_topic", { p_topic_id: fixture.topicId });
+      await expectTopicStatus(fixture.topicId, "draft");
+      expect(await attentionFor("author", fixture)).toEqual([]);
+      expect(await attentionFor("editor", fixture)).toEqual([]);
+    });
+
+    it("ignores an older rejection by A when B's later submission was approved, even after delete and restore", async () => {
+      const fixture = await createFixture(reviewerSetup);
+      await submit("author", fixture.topicId);
+      await reject("reviewer", fixture.topicId, "A bị từ chối");
+      await handOver("author", fixture.topicId, "editor");
+      await submit("editor", fixture.topicId);
+      await rpcOk("reviewer", "approve_topic_review", { p_submission_id: await pendingSubmissionId(fixture.topicId) });
+      await expectTopicStatus(fixture.topicId, "published");
+
+      await rpcOk("author", "d1_delete_topic", { p_topic_id: fixture.topicId, p_confirm_published: true });
+      await rpcOk("author", "d1_restore_topic", { p_topic_id: fixture.topicId });
+
+      await expectTopicStatus(fixture.topicId, "draft");
+      expect((await submissionStatuses(fixture.topicId)).map((row) => row.status)).toEqual(["rejected", "approved"]);
+      expect(await attentionFor("author", fixture)).toEqual([]);
+      expect(await attentionFor("editor", fixture)).toEqual([]);
+    });
+
+    it("carries only the newest reason when two different submitters were rejected in turn", async () => {
+      const fixture = await createFixture(reviewerSetup);
+      await submit("author", fixture.topicId);
+      await reject("reviewer", fixture.topicId, "Lý do cũ của A");
+      await handOver("author", fixture.topicId, "editor");
+      await submit("editor", fixture.topicId);
+      await reject("reviewer", fixture.topicId, "Lý do mới của B");
+
+      await expectTopicStatus(fixture.topicId, "draft");
+      expect((await submissionStatuses(fixture.topicId)).map((row) => row.status)).toEqual(["rejected", "rejected"]);
+      // editor là responsible, author là original creator: cả hai đều được sửa, và chỉ một dòng với lý do mới nhất.
+      for (const name of ["editor", "author"] as const) {
+        const items = await attentionFor(name, fixture);
+        expect(items).toHaveLength(1);
+        expect(items[0]).toMatchObject({ kind: "topic_correction", topic_id: fixture.topicId, reason: "Lý do mới của B" });
+      }
+    });
+
+    // submitted_at bằng nhau thì `id DESC` quyết định: ép id để kết quả không phụ thuộc uuid ngẫu nhiên.
+    it.each([
+      ["the rejected row has the lower id, so the cancelled row is latest", "00000000-0000-4000-8000-0000000000a1", "ffffffff-ffff-4fff-8fff-fffffffffff1", false],
+      ["the rejected row has the higher id, so it is latest", "ffffffff-ffff-4fff-8fff-fffffffffff2", "00000000-0000-4000-8000-0000000000a2", true],
+    ] as const)("breaks a submitted_at tie by id DESC when %s", async (_name, rejectedId, cancelledId, expectsCorrection) => {
+      const fixture = await createFixture({
+        members: [{ actor: "author", role: "owner" }, { actor: "reviewer", role: "co_owner" }],
+      });
+      await submit("author", fixture.topicId);
+      await reject("reviewer", fixture.topicId, "Lý do còn hiệu lực nếu là bản mới nhất");
+      await submit("author", fixture.topicId);
+      await rpcOk("author", "withdraw_review_to_draft", { p_topic_id: fixture.topicId });
+      await expectTopicStatus(fixture.topicId, "draft");
+
+      const rows = await service.from("topic_review_submissions")
+        .select("id, status").eq("topic_id", fixture.topicId);
+      const rejected = rows.data?.find((row) => row.status === "rejected")?.id;
+      const cancelled = rows.data?.find((row) => row.status === "cancelled")?.id;
+      expect(rejected && cancelled).toBeTruthy();
+      runLocalPsql(`
+        update public.topic_review_submissions set submitted_at = '2026-01-01T00:00:00Z' where topic_id = '${fixture.topicId}';
+        update public.topic_review_submissions set id = '${rejectedId}' where id = '${rejected}';
+        update public.topic_review_submissions set id = '${cancelledId}' where id = '${cancelled}';
+      `);
+
+      const items = await attentionFor("author", fixture);
+      if (expectsCorrection) {
+        expect(items).toHaveLength(1);
+        expect(items[0]).toMatchObject({ kind: "topic_correction", reason: "Lý do còn hiệu lực nếu là bản mới nhất" });
+      } else {
+        expect(items).toEqual([]);
+      }
+    });
+  });
+
+  describe("exclusions and inactive objects, each with a positive control", () => {
+    it("denies a caller whose profile was soft-deleted while the session is still valid", async () => {
+      const fixture = await createFixture({
+        members: [{ actor: "author", role: "owner" }, { actor: "outsider", role: "editor" }],
+      });
+      expect((await portfolioOf(actors.outsider)).courses.map((c) => c.id)).toContain(fixture.courseId);
+
+      const remove = await service.from("profiles")
+        .update({ removed_at: new Date().toISOString() }).eq("id", actors.outsider.id);
+      expect(remove.error).toBeNull();
+      try {
+        const result = await actors.outsider.client.rpc("get_teacher_course_portfolio");
+        expect(result.data).toBeNull();
+        expect(result.error?.message).toContain("TEACHER_PORTFOLIO_FORBIDDEN");
+      } finally {
+        await service.from("profiles").update({ removed_at: null }).eq("id", actors.outsider.id);
+      }
+    });
+
+    it("drops both queue kinds for a soft-deleted topic", async () => {
+      const fixture = await createFixture({
+        members: [{ actor: "author", role: "owner" }, { actor: "reviewer", role: "co_owner" }],
+      });
+      await submit("author", fixture.topicId);
+      expect(await attentionFor("reviewer", fixture)).toHaveLength(1); // positive control: review
+
+      await reject("reviewer", fixture.topicId, "Cần sửa");
+      expect(await attentionFor("author", fixture)).toHaveLength(1); // positive control: correction
+
+      await rpcOk("author", "d1_delete_topic", { p_topic_id: fixture.topicId });
+      const { data } = await service.from("topics").select("removed_at, status").eq("id", fixture.topicId).single();
+      expect(data?.removed_at).not.toBeNull();
+      expect(await attentionFor("author", fixture)).toEqual([]);
+
+      await rpcOk("author", "d1_restore_topic", { p_topic_id: fixture.topicId });
+      expect(await attentionFor("author", fixture)).toHaveLength(1); // latest submission is still the rejection
+    });
+
+    it("hides the review item from a soft-deleted pending topic", async () => {
+      const fixture = await createFixture({
+        members: [{ actor: "author", role: "owner" }, { actor: "reviewer", role: "co_owner" }],
+      });
+      await submit("author", fixture.topicId);
+      expect(await attentionFor("reviewer", fixture)).toHaveLength(1); // positive control
+
+      // Ghi trực tiếp bằng quyền postgres để giữ topic ở `pending`; delete qua RPC sẽ hủy pending trước.
+      runLocalPsql(`
+        set session_replication_role = replica;
+        update public.topics set removed_at = now() where id = '${fixture.topicId}';
+      `);
+      await expectTopicStatus(fixture.topicId, "pending");
+      expect(await attentionFor("reviewer", fixture)).toEqual([]);
+    });
+
+    it("never offers review to a responsible author who is not the submitter", async () => {
+      // creator = author (submits), responsible = editor (co_owner): D1 loại responsible khỏi reviewer.
+      const fixture = await createFixture({
+        members: [
+          { actor: "author", role: "owner" },
+          { actor: "editor", role: "co_owner" },
+          { actor: "reviewer", role: "co_owner" },
+        ],
+        creator: "author",
+        responsible: "editor",
+      });
+      await submit("author", fixture.topicId);
+
+      expect(await attentionFor("reviewer", fixture)).toHaveLength(1); // positive control
+      expect(await attentionFor("editor", fixture)).toEqual([]);
+    });
+
+    // Effective predicate: d1_is_topic_reviewer_excluded (20260919100000_d1_topic_authority_split.sql) loại contributor
+    // hiện tại vô điều kiện; chỉ nhánh bảng exclusion lịch sử bị chặn bởi first_approved_at.
+    it("excludes a contributor added after first approval, while a late historical exclusion row no longer excludes", async () => {
+      const fixture = await createFixture({
+        members: [
+          { actor: "author", role: "owner" },
+          { actor: "reviewer", role: "co_owner" },
+          { actor: "editor", role: "co_owner" },
+          { actor: "previewer", role: "co_owner" },
+        ],
+      });
+      await submit("author", fixture.topicId);
+      await rpcOk("reviewer", "approve_topic_review", { p_submission_id: await pendingSubmissionId(fixture.topicId) });
+      await rpcOk("author", "d1_delete_topic", { p_topic_id: fixture.topicId, p_confirm_published: true });
+      await rpcOk("author", "d1_restore_topic", { p_topic_id: fixture.topicId });
+      const { data } = await service.from("topics").select("first_approved_at").eq("id", fixture.topicId).single();
+      expect(data?.first_approved_at).not.toBeNull();
+
+      await rpcOk("author", "add_topic_contributor", { p_topic_id: fixture.topicId, p_user_id: actors.editor.id });
+      const exclusion = await service.from("topic_author_review_exclusions").insert({
+        topic_id: fixture.topicId,
+        user_id: actors.previewer.id,
+        exclusion_type: "initial_contributor",
+      });
+      expect(exclusion.error).toBeNull();
+      await submit("author", fixture.topicId);
+      await expectTopicStatus(fixture.topicId, "pending");
+
+      expect(await attentionFor("reviewer", fixture)).toHaveLength(1); // positive control
+      expect(await attentionFor("previewer", fixture)).toHaveLength(1); // historical exclusion expired at first approval
+      expect(await attentionFor("editor", fixture)).toEqual([]); // current contributor stays excluded
     });
   });
 });
