@@ -39,15 +39,20 @@ vi.mock("@/lib/discounts/discount-pricing", () => ({
 }));
 
 // Test plan:
-// - Mục tiêu: bảo vệ trust boundary và canonical PayOS cancel URL của createCheckoutSession.
+// - Mục tiêu: bảo vệ trust boundary và canonical PayOS cancel URL của createCheckoutSession, và nguồn mã đơn PayOS (PAYCODE).
 // - Loại test: Server Action với Supabase/PayOS boundary được mock.
-// - Đối tượng: trusted course query, eligibility, free/pending/new paid và rollback.
-// - Case thành công: paid checkout dùng stored slug; free không gọi PayOS; pending được reuse.
-// - Case thất bại: missing/unpublished/removed/invalid slug fail closed; PayOS failure rollback.
-// - Bảo mật/phân quyền: slug/cancel URL từ client không thể điều khiển redirect PayOS.
-// - Ổn định/resilience: không reserve discount hoặc tạo payment cho course không hợp lệ.
+// - Đối tượng: trusted course query, eligibility, free/pending/new paid, rollback và bước lấy mã đơn qua RPC next_payos_order_code.
+// - Case thành công: paid checkout dùng stored slug; free không gọi PayOS; pending được reuse;
+//   mã từ RPC được dùng làm gateway_order_id, orderCode, mô tả VOCASPACE <mã> và gateway_metadata.payos_order_code.
+// - Case thất bại: missing/unpublished/removed/invalid slug fail closed; PayOS failure rollback;
+//   RPC lỗi, null, số không nguyên, 0, số âm, vượt safe integer hoặc chuỗi số: trả lỗi an toàn, một lần console.error,
+//   không reserve coupon, không insert payment, không gọi PayOS, còn bước dọn đơn pending hết hạn vẫn chạy.
+// - Bảo mật/phân quyền: slug/cancel URL từ client không thể điều khiển redirect PayOS; lỗi RPC không lộ chi tiết database.
+// - Ổn định/resilience: không reserve discount hoặc tạo payment cho course không hợp lệ; không còn fallback Date.now() cho mã PayOS.
 // - Invariant cần giữ: success returnUrl không đổi và checkout input vẫn chỉ có courseId/couponCode.
-// - Kết quả verify gần nhất: xem evidence B1.5 hiện hành trong progress.md.
+// - Kết quả verify gần nhất: passed (43/43 cùng payment-resume.test.ts) bằng
+//   `npx vitest run __tests__/actions/payment.test.ts __tests__/actions/payment-resume.test.ts`;
+//   trước khi đổi action 8 case PAYCODE fail.
 
 const mockedCreateClient = vi.mocked(createClient);
 const mockedPayosCreate = vi.mocked(payosService.paymentRequests.create);

@@ -18,6 +18,9 @@ grant execute on function public.next_payos_order_code() to service_role;
 -- còn tạo được giữa lúc áp migration và lúc deploy, nên điểm sàn là 8999999999999 chứ không chỉ max đã lưu (G3).
 -- Mã lưu so sánh bằng numeric để chuỗi số dài bất thường không gây overflow; ngoài khoảng 13 chữ số thì
 -- raise exception và cả migration rollback, không đổi gì.
+-- Thứ tự bắt buộc: kiểm khoảng -> ALTER SEQUENCE -> setval. setval không tự rollback, nhưng ALTER SEQUENCE cấp storage
+-- mới cho sequence trong transaction này nên setval chạy sau nó được rollback cùng migration nếu bước sau đó lỗi.
+-- Điều kiện target < 9999999999999 (target >= last_value) cũng bảo đảm ALTER MAXVALUE không vướng giá trị hiện tại.
 do $paycode$
 declare
   seq_last bigint;
@@ -41,9 +44,9 @@ begin
     raise exception 'payos_order_code_seq: giá trị kế tiếp % vượt khoảng 13 chữ số (tối đa 9999999999999)', target + 1;
   end if;
 
+  -- Hết dải 13 chữ số thì nextval báo lỗi (2200H) và checkout dừng, thay vì sinh mã 14 chữ số hoặc lặp mã.
+  alter sequence public.payos_order_code_seq maxvalue 9999999999999 no cycle;
+
   perform setval('public.payos_order_code_seq', target::bigint, true);
 end
 $paycode$;
-
--- Hết dải 13 chữ số thì nextval báo lỗi (2200H) và checkout dừng, thay vì sinh mã 14 chữ số hoặc lặp mã.
-alter sequence public.payos_order_code_seq maxvalue 9999999999999 no cycle;
