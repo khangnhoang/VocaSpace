@@ -7,13 +7,13 @@ Revision: r4, 2026-10-21. Baseline: `0fd187a91a694d9180365d8827ffebfe4ab3aff6` o
 | Field | Value |
 | --- | --- |
 | Spec revision | `docs/teacher-course-portfolio-plan.md` r4 |
-| Current unit / checkpoint | Planning complete; no implementation checkpoint active |
-| Status | UI composition and all section 1.5 proposals accepted; implementation not started |
-| Completed evidence | r2 independently reviewed and committed in `979053b`; Owner accepted the selected `Ưu tiên tiếp tục` aid and the section 1.5 proposals on 2026-10-21. Prototype checks from the preceding task covered queue filters, search, representative states, and horizontal overflow at 320/375/768/1024px, with zero console errors; these are not production evidence. |
+| Current unit / checkpoint | CP1 (trusted portfolio read) implemented locally; CP2 and CP3 not started |
+| Status | CP1 automated checks passed on the isolated runtime; independent Codex review of CP1 pending |
+| Completed evidence | r2 independently reviewed and committed in `979053b`; Owner accepted the selected `Ưu tiên tiếp tục` aid and the section 1.5 proposals on 2026-10-21. CP1 (2026-10-21, isolated E2E runtime API 45441 only): `db reset` applied `20261021120000_tport1_teacher_course_portfolio.sql`; `npm run test:integration -- __tests__/integration/tport1-teacher-course-portfolio.test.ts` 20/20 passed; `npm run test:run -- __tests__/schemas/teacher-course-portfolio.test.ts __tests__/actions/teacher-course-portfolio.test.ts __tests__/actions/course.test.ts` 33/33 passed; `npx tsc --noEmit` and `npm run lint` on the changed files clean; `supabase db diff --schema public` reported no drift; function ACL is `postgres`, `authenticated`, `service_role` only (anon denied, zero arguments, `SECURITY DEFINER`, `search_path=""`). Prototype checks from the preceding task are not production evidence. |
 | Accepted deviations | None |
-| Blockers / Owner decisions | No open product decision. Runtime implementation authority remains ungranted, and r3/r4 have no independent review yet. |
-| Next action | Obtain implementation authority; CP1 then maps the accepted UI's data needs to current reads before deciding whether a new RPC is necessary |
-| Current authority | Local commit of the r4 plan update (Owner, 2026-10-21); no push. No runtime implementation, PR, merge, rollout, or redesign database change is granted. |
+| Blockers / Owner decisions | No open product decision. CP1 mechanism (new RPC) is reported to the Owner per section 1.5 before CP2 starts. |
+| Next action | Main runs the independent Codex review of CP1 and sends corrections back to the CP1 implementor; then the Owner hands CP2/CP3 to the frontend developer, who consumes the contract in section 4.4 |
+| Current authority | Local commits of CP1 (Owner, 2026-10-21); no push, PR, merge, hosted/root database change, or CP2/CP3 work. |
 
 ## 1. Binding specification candidate
 
@@ -99,6 +99,8 @@ Confirmed by the current request:
 - (2026-10-21, proposals) read mechanism: CP1 first maps every visible field and queue eligibility rule to existing reads using the existing permission semantics. Reuse safe existing reads when they meet the contract; otherwise add one read-only `get_teacher_course_portfolio()` (provisional name) migration under G3, and report that selection with its evidence to the Owner before CP2.
 - (2026-10-21, proposals) delivery scope: exclude cross-course content-readiness calculations; deliver one vertical pull request with three sequential checkpoints (CP1 read, CP2 route, CP3 validation), with no separate PR for CP1.
 
+- (2026-10-21, ownership split) CP1 (backend read contract) is implemented by a Sonnet implementor session with local commits only; CP2/CP3 (route composition and validation) are handed to a separate frontend developer, who builds on the CP1 contract and does not edit the CP1 database/schema/action files without reconciling with the CP1 owner.
+
 These acceptances settle product and scope choices only; they do not grant runtime implementation, a migration apply, or any remote action. A change to the accepted composition, attention taxonomy, or reviewer/correction ownership must be reconciled before dependent implementation continues.
 
 ## 2. Governing design contract
@@ -167,6 +169,22 @@ Fixture readiness outcome: **canonical fixture requires narrow additions**.
 - Prefer a dedicated local/test-only `scripts/e2e/teacher-course-portfolio-fixture.mjs` using existing fixture helpers and isolated E2E Supabase runtime.
 - Create only deterministic records needed for an empty/sparse/dense actor, ordinary previewer, previewer with creator/responsible authority, previewer with review permission, legally eligible reviewer, excluded original creator, current topic correction, superseded correction (newer pending, approved, and cancelled/withdrawn cycles, including restore), course rejection, and pending invitation.
 - Clean up only owned records and restore any reused actor state. Do not change production seed data solely to serve one smoke spec unless implementation proves broader reusable value.
+
+### 4.4 CP1 read-strategy record (2026-10-21)
+
+Field-to-read mapping at baseline `4725c000`:
+
+| Visible field / rule | Existing read | Result |
+| --- | --- | --- |
+| Course rows: title, slug, thumbnail, status, role, rejection reason | `getCoursesForTeacher` (`app/actions/course.ts`) reads `course_collaborators` under RLS | Covered, but it omits the membership creation time that AC6's fallback ordering needs |
+| `canCreateCourse` | `getTeacherCoursePermissions` (profile role) | Covered; folded into the read so one session snapshot answers both and the removed-profile gate matches `createCourse` |
+| Review queue (`Chờ duyệt`) | None. `topic_review_submissions` has no authenticated table read; `get_topic_workflow_state` is per-topic and needs known topic IDs (no cross-course listing) | Gap |
+| Correction queue (`Cần sửa`, topics) | None. `get_topic_workflow_state` returns only rejected rows (`rejectionHistory`), not the latest submission across submitters, so a newer pending/approved/cancelled row cannot be detected | Gap |
+| Course rejection editable by the caller | Rejection fields exist on the course row; edit capability is `has_course_authoring_access` (owner/co_owner/editor) | Derivable client-side from role, but folded so the queue is one complete result |
+
+Selected mechanism: one new argument-free read-only RPC `public.get_teacher_course_portfolio()` (`supabase/migrations/20261021120000_tport1_teacher_course_portfolio.sql`). Reusing existing reads would need one structure read per course plus one workflow call per topic (N+1) and still could not express supersession. Eligibility reuses the effective D1 predicates instead of defining new ones: review = pending topic and pending submission, submitter excluded, `has_topic_review_access` (as `approve_topic_review`/`reject_topic_review` use it); topic correction = latest submission across all submitters is `rejected`, topic is `draft`, `d1_topic_group_member` and the caller is original creator or responsible author; course rejection = draft course with `reviewed_at` and a non-blank `reject_message`, plus `has_course_authoring_access`. Topics must also sit in an active chapter/course (the same gate as `get_topic_workflow_state`). No reviewer semantics were changed, so no Owner decision was triggered. Note: `d1_topic_group_member` includes the original creator, so a creator who is no longer responsible keeps correction entry (consistent with AC9).
+
+Hand-off contract for CP2: schema and types in `lib/schemas/teacher-course-portfolio.ts` (`teacherCoursePortfolioSchema`, `TeacherCoursePortfolio`, `TeacherPortfolioCourse`, `TeacherAttentionItem`, `TeacherAttentionKind`, `TeacherCoursePortfolioResult`); server read `getTeacherCoursePortfolio()` in `app/actions/teacher-course-portfolio.ts`. Payload fields are snake_case; `courses[]` is `TeacherCourse` plus `membership_created_at`; `attention[]` carries `kind` (`topic_review` maps to `Chờ duyệt`; `topic_correction` and `course_rejection` map to `Cần sửa`), course/topic identity, `reason`, and `ordering_at` (submission time for review, review time for corrections). The RPC returns attention in a stable order but the section 4.2 comparator, routes and labels stay in the application.
 
 ## 5. Checkpoints
 
