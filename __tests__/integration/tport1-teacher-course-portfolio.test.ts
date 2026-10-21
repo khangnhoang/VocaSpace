@@ -6,7 +6,7 @@ import { runLocalPsql } from "./helpers/local-psql";
 
 // Test plan:
 // - Mục tiêu: kiểm tra read boundary `get_teacher_course_portfolio()` của /teacher/courses: membership, hàng chờ duyệt, hàng chờ sửa và danh tính người gọi.
-// - Loại test: real local Supabase integration/RPC (runtime E2E cô lập, API 45441).
+// - Loại test: real local Supabase integration/RPC; chỉ chạy trên runtime E2E cô lập (API 45441), runtime gốc 45321 bị từ chối trước khi tạo actor/fixture.
 // - Đối tượng: RPC `get_teacher_course_portfolio` cùng các RPC lifecycle D1 dùng để dựng trạng thái (request/reject/approve/withdraw/delete/restore topic).
 // - Case thành công:
 //   - Owner/co_owner/editor/previewer thấy khóa học còn hoạt động với đúng vai trò; payload qua `teacherCoursePortfolioSchema`.
@@ -44,13 +44,22 @@ const actors = {} as Record<ActorName, Actor>;
 const createdUserIds: string[] = [];
 const courseIds = new Set<string>();
 
-function assertSafeEnvironment() {
-  if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true") {
+// Suite này ghi trực tiếp bằng quyền postgres (psql, tắt trigger), nên chỉ chạy trên runtime E2E cô lập (API 45441).
+// Runtime gốc (45321) bị từ chối dù helper dùng chung vẫn chấp nhận nó cho các suite khác.
+const ISOLATED_API_URL = "http://127.0.0.1:45441";
+
+function assertIsolatedRuntime(apiUrl: string | undefined, allowFlag = process.env.ALLOW_DB_INTEGRATION_TESTS) {
+  if (allowFlag !== "true") {
     throw new Error("Set ALLOW_DB_INTEGRATION_TESTS=true for local integration tests.");
   }
-  const url = new URL(SUPABASE_URL);
-  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !["45321", "45441"].includes(url.port)) {
-    throw new Error(`Refusing non-local Supabase URL: ${SUPABASE_URL}`);
+  let url: URL;
+  try {
+    url = new URL(apiUrl ?? "");
+  } catch {
+    throw new Error("Refusing to run: Supabase URL is missing or invalid.");
+  }
+  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.port !== "45441") {
+    throw new Error(`TPORT1 runs only on the isolated runtime ${ISOLATED_API_URL}; refusing ${apiUrl}.`);
   }
 }
 
@@ -221,7 +230,7 @@ async function cleanup() {
 
 describe.sequential("TPORT1 teacher course portfolio read boundary", () => {
   beforeAll(async () => {
-    assertSafeEnvironment();
+    assertIsolatedRuntime(SUPABASE_URL);
     actors.author = await createActor("author", "teacher");
     actors.reviewer = await createActor("reviewer", "teacher");
     actors.editor = await createActor("editor", "teacher");
@@ -235,6 +244,22 @@ describe.sequential("TPORT1 teacher course portfolio read boundary", () => {
   afterAll(async () => {
     await cleanup();
     for (const id of createdUserIds) await service.auth.admin.deleteUser(id);
+  });
+
+  describe("runtime guard", () => {
+    it.each([
+      ["the root development runtime", "http://127.0.0.1:45321"],
+      ["a hosted project", "https://example.supabase.co"],
+      ["localhost instead of the isolated address", "http://localhost:45441"],
+      ["a missing URL", undefined],
+    ])("refuses %s before any fixture is created", (_name, url) => {
+      expect(() => assertIsolatedRuntime(url, "true")).toThrow();
+    });
+
+    it("refuses to run without the explicit integration flag, and accepts only the isolated runtime", () => {
+      expect(() => assertIsolatedRuntime(ISOLATED_API_URL, "false")).toThrow("ALLOW_DB_INTEGRATION_TESTS");
+      expect(() => assertIsolatedRuntime(ISOLATED_API_URL, "true")).not.toThrow();
+    });
   });
 
   describe("caller identity and grants", () => {
