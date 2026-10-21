@@ -17,10 +17,16 @@ Three rules below are standing Owner permissions that apply without asking again
 - Ask open Owner decisions with AskUserQuestion (recommended option first, marked "(Recommended)", at most 4 per call) before the plan is written or sent to review.
 - Any decision that bundles several actions (for example commit, plan approval and an implementation grant) goes through AskUserQuestion, one question per decision, with option descriptions that say exactly what happens. Use the wrap-up buttons only for a single obvious yes/no.
 
-## Implementation
+## Preflight reading
 
-- When the Owner hands a plan to Sonnet (orchestrator mode), dispatch one `sonnet-high-implementor` session for all checkpoints. Do this only for an approved plan with no open decision; otherwise ask the Owner first. The handoff grants local commits only.
-- Send corrections and later checkpoints to the same session with SendMessage; do not start a subagent or an independent review per checkpoint. Reviews or evidence that the plan or a skill requires (for example a fresh-reader round) still run at their checkpoint.
+- Claude Code does not load the skills in `.agents/skills/` on its own. Before the first tool call of any task that is not a pure read-only question, read `docs/agent-loops.md` and the whole `SKILL.md` of every skill whose row in the `AGENTS.md` routing table matches the task.
+
+## Implementation through Sonnet
+
+- When the Owner hands a plan to Sonnet (orchestrator mode), start one implementor session for all checkpoints with `start_session`, not a subagent: model `claude-sonnet-5-5`, effort `high`, in the product checkout on the current branch (`use_worktree: false`). Do this only for an approved plan with no open decision; otherwise ask the Owner first. The handoff grants local commits only.
+- The session has no agent definition, so the brief states the implementor limits itself: before the first edit, read `docs/agent-loops.md` and the whole `SKILL.md` of every skill the `AGENTS.md` routing table matches for the plan; do only the assigned checkpoints, stop and report on any mismatch with the plan, and no push, no PR, no merge.
+- When the session ends a turn, Main is called to handle the next step. That note quotes only the start of the report, so read the full report and check the diff and commits before trusting it.
+- Send corrections and later checkpoints to the same session with SendMessage; do not start a new session, a subagent or an independent review per checkpoint. Reviews or evidence that the plan or a skill requires (for example a fresh-reader round) still run at their checkpoint.
 - While an implementor owns the plan, Main does not edit product code or tests, even for small QA fixes.
 - The handoff prompt names the plan file as the single source of truth (the plan wins on any conflict) and adds only the checkpoint scope, the authority and operational notes the plan lacks. Do not restate the plan's scope or acceptance in your own words.
 - A concern the plan does not cover goes into the prompt as a risk to prove with tests, stating the expected result. Hand over all checkpoints in one dispatch; split them only when a later checkpoint needs an Owner decision based on an earlier result, not so Main can check in between.
