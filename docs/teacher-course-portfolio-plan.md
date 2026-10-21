@@ -1,19 +1,19 @@
 # Teacher course portfolio redesign plan
 
-Revision: r2, 2026-10-21. Baseline: `0fd187a91a694d9180365d8827ffebfe4ab3aff6` on `feat/teacher-courses-redesign`. Status: implementation proposal. The Owner authorized independent `gpt-6.1-sol/high` review, correction and re-review until PASS, followed by a local plan commit. Runtime implementation, push, pull request, merge, deployment, and database mutation remain ungranted.
+Revision: r3, 2026-10-21. Baseline: `0fd187a91a694d9180365d8827ffebfe4ab3aff6` on `feat/teacher-courses-redesign`. The Owner accepted the `Ưu tiên tiếp tục` UI composition from the interactive aid on 2026-10-21 and subsequently authorized committing the current planning/design checkpoint and pushing this branch. The data-read mechanism remains a technical proposal. The earlier independent `gpt-6.1-sol/high` review and local plan checkpoint covered r2 (`979053b`); that PASS is not r3 review evidence. This delivery grant does not authorize runtime implementation, a pull request, merge, deployment, or database changes for the redesign.
 
 ## State
 
 | Field | Value |
 | --- | --- |
-| Spec revision | `docs/teacher-course-portfolio-plan.md` r2 |
+| Spec revision | `docs/teacher-course-portfolio-plan.md` r3 |
 | Current unit / checkpoint | Planning complete; no implementation checkpoint active |
-| Status | Planning candidate; implementation not authorized |
-| Completed evidence | Repository, design-contract, permission, schema, test, and fixture discovery at baseline `0fd187a91a694d9180365d8827ffebfe4ab3aff6`; `npm run docs:check` passed for this candidate with zero new broken links (one baseline broken link remains) |
+| Status | UI composition accepted; read mechanism pending; implementation not started |
+| Completed evidence | r2 independently reviewed and committed in `979053b`; Owner accepted the selected `Ưu tiên tiếp tục` aid on 2026-10-21. Prototype checks from the preceding task covered queue filters, search, representative states, and horizontal overflow at 320/375/768/1024px, with zero console errors; these are not production evidence. |
 | Accepted deviations | None |
-| Blockers / Owner decisions | Owner approval of the proposed portfolio composition, five-course dense-mode threshold, attention categories, and trusted read contract |
-| Next action | Complete independent review and the authorized local plan checkpoint; the next product gate is the Owner's implementation decision on this proposal |
-| Current authority | Planning, independent review and corrections until PASS, then a local plan commit; no runtime implementation, push, PR, merge, rollout, or root/hosted database change |
+| Blockers / Owner decisions | UI composition is resolved. Remaining technical work: map visible fields and queue eligibility to existing reads, establish any gap, and select the smallest safe read mechanism. Runtime implementation authority remains ungranted. |
+| Next action | Reconcile the accepted UI's data needs with current queries before deciding whether a new RPC is necessary |
+| Current authority | Commit the current planning/design checkpoint and normally push `feat/teacher-courses-redesign` to `origin`, as requested by the Owner on 2026-10-21. No runtime implementation, PR, merge, rollout, or redesign database change is granted. |
 
 ## 1. Binding specification candidate
 
@@ -74,7 +74,7 @@ Out of scope:
 | --- | --- |
 | G1. Treat reviewer/correction eligibility as a database authorization problem, not a client filter. | The UI could expose another teacher's private submission or a review action the caller cannot legally perform. |
 | G2. Reuse the effective D1 reviewer predicates and current active-course/topic/collaborator rules; do not create a broader parallel definition. | Portfolio and Topic Builder could disagree about who may review or recover work. |
-| G3. Make the new read operation argument-free for the caller identity, use explicit `auth.uid()`, fully qualify referenced objects, set a safe `search_path`, revoke PUBLIC/anon execution, and grant only the intended roles. | A definer function could become an identity-confusion or privilege-escalation boundary. |
+| G3. If a new definer read RPC is justified, make it argument-free for the caller identity, use explicit `auth.uid()`, fully qualify referenced objects, set a safe `search_path`, revoke PUBLIC/anon execution, and grant only the intended roles. Existing reads retain their current authorization boundaries. | A definer function could become an identity-confusion or privilege-escalation boundary. |
 | G4. Return only the fields needed to render and route portfolio items; build application URLs in TypeScript rather than SQL. | The read model could leak unrelated profile/submission data or couple the database to Next.js routing. |
 | G5. Preserve existing Server Actions and forms as write owners; refresh server data after successful mutations. | A visual refactor could duplicate business logic, report false success, or leave stale permission state. |
 | G6. Derive compact and dense modes from the unfiltered portfolio count. Empty/search results do not silently switch the page's information architecture. | Filters could cause unstable layout and hidden controls. |
@@ -91,16 +91,19 @@ Confirmed by the current request:
 - use the accepted general design sources and account for the earlier unimplemented `/teacher/courses` design work;
 - read the governing skills and operating documentation before acting.
 - (2026-10-21, follow-up) use an independent `gpt-6.1-sol/high` subagent to review this plan, correct supported findings and repeat until PASS, then commit the plan locally. This grants the planning checkpoint only; it does not authorize runtime implementation.
+- (2026-10-21, design review) inspect an aid before deciding the final interface or whether an RPC is necessary; the read mechanism must follow the visible data requirements.
+- (2026-10-21, acceptance) `chốt giao diện`, with `Ưu tiên tiếp tục` selected in the aid. Accept that variant's page composition: header utility/count/create, continuation and subordinate course rows, and the adjacent bounded attention queue with its real category filters. The `Danh sách trước` alternative is not selected. This is UI acceptance, not acceptance of synthetic records, permission changes, a specific RPC, or runtime implementation authority.
+- (2026-10-21, delivery) commit the current branch's planning/design changes and push `feat/teacher-courses-redesign` to `origin`; runtime implementation remains a later step.
 
-Proposed by this plan and awaiting Owner approval:
+Remaining proposals to reconcile before implementation:
 
 - use five courses as the threshold at which search/filter/dense scanning becomes warranted;
 - use the deterministic continuation rule in AC6 rather than claiming behavioral recency the system does not record;
-- limit the first attention queue to legally reviewable pending submissions and actionable course/topic corrections;
+- implement the accepted queue's review/correction categories using the existing permission semantics, with the field/read mapping confirmed first;
 - exclude cross-course content-readiness calculations from this delivery because the existing readiness read is course-local and would create an expensive, competing portfolio concern;
-- deliver the work as one vertical pull request with three sequential checkpoints. The database read contract lands first inside that branch, but does not require a separate PR.
+- deliver the work as one vertical pull request with three sequential checkpoints. The confirmed read contract comes first inside that branch, but does not require a separate PR or necessarily a migration.
 
-No additional material product decision is required if the Owner accepts these proposals. A change to the attention taxonomy, dense threshold, or reviewer/correction ownership after approval is a plan-contract change and must be reconciled before implementation continues.
+The selected visual composition is accepted. The five-course threshold, continuation comparator, and technical read strategy remain proposals; the aid does not establish backend necessity. A change to the accepted composition, attention taxonomy, or reviewer/correction ownership must be reconciled before dependent implementation continues.
 
 ## 2. Governing design contract
 
@@ -108,12 +111,13 @@ No additional material product decision is required if the Owner accepts these p
 - [Teacher Authoring](./ui-design-system-and-review/screen-types/teacher-authoring.md) defines `/teacher/courses` as a private collaborator portfolio combining direct continuation, conditional creation, and a bounded complete actionable queue. It also requires truthful role/lifecycle/rejection/readiness context and allows search/filter/sort only when portfolio size warrants them.
 - [Button](./ui-design-system-and-review/components/button.md) owns action hierarchy, variants, focus, loading, and disabled behavior. This route consumes it without reopening the shared primitive.
 - The closed design program's [progress record](./ui-design-system-and-review/progress.md) records the prior `/teacher/courses` refinement: `Khóa học đang cộng tác`, compact no-pill count, permitted create action in the header utility area, subordinate course rows without an extra list heading, and the complete filtered attention queue. That record is accepted design evidence, not proof of runtime implementation and not a fixed pixel geometry.
+- [Retained aid](./assets/teacher-course-portfolio/accepted-aid.html) preserves the exact prototype presented for this decision. Only `Ưu tiên tiếp tục` is the selected composition; the retained file also contains the unselected `Danh sách trước` comparison. Its default has a sparse three-course portfolio, attention enabled, and invitations absent; controls expose illustrative states. Prototype records, notices, visual shortcuts, simulated navigation, and control settings are not data, permission, or production-behavior authority. Product Language, Teacher Authoring, Button, and this plan's explicit invariants continue to govern implementation.
 
 Screen classification: Teacher Authoring. Primary job: resume a course or take the next legally actionable authoring/review step. Subject grounding comes from stewardship state—course identity, collaborator role, lifecycle, rejection reason, assignment, and review ownership—not decoration. Visual latitude is medium but deliberately restrained because this is a permission-sensitive productivity surface.
 
 Responsive composition:
 
-- Wide view: one page header, pending invitations when present, then complementary portfolio/attention regions. Exact column widths remain an implementation hypothesis, not a frozen mock.
+- Wide view: the accepted `Ưu tiên tiếp tục` composition places the continuation course and subordinate rows on the left, with the bounded attention queue on the right. Header utility/count/create remain together; pending invitations appear before the main regions when present. Preserve this hierarchy while allowing responsive sizing and content wrapping rather than copying fixed prototype dimensions.
 - Sparse view: one continuation emphasis plus compact subordinate rows; the queue remains visible without manufacturing empty analytics.
 - Dense view: list scanning, local search/filter/sort, and the same queue semantics.
 - Narrow view: preserve the page title and essential actions, place attention before the full course list, keep filters horizontally safe or wrapped, and avoid hidden hover-only actions.
@@ -137,17 +141,19 @@ Responsive composition:
 
 The exact file split may change while the acceptance criteria and ownership boundaries remain true.
 
-### 4.1 Trusted read contract
+### 4.1 UI-to-data mapping and trusted read contract
 
-- Add one focused Supabase migration defining an argument-free `get_teacher_course_portfolio()` RPC (provisional name).
-- Return a minimal JSONB document containing:
+- First map every accepted visible field/action to an existing read or a demonstrated gap. `getCoursesForTeacher` already reads participating courses and `getTeacherCoursePermissions` reads global creation permission. The cross-course attention queue is the main candidate gap; UI acceptance alone does not justify a new RPC or migration.
+- Compare safe reuse/composition of existing reads against a route-specific aggregate read, accounting for authorization, completeness, query count, and payload size. Do not choose a service-role table read merely to bypass the existing protected submission boundary.
+- If that comparison demonstrates the need for a new RPC, the candidate is an argument-free `get_teacher_course_portfolio()` (provisional name) introduced by one focused migration. If safe existing reads fully meet the contract, use them without a new RPC/migration. Record the selection and its repository evidence before implementation.
+- A new aggregate RPC, if selected, would return a minimal JSONB document containing:
   - `canCreateCourse`;
   - active collaborator courses with the fields already needed by the portfolio plus membership creation time for deterministic fallback ordering;
   - minimal attention items: kind, course/topic identity and title, safe lifecycle/reason context, and a stable ordering timestamp.
 - Reuse current reviewer eligibility helpers/predicates. Encode topic-correction eligibility at the same database boundary so UI rendering cannot broaden it.
 - Select the latest topic submission across all statuses and submitters before testing whether it is rejected; do not select the latest rejected row from history. Apply current course/chapter/topic/profile/membership and topic-content capability gates as well as AC9's creator/responsible ownership.
 - Add a reusable Zod schema/inferred type such as `lib/schemas/teacher-course-portfolio.ts` and a focused server-side read wrapper/Server Action. Safe parsing must reject drift rather than render a partially trusted payload.
-- Keep the RPC read-only and keep route construction, labels, filtering, and presentation ordering in the application unless permission semantics require database ordering.
+- Keep any selected RPC read-only and keep route construction, labels, filtering, and presentation ordering in the application unless permission semantics require database ordering.
 
 ### 4.2 Route composition
 
@@ -170,7 +176,7 @@ Fixture readiness outcome: **canonical fixture requires narrow additions**.
 
 | Checkpoint | Outcome | Required evidence |
 | --- | --- | --- |
-| CP1 — trusted portfolio read | The server returns the minimal portfolio/attention document with correct membership, reviewer, correction, active-state, grant, and error behavior. | Migration review; local isolated reset; schema/action tests; real-database integration matrix; permission/grant inspection; focused lint/TypeScript; no hosted application. |
+| CP1 — confirmed read strategy and trusted portfolio read | Map accepted UI data to existing reads/gaps, record the smallest safe mechanism, and then provide the portfolio/attention result with correct membership, reviewer, correction, active-state, and error behavior. A new RPC is conditional on that mapping. | Field-to-owner/read reconciliation; schema/action tests; real-database integration matrix. If a new migration/RPC is needed: migration review, isolated reset, and permission/grant inspection. Focused lint/TypeScript; no hosted application. |
 | CP2 — responsive route composition | The route implements the accepted sparse/dense/attention hierarchy while preserving invitations and course mutations. | Component/form interaction tests for every visible state and role; current authoring trust regressions; focused lint/TypeScript; author self-review against AC1–AC13. |
 | CP3 — integrated validation and handoff | Database, server, client, and navigation behavior compose; remaining visual judgment is explicitly Owner-reviewed. | Focused Chromium smoke with deterministic fixture; desktop/narrow manual matrix; accessibility and console checks; `npm run docs:check`; `git diff --check`; formal completed-implementation review before merge readiness. |
 
@@ -237,8 +243,8 @@ Rollout, only under later explicit authority:
 
 1. Complete CP1–CP3 and completed-implementation review on the feature branch.
 2. Obtain separate commit/push/PR authority and require CI green.
-3. Before any hosted apply, inspect migration history, function/grant definitions, and drift read-only; stop on unexplained divergence.
-4. Apply the migration only under explicit database authority, then verify the effective signature, owner, grants, and representative safe reads.
+3. If CP1 selected a new migration, before any hosted apply inspect migration history, function/grant definitions, and drift read-only; stop on unexplained divergence.
+4. Apply a selected migration only under explicit database authority, then verify the effective signature, owner, grants, and representative safe reads. If existing reads suffice, there is no new migration to apply.
 5. Deploy the application under separate authority and complete the Owner's live visual/behavior acceptance before merge/rollout is called complete.
 
 Rollback prefers a focused forward migration for a database-contract defect and an application rollback for presentation defects. Do not edit published migrations, restore broader data access, or mutate root/hosted environments as an unapproved recovery shortcut.
