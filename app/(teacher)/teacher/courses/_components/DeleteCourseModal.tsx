@@ -1,6 +1,5 @@
 import React from "react";
-import Image from "next/image";
-import { BookOpen } from "lucide-react";
+import CourseThumbnail from "./CourseThumbnail";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { TeacherCourse } from "@/lib/schemas/course";
 
@@ -37,19 +36,7 @@ export default function DeleteCourseModal({
       details={
         <div className="flex gap-3 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-3 text-left">
           <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-            {courseToDelete?.thumbnail_url ? (
-              <Image
-                src={courseToDelete.thumbnail_url}
-                alt={title}
-                fill
-                sizes="96px"
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-slate-400">
-                <BookOpen className="size-6" aria-hidden="true" />
-              </div>
-            )}
+            <CourseThumbnail src={courseToDelete?.thumbnail_url ?? null} sizes="96px" />
           </div>
           <div className="min-w-0 flex-1 py-0.5">
             <p

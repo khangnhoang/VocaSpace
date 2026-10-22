@@ -64,16 +64,19 @@ export default function CourseForm({
   return (
     <div className="min-h-screen w-full bg-[#F9FAFB] flex flex-col p-4 sm:p-8 text-slate-800 font-sans">
       <div className="w-full max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 mx-auto">
-        <button
+        <Button
+          type="button"
+          variant="link"
           onClick={onCancel}
-          className="group flex items-center text-slate-500 hover:text-[#00C4D4] font-medium mb-6 transition-all w-fit cursor-pointer"
+          disabled={isPending}
+          className="mb-6 w-fit px-0 coarse-input:h-11"
         >
           <ArrowLeft
-            size={20}
-            className="mr-2 group-hover:-translate-x-1 transition-transform"
+            className="size-4.5 coarse-input:size-5"
+            aria-hidden="true"
           />
           Quay lại danh sách
-        </button>
+        </Button>
 
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 sm:p-10">
           <h2 className="text-2xl font-bold mb-8 text-slate-900 border-b border-slate-100 pb-5">
@@ -167,14 +170,17 @@ export default function CourseForm({
                           Ảnh bìa khóa học
                         </FormLabel>
                         <FormControl>
-                          <div className="flex items-center gap-4">
-                            <label
-                              htmlFor="file-upload"
-                              className="cursor-pointer inline-flex items-center justify-center rounded-lg bg-[#5FE8EF]/10 px-4 py-2 text-sm font-bold text-[#00C4D4] hover:bg-[#5FE8EF]/20 transition-colors border-0"
+                          <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:items-center">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={isPending}
+                              onClick={() => document.getElementById("file-upload")?.click()}
+                              className="w-full sm:w-auto coarse-input:h-11 coarse-input:px-5"
                             >
                               Tải ảnh lên
-                            </label>
-                            <span className="text-sm text-slate-500 font-medium truncate max-w-50">
+                            </Button>
+                            <span className="min-w-0 max-w-full truncate text-sm font-medium text-slate-600 sm:max-w-50">
                               {value instanceof File
                                 ? value.name
                                 : "Chưa chọn file nào"}
@@ -293,24 +299,25 @@ export default function CourseForm({
               </div>
 
               {/* NÚT SUBMIT CHÍNH CỦA KHÓA HỌC */}
-              <div className="flex justify-end gap-4 pt-6 mt-8 border-t border-slate-200">
+              <div className="mt-8 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={onCancel}
-                  className="rounded-xl px-6 py-6 text-slate-600 cursor-pointer font-semibold"
+                  disabled={isPending}
+                  className="w-full sm:w-auto coarse-input:h-11 coarse-input:border-slate-500 coarse-input:bg-white coarse-input:px-5"
                 >
                   Hủy bỏ
                 </Button>
                 <Button
                   type="submit"
                   disabled={isPending}
-                  className="rounded-xl px-8 py-6 bg-[#5FE8EF] text-slate-900 font-bold text-base cursor-pointer hover:bg-[#38dadd] shadow-lg shadow-[#5FE8EF]/30"
+                  aria-busy={isPending}
+                  className="min-w-40 w-full sm:w-auto coarse-input:h-11 coarse-input:px-5"
                 >
                   {isPending ? (
                     <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang xử
-                      lý...
+                      <Loader2 className="size-4.5 motion-safe:animate-spin coarse-input:size-5" aria-hidden="true" />{isEditMode ? "Đang lưu…" : "Đang tạo…"}
                     </>
                   ) : isEditMode ? (
                     "Lưu thay đổi"

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { describe, expect, it, vi } from "vitest";
 import CoursesPage from "@/app/(teacher)/teacher/courses/page";
+import { getTeacherCoursePortfolio } from "@/app/actions/teacher-course-portfolio";
 import NewCoursePage from "@/app/(teacher)/teacher/courses/new/page";
 import CourseForm from "@/app/(teacher)/teacher/courses/_components/CourseForm";
 import CourseList from "@/app/(teacher)/teacher/courses/_components/CourseList";
@@ -21,6 +22,7 @@ import {
 import type { TeacherCourse } from "@/lib/schemas/course";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/app/actions/teacher-course-portfolio", () => ({ getTeacherCoursePortfolio: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -46,7 +48,8 @@ vi.mock("@/app/actions/course", () => ({
 // - Bảo mật/phân quyền: không áp dụng trực tiếp ở static render; Server Action vẫn được test riêng.
 // - Ổn định/resilience: UI không được tạo false-success hoặc misleading destructive copy khi thiếu backend support.
 // - Invariant cần giữ: người dạy chỉ thấy trạng thái đã được hệ thống hỗ trợ thật.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:ci -- --reporter=dot` (70 files / 597 tests).
+// - Kết quả verify gần nhất: passed trong lượt 75 tests / 6 files của checkpoint cuối.
+// - Lệnh: `npm run test:run -- __tests__/actions/teacher-course-portfolio.test.ts __tests__/schemas/teacher-course-portfolio.test.ts __tests__/components/teacher-course-portfolio.test.tsx __tests__/components/course-authoring-trust.test.tsx __tests__/utils/teacher-portfolio-demo.test.ts __tests__/actions/course.test.ts`.
 
 const baseCourse: TeacherCourse = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -101,16 +104,12 @@ function CourseFormEditFixture() {
 }
 
 describe("course authoring trust UI", () => {
-  it("routes the course list create action to /teacher/courses/new", () => {
-    const pageSource = readFileSync(
-      join(process.cwd(), "app/(teacher)/teacher/courses/page.tsx"),
-      "utf8",
-    );
-
-    expect(pageSource).toContain("href={getTeacherCourseCreatePath()}");
-    expect(pageSource).toContain("getTeacherCoursePermissions");
-    expect(pageSource).toContain("canCreateCourse");
-    expect(pageSource).toContain("<CollaboratorInvitationPanel onAccepted={fetchMyCourses} />");
+  it("routes the server-loaded course portfolio create action to /teacher/courses/new", async () => {
+    vi.mocked(getTeacherCoursePortfolio).mockResolvedValue({success:true,data:{courses:[],attention:[],can_create_course:true}});
+    const html = renderToStaticMarkup(await CoursesPage());
+    expect(html).toContain('href="/teacher/courses/new"');
+    expect(html).toContain("Tạo khóa học");
+    expect(getTeacherCoursePortfolio).toHaveBeenCalled();
     expect(getTeacherCourseCreatePath()).toBe("/teacher/courses/new");
     expect(CoursesPage).toBeTypeOf("function");
   });
@@ -234,7 +233,7 @@ describe("course authoring trust UI", () => {
 
     expect(copySource).toContain("details={");
     expect(copySource).toContain("thumbnail_url");
-    expect(copySource).toContain("BookOpen");
+    expect(copySource).toContain("CourseThumbnail");
     expect(copySource).toContain("Slug:");
     expect(copySource).toContain("Trạng thái:");
     expect(copySource).toContain("Chương");
