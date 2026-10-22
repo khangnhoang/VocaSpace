@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import CourseList from "@/app/(teacher)/teacher/courses/_components/CourseList";
 import CourseOverview from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverview";
 import CourseOverviewError from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverviewError";
 import DashboardIssueNotice from "@/app/(teacher)/teacher/courses/[id]/_components/DashboardIssueNotice";
@@ -56,13 +57,13 @@ vi.mock("next/navigation", () => ({
 // Test plan:
 // - Mục tiêu: kiểm tra route contract, Structure chapter roles và vị trí các affordance quản lý Preview.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseOverview, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, CourseStructureWorkspace/ChapterNavigator/ChapterWorkbench (source contract), SettingsTab và PreviewQuotaResolutionDialog. Hành vi render/tương tác của Structure workspace nằm ở `course-structure-workspace.test.tsx`.
-// - Case thành công: overview render dữ liệu từ readiness contract; reorder chương/bài học đi qua Server Action rồi tải lại, không reorder cục bộ; restore chapter được phép; Preview projection, quota resolution và action có accessible name.
+// - Đối tượng: CourseList, CourseOverview, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, CourseStructureWorkspace/ChapterNavigator/ChapterWorkbench (source contract), SettingsTab và PreviewQuotaResolutionDialog. Hành vi render/tương tác của Structure workspace nằm ở `course-structure-workspace.test.tsx`.
+// - Case thành công: overview render dữ liệu từ readiness contract; tên khóa học và CTA mở cùng course overview; reorder chương/bài học đi qua Server Action rồi tải lại, không reorder cục bộ; restore chapter được phép; Preview projection, quota resolution và action có accessible name.
 // - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build authoring URL; issue không bị nhóm hoặc sắp xếp lại; /teacher/courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi context không active; stale target không được đánh dấu như target hợp lệ.
 // - Bảo mật/phân quyền: đây là presentation/source-contract test; warning Preview chỉ được gắn cho role quản lý; quyền DB/RPC/Data API được kiểm tra bằng Supabase integration.
 // - Ổn định/resilience: route target touched bởi PR2/PR4/PR5.1 phải render useful content hoặc redirect có chủ đích.
 // - Invariant cần giữ: /teacher/courses/[id] là overview consuming readiness, /teacher/courses/[id]/structure là structure workspace, /topics/[topicId] là topic builder.
-// - Kết quả verify gần nhất: passed cùng focused C3 UI group bằng `npm.cmd run test:run -- __tests__/components/course-preview-controls.test.tsx __tests__/components/course-workspace-routes.test.tsx __tests__/components/topic-settings-navigation.test.tsx __tests__/components/topic-management-navigation.test.tsx __tests__/components/topic-workflow-panel.test.tsx`.
+// - Kết quả verify gần nhất: passed (74 test / 4 file) bằng `npm run test:run -- __tests__/components/course-collaborator-invitations.test.tsx __tests__/components/course-workspace-routes.test.tsx __tests__/components/teacher-course-portfolio.test.tsx __tests__/components/course-authoring-trust.test.tsx`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
 
@@ -1201,9 +1202,15 @@ describe("course workspace route contract", () => {
       join(process.cwd(), "app/(teacher)/teacher/courses/[id]/topics/page.tsx"),
       "utf8",
     );
-    const courseListPageSource = readFileSync(
-      join(process.cwd(), "app/(teacher)/teacher/courses/page.tsx"),
-      "utf8",
+    const courseListHtml = renderToStaticMarkup(
+      <CourseList
+        coursesList={[{ ...readiness.course, price: 0, status: "draft", order_index: 3, my_role: "owner" }]}
+        isLoadingData={false}
+        isPending={false}
+        courseToDelete={null}
+        setCourseToDelete={() => {}}
+        onEditCourse={() => {}}
+      />,
     );
     const topicBuilderPageSource = readFileSync(
       join(process.cwd(), "app/(teacher)/teacher/courses/[id]/topics/[topicId]/page.tsx"),
@@ -1451,10 +1458,8 @@ describe("course workspace route contract", () => {
     expect(collaboratorSource).toContain("setCourseCollaboratorReviewCapability");
     expect(collaboratorSource).toContain("updateCourseCollaboratorRole");
     expect(collaboratorSource).toContain("removeCourseCollaborator");
-    expect(courseListPageSource).toContain("md:grid-cols-[auto_1fr_auto]");
-    expect(courseListPageSource).toContain("md:hidden");
-    expect(courseListPageSource).toContain("md:block");
-    expect(courseListPageSource).toContain("min-h-11 w-full");
+    expect(courseListHtml.match(new RegExp(`href="${getCourseOverviewPath(courseId)}"`, "g"))).toHaveLength(2);
+    expect(courseListHtml).toContain(`aria-label="Mở tổng quan khóa học ${readiness.course.title}"`);
     expect(chapterWorkbenchSource).toContain("await onTopicsChanged(chapter.id);");
     expect(structureWorkspaceSource).toContain("onTopicsChanged={handleTopicsChanged}");
     expect(structureWorkspaceSource).toContain("router.refresh()");
