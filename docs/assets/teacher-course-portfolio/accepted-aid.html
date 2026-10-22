@@ -1,0 +1,292 @@
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+#teacher-courses-aid { --tc-canvas:#f8fafc; --tc-surface:#fff; --tc-ink:#0f172a; --tc-muted:#64748b; --tc-line:#e2e8f0; --tc-action:#2563eb; --tc-route:#1d4ed8; --tc-blue-quiet:#eff6ff; --tc-attention:#92400e; --tc-attention-quiet:#fffbeb; --tc-correction:#b91c1c; --tc-correction-quiet:#fef2f2; --tc-growth:#166534; --tc-growth-quiet:#f0fdf4; color-scheme:light; color:var(--tc-ink); font:14px/1.55 "Plus Jakarta Sans",system-ui,sans-serif; }
+#teacher-courses-aid *, #teacher-courses-aid *::before, #teacher-courses-aid *::after { box-sizing:border-box; }
+#teacher-courses-aid [hidden] { display:none!important; }
+#teacher-courses-aid button, #teacher-courses-aid select, #teacher-courses-aid input { font:inherit; }
+#teacher-courses-aid button { color:inherit; }
+#teacher-courses-aid button:focus-visible, #teacher-courses-aid input:focus-visible, #teacher-courses-aid select:focus-visible { outline:3px solid var(--tc-action); outline-offset:3px; }
+#teacher-courses-aid .tc-window { background:var(--tc-canvas); min-height:950px; border:1px solid var(--tc-line); border-radius:12px; overflow:hidden; }
+#teacher-courses-aid .tc-topbar { padding:14px 28px; border-bottom:1px solid var(--tc-line); background:var(--tc-surface); display:flex; align-items:center; justify-content:space-between; gap:16px; }
+#teacher-courses-aid .tc-back { display:inline-flex; align-items:center; gap:8px; color:var(--tc-muted); background:none; border:0; padding:6px 0; min-height:36px; }
+#teacher-courses-aid .tc-preview-label { color:var(--tc-muted); font-size:11px; font-weight:500; letter-spacing:.02em; margin-right:90px; }
+#teacher-courses-aid .tc-main { max-width:1300px; margin:auto; padding:36px 32px 44px; }
+#teacher-courses-aid .tc-page-heading { display:flex; justify-content:space-between; align-items:center; gap:24px; margin-bottom:30px; }
+#teacher-courses-aid .tc-eyebrow { color:var(--tc-muted); font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; margin:0 0 8px; }
+#teacher-courses-aid h1 { font-size:28px; line-height:1.2; letter-spacing:-.045em; font-weight:800; margin:0 0 8px; color:var(--tc-ink); }
+#teacher-courses-aid .tc-intro { font-size:13px; color:var(--tc-muted); margin:0; }
+#teacher-courses-aid .tc-utility { display:flex; align-items:center; gap:18px; flex-shrink:0; }
+#teacher-courses-aid .tc-counter { font-size:11px; color:var(--tc-muted); text-align:right; }
+#teacher-courses-aid .tc-counter strong { display:block; font-size:18px; font-weight:700; color:var(--tc-ink); }
+#teacher-courses-aid .tc-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--tc-line); border-radius:8px; background:var(--tc-surface); padding:10px 14px; min-height:44px; text-decoration:none; font-size:12px; font-weight:600; white-space:normal; }
+#teacher-courses-aid .tc-button:hover { background:var(--tc-canvas); }
+#teacher-courses-aid .tc-primary { background:var(--tc-action); border-color:var(--tc-action); color:#fff; }
+#teacher-courses-aid .tc-primary:hover { background:var(--tc-route); }
+#teacher-courses-aid .tc-link { display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:4px 0; border:0; background:none; color:var(--tc-route); font-size:12px; font-weight:600; text-align:left; }
+#teacher-courses-aid .tc-ghost { background:none; border:0; color:var(--tc-muted); display:inline-flex; align-items:center; justify-content:center; width:36px; min-height:36px; padding:8px; border-radius:6px; flex-shrink:0; }
+#teacher-courses-aid .tc-ghost:hover { background:var(--tc-blue-quiet); color:var(--tc-route); }
+#teacher-courses-aid .tc-invitation { background:var(--tc-surface); border:1px solid var(--tc-line); border-left:3px solid var(--tc-action); border-radius:8px; padding:16px 18px; margin-bottom:24px; display:flex; align-items:center; gap:16px; }
+#teacher-courses-aid .tc-invitation p { margin:3px 0; font-size:12px; color:var(--tc-muted); }
+#teacher-courses-aid .tc-invitation strong { font-size:13px; }
+#teacher-courses-aid .tc-invitation .tc-invite-actions { display:flex; gap:10px; margin-left:auto; flex-shrink:0; }
+#teacher-courses-aid .tc-layout { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(300px,.88fr); align-items:start; gap:28px; }
+#teacher-courses-aid .tc-portfolio { min-width:0; }
+#teacher-courses-aid .tc-section-head { display:flex; align-items:center; justify-content:space-between; margin:0 0 14px; gap:12px; }
+#teacher-courses-aid .tc-section-head h2 { font-size:16px; letter-spacing:-.03em; font-weight:700; margin:0; display:flex; align-items:center; gap:8px; }
+#teacher-courses-aid .tc-section-head .tc-total { font-weight:500; color:var(--tc-muted); font-size:13px; }
+#teacher-courses-aid .tc-feature { background:var(--tc-surface); border:1px solid var(--tc-line); border-radius:12px; padding:26px; margin-bottom:16px; position:relative; }
+#teacher-courses-aid .tc-feature-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; }
+#teacher-courses-aid .tc-feature-label { color:var(--tc-route); display:flex; align-items:center; gap:7px; font-size:11px; font-weight:700; }
+#teacher-courses-aid .tc-feature h2 { font-size:23px; font-weight:700; line-height:1.35; letter-spacing:-.035em; margin:0 0 12px; max-width:360px; }
+#teacher-courses-aid .tc-description { color:var(--tc-muted); font-size:12px; margin:0 0 22px; max-width:400px; }
+#teacher-courses-aid .tc-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:11px; color:var(--tc-muted); }
+#teacher-courses-aid .tc-dot { color:var(--tc-muted); }
+#teacher-courses-aid .tc-status { font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:5px; line-height:1.5; }
+#teacher-courses-aid .tc-status.published { color:var(--tc-growth); }
+#teacher-courses-aid .tc-status.pending { color:var(--tc-attention); }
+#teacher-courses-aid .tc-status.draft { color:var(--tc-muted); }
+#teacher-courses-aid .tc-role { color:var(--tc-ink); font-weight:500; }
+#teacher-courses-aid .tc-feature-context { border-top:1px solid var(--tc-line); padding-top:18px; margin-top:20px; font-size:12px; }
+#teacher-courses-aid .tc-feature-context strong { display:block; font-size:12px; font-weight:600; margin-bottom:3px; }
+#teacher-courses-aid .tc-feature-context p { margin:0; color:var(--tc-muted); font-size:11px; }
+#teacher-courses-aid .tc-feature-bottom { margin-top:20px; display:flex; gap:12px; align-items:center; justify-content:space-between; }
+#teacher-courses-aid .tc-other-list { padding:0 2px; }
+#teacher-courses-aid .tc-course-row { padding:18px 0; display:flex; align-items:flex-start; gap:12px; border-bottom:1px solid var(--tc-line); min-width:0; }
+#teacher-courses-aid .tc-course-row:last-child { border-bottom:0; }
+#teacher-courses-aid .tc-course-mark { width:38px; height:44px; display:flex; align-items:center; justify-content:center; background:var(--tc-blue-quiet); color:var(--tc-route); border-radius:6px; flex-shrink:0; }
+#teacher-courses-aid .tc-course-info { flex:1; min-width:0; }
+#teacher-courses-aid .tc-course-info h3 { font-size:13px; font-weight:700; letter-spacing:-.015em; margin:0 0 5px; line-height:1.55; }
+#teacher-courses-aid .tc-course-title { background:none; border:0; padding:0; text-align:left; color:var(--tc-ink); font-weight:inherit; font-size:inherit; }
+#teacher-courses-aid .tc-course-title:hover { color:var(--tc-route); }
+#teacher-courses-aid .tc-row-actions { display:flex; align-items:center; gap:2px; flex-shrink:0; padding-top:1px; }
+#teacher-courses-aid .tc-rejection { color:var(--tc-correction); font-size:11px; margin-top:9px; display:flex; align-items:flex-start; gap:5px; }
+#teacher-courses-aid .tc-attention { min-width:0; }
+#teacher-courses-aid .tc-attention .tc-section-head { min-height:22px; }
+#teacher-courses-aid .tc-attention-icon { color:var(--tc-attention); display:flex; }
+#teacher-courses-aid .tc-queue { background:var(--tc-surface); border:1px solid var(--tc-line); border-radius:10px; overflow:hidden; }
+#teacher-courses-aid .tc-queue-filters { display:flex; gap:18px; padding:0 18px; border-bottom:1px solid var(--tc-line); }
+#teacher-courses-aid .tc-filter { display:flex; align-items:center; gap:6px; min-height:48px; border:0; border-bottom:2px solid transparent; background:none; padding:10px 0; font-size:11px; font-weight:600; white-space:nowrap; }
+#teacher-courses-aid .tc-filter[aria-pressed="true"] { color:var(--tc-route); border-bottom-color:var(--tc-action); }
+#teacher-courses-aid .tc-filter span { font-size:11px; color:var(--tc-muted); font-weight:500; }
+#teacher-courses-aid .tc-queue-items { max-height:468px; min-height:330px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--tc-line) transparent; padding:0 18px; }
+#teacher-courses-aid .tc-work { padding:18px 0; border-bottom:1px solid var(--tc-line); }
+#teacher-courses-aid .tc-work:last-child { border-bottom:0; }
+#teacher-courses-aid .tc-work-top { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:7px; }
+#teacher-courses-aid .tc-work-kind { font-size:11px; font-weight:600; display:flex; gap:5px; align-items:center; color:var(--tc-correction); }
+#teacher-courses-aid .tc-work.review .tc-work-kind { color:var(--tc-attention); }
+#teacher-courses-aid .tc-time { color:var(--tc-muted); font-size:11px; }
+#teacher-courses-aid .tc-work h3 { font-size:13px; font-weight:700; margin:0 0 4px; letter-spacing:-.015em; }
+#teacher-courses-aid .tc-work-course { color:var(--tc-muted); font-size:11px; margin:0 0 7px; }
+#teacher-courses-aid .tc-work-reason { font-size:11px; color:var(--tc-muted); margin:0 0 4px; }
+#teacher-courses-aid .tc-queue-foot { border-top:1px solid var(--tc-line); padding:10px 18px; color:var(--tc-muted); font-size:11px; display:flex; justify-content:space-between; }
+#teacher-courses-aid .tc-empty { padding:62px 22px; text-align:center; }
+#teacher-courses-aid .tc-empty h2 { font-size:20px; font-weight:700; letter-spacing:-.03em; margin:16px 0 8px; }
+#teacher-courses-aid .tc-empty p { font-size:12px; color:var(--tc-muted); max-width:360px; margin:0 auto 20px; }
+#teacher-courses-aid .tc-empty-icon { display:inline-flex; color:var(--tc-route); padding:16px; border-radius:10px; background:var(--tc-blue-quiet); }
+#teacher-courses-aid .tc-queue-empty { min-height:330px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px; font-size:12px; color:var(--tc-muted); padding:24px; }
+#teacher-courses-aid .tc-queue-empty strong { color:var(--tc-ink); font-weight:600; }
+#teacher-courses-aid .tc-list-tools { display:flex; gap:10px; flex-wrap:wrap; padding:0 0 12px; }
+#teacher-courses-aid .tc-search { display:flex; align-items:center; gap:8px; border:1px solid var(--tc-line); border-radius:7px; padding:0 10px; background:var(--tc-surface); flex:1 1 200px; color:var(--tc-muted); }
+#teacher-courses-aid .tc-search input { min-width:0; width:100%; background:none; border:0; padding:11px 0; color:var(--tc-ink); font-size:12px; }
+#teacher-courses-aid .tc-list-tools select { border:1px solid var(--tc-line); background:var(--tc-surface); color:var(--tc-ink); border-radius:7px; min-height:40px; padding:7px 24px 7px 10px; font-size:11px; max-width:100%; }
+#teacher-courses-aid .tc-result-note { font-size:11px; color:var(--tc-muted); margin:0 0 4px; }
+#teacher-courses-aid .tc-list-first .tc-layout { grid-template-columns:minmax(0,1fr); }
+#teacher-courses-aid .tc-list-first .tc-attention { order:-1; margin-bottom:8px; }
+#teacher-courses-aid .tc-list-first .tc-queue { display:grid; grid-template-columns:170px minmax(0,1fr); }
+#teacher-courses-aid .tc-list-first .tc-queue-filters { flex-direction:column; gap:2px; padding:14px; border-right:1px solid var(--tc-line); border-bottom:0; }
+#teacher-courses-aid .tc-list-first .tc-filter { padding:9px 10px; border:0; min-height:38px; border-radius:6px; justify-content:space-between; }
+#teacher-courses-aid .tc-list-first .tc-filter[aria-pressed="true"] { background:var(--tc-blue-quiet); }
+#teacher-courses-aid .tc-list-first .tc-queue-items { max-height:225px; min-height:225px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 22px; align-content:start; }
+#teacher-courses-aid .tc-list-first .tc-queue-foot { grid-column:1/-1; }
+#teacher-courses-aid .tc-list-first .tc-work { padding:14px 0; }
+#teacher-courses-aid .tc-list-first .tc-work h3 { font-size:12px; }
+#teacher-courses-aid .tc-list-first .tc-work-reason { display:none; }
+#teacher-courses-aid .tc-list-first .tc-queue-empty { min-height:225px; grid-column:1/-1; }
+#teacher-courses-aid .tc-list-first .tc-course-row { padding:19px 2px; }
+#teacher-courses-aid .tc-no-attention .tc-layout { grid-template-columns:minmax(0,1fr); max-width:980px; }
+#teacher-courses-aid .tc-no-attention .tc-feature { padding:28px; }
+#teacher-courses-aid .tc-no-attention .tc-feature h2 { max-width:100%; }
+#teacher-courses-aid .tc-no-attention .tc-other-list { max-width:100%; }
+#teacher-courses-aid .tc-toast { position:sticky; bottom:10px; width:fit-content; max-width:calc(100% - 24px); margin:10px auto; padding:11px 15px; background:var(--tc-ink); color:#fff; border-radius:8px; font-size:12px; box-shadow:0 8px 24px #0f172a1c; z-index:3; }
+#teacher-courses-aid .tc-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+#teacher-courses-aid svg { flex-shrink:0; }
+@media(min-width:1200px) { #teacher-courses-aid .tc-main { padding:40px 48px 48px; } }
+@media(max-width:780px) {
+  #teacher-courses-aid .tc-main { padding:26px 22px; }
+  #teacher-courses-aid .tc-page-heading { align-items:flex-start; gap:20px; flex-wrap:wrap; }
+  #teacher-courses-aid .tc-utility { width:100%; justify-content:space-between; }
+  #teacher-courses-aid .tc-counter { text-align:left; }
+  #teacher-courses-aid .tc-counter strong { display:inline; font-size:13px; margin-left:10px; }
+  #teacher-courses-aid .tc-layout { grid-template-columns:1fr; }
+  #teacher-courses-aid .tc-attention { order:-1; }
+  #teacher-courses-aid .tc-queue-items { max-height:330px; }
+  #teacher-courses-aid .tc-list-first .tc-queue { display:block; }
+  #teacher-courses-aid .tc-list-first .tc-queue-filters { flex-direction:row; border-right:0; border-bottom:1px solid var(--tc-line); padding:0 14px; gap:12px; }
+  #teacher-courses-aid .tc-list-first .tc-filter { border-radius:0; padding:10px 0; min-height:48px; border-bottom:2px solid transparent; gap:5px; }
+  #teacher-courses-aid .tc-list-first .tc-filter[aria-pressed="true"] { background:none; border-bottom-color:var(--tc-action); }
+  #teacher-courses-aid .tc-list-first .tc-queue-items { grid-template-columns:1fr; min-height:270px; max-height:270px; }
+  #teacher-courses-aid .tc-window { min-height:1150px; }
+  #teacher-courses-aid .tc-invitation { flex-wrap:wrap; }
+  #teacher-courses-aid .tc-invitation .tc-invite-actions { margin-left:0; }
+}
+@media(max-width:420px) {
+  #teacher-courses-aid .tc-main { padding:22px 16px; }
+  #teacher-courses-aid .tc-topbar { padding:10px 16px; flex-wrap:wrap; }
+  #teacher-courses-aid .tc-preview-label { margin:0; width:100%; }
+  #teacher-courses-aid h1 { font-size:25px; }
+  #teacher-courses-aid .tc-utility { align-items:flex-start; gap:12px; }
+  #teacher-courses-aid .tc-counter { max-width:130px; }
+  #teacher-courses-aid .tc-counter strong { display:block; margin:4px 0 0; }
+  #teacher-courses-aid .tc-feature { padding:20px; }
+  #teacher-courses-aid .tc-feature h2 { font-size:21px; }
+  #teacher-courses-aid .tc-queue-filters { gap:14px; padding:0 14px; }
+  #teacher-courses-aid .tc-filter { font-size:11px; }
+  #teacher-courses-aid .tc-course-mark { width:30px; height:38px; }
+  #teacher-courses-aid .tc-course-row { gap:9px; flex-wrap:wrap; }
+  #teacher-courses-aid .tc-course-info { flex-basis:calc(100% - 80px); }
+  #teacher-courses-aid .tc-row-actions { margin-left:auto; }
+  #teacher-courses-aid .tc-feature-bottom { flex-wrap:wrap; }
+  #teacher-courses-aid .tc-search input { font-size:16px; }
+}
+@media(prefers-reduced-motion:reduce) { #teacher-courses-aid * { scroll-behavior:auto!important; } }
+</style>
+<div id="teacher-courses-aid">
+  <div class="viz-carousel" aria-label="Hai bố cục trang khóa học" data-previous-label="Bố cục trước" data-next-label="Bố cục sau">
+    <section data-variant="Ưu tiên tiếp tục" aria-label="Bố cục ưu tiên tiếp tục">
+      <div class="tc-window" data-layout="continuation"></div>
+    </section>
+    <section data-variant="Danh sách trước" aria-label="Bố cục danh sách trước" hidden>
+      <div class="tc-window tc-list-first" data-layout="list"></div>
+    </section>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("teacher-courses-aid");
+  const defaults = { scenario:"Ít khóa học", attention:true, invitations:false };
+  const saved = globalThis.openai?.widgetState;
+  const initial = saved?.modelContent || {};
+  const options = Object.assign({}, defaults, initial);
+  const scenes = ["Ít khóa học","Nhiều khóa học","Chưa có khóa học","Chỉ xem","Đang tải","Lỗi tải dữ liệu"];
+  if (!scenes.includes(options.scenario)) options.scenario = defaults.scenario;
+  const local = new Map();
+  const escape = value => String(value).replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
+  const icon = name => '<i data-lucide="' + name + '" aria-hidden="true"></i>';
+  const button = (text, action, className, data) => '<button type="button" class="tc-button cursor-interaction ' + (className || "") + '" data-action="' + action + '"' + (data ? ' data-value="' + escape(data) + '"' : "") + '>' + text + '</button>';
+  const mockCourses = [
+    {id:"conversation",title:"Tiếng Anh giao tiếp căn bản",description:"Xây dựng nền tảng giao tiếp qua những tình huống quen thuộc mỗi ngày.",status:"draft",role:"Chủ sở hữu",rejection:null},
+    {id:"ielts",title:"Từ vựng IELTS theo chủ đề",description:"Từ vựng học thuật gắn với ngữ cảnh và cách sử dụng.",status:"published",role:"Biên tập viên",rejection:null},
+    {id:"office",title:"Tiếng Anh nơi công sở",description:"Giao tiếp rõ ràng trong môi trường làm việc.",status:"draft",role:"Đồng sở hữu",rejection:"Bổ sung mô tả đối tượng học và mục tiêu khóa học."},
+    {id:"travel",title:"Tiếng Anh du lịch tự tin",description:"Chuẩn bị cho những hành trình mới.",status:"pending",role:"Chủ sở hữu",rejection:null},
+    {id:"foundation",title:"Phát âm tiếng Anh từ nền tảng",description:"Luyện nghe và phát âm theo từng nhóm âm.",status:"published",role:"Người xem",rejection:null},
+    {id:"business",title:"Viết email chuyên nghiệp",description:"Viết email đúng mục đích và đúng ngữ cảnh.",status:"draft",role:"Biên tập viên",rejection:null},
+    {id:"daily",title:"Tiếng Anh mỗi ngày",description:"Luyện tập từ những cuộc hội thoại ngắn.",status:"published",role:"Đồng sở hữu",rejection:null},
+    {id:"academic",title:"Từ vựng học thuật nâng cao",description:"Mở rộng vốn từ cho học tập và nghiên cứu.",status:"draft",role:"Người xem",rejection:null}
+  ];
+  const mockWork = [
+    {id:"fix-topic",kind:"correction",course:"conversation",title:"Giới thiệu bản thân",label:"Bài học cần sửa",reason:"Bổ sung ví dụ sử dụng cho nhóm từ giới thiệu nghề nghiệp.",time:"2 ngày trước",action:"Mở bài học"},
+    {id:"fix-course",kind:"correction",course:"office",title:"Tiếng Anh nơi công sở",label:"Khóa học cần sửa",reason:"Bổ sung mô tả đối tượng học và mục tiêu khóa học.",time:"Hôm qua",action:"Sửa thông tin"},
+    {id:"review-shopping",kind:"review",course:"conversation",title:"Mua sắm và thanh toán",label:"Chờ bạn duyệt",reason:"Bài học đã được gửi duyệt và đang chờ đánh giá.",time:"Hôm qua",action:"Xem bài gửi duyệt"},
+    {id:"review-environment",kind:"review",course:"ielts",title:"Môi trường và phát triển bền vững",label:"Chờ bạn duyệt",reason:"Bài học đã được gửi duyệt và đang chờ đánh giá.",time:"Hôm nay",action:"Xem bài gửi duyệt"},
+    {id:"fix-topic-office",kind:"correction",course:"office",title:"Sắp xếp lịch họp",label:"Bài học cần sửa",reason:"Làm rõ ngữ cảnh của câu hỏi luyện tập.",time:"Hôm nay",action:"Mở bài học"},
+    {id:"review-direction",kind:"review",course:"conversation",title:"Hỏi đường trong thành phố",label:"Chờ bạn duyệt",reason:"Bài học đã được gửi duyệt và đang chờ đánh giá.",time:"Hôm nay",action:"Xem bài gửi duyệt"}
+  ];
+  const status = course => '<span class="tc-status ' + course.status + '">' + icon(course.status === "published" ? "circle-check" : course.status === "pending" ? "clock-3" : "file-pen-line") + ({draft:"Bản nháp",pending:"Chờ duyệt khóa học",published:"Đã xuất bản"}[course.status]) + '</span>';
+  const metadata = course => '<div class="tc-meta"><span class="tc-role">' + course.role + '</span><span class="tc-dot">·</span>' + status(course) + '</div>';
+  const save = () => {
+    if (globalThis.openai?.setWidgetState) globalThis.openai.setWidgetState({modelContent:{scenario:options.scenario,attention:options.attention,invitations:options.invitations},privateContent:null}).catch(() => {});
+  };
+  function snapshot() {
+    let courses = options.scenario === "Chưa có khóa học" ? [] : mockCourses.slice(0, options.scenario === "Nhiều khóa học" ? 8 : 3);
+    if (options.scenario === "Chỉ xem") courses = courses.map(course => Object.assign({},course,{role:"Người xem"}));
+    const work = options.scenario === "Chỉ xem" || !courses.length ? [] : mockWork.filter(item => courses.some(course => course.id === item.course));
+    return {courses,work,canCreate:options.scenario !== "Chỉ xem"};
+  }
+  function row(course) {
+    return '<article class="tc-course-row"><div class="tc-course-mark">' + icon("book-open") + '</div><div class="tc-course-info"><h3><button type="button" class="tc-course-title cursor-interaction" data-action="open" data-value="' + escape(course.title) + '">' + escape(course.title) + '</button></h3>' + metadata(course) + (course.rejection ? '<div class="tc-rejection">' + icon("message-square-warning") + '<span>Cần sửa thông tin để gửi duyệt lại</span></div>' : "") + '</div><div class="tc-row-actions">' + (course.role !== "Người xem" ? '<button type="button" class="tc-ghost cursor-interaction" aria-label="Tùy chọn ' + escape(course.title) + '" data-action="manage" data-value="' + escape(course.title) + '">' + icon("ellipsis") + '</button>' : "") + '<button type="button" class="tc-ghost cursor-interaction" aria-label="Mở ' + escape(course.title) + '" data-action="open" data-value="' + escape(course.title) + '">' + icon("arrow-up-right") + '</button></div></article>';
+  }
+  function feature(course) {
+    return '<article class="tc-feature"><div class="tc-feature-head"><span class="tc-feature-label">' + icon("corner-down-right") + 'Tiếp tục biên soạn</span>' + (course.role !== "Người xem" ? '<button type="button" class="tc-ghost cursor-interaction" aria-label="Tùy chọn khóa học" data-action="manage" data-value="' + escape(course.title) + '">' + icon("ellipsis") + '</button>' : "") + '</div><h2>' + escape(course.title) + '</h2><p class="tc-description">' + escape(course.description) + '</p>' + metadata(course) + (options.attention && course.id === "conversation" && options.scenario !== "Chỉ xem" ? '<div class="tc-feature-context"><strong>Giới thiệu bản thân</strong><p>Có góp ý cần chỉnh sửa trước khi gửi duyệt lại.</p></div>' : "") + '<div class="tc-feature-bottom">' + button("Mở khóa học " + icon("arrow-right"),"open","tc-primary",course.title) + '<span class="tc-meta">Tổng quan & cấu trúc</span></div></article>';
+  }
+  function queue(work, state) {
+    const items = work.filter(item => state.filter === "all" || item.kind === state.filter);
+    const count = kind => work.filter(item => kind === "all" || item.kind === kind).length;
+    const filters = [["all","Tất cả"],["review","Chờ duyệt"],["correction","Cần sửa"]].map(pair => '<button type="button" class="tc-filter cursor-interaction" data-filter="' + pair[0] + '" aria-pressed="' + (state.filter === pair[0]) + '">' + pair[1] + '<span>' + count(pair[0]) + '</span></button>').join("");
+    const content = items.length ? items.map(item => {
+      const course = mockCourses.find(course => course.id === item.course);
+      return '<article class="tc-work ' + item.kind + '"><div class="tc-work-top"><span class="tc-work-kind">' + icon(item.kind === "review" ? "clipboard-check" : "message-square-warning") + escape(item.label) + '</span><span class="tc-time">' + item.time + '</span></div><h3>' + escape(item.title) + '</h3><p class="tc-work-course">' + escape(course.title) + '</p><p class="tc-work-reason">' + escape(item.reason) + '</p><button type="button" class="tc-link cursor-interaction" data-action="work" data-value="' + escape(item.title) + '">' + item.action + icon("arrow-right") + '</button></article>';
+    }).join("") : '<div class="tc-queue-empty">' + icon("circle-check") + '<strong>Không có việc cần xử lý</strong><span>' + (work.length ? "Không có mục nào trong bộ lọc này." : "Bạn đã xem hết công việc thuộc quyền của mình.") + '</span></div>';
+    return '<aside class="tc-attention"><div class="tc-section-head"><h2><span class="tc-attention-icon">' + icon("inbox") + '</span>Việc cần chú ý <span class="tc-total">' + work.length + '</span></h2></div><div class="tc-queue"><div class="tc-queue-filters" aria-label="Lọc việc cần chú ý">' + filters + '</div><div class="tc-queue-items" aria-label="Danh sách công việc">' + content + '</div><div class="tc-queue-foot"><span>' + items.length + ' / ' + work.length + ' công việc</span><span>' + (work.length > 2 ? "Cuộn để xem tiếp" : "Đã hiển thị toàn bộ") + '</span></div></div></aside>';
+  }
+  function renderWindow(windowElement) {
+    const id = windowElement.dataset.layout;
+    if (!local.has(id)) local.set(id,{filter:"all",search:"",status:"all",sort:"default"});
+    const state = local.get(id);
+    const data = snapshot();
+    const dense = data.courses.length >= 5;
+    windowElement.classList.toggle("tc-no-attention",!options.attention);
+    let portfolio = "";
+    if (options.scenario === "Đang tải") {
+      portfolio = '<div class="tc-empty" role="status"><span class="tc-empty-icon">' + icon("loader-circle") + '</span><h2>Đang tải khóa học</h2><p>Đang lấy danh sách khóa học đang cộng tác.</p></div>';
+    } else if (options.scenario === "Lỗi tải dữ liệu") {
+      portfolio = '<div class="tc-empty" role="alert"><span class="tc-empty-icon">' + icon("cloud-off") + '</span><h2>Chưa tải được khóa học</h2><p>Danh sách khóa học hiện chưa sẵn sàng. Bạn có thể thử tải lại.</p>' + button("Thử lại","retry","tc-primary") + '</div>';
+    } else if (!data.courses.length) {
+      portfolio = '<div class="tc-empty"><span class="tc-empty-icon">' + icon("book-plus") + '</span><h2>Bắt đầu khóa học đầu tiên</h2><p>Tạo một khóa học để xây dựng nội dung, hoặc nhận lời mời cộng tác từ giáo viên khác.</p>' + button(icon("plus") + "Tạo khóa học","create","tc-primary") + '</div>';
+    } else {
+      if (dense) portfolio += '<div class="tc-list-tools"><label class="tc-search">' + icon("search") + '<span class="tc-sr">Tìm khóa học</span><input type="search" data-search placeholder="Tìm khóa học…" value="' + escape(state.search) + '"></label><select data-status aria-label="Lọc trạng thái"><option value="all">Mọi trạng thái</option><option value="draft">Bản nháp</option><option value="pending">Chờ duyệt</option><option value="published">Đã xuất bản</option></select><select data-sort aria-label="Sắp xếp khóa học"><option value="default">Tham gia gần đây</option><option value="name">Tên A–Z</option></select></div>';
+      let courses = data.courses.filter(course => (state.status === "all" || course.status === state.status) && course.title.toLocaleLowerCase("vi").includes(state.search.toLocaleLowerCase("vi")));
+      if (state.sort === "name") courses = courses.slice().sort((a,b) => a.title.localeCompare(b.title,"vi"));
+      if (dense) portfolio += '<p class="tc-result-note">' + courses.length + ' khóa học</p>';
+      if (!dense && id === "continuation") portfolio += feature(courses[0]) + '<div class="tc-other-list">' + courses.slice(1).map(row).join("") + '</div>';
+      else portfolio += '<div class="tc-other-list">' + courses.map(row).join("") + (courses.length ? "" : '<div class="tc-empty"><p>Không có khóa học khớp tìm kiếm.</p></div>') + '</div>';
+    }
+    const invitation = options.invitations ? '<section class="tc-invitation" aria-label="Lời mời cộng tác">' + icon("mail") + '<div><strong>Lời mời cộng tác mới</strong><p>Mai Anh mời bạn làm biên tập viên · Tiếng Anh du lịch tự tin</p></div><div class="tc-invite-actions">' + button("Xem lời mời","invite","","Tiếng Anh du lịch tự tin") + '</div></section>' : "";
+    windowElement.innerHTML = '<div class="tc-topbar"><button type="button" class="tc-back cursor-interaction" data-action="home">' + icon("arrow-left") + 'Trang chủ</button><span class="tc-preview-label">Bản xem thử · Dữ liệu giả</span></div><main class="tc-main"><header class="tc-page-heading"><div><p class="tc-eyebrow">Không gian giáo viên</p><h1>Khóa học của tôi</h1><p class="tc-intro">Tiếp nối nội dung bạn đang xây dựng.</p></div><div class="tc-utility"><div class="tc-counter">Khóa học đang cộng tác<strong>' + data.courses.length + ' khóa học</strong></div>' + (data.canCreate ? button(icon("plus") + "Tạo khóa học","create","tc-primary") : "") + '</div></header>' + invitation + '<div class="tc-layout"><section class="tc-portfolio" aria-label="Các khóa học đang cộng tác">' + portfolio + '</section>' + (options.attention && !["Đang tải","Lỗi tải dữ liệu"].includes(options.scenario) ? queue(data.work,state) : "") + '</div></main><div class="tc-toast" aria-live="polite" hidden></div>';
+    const statusSelect = windowElement.querySelector("[data-status]");
+    const sortSelect = windowElement.querySelector("[data-sort]");
+    if (statusSelect) statusSelect.value = state.status;
+    if (sortSelect) sortSelect.value = state.sort;
+    windowElement.querySelectorAll("[data-filter]").forEach(control => control.addEventListener("click",() => { state.filter = control.dataset.filter; renderWindow(windowElement); refreshIcons(); }));
+    const search = windowElement.querySelector("[data-search]");
+    if (search) search.addEventListener("input",() => {
+      const cursor = search.selectionStart;
+      state.search = search.value;
+      renderWindow(windowElement);
+      const next = windowElement.querySelector("[data-search]");
+      next.focus();
+      if (cursor !== null && next.type !== "search") next.setSelectionRange(cursor,cursor);
+      refreshIcons();
+    });
+    if (statusSelect) statusSelect.addEventListener("change",() => { state.status = statusSelect.value; renderWindow(windowElement); refreshIcons(); });
+    if (sortSelect) sortSelect.addEventListener("change",() => { state.sort = sortSelect.value; renderWindow(windowElement); refreshIcons(); });
+    windowElement.querySelectorAll("[data-action]").forEach(control => control.addEventListener("click",() => {
+      const messages = {home:"Minh họa điều hướng về Trang chủ",create:"Minh họa: mở trang Tạo khóa học",open:"Minh họa: mở Tổng quan · ",work:"Minh họa: mở bài học · ",manage:"Minh họa: mở tùy chọn khóa học · ",invite:"Minh họa: mở lời mời · ",retry:"Minh họa: thử tải lại danh sách"};
+      const notice = windowElement.querySelector(".tc-toast");
+      notice.textContent = messages[control.dataset.action] + (control.dataset.value || "");
+      notice.hidden = false;
+      clearTimeout(state.toastTimer);
+      state.toastTimer = setTimeout(() => { if (notice.isConnected) notice.hidden = true; },3500);
+    }));
+  }
+  function refreshIcons() { if (globalThis.lucide) globalThis.lucide.createIcons({attrs:{width:16,height:16}}); }
+  function render() {
+    if (!scenes.includes(options.scenario)) options.scenario = defaults.scenario;
+    root.querySelectorAll("[data-layout]").forEach(renderWindow);
+    refreshIcons();
+  }
+  render();
+  if (globalThis.Tweak) {
+    const tweak = new Tweak({container:root,onChange:() => { local.clear(); render(); save(); }});
+    tweak.addSelect(options,"scenario",{label:"Trạng thái dữ liệu",options:scenes});
+    tweak.addToggle(options,"attention",{label:"Hiện việc cần chú ý"});
+    tweak.addToggle(options,"invitations",{label:"Có lời mời cộng tác"});
+  }
+  globalThis.addEventListener("openai:set_globals",event => {
+    const next = event.detail?.globals?.widgetState?.modelContent;
+    if (!next) return;
+    Object.assign(options,defaults,next);
+    local.clear();
+    render();
+  });
+})();
+</script>

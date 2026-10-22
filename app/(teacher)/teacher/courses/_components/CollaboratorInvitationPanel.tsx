@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Loader2, Mail, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,23 +11,50 @@ import {
 } from "@/app/actions/course-collaborator";
 import type { CourseCollaboratorInvitation } from "@/lib/schemas/course-collaborator";
 
-const roleLabels: Record<CourseCollaboratorInvitation["role"], string> = {
+const roleLabels = {
   co_owner: "Đồng sở hữu",
   editor: "Biên tập viên",
   previewer: "Chỉ xem trước",
 };
 
-interface CollaboratorInvitationPanelProps {
-  onAccepted?: () => Promise<void> | void;
+function InvitationResponseButton({ accept, pending, disabled, onClick }: {
+  accept: boolean;
+  pending: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const Icon = accept ? Check : X;
+  const label = accept ? "Chấp nhận" : "Từ chối";
+  const progressive = accept ? "Đang nhận…" : "Đang từ chối…";
+  return (
+    <Button
+      type="button"
+      variant={accept ? "default" : "outline"}
+      disabled={disabled}
+      aria-busy={pending}
+      onClick={onClick}
+      className="coarse-input:h-11 coarse-input:px-5"
+    >
+      <span className="inline-grid">
+        <span aria-hidden={pending} className={`col-start-1 row-start-1 inline-flex items-center justify-center gap-2 ${pending ? "invisible" : ""}`}>
+          <Icon className="size-4.5 coarse-input:size-5" aria-hidden="true" />{label}
+        </span>
+        <span aria-hidden={!pending} className={`col-start-1 row-start-1 inline-flex items-center justify-center gap-2 ${pending ? "" : "invisible"}`}>
+          <Loader2 className="size-4.5 motion-safe:animate-spin coarse-input:size-5" aria-hidden="true" />{progressive}
+        </span>
+      </span>
+    </Button>
+  );
 }
 
-export default function CollaboratorInvitationPanel({
-  onAccepted,
-}: CollaboratorInvitationPanelProps) {
+export default function CollaboratorInvitationPanel({ onAccepted }: {
+  onAccepted?: () => Promise<void> | void;
+}) {
   const [invitations, setInvitations] = useState<CourseCollaboratorInvitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [pendingId, setPendingId] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [pending, setPending] = useState<{ id: string; accept: boolean } | null>(null);
+  const responding = useRef(false);
+  const heading = useRef<HTMLHeadingElement>(null);
 
   const loadInvitations = useCallback(async () => {
     const result = await getMyPendingCourseCollaboratorInvitations();
@@ -42,57 +69,69 @@ export default function CollaboratorInvitationPanel({
       if ("error" in result) toast.error(result.error);
       else setInvitations(result.data);
       setIsLoading(false);
+    }).catch(() => {
+      if (!cancelled) {
+        toast.error("Chưa tải được lời mời cộng tác. Vui lòng tải lại trang.");
+        setIsLoading(false);
+      }
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  const respond = (invitation: CourseCollaboratorInvitation, accept: boolean) => {
-    startTransition(async () => {
-      setPendingId(invitation.id);
-      const result = accept
-        ? await acceptCourseCollaboratorInvitation({ invitationId: invitation.id })
-        : await rejectCourseCollaboratorInvitation({ invitationId: invitation.id });
-      if (result.error) toast.error(result.error);
-      else {
-        toast.success(accept ? "Đã chấp nhận lời mời cộng tác." : "Đã từ chối lời mời cộng tác.");
-        if (accept) await onAccepted?.();
-        await loadInvitations();
+  async function respond(invitation: CourseCollaboratorInvitation, accept: boolean) {
+    if (responding.current) return;
+    responding.current = true;
+    setPending({ id: invitation.id, accept });
+    let confirmed = false;
+      try {
+        const result = accept
+          ? await acceptCourseCollaboratorInvitation({ invitationId: invitation.id })
+          : await rejectCourseCollaboratorInvitation({ invitationId: invitation.id });
+        if (result.error) toast.error(result.error);
+        else {
+          confirmed = true;
+          toast.success(accept ? "Đã chấp nhận lời mời cộng tác." : "Đã từ chối lời mời cộng tác.");
+          await onAccepted?.();
+          await loadInvitations();
+          requestAnimationFrame(() => heading.current?.focus());
+        }
+      } catch {
+        toast.error(confirmed
+          ? "Lời mời đã được xử lý nhưng chưa tải lại được danh sách. Vui lòng tải lại trang."
+          : "Chưa xác nhận được kết quả xử lý lời mời. Vui lòng tải lại trang trước khi thử lại.");
+      } finally {
+        setPending(null);
+        responding.current = false;
       }
-      setPendingId(null);
-    });
-  };
+  }
 
-  if (isLoading || invitations.length === 0) return null;
+  if (isLoading || !invitations.length) return null;
 
   return (
-    <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50/70 p-5 shadow-sm" aria-labelledby="collaborator-invitations-title">
-      <div className="flex items-start gap-3">
-        <Mail className="mt-1 shrink-0 text-blue-700" aria-hidden="true" />
-        <div>
-          <h2 id="collaborator-invitations-title" className="font-bold text-slate-950">Lời mời cộng tác đang chờ</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-600">Bạn có thể chấp nhận để mở quyền truy cập khóa học hoặc từ chối lời mời.</p>
+    <section className="mb-6 overflow-hidden rounded-2xl border border-route-line bg-white" aria-labelledby="collaborator-invitations-title">
+      <div className="flex items-start gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
+        <Mail className="mt-0.5 size-5 shrink-0 text-route" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <h2 ref={heading} tabIndex={-1} id="collaborator-invitations-title" className="font-bold text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-route">Lời mời cộng tác đang chờ</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Chấp nhận lời mời để bắt đầu cộng tác.</p>
         </div>
+        <span className="shrink-0 text-sm font-semibold text-slate-600" aria-label={`${invitations.length} lời mời`}>{invitations.length}</span>
       </div>
-      <div className="mt-4 space-y-3">
-        {invitations.map((invitation) => {
-          const isPending = pendingId === invitation.id;
-          return (
-            <div key={invitation.id} className="flex flex-col gap-3 rounded-lg border border-blue-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 text-sm">
-                <p className="font-semibold text-slate-900">{invitation.courseTitle || "Khóa học chưa có tên"}</p>
-                {invitation.courseSlug ? <p className="mt-1 text-xs text-slate-500">Slug: {invitation.courseSlug}</p> : null}
-                <p className="mt-1 text-slate-600">Vai trò: {roleLabels[invitation.role]}{invitation.canReviewTopics ? " · Có quyền duyệt bài học" : ""}</p>
+      <div role="region" aria-label="Danh sách lời mời cộng tác" tabIndex={0} className="max-h-64 overflow-y-auto overscroll-y-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route">
+        <ul className="divide-y divide-slate-200">
+          {invitations.map(invitation => (
+            <li key={invitation.id} className="flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="min-w-0 text-sm leading-6">
+                <p className="font-semibold text-slate-900 [overflow-wrap:anywhere]">{invitation.courseTitle || "Khóa học chưa có tên"}</p>
+                <p className="mt-1 text-slate-600">{roleLabels[invitation.role]}{invitation.canReviewTopics ? " · Có quyền duyệt bài học" : ""}</p>
               </div>
-              <div className="flex shrink-0 gap-2">
-                <Button type="button" size="sm" onClick={() => respond(invitation, true)} disabled={isPending} className="bg-emerald-600 text-white hover:bg-emerald-700"><Check /> Chấp nhận</Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => respond(invitation, false)} disabled={isPending} className="text-rose-700"><X /> Từ chối</Button>
-                {isPending ? <Loader2 className="self-center animate-spin text-blue-600" aria-label="Đang xử lý" /> : null}
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <InvitationResponseButton accept pending={pending?.id === invitation.id && pending.accept} disabled={pending !== null} onClick={() => respond(invitation, true)} />
+                <InvitationResponseButton accept={false} pending={pending?.id === invitation.id && !pending.accept} disabled={pending !== null} onClick={() => respond(invitation, false)} />
               </div>
-            </div>
-          );
-        })}
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

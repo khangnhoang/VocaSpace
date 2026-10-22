@@ -26,11 +26,12 @@ vi.mock("sonner", () => ({
 // - Mục tiêu: giữ course identity trong invitation UI và làm mới course list sau accept.
 // - Loại test: component interaction trong jsdom.
 // - Đối tượng: CollaboratorInvitationPanel và callback refresh do trang /teacher/courses truyền xuống.
-// - Case thành công: title/slug hiển thị; accept gọi callback rồi tải lại invitation list.
+// - Case thành công: tên khóa học, vai trò và quyền duyệt hiển thị thay slug kỹ thuật; accept gọi callback rồi tải lại invitation list.
 // - Case thất bại: invitation action trả lỗi thì không gọi refresh callback.
 // - Bảo mật/phân quyền: component chỉ dùng DTO/action đã được server boundary kiểm tra; không tự cấp membership.
 // - Ổn định/resilience: trạng thái invitation được tải lại sau mutation thành công.
 // - Invariant cần giữ: course vừa accept phải được parent refresh mà không cần manual reload.
+// - Kết quả verify gần nhất: passed (74 test / 4 file) bằng `npm run test:run -- __tests__/components/course-collaborator-invitations.test.tsx __tests__/components/course-workspace-routes.test.tsx __tests__/components/teacher-course-portfolio.test.tsx __tests__/components/course-authoring-trust.test.tsx`.
 
 const invitation = {
   id: "44444444-4444-4444-8444-444444444444",
@@ -66,7 +67,8 @@ describe("CollaboratorInvitationPanel", () => {
     render(<CollaboratorInvitationPanel onAccepted={onAccepted} />);
 
     expect(await screen.findByText("TOEIC Basics")).toBeTruthy();
-    expect(screen.getByText("Slug: toeic-basics")).toBeTruthy();
+    expect(screen.getByText("Biên tập viên · Có quyền duyệt bài học")).toBeTruthy();
+    expect(screen.queryByText(/Slug:|toeic-basics/)).toBeNull();
     expect(screen.queryByText(`Khóa học ${invitation.courseId}`)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Chấp nhận" }));
@@ -75,6 +77,7 @@ describe("CollaboratorInvitationPanel", () => {
       expect(mockedAccept).toHaveBeenCalledWith({ invitationId: invitation.id });
       expect(onAccepted).toHaveBeenCalledTimes(1);
       expect(mockedGetPending).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText("TOEIC Basics")).toBeNull();
     });
   });
 
