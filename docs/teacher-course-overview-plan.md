@@ -7,13 +7,13 @@ Revision: r3, 2026-10-23. r3 places the rejected-course edit dialog in scope (em
 | Field | Value |
 | --- | --- |
 | Spec revision | `docs/teacher-course-overview-plan.md` r3 |
-| Current unit / checkpoint | Planning; no checkpoint started |
-| Status | not started — r3 Owner-approved 2026-10-23; implementation paused by the Owner |
-| Completed evidence | Layout aid checked in the browser pane at desktop and 390px with no console errors (2026-10-23). Independent Opus 5.5 high review: r1 CHANGES REQUIRED (8 Required), r2 CHANGES REQUIRED (1 Required), r3 PASS (0 Critical, 0 Required). `npm run docs:check`: 0 structure violations, 0 new broken links. No product code, migration, test or seed changed. |
-| Accepted deviations | none |
-| Blockers / Owner decisions | Implementation paused by the Owner (2026-10-23); who implements CP1–CP2 is not yet chosen. `/privacy` wording needs Owner approval before merge (D6). |
-| Next action | Owner: resume implementation and choose the implementer |
-| Current authority | Plan r3 approved. Local commits per checkpoint are granted (2026-10-23). Implementation is not started until the Owner resumes it. No push, PR, hosted migration apply or deployment is granted. |
+| Current unit / checkpoint | CP1 complete (local commit); CP2 not started |
+| Status | in progress — CP1 done 2026-10-23 (implemented by Main on Owner request); CP2 not started |
+| Completed evidence | Planning: layout aid checked in the browser pane at desktop and 390px with no console errors (2026-10-23). Independent Opus 5.5 high review: r1 CHANGES REQUIRED (8 Required), r2 CHANGES REQUIRED (1 Required), r3 PASS (0 Critical, 0 Required). `npm run docs:check`: 0 structure violations, 0 new broken links; no product file changed during planning. CP1 (2026-10-23): root `npx supabase db reset` and `.e2e-runtime` rebuild + reset applied `20261023120000_tov1_teacher_course_insights.sql`; `tov1-teacher-course-insights.test.ts` 19 passed on API 45441; schema + action tests 32 passed; `npx tsc --noEmit` and ESLint on changed files clean; `ci.yml` parses with the file in both job lists; `explain analyze` with 20,001 synthetic enrollments (rolled back): RPC 28 ms, no index needed; Codex review r1 PASS (0 Critical, 0 Required). |
+| Accepted deviations | CP1 independent review ran in Codex (`gpt-6.1-sol`, high, read-only) on the Owner's 2026-10-23 instruction instead of the Opus session in D5. The RPC returns `progress: null` when the course has no counted topic (section 4 listed only the object shape). |
+| Blockers / Owner decisions | Implementer for CP2 not yet chosen. `/privacy` wording needs Owner approval before merge (D6). |
+| Next action | Owner: start CP2 |
+| Current authority | Plan r3 approved. Local commits per checkpoint are granted (2026-10-23). The Owner resumed implementation for CP1 only on 2026-10-23; CP2 waits for the Owner. No push, PR, hosted migration apply or deployment is granted. |
 | Hosted state | Not started. `get_teacher_course_insights` must be applied on hosted before the UI deploys (section 7). |
 
 ## 1. Binding specification
