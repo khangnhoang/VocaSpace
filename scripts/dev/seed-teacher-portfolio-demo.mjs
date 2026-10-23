@@ -200,6 +200,45 @@ export async function seedTeacherPortfolioDemo(env) {
     }
   }
 
+  // Bộ số liệu lớn cho khóa 7 (đã xuất bản, teacher là biên tập viên): 177 học viên ghi danh rải trong 6 tháng,
+  // 4 bài đã xuất bản để phân bố tiến độ có đủ ba nhóm. Dùng để soát giao diện khi số liệu nhiều và chênh lệch.
+  const richCourseId = publishedCourseId;
+  const richTopicIds = [id("06", 5)];
+  for (let index = 6; index <= 8; index++) richTopicIds.push(await ensurePublishedTopic(7, index));
+  const richMonthlyEnrollments = [18, 26, 31, 42, 37, 23];
+  let richIndex = 0;
+  for (const [offset, count] of richMonthlyEnrollments.entries()) {
+    for (let slot = 0; slot < count; slot++) {
+      richIndex += 1;
+      const learnerId = id("12", richIndex);
+      const existingUser = await service.auth.admin.getUserById(learnerId);
+      if (existingUser.error || !existingUser.data?.user) {
+        checked(await service.auth.admin.createUser({
+          id: learnerId,
+          email: `ui-demo-rich-learner-${richIndex}@example.test`,
+          password: `${randomUUID()}aA1!`,
+          email_confirm: true,
+          user_metadata: { full_name: `Học viên demo nhiều ${richIndex}` },
+          app_metadata: { d7_server_created: true },
+        }), `Create rich learner ${richIndex}`);
+      }
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (richMonthlyEnrollments.length - 1 - offset), 1, 3));
+      const enrolledAt = new Date(Math.min(monthStart.getTime() + (slot % 27) * 86_400_000, now.getTime()));
+      await ensure("enrollments", { id: id("13", richIndex), user_id: learnerId, course_id: richCourseId, enrolled_at: enrolledAt.toISOString() }, { user_id: learnerId, course_id: richCourseId });
+      // Theo richIndex % 10: 0–1 chưa học; 2 có dòng tiến độ nhưng chưa xong bài nào; 3–7 xong 1–3 bài; 8–9 xong cả 4.
+      const bucket = richIndex % 10;
+      const completedTopics = bucket <= 2 ? 0 : bucket <= 7 ? 1 + (richIndex % 3) : richTopicIds.length;
+      const progressTopics = bucket <= 1 ? [] : richTopicIds.slice(0, Math.max(1, completedTopics));
+      for (const [topicOrder, topicId] of progressTopics.entries()) {
+        const completed = topicOrder < completedTopics;
+        await ensure("user_topic_progress", {
+          user_id: learnerId, topic_id: topicId, is_flashcard_completed: completed, is_exercise_completed: completed,
+          is_topic_completed: completed, completed_at: completed ? enrolledAt.toISOString() : null,
+        }, { user_id: learnerId, topic_id: topicId });
+      }
+    }
+  }
+
   const portfolio = await rpc(clients.teacher, "get_teacher_course_portfolio");
   const insights = await rpc(clients.teacher, "get_teacher_course_insights", { p_course_id: insightsCourseId });
   const demoItems = portfolio.attention.filter(item => portfolioDemoCourseIds.includes(item.course_id));
@@ -219,6 +258,7 @@ export async function seedTeacherPortfolioDemo(env) {
     emptyInsightsCourseId: portfolioDemoCourseIds[1],
     pendingCourse: { id: pendingCourseId, status: (await listingState(pendingCourseId)).status },
     publishedCourse: { id: publishedCourseId, status: (await listingState(publishedCourseId)).status },
+    richInsights: await rpc(clients.teacher, "get_teacher_course_insights", { p_course_id: richCourseId }),
   };
 }
 
