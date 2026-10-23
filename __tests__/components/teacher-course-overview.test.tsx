@@ -354,4 +354,3 @@ describe("course overview insights (AC7–AC10)", () => {
     expect(filledActions(nextActionRegion())).toEqual(["Gửi duyệt"]);
   });
 });
-
