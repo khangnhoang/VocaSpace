@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CourseOverview from "@/app/(teacher)/teacher/courses/[id]/_components/CourseOverview";
 import type { CourseDashboardReadiness, CourseReadinessIssue } from "@/lib/schemas/course-readiness";
 import type { TeacherCourseInsights, TeacherCourseInsightsResult } from "@/lib/schemas/teacher-course-insights";
-import type { TeacherAttentionItem, TeacherCoursePortfolioResult } from "@/lib/schemas/teacher-course-portfolio";
+import type { CourseAttentionResult } from "@/lib/course-authoring/portfolio";
+import type { TeacherAttentionItem } from "@/lib/schemas/teacher-course-portfolio";
 
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
@@ -34,13 +35,12 @@ vi.mock("@/app/actions/course-preview", () => ({
 // - Case thành công: bảng 1.2.1 theo trạng thái × từ chối × việc chặn × vai trò, luôn đúng một nút filled; dialog sửa thông tin lưu
 //   thành công thì đóng, refresh và trả focus; số liệu ghi danh/tiến độ có giá trị chính xác và bảng số liệu.
 // - Case thất bại: lưu lỗi giữ dialog và dữ liệu đã nhập; read số liệu lỗi không hiện số 0 và có nút thử lại; read portfolio lỗi vẫn giữ việc readiness.
-// - Bảo mật/phân quyền: editor không có nút gửi duyệt nhưng vẫn thấy lý do từ chối; danh sách việc chỉ lấy mục của khóa học này, bỏ course_rejection.
+// - Bảo mật/phân quyền: editor không có nút gửi duyệt nhưng vẫn thấy lý do từ chối; việc lọc theo khóa học nằm ở selectCourseAttention (utils test).
 // - Ổn định/invariant: chưa có học viên thì không vẽ biểu đồ hay phần trăm; khóa chưa có bài được tính thì không có phân bố.
 // - Kết quả verify gần nhất: xem báo cáo checkpoint CP2.
 // - Lệnh: `npx vitest run __tests__/components/teacher-course-overview.test.tsx`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
-const otherCourseId = "22222222-2222-4222-8222-222222222222";
 const pendingRead = new Promise<never>(() => {});
 
 function issue(index: number): CourseReadinessIssue {
@@ -103,7 +103,7 @@ const insightsData: TeacherCourseInsights = {
   progress: { not_started: 10, in_progress: 10, completed: 4 },
 };
 
-function attention(kind: TeacherAttentionItem["kind"], course = courseId, title = "Gọi món"): TeacherAttentionItem {
+function attentionItem(kind: TeacherAttentionItem["kind"], course = courseId, title = "Gọi món"): TeacherAttentionItem {
   return {
     kind,
     course_id: course,
@@ -117,9 +117,9 @@ function attention(kind: TeacherAttentionItem["kind"], course = courseId, title 
 
 function renderOverview(
   readiness: CourseDashboardReadiness,
-  reads: { insights?: Promise<TeacherCourseInsightsResult>; portfolio?: Promise<TeacherCoursePortfolioResult> } = {},
+  reads: { insights?: Promise<TeacherCourseInsightsResult>; attention?: Promise<CourseAttentionResult> } = {},
 ) {
-  return render(<CourseOverview readiness={readiness} insights={reads.insights ?? pendingRead} portfolio={reads.portfolio ?? pendingRead} />);
+  return render(<CourseOverview readiness={readiness} insights={reads.insights ?? pendingRead} attention={reads.attention ?? pendingRead} />);
 }
 
 function nextActionRegion() {
@@ -235,7 +235,8 @@ describe("course overview rejected-course edit dialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Lưu thay đổi" }));
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("Slug đã tồn tại."));
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    // Toast bị ẩn khỏi trình đọc màn hình khi dialog modal mở, nên lỗi phải có ngay trong dialog.
+    expect(within(screen.getByRole("dialog")).getByRole("alert").textContent).toBe("Slug đã tồn tại.");
     expect((screen.getByLabelText("Tên khóa học") as HTMLInputElement).value).toBe("Tên mới cho khóa học");
     expect(mocks.refresh).not.toHaveBeenCalled();
   });
@@ -268,33 +269,21 @@ describe("course overview other work list (AC5, AC6)", () => {
     expect(screen.getByText("Đang tải bài chờ duyệt và bài cần sửa…")).toBeTruthy();
   });
 
-  it("shows only this course's review and correction items and skips course rejections", async () => {
-    const portfolio = Promise.resolve({
+  it("renders the course's review and correction items with their own actions", async () => {
+    const attention = Promise.resolve({
       success: true as const,
-      data: {
-        can_create_course: true,
-        courses: [],
-        attention: [
-          attention("topic_review", courseId, "Gọi món"),
-          attention("topic_correction", courseId, "Hỏi đường"),
-          attention("course_rejection", courseId),
-          attention("topic_review", otherCourseId, "Bài khóa khác"),
-        ],
-      },
+      items: [attentionItem("topic_correction", courseId, "Hỏi đường"), attentionItem("topic_review", courseId, "Gọi món")],
     });
-    renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { portfolio });
+    renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { attention });
 
     expect(await screen.findByText("Gọi món")).toBeTruthy();
-    expect(screen.getByText("Hỏi đường")).toBeTruthy();
-    expect(screen.queryByText("Bài khóa khác")).toBeNull();
     expect(screen.getByText("Việc khác trong khóa học · 3")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Duyệt bài học: Gọi món" }).getAttribute("href")).toBe(`/teacher/courses/${courseId}/topics/55555555-5555-4555-8555-555555555555`);
     expect(screen.getByRole("link", { name: "Xem và chỉnh sửa: Hỏi đường" })).toBeTruthy();
   });
 
   it("keeps readiness work and offers retry when the portfolio read fails", async () => {
-    const portfolio = Promise.resolve({ success: false as const, errorCode: "UNAVAILABLE" as const, error: "Không thể tải." });
-    renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { portfolio });
+    renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { attention: Promise.resolve({ success: false as const }) });
 
     expect(await screen.findByText("Chưa tải được bài chờ duyệt và bài cần sửa.")).toBeTruthy();
     expect(screen.getByText(issue(2).context)).toBeTruthy();
@@ -365,3 +354,4 @@ describe("course overview insights (AC7–AC10)", () => {
     expect(filledActions(nextActionRegion())).toEqual(["Gửi duyệt"]);
   });
 });
+

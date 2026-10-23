@@ -54,6 +54,11 @@ export default function CourseInfoEditDialog({ course, emphasis }: CourseInfoEdi
             Cập nhật thông tin theo góp ý của quản trị viên. Dữ liệu bạn nhập được giữ lại nếu lưu chưa thành công.
           </DialogDescription>
         </DialogHeader>
+        {editor.saveError ? (
+          <p role="alert" className="rounded-lg border border-correction-line bg-correction-quiet p-3 text-sm leading-6 text-correction [overflow-wrap:anywhere]">
+            {editor.saveError}
+          </p>
+        ) : null}
         {isOpen ? (
           <CourseForm
             form={editor.form}

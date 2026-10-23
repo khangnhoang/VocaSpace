@@ -333,7 +333,7 @@ const orderedIssues: CourseReadinessIssue[] = [
 
 describe("course workspace route contract", () => {
   it("renders a task-first overview from the readiness contract", () => {
-    const html = renderToStaticMarkup(<CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={readiness} />);
+    const html = renderToStaticMarkup(<CourseOverview insights={pendingRead} attention={pendingRead} readiness={readiness} />);
 
     expect(html).toContain("TOEIC Workspace Course");
     expect(html).toContain("Bản nháp");
@@ -374,7 +374,7 @@ describe("course workspace route contract", () => {
       },
     };
     const html = renderToStaticMarkup(
-      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={issueReadiness} />,
+      <CourseOverview insights={pendingRead} attention={pendingRead} readiness={issueReadiness} />,
     );
 
     expect(html).toContain(`còn ${orderedIssues.length} việc cần xử lý`);
@@ -454,7 +454,7 @@ describe("course workspace route contract", () => {
       },
     };
     const html = renderToStaticMarkup(
-      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={emptyReadiness} />,
+      <CourseOverview insights={pendingRead} attention={pendingRead} readiness={emptyReadiness} />,
     );
 
     expect(html).toContain("Khóa học chưa có chương nào");
@@ -556,7 +556,7 @@ describe("course workspace route contract", () => {
       },
     };
     const html = renderToStaticMarkup(
-      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={longReadiness} />,
+      <CourseOverview insights={pendingRead} attention={pendingRead} readiness={longReadiness} />,
     );
 
     expect(html).toContain(longTitle);

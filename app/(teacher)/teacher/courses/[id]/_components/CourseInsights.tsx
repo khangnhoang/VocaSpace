@@ -2,7 +2,7 @@
 
 import { use, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CloudOff, Loader2, Sprout, Table2, TrendingDown, TrendingUp } from "lucide-react";
+import { CloudOff, Loader2, Minus, Sprout, Table2, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   formatInsightMonthLong,
@@ -68,9 +68,9 @@ function EnrollmentChart({ insights }: { insights: TeacherCourseInsights }) {
       </div>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-700">
         <span>{formatInsightMonthLong(current.month)} (tính đến hôm nay): <strong className="tabular-nums">{current.count}</strong> ghi danh mới</span>
-        <span className={`inline-flex items-center gap-1 font-semibold ${delta >= 0 ? "text-growth" : "text-slate-600"}`}>
-          {delta >= 0 ? <TrendingUp className="size-4" aria-hidden="true" /> : <TrendingDown className="size-4" aria-hidden="true" />}
-          {delta >= 0 ? "+" : "−"}{Math.abs(delta)} so với {formatInsightMonthLong(previous.month).toLocaleLowerCase("vi")}
+        <span className={`inline-flex items-center gap-1 font-semibold ${delta > 0 ? "text-growth" : "text-slate-600"}`}>
+          {delta > 0 ? <TrendingUp className="size-4" aria-hidden="true" /> : delta < 0 ? <TrendingDown className="size-4" aria-hidden="true" /> : <Minus className="size-4" aria-hidden="true" />}
+          {delta === 0 ? "Không đổi" : `${delta > 0 ? "+" : "−"}${Math.abs(delta)}`} so với {formatInsightMonthLong(previous.month).toLocaleLowerCase("vi")}
         </span>
       </p>
       <div className="mt-4 overflow-x-auto">

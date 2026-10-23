@@ -8,7 +8,7 @@ import {
 } from "@/lib/course-authoring/routes";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
 import type { TeacherCourseInsightsResult } from "@/lib/schemas/teacher-course-insights";
-import type { TeacherCoursePortfolioResult } from "@/lib/schemas/teacher-course-portfolio";
+import type { CourseAttentionResult } from "@/lib/course-authoring/portfolio";
 import EmptyCourseDashboard from "./EmptyCourseDashboard";
 import CourseIdentityHero from "./CourseIdentityHero";
 import CourseInsights, { CourseInsightsFallback } from "./CourseInsights";
@@ -20,7 +20,7 @@ interface CourseOverviewProps {
   // Hai read phụ được truyền dạng promise để trang hiện ngay phần readiness; mỗi phần có Suspense và
   // trạng thái lỗi riêng nên lỗi của chúng không che hành động tiếp theo (G5).
   insights: Promise<TeacherCourseInsightsResult>;
-  portfolio: Promise<TeacherCoursePortfolioResult>;
+  attention: Promise<CourseAttentionResult>;
 }
 
 function CourseContentSummary({ readiness }: { readiness: CourseDashboardReadiness }) {
@@ -54,7 +54,7 @@ function CourseContentSummary({ readiness }: { readiness: CourseDashboardReadine
   );
 }
 
-export default function CourseOverview({ readiness, insights, portfolio }: CourseOverviewProps) {
+export default function CourseOverview({ readiness, insights, attention }: CourseOverviewProps) {
   const { course, counts, role } = readiness;
 
   if (counts.chapters === 0) {
@@ -83,7 +83,7 @@ export default function CourseOverview({ readiness, insights, portfolio }: Cours
         {/* Thứ tự DOM = thứ tự đọc trên màn hẹp: hành động tiếp theo → số liệu → nội dung (AC14). */}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,1fr)] lg:grid-rows-[auto_1fr]">
           <div className="min-w-0 lg:col-start-2 lg:row-start-1">
-            <CourseNextActionPanel readiness={readiness} portfolio={portfolio} />
+            <CourseNextActionPanel readiness={readiness} attention={attention} />
           </div>
           <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
             <Suspense fallback={<CourseInsightsFallback />}>

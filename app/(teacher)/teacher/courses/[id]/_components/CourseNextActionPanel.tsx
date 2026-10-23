@@ -4,7 +4,7 @@ import { ArrowRight, CircleAlert, CircleCheck, Clock3, Layers, MessageSquareWarn
 import { Button } from "@/components/ui/button";
 import { getCourseStructurePath } from "@/lib/course-authoring/routes";
 import type { CourseDashboardReadiness } from "@/lib/schemas/course-readiness";
-import type { TeacherCoursePortfolioResult } from "@/lib/schemas/teacher-course-portfolio";
+import type { CourseAttentionResult } from "@/lib/course-authoring/portfolio";
 import CourseInfoEditDialog from "./CourseInfoEditDialog";
 import CourseListingReviewControls from "./CourseListingReviewControls";
 import CourseOtherWorkList, { CourseOtherWorkListFallback } from "./CourseOtherWorkList";
@@ -38,7 +38,7 @@ export function getCourseNextAction(readiness: CourseDashboardReadiness) {
 
 interface CourseNextActionPanelProps {
   readiness: CourseDashboardReadiness;
-  portfolio: Promise<TeacherCoursePortfolioResult>;
+  attention: Promise<CourseAttentionResult>;
 }
 
 function Eyebrow({ tone, icon, children }: { tone: "attention" | "correction" | "growth" | "route"; icon: ReactNode; children: ReactNode }) {
@@ -51,7 +51,7 @@ function Eyebrow({ tone, icon, children }: { tone: "attention" | "correction" | 
   return <p className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide ${toneClassName}`}>{icon}{children}</p>;
 }
 
-export default function CourseNextActionPanel({ readiness, portfolio }: CourseNextActionPanelProps) {
+export default function CourseNextActionPanel({ readiness, attention }: CourseNextActionPanelProps) {
   const { course, issues, primaryCta, publishedTopicCount } = readiness;
   const next = getCourseNextAction(readiness);
   const structureHref = getCourseStructurePath(course.id);
@@ -144,7 +144,7 @@ export default function CourseNextActionPanel({ readiness, portfolio }: CourseNe
         </div>
       </div>
       <Suspense fallback={<CourseOtherWorkListFallback issues={otherIssues} />}>
-        <CourseOtherWorkList courseId={course.id} issues={otherIssues} portfolio={portfolio} />
+        <CourseOtherWorkList issues={otherIssues} attention={attention} />
       </Suspense>
     </section>
   );

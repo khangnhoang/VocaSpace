@@ -24,6 +24,8 @@ export function useCourseInfoEdit({ mutationLock, onSaved, onClosed }: UseCourse
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState<EditableCourseInfo | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  // Lỗi lưu gần nhất để nơi hiển thị trong dialog đọc được; toast trong dialog modal bị ẩn khỏi trình đọc màn hình.
+  const [saveError, setSaveError] = useState<string | null>(null);
   useEffect(() => () => { if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview); }, [preview]);
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseSchema),
@@ -31,6 +33,7 @@ export function useCourseInfoEdit({ mutationLock, onSaved, onClosed }: UseCourse
   });
 
   function open(course: EditableCourseInfo) {
+    setSaveError(null);
     setEditing(course);
     setPreview(course.thumbnail_url);
     form.reset({ title: course.title, slug: course.slug, description: course.description ?? "", price: String(course.price ?? 0), thumbnail_file: null });
@@ -48,6 +51,7 @@ export function useCourseInfoEdit({ mutationLock, onSaved, onClosed }: UseCourse
     if (!editing || mutationLock.current) return;
     const courseId = editing.id;
     mutationLock.current = true;
+    setSaveError(null);
     startTransition(async () => {
       try {
         const payload = new FormData();
@@ -57,12 +61,16 @@ export function useCourseInfoEdit({ mutationLock, onSaved, onClosed }: UseCourse
         payload.append("price", values.price || "0");
         if (values.thumbnail_file) payload.append("thumbnail_file", values.thumbnail_file);
         const response = await updateCourse(courseId, payload);
-        if (response.error) toast.error(response.error);
+        if (response.error) { toast.error(response.error); setSaveError(response.error); }
         else { toast.success(response.message); close(); onSaved(); }
-      } catch { toast.error("Chưa lưu được khóa học. Dữ liệu bạn nhập vẫn được giữ lại, vui lòng thử lại."); }
+      } catch {
+        const message = "Chưa lưu được khóa học. Dữ liệu bạn nhập vẫn được giữ lại, vui lòng thử lại.";
+        toast.error(message);
+        setSaveError(message);
+      }
       finally { mutationLock.current = false; }
     });
   }
 
-  return { form, editing, preview, setPreview, isPending, open, close, submit };
+  return { form, editing, preview, setPreview, isPending, saveError, open, close, submit };
 }

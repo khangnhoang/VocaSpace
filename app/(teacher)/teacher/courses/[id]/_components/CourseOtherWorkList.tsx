@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CircleAlert, ClipboardCheck, Loader2, MessageSquareWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { attentionIdentity, attentionPath, sortAttention } from "@/lib/course-authoring/portfolio";
+import { attentionIdentity, attentionPath, type CourseAttentionResult } from "@/lib/course-authoring/portfolio";
 import type { CourseReadinessIssue } from "@/lib/schemas/course-readiness";
-import type { TeacherAttentionItem, TeacherCoursePortfolioResult } from "@/lib/schemas/teacher-course-portfolio";
+import type { TeacherAttentionItem } from "@/lib/schemas/teacher-course-portfolio";
 
 type AttentionState =
   | { status: "loading" }
@@ -73,13 +73,13 @@ function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; 
           />
         ))}
         {attention.status === "loading" ? (
-          <li role="status" className="flex items-center gap-2 py-3 text-sm text-slate-600">
-            <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" />Đang tải bài chờ duyệt và bài cần sửa…
+          <li className="py-3 text-sm text-slate-600">
+            <span role="status" className="flex items-center gap-2"><Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" />Đang tải bài chờ duyệt và bài cần sửa…</span>
           </li>
         ) : null}
         {attention.status === "error" ? (
-          <li role="alert" className="flex flex-col gap-2 py-3 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
-            <span>Chưa tải được bài chờ duyệt và bài cần sửa.</span>
+          <li className="flex flex-col gap-2 py-3 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
+            <span role="alert">Chưa tải được bài chờ duyệt và bài cần sửa.</span>
             <Button type="button" variant="outline" size="sm" disabled={isRetrying} onClick={() => startRetry(() => router.refresh())} className="coarse-input:h-11">
               {isRetrying ? <Loader2 className="motion-safe:animate-spin" aria-hidden="true" /> : null}Thử lại
             </Button>
@@ -95,22 +95,13 @@ export function CourseOtherWorkListFallback({ issues }: { issues: CourseReadines
 }
 
 interface CourseOtherWorkListProps {
-  courseId: string;
   issues: CourseReadinessIssue[];
-  portfolio: Promise<TeacherCoursePortfolioResult>;
+  attention: Promise<CourseAttentionResult>;
 }
 
-// Bài chờ duyệt / bài cần sửa lấy từ read portfolio (G6) rồi lọc theo khóa học này; course_rejection đã có
-// ở khối lý do từ chối nên không lặp lại. Read lỗi không làm mất việc readiness đã có (AC6).
-export default function CourseOtherWorkList({ courseId, issues, portfolio }: CourseOtherWorkListProps) {
-  const result = use(portfolio);
-  const attention: AttentionState = result.success
-    ? {
-        status: "ready",
-        items: sortAttention(result.data.attention).filter(
-          (item) => item.course_id === courseId && (item.kind === "topic_review" || item.kind === "topic_correction"),
-        ),
-      }
-    : { status: "error" };
-  return <OtherWorkView issues={issues} attention={attention} />;
+// Mục chờ duyệt / cần sửa đã được lọc theo khóa học trên server (selectCourseAttention, G6). Read lỗi không
+// làm mất việc readiness đã có (AC6).
+export default function CourseOtherWorkList({ issues, attention }: CourseOtherWorkListProps) {
+  const result = use(attention);
+  return <OtherWorkView issues={issues} attention={result.success ? { status: "ready", items: result.items } : { status: "error" }} />;
 }

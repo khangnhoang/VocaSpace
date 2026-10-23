@@ -129,25 +129,41 @@ export async function seedTeacherPortfolioDemo(env) {
   // khóa 2 giữ nguyên không có học viên. Bài được xuất bản qua đúng luồng gửi duyệt/duyệt, không ghi thẳng trạng thái.
   const insightsCourseIndex = 6;
   const insightsCourseId = portfolioDemoCourseIds[insightsCourseIndex - 1];
-  const publishedTopicIds = [];
-  for (let index = 1; index <= 3; index++) {
-    const topicId = id("06", index);
-    publishedTopicIds.push(topicId);
+  // Xuất bản một bài demo qua luồng thật: tạo nội dung tối thiểu, gửi duyệt (editor), duyệt (previewer có quyền duyệt).
+  async function ensurePublishedTopic(courseIndex, topicIndex) {
+    const courseId = portfolioDemoCourseIds[courseIndex - 1];
+    const topicId = id("06", topicIndex);
     const topic = await ensure("topics", {
-      id: topicId, course_id: insightsCourseId, chapter_id: id("02", insightsCourseIndex),
-      title: `[UI demo] Bài đã xuất bản ${index} — chào hỏi và giới thiệu`, status: "draft", order_index: 100 + index,
+      id: topicId, course_id: courseId, chapter_id: id("02", courseIndex),
+      title: `[UI demo] Bài đã xuất bản ${topicIndex} — chào hỏi và giới thiệu`, status: "draft", order_index: 100 + topicIndex,
       original_creator_user_id: actors.editor, responsible_author_user_id: actors.editor,
     });
-    if (topic.status === "published") continue;
-    const latest = checked(await service.from("topic_review_submissions").select("id,status").eq("topic_id", topicId).order("submitted_at", { ascending: false }).order("id", { ascending: false }).limit(1), "Inspect insights submission")[0];
+    if (topic.status === "published") return topicId;
+    const latest = checked(await service.from("topic_review_submissions").select("id,status").eq("topic_id", topicId).order("submitted_at", { ascending: false }).order("id", { ascending: false }).limit(1), "Inspect published-topic submission")[0];
     if (!latest) {
-      await ensure("cards", { id: id("10", index), topic_id: topicId, front_content: { word: "greeting", phonetic: "/ˈɡriːtɪŋ/" }, back_content: { translation: "Lời chào" }, order_index: 0 });
-      await ensure("exercises", { id: id("11", index), topic_id: topicId, course_id: insightsCourseId, title: "Chọn lời chào phù hợp", part_type: "part5", order_index: 0 });
+      await ensure("cards", { id: id("10", topicIndex), topic_id: topicId, front_content: { word: "greeting", phonetic: "/ˈɡriːtɪŋ/" }, back_content: { translation: "Lời chào" }, order_index: 0 });
+      await ensure("exercises", { id: id("11", topicIndex), topic_id: topicId, course_id: courseId, title: "Chọn lời chào phù hợp", part_type: "part5", order_index: 0 });
       await rpc(clients.editor, "request_topic_review", { p_topic_id: topicId });
     }
-    const pending = checked(await service.from("topic_review_submissions").select("id").eq("topic_id", topicId).eq("status", "pending").maybeSingle(), "Inspect insights pending");
+    const pending = checked(await service.from("topic_review_submissions").select("id").eq("topic_id", topicId).eq("status", "pending").maybeSingle(), "Inspect published-topic pending");
     if (pending) await rpc(clients.previewer, "approve_topic_review", { p_submission_id: pending.id });
+    return topicId;
   }
+
+  const publishedTopicIds = [];
+  for (let index = 1; index <= 3; index++) publishedTopicIds.push(await ensurePublishedTopic(insightsCourseIndex, index));
+
+  // Trạng thái niêm yết cho QA bảng hành động: khóa 5 chờ duyệt (teacher là co_owner gửi), khóa 7 đã xuất bản
+  // (admin là owner gửi rồi duyệt). Đi qua RPC AD2, chỉ chạy khi khóa còn là bản nháp chưa từng được duyệt.
+  const pendingCourseId = portfolioDemoCourseIds[4];
+  const publishedCourseId = portfolioDemoCourseIds[6];
+  await ensurePublishedTopic(5, 4);
+  await ensurePublishedTopic(7, 5);
+  const listingState = async (courseId) => checked(await service.from("courses").select("status,reviewed_at").eq("id", courseId).single(), "Inspect listing state");
+  if ((await listingState(pendingCourseId)).status === "draft") await rpc(clients.teacher, "submit_course_review", { p_course_id: pendingCourseId });
+  const publishedState = await listingState(publishedCourseId);
+  if (publishedState.status === "draft" && !publishedState.reviewed_at) await rpc(clients.admin, "submit_course_review", { p_course_id: publishedCourseId });
+  if ((await listingState(publishedCourseId)).status === "pending") await rpc(clients.admin, "approve_course_review", { p_course_id: publishedCourseId });
 
   // 24 học viên giả: số ghi danh theo tháng (cũ → mới) và nhóm tiến độ cố định; tháng tính lùi từ hôm nay khi tạo lần đầu.
   const monthlyEnrollments = [2, 3, 4, 5, 6, 4];
@@ -201,6 +217,8 @@ export async function seedTeacherPortfolioDemo(env) {
     insightsEnrollments: insights.enrollment_total,
     insightsProgress: insights.progress,
     emptyInsightsCourseId: portfolioDemoCourseIds[1],
+    pendingCourse: { id: pendingCourseId, status: (await listingState(pendingCourseId)).status },
+    publishedCourse: { id: publishedCourseId, status: (await listingState(publishedCourseId)).status },
   };
 }
 
