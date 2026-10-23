@@ -66,6 +66,9 @@ vi.mock("next/navigation", () => ({
 // - Kết quả verify gần nhất: passed (74 test / 4 file) bằng `npm run test:run -- __tests__/components/course-collaborator-invitations.test.tsx __tests__/components/course-workspace-routes.test.tsx __tests__/components/teacher-course-portfolio.test.tsx __tests__/components/course-authoring-trust.test.tsx`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
+// Hai read phụ của Tổng quan để treo: suite này chỉ kiểm phần render từ readiness, không kiểm số liệu.
+const pendingRead = new Promise<never>(() => {});
+
 
 function htmlHref(href: string) {
   return href.replaceAll("&", "&amp;");
@@ -330,33 +333,30 @@ const orderedIssues: CourseReadinessIssue[] = [
 
 describe("course workspace route contract", () => {
   it("renders a task-first overview from the readiness contract", () => {
-    const html = renderToStaticMarkup(<CourseOverview readiness={readiness} />);
+    const html = renderToStaticMarkup(<CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={readiness} />);
 
     expect(html).toContain("TOEIC Workspace Course");
     expect(html).toContain("Bản nháp");
-    expect(html).toContain("toeic-workspace-course");
+    // Không lộ khóa kỹ thuật như slug trên trang Tổng quan (AC1).
+    expect(html).not.toContain("toeic-workspace-course");
     expect(html).toContain("Miễn phí");
     expect(html).toContain('href="/teacher/courses"');
-    expect(html).toContain("Danh sách");
-    expect(html).toContain("Quản lý cấu trúc");
+    expect(html).toContain("Khóa học của tôi");
     expect(html).toContain(`href="${htmlHref(getCourseStructurePath(courseId))}"`);
-    expect(html).toContain(`href="${htmlHref(readiness.primaryCta.destination.href)}"`);
-    expect(html).toContain(readiness.primaryCta.label);
-    expect(html).toContain("Tóm tắt nội dung");
+    // Không còn việc cần xử lý: owner có bài đã xuất bản nên hành động chính là gửi duyệt niêm yết.
+    expect(html).toContain("Không còn việc cần xử lý");
+    expect(html).toContain("Gửi duyệt");
+    expect(html).toContain("Nội dung khóa học");
     expect(html).toContain('aria-labelledby="content-summary-title"');
-    expect(html).toContain("Việc tiếp theo");
-    expect(html).toContain("Chưa có việc cần xử lý");
-    expect(html).toContain('aria-labelledby="ready-state-title"');
+    expect(html).toContain('aria-labelledby="next-action-title"');
     expect(html).toContain("Chương");
     expect(html).toContain("Bài học");
-    expect(html).toContain("Flashcards");
-    expect(html).toContain("Bài tập");
-    expect(html).toContain("Câu hỏi");
+    expect(html).toContain("Flashcard");
+    expect(html).toContain("Bài tập · câu hỏi");
     expect(html).toContain(`${readiness.counts.chapters}`);
-    expect(html).toContain(`${readiness.counts.topics}`);
+    expect(html).toContain(`${readiness.counts.topics} · ${readiness.publishedTopicCount} đã xuất bản`);
     expect(html).toContain(`${readiness.counts.flashcards}`);
-    expect(html).toContain(`${readiness.counts.exercises}`);
-    expect(html).toContain(`${readiness.counts.questions}`);
+    expect(html).toContain(`${readiness.counts.exercises} · ${readiness.counts.questions}`);
     expect(html).not.toContain("Nhóm câu hỏi");
     expect(html).not.toContain("Đáp án");
   });
@@ -374,13 +374,12 @@ describe("course workspace route contract", () => {
       },
     };
     const html = renderToStaticMarkup(
-      <CourseOverview readiness={issueReadiness} />,
+      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={issueReadiness} />,
     );
 
-    expect(html).toContain("Các việc cần xử lý");
-    expect(html).toContain('aria-labelledby="readiness-issues-title"');
-    expect(html).toContain("Danh sách");
-    expect(html).toContain("Quản lý cấu trúc");
+    expect(html).toContain(`còn ${orderedIssues.length} việc cần xử lý`);
+    expect(html).toContain("Việc khác trong khóa học");
+    expect(html).toContain("Xem toàn bộ cấu trúc");
     expect(html).toContain(issueReadiness.primaryCta.label);
     expect(html).toContain(
       `href="${htmlHref(issueReadiness.primaryCta.destination.href)}"`,
@@ -393,6 +392,9 @@ describe("course workspace route contract", () => {
       expect(html).toContain(issue.context);
       expect(html).toContain(issue.actionLabel);
       expect(html).toContain(`href="${htmlHref(issue.destination.href)}"`);
+    }
+    // Việc đầu tiên là hành động chính (tên = nhãn hiển thị, ngữ cảnh ở heading); các việc còn lại có tên kèm ngữ cảnh.
+    for (const issue of orderedIssues.slice(1)) {
       expect(html).toContain(
         `aria-label="${issue.actionLabel}: ${issue.context}"`,
       );
@@ -452,7 +454,7 @@ describe("course workspace route contract", () => {
       },
     };
     const html = renderToStaticMarkup(
-      <CourseOverview readiness={emptyReadiness} />,
+      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={emptyReadiness} />,
     );
 
     expect(html).toContain("Khóa học chưa có chương nào");
@@ -554,14 +556,15 @@ describe("course workspace route contract", () => {
       },
     };
     const html = renderToStaticMarkup(
-      <CourseOverview readiness={longReadiness} />,
+      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={longReadiness} />,
     );
 
     expect(html).toContain(longTitle);
     expect(html).toContain(longDescription);
     expect(html).toContain(longContext);
     expect(html).toContain(longActionLabel);
-    expect(html).toContain(`aria-label="${longActionLabel}: ${longContext}"`);
+    expect(html).toContain(`id="next-action-title"`);
+    expect(html.indexOf(longContext)).toBeGreaterThan(html.indexOf('id="next-action-title"'));
   });
 
   it("keeps route helpers aligned with the approved workspace contract", () => {
@@ -1179,6 +1182,13 @@ describe("course workspace route contract", () => {
       ),
       "utf8",
     );
+    const nextActionSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(teacher)/teacher/courses/[id]/_components/CourseNextActionPanel.tsx",
+      ),
+      "utf8",
+    );
     const structurePageSource = readFileSync(
       join(process.cwd(), "app/(teacher)/teacher/courses/[id]/structure/page.tsx"),
       "utf8",
@@ -1191,9 +1201,9 @@ describe("course workspace route contract", () => {
     expect(overviewPageSource).not.toContain("useEffect");
     expect(overviewPageSource).not.toContain("ChapterList");
     expect(overviewPageSource).not.toContain("createChapter");
-    expect(overviewComponentSource).toContain("primaryCta.destination.href");
+    expect(nextActionSource).toContain("primaryCta.destination.href");
     expect(overviewComponentSource).toContain("getCourseStructurePath");
-    expect(overviewComponentSource).toContain("const structureHref");
+    expect(nextActionSource).toContain("const structureHref");
     expect(structurePageSource).toContain("CourseStructureWorkspace");
   });
 

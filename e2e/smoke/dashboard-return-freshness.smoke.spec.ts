@@ -39,8 +39,10 @@ test("teacher returns to overview and sees the resolved topic content issue disa
   await loginAsTeacher(page, fixture);
 
   await page.goto(getCourseOverviewPath(courseId));
+  // Việc có thể là hành động chính (khối đầu của "Việc tiếp theo") hoặc một dòng trong danh sách việc khác.
+  const issueContainers = 'section[aria-labelledby="next-action-title"] > div:first-child, li';
   const topicContentIssue = page
-    .locator("li")
+    .locator(issueContainers)
     .filter({ hasText: topicTitle })
     .filter({ hasText: "flashcard" });
   await expect(topicContentIssue).toBeVisible();
@@ -84,7 +86,7 @@ test("teacher returns to overview and sees the resolved topic content issue disa
 
   await page.reload();
   await expect(
-    page.locator("li").filter({ hasText: topicTitle }).filter({ hasText: "flashcard" }),
+    page.locator(issueContainers).filter({ hasText: topicTitle }).filter({ hasText: "flashcard" }),
   ).toHaveCount(0);
   expect(await getActiveFixtureFlashcardCount()).toBe(1);
   await consoleGuard.expectNoErrors();

@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDownAZ, ArrowLeft, ArrowRight, BookOpen, BookOpenCheck, CircleAlert, Clock3, Crown, Eye, FilePenLine, ListFilter, Loader2, PencilLine, Plus, Search, Settings, ShieldCheck, Trash2, Users } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { deleteCourse, updateCourse } from "@/app/actions/course";
-import { courseSchema, type CourseFormValues, type TeacherCourse } from "@/lib/schemas/course";
+import { deleteCourse } from "@/app/actions/course";
+import type { TeacherCourse } from "@/lib/schemas/course";
 import type { TeacherCoursePortfolioResult } from "@/lib/schemas/teacher-course-portfolio";
 import { attentionPath, courseRoleLabels, courseStatusLabels, getContinuation } from "@/lib/course-authoring/portfolio";
 import { getCourseOverviewPath, getTeacherCourseCreatePath } from "@/lib/course-authoring/routes";
@@ -20,6 +18,7 @@ import DeleteCourseModal from "./DeleteCourseModal";
 import CollaboratorInvitationPanel from "./CollaboratorInvitationPanel";
 import PortfolioAttention from "./PortfolioAttention";
 import PortfolioFilterSelect from "./PortfolioFilterSelect";
+import { useCourseInfoEdit } from "./use-course-info-edit";
 
 const statusOptions = [
   { value: 'all', label: 'Tất cả trạng thái', icon: ListFilter },
@@ -43,59 +42,24 @@ export default function TeacherCoursePortfolio({ result }: { result: TeacherCour
   const router = useRouter();
   const [isRefreshing, refreshTransition] = useTransition();
   const [isPending, startTransition] = useTransition();
-  const [editing, setEditing] = useState<TeacherCourse | null>(null);
   const [deleting, setDeleting] = useState<TeacherCourse | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [role, setRole] = useState("all");
   const [sort, setSort] = useState("membership");
   const heading = useRef<HTMLHeadingElement>(null);
   const mutationLock = useRef(false);
-  useEffect(() => () => { if (preview?.startsWith('blob:')) URL.revokeObjectURL(preview); }, [preview]);
-  const form = useForm<CourseFormValues>({
-    resolver: zodResolver(courseSchema),
-    defaultValues: { title: "", slug: "", description: "", price: "", thumbnail_file: null },
-  });
   const refresh = () => {
     refreshTransition(() => router.refresh());
     requestAnimationFrame(() => heading.current?.focus());
   };
-  const busy = isPending || isRefreshing;
-
-  function closeEditor() {
-    setPreview(null);
-    setEditing(null);
-    form.reset();
-    requestAnimationFrame(() => heading.current?.focus());
-  }
-
-  function editCourse(course: TeacherCourse) {
-    setEditing(course);
-    setPreview(course.thumbnail_url);
-    form.reset({ title: course.title, slug: course.slug, description: course.description ?? "", price: String(course.price), thumbnail_file: null });
-    requestAnimationFrame(() => form.setFocus("title"));
-  }
-
-  function submit(values: CourseFormValues) {
-    if (!editing || mutationLock.current) return;
-    const courseId = editing.id;
-    mutationLock.current = true;
-    startTransition(async () => {
-      try {
-        const payload = new FormData();
-        payload.append("title", values.title);
-        payload.append("slug", values.slug);
-        payload.append("description", values.description);
-        payload.append("price", values.price || "0");
-        if (values.thumbnail_file) payload.append("thumbnail_file", values.thumbnail_file);
-        const response = await updateCourse(courseId, payload);
-        if (response.error) toast.error(response.error);
-        else { toast.success(response.message); closeEditor(); refresh(); }
-      } catch { toast.error("Chưa lưu được khóa học. Dữ liệu bạn nhập vẫn được giữ lại, vui lòng thử lại."); }
-      finally { mutationLock.current = false; }
-    });
-  }
+  const editor = useCourseInfoEdit({
+    mutationLock,
+    onSaved: refresh,
+    onClosed: () => requestAnimationFrame(() => heading.current?.focus()),
+  });
+  const busy = isPending || editor.isPending || isRefreshing;
+  const editCourse = (course: TeacherCourse) => editor.open(course);
 
   function confirmDelete() {
     if (!deleting || mutationLock.current) return;
@@ -111,7 +75,7 @@ export default function TeacherCoursePortfolio({ result }: { result: TeacherCour
     });
   }
 
-  if (editing) return <CourseForm form={form} onSubmit={submit} isPending={isPending} previewUrl={preview} setPreviewUrl={setPreview} onCancel={() => { if (!isPending) closeEditor(); }} isEditMode />;
+  if (editor.editing) return <CourseForm form={editor.form} onSubmit={editor.submit} isPending={editor.isPending} previewUrl={editor.preview} setPreviewUrl={editor.setPreview} onCancel={() => { if (!editor.isPending) editor.close(); }} isEditMode />;
 
   const data = result.success ? result.data : null;
   const continuation = data ? getContinuation(data) : null;

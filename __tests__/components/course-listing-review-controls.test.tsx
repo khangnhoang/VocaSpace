@@ -43,6 +43,9 @@ vi.mock("@/app/actions/course-preview", () => ({
 // - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__/components/course-listing-review-controls.test.tsx`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
+// Hai read phụ của Tổng quan để treo: suite này chỉ kiểm phần render từ readiness, không kiểm số liệu.
+const pendingRead = new Promise<never>(() => {});
+
 
 function makeReadiness(
   overrides: {
@@ -114,7 +117,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
         success: true,
         data: { course_id: courseId, status: "pending" },
       });
-      render(<CourseOverview readiness={makeReadiness({ role, chapters })} />);
+      render(<CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={makeReadiness({ role, chapters })} />);
 
       const button = screen.getByRole("button", { name: "Gửi duyệt" });
       expect((button as HTMLButtonElement).disabled).toBe(false);
@@ -138,7 +141,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
         resolveSubmit = resolve;
       }),
     );
-    render(<CourseOverview readiness={makeReadiness({ chapters })} />);
+    render(<CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={makeReadiness({ chapters })} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Gửi duyệt" }));
 
@@ -156,7 +159,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
 
   it("disables submit with a hint while no topic is published", () => {
     render(
-      <CourseOverview
+      <CourseOverview insights={pendingRead} portfolio={pendingRead}
         readiness={makeReadiness({ publishedTopicCount: 0, chapters })}
       />,
     );
@@ -174,7 +177,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
     mocks.submitCourseReview.mockResolvedValueOnce({
       error: "Trạng thái khóa học đã thay đổi. Vui lòng tải lại trang.",
     });
-    render(<CourseOverview readiness={makeReadiness({ chapters })} />);
+    render(<CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={makeReadiness({ chapters })} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Gửi duyệt" }));
 
@@ -193,7 +196,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
       data: { course_id: courseId, status: "draft" },
     });
     render(
-      <CourseOverview readiness={makeReadiness({ status: "pending", chapters })} />,
+      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={makeReadiness({ status: "pending", chapters })} />,
     );
 
     expect(screen.queryByRole("button", { name: "Gửi duyệt" })).toBeNull();
@@ -215,7 +218,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
       }),
     );
     render(
-      <CourseOverview readiness={makeReadiness({ status: "pending", chapters })} />,
+      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={makeReadiness({ status: "pending", chapters })} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Rút yêu cầu duyệt" }));
@@ -233,7 +236,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
 
   it("does not withdraw when the confirm dialog is cancelled", async () => {
     render(
-      <CourseOverview readiness={makeReadiness({ status: "pending", chapters })} />,
+      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={makeReadiness({ status: "pending", chapters })} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Rút yêu cầu duyệt" }));
@@ -248,7 +251,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
       error: "Trạng thái khóa học đã thay đổi. Vui lòng tải lại trang.",
     });
     render(
-      <CourseOverview readiness={makeReadiness({ status: "pending", chapters })} />,
+      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={makeReadiness({ status: "pending", chapters })} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Rút yêu cầu duyệt" }));
@@ -260,7 +263,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
 
   it("shows no review control on a published course", () => {
     render(
-      <CourseOverview
+      <CourseOverview insights={pendingRead} portfolio={pendingRead}
         readiness={makeReadiness({ status: "published", chapters })}
       />,
     );
@@ -274,7 +277,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
     "shows an editor the %s badge but no review control",
     (status) => {
       render(
-        <CourseOverview
+        <CourseOverview insights={pendingRead} portfolio={pendingRead}
           readiness={makeReadiness({ role: "editor", status, chapters })}
         />,
       );
@@ -289,7 +292,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
 
   it("shows the rejection reason on a rejected draft", () => {
     render(
-      <CourseOverview
+      <CourseOverview insights={pendingRead} portfolio={pendingRead}
         readiness={makeReadiness({
           chapters,
           rejectMessage: "Nội dung bài 1 còn thiếu phần giải thích.",
@@ -316,7 +319,7 @@ describe.each(branches)("course listing review controls on the $name", ({ chapte
     ],
   ])("hides the rejection reason for %s", (_label, overrides) => {
     render(
-      <CourseOverview readiness={makeReadiness({ chapters, ...overrides })} />,
+      <CourseOverview insights={pendingRead} portfolio={pendingRead} readiness={makeReadiness({ chapters, ...overrides })} />,
     );
 
     expect(screen.queryByText("Yêu cầu duyệt bị từ chối")).toBeNull();
