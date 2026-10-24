@@ -209,8 +209,7 @@ jobs:
 
   e2e:
     name: E2E smoke tests on isolated Supabase
-    # Playwright 1.60 cannot install Chromium on ubuntu-latest (26.04).
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
