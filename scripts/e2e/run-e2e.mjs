@@ -6,6 +6,7 @@ import { prepareSupabaseWorkdir } from "./prepare-supabase-workdir.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..", "..");
 const forwardedArgs = process.argv.slice(2);
+const kongContainer = "supabase_kong_voca_space_e2e";
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
@@ -23,6 +24,7 @@ async function main() {
   const supabaseEnv = getSupabaseEnv(workdir);
   assertLocalSupabaseEnv(supabaseEnv.NEXT_PUBLIC_SUPABASE_URL);
   resetSupabaseDatabase(workdir);
+  await ensureKongReachesServices(supabaseEnv);
 
   const playwright = commandInvocation(npxCommand(), [
     "playwright",
@@ -125,6 +127,42 @@ function resetSupabaseDatabase(workdir) {
   if (result.status !== 0) {
     throw new Error("Unable to reset the isolated Supabase E2E database.");
   }
+}
+
+// After `db reset`, Kong can keep answering auth and storage calls with 502 until it restarts.
+async function ensureKongReachesServices(supabaseEnv) {
+  if (await waitForServicesThroughKong(supabaseEnv, 30_000)) return;
+
+  console.log(`Auth or storage is unreachable through Kong after the reset; restarting ${kongContainer}...`);
+  assertCommand("docker", ["restart", kongContainer], `Unable to restart ${kongContainer}.`);
+
+  if (!(await waitForServicesThroughKong(supabaseEnv, 60_000))) {
+    throw new Error("Auth or storage is still unreachable through Kong after restarting it.");
+  }
+}
+
+async function waitForServicesThroughKong(supabaseEnv, timeoutMs) {
+  const serviceKey = supabaseEnv.SUPABASE_SERVICE_ROLE_KEY;
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  const probes = ["/auth/v1/health", "/storage/v1/bucket"].map(
+    (path) => new URL(path, supabaseEnv.NEXT_PUBLIC_SUPABASE_URL),
+  );
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const statuses = await Promise.all(
+      probes.map((url) =>
+        fetch(url, { headers, signal: AbortSignal.timeout(5_000) }).then(
+          (response) => response.status,
+          () => 0,
+        ),
+      ),
+    );
+    if (statuses.every((status) => status === 200)) return true;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
+  }
+
+  return false;
 }
 
 function assertCommand(command, args, failureMessage) {

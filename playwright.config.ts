@@ -3,6 +3,8 @@ import { defineConfig } from "@playwright/test";
 const port = Number(process.env.E2E_PORT ?? 3100);
 const host = process.env.E2E_HOST ?? "127.0.0.1";
 const baseURL = process.env.E2E_BASE_URL ?? `http://${host}:${port}`;
+// CI chạy trên bản build sẵn trong .next-e2e (E2E_WEB_SERVER=start) vì `next dev` biên dịch từng route khi gọi nên quá chậm trên runner.
+const serverScript = process.env.E2E_WEB_SERVER === "start" ? "start" : "dev:app";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -25,7 +27,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run dev:app -- --hostname ${host} --port ${port}`,
+    command: `npm run ${serverScript} -- --hostname ${host} --port ${port}`,
     url: baseURL,
     timeout: 120_000,
     reuseExistingServer: false,

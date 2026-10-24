@@ -27,7 +27,7 @@ Rules:
 
 The repository currently has GitHub Actions CI in `.github/workflows/ci.yml` with:
 
-* parallel jobs `changes`, `checks`, `unit` and `build`;
+* parallel jobs `changes`, `checks`, `unit`, `build` and `e2e` (Playwright smoke suite on the isolated Supabase runtime, split into two shards);
 * conditional Supabase jobs `integration` and `learner-integrity` for integration-relevant changes (`skipped` is expected otherwise);
 * `production-gate`, which requires every other job to succeed and the two Supabase jobs to be skipped only when `changes` did not require them.
 
