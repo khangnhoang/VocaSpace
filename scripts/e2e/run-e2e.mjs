@@ -7,11 +7,18 @@ import { prepareSupabaseWorkdir } from "./prepare-supabase-workdir.mjs";
 const repoRoot = resolve(import.meta.dirname, "..", "..");
 const forwardedArgs = process.argv.slice(2);
 const kongContainer = "supabase_kong_voca_space_e2e";
+const runtimeContainerFilter = "label=com.supabase.cli.project=voca_space_e2e";
+// The smoke suite does not use these services; analytics (logflare) and vector alone take about 0.5 GB per stack.
+// CLI 2.106 matches the image names below, not the older names its --help still lists.
+const excludedServices = ["studio", "imgproxy", "mailpit", "edge-runtime", "logflare", "vector", "postgres-meta"];
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+main().then(
+  (exitCode) => process.exit(exitCode),
+  (error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  },
+);
 
 async function main() {
   loadLocalEnv();
@@ -19,33 +26,43 @@ async function main() {
   assertChromiumInstalled();
 
   const { workdir } = prepareSupabaseWorkdir(repoRoot);
-  ensureSupabaseStarted(workdir);
+  let exitCode = 1;
+  try {
+    ensureSupabaseStarted(workdir);
 
-  const supabaseEnv = getSupabaseEnv(workdir);
-  assertLocalSupabaseEnv(supabaseEnv.NEXT_PUBLIC_SUPABASE_URL);
-  resetSupabaseDatabase(workdir);
-  await ensureKongReachesServices(supabaseEnv);
+    const supabaseEnv = getSupabaseEnv(workdir);
+    assertLocalSupabaseEnv(supabaseEnv.NEXT_PUBLIC_SUPABASE_URL);
+    resetSupabaseDatabase(workdir);
+    await ensureKongReachesServices(supabaseEnv);
 
-  const playwright = commandInvocation(npxCommand(), [
-    "playwright",
-    "test",
-    "--config",
-    "playwright.config.ts",
-    ...forwardedArgs,
-  ]);
+    const playwright = commandInvocation(npxCommand(), [
+      "playwright",
+      "test",
+      "--config",
+      "playwright.config.ts",
+      ...forwardedArgs,
+    ]);
 
-  const result = spawnSync(playwright.command, playwright.args, {
-    cwd: repoRoot,
-    stdio: "inherit",
-    shell: false,
-    env: {
-      ...process.env,
-      ...supabaseEnv,
-      E2E_SUPABASE_WORKDIR: workdir,
-    },
-  });
+    const result = spawnSync(playwright.command, playwright.args, {
+      cwd: repoRoot,
+      stdio: "inherit",
+      shell: false,
+      env: {
+        ...process.env,
+        ...supabaseEnv,
+        E2E_SUPABASE_WORKDIR: workdir,
+      },
+    });
+    exitCode = result.status ?? 1;
+  } finally {
+    if (process.env.E2E_KEEP_SUPABASE === "1") {
+      console.log("E2E_KEEP_SUPABASE=1: leaving the isolated Supabase E2E runtime running.");
+    } else if (!stopSupabaseRuntime(workdir)) {
+      exitCode = 1;
+    }
+  }
 
-  process.exit(result.status ?? 1);
+  return exitCode;
 }
 
 function loadLocalEnv() {
@@ -78,10 +95,27 @@ function ensureSupabaseStarted(workdir) {
   if (status.status === 0) return;
 
   console.log("Starting isolated Supabase E2E runtime...");
-  const start = runSupabase(workdir, ["start"], { stdio: "inherit" });
+  const start = runSupabase(workdir, ["start", ...excludedServices.flatMap((service) => ["-x", service])], { stdio: "inherit" });
   if (start.status !== 0) {
     throw new Error("Unable to start local Supabase E2E runtime. Check Docker and Supabase CLI.");
   }
+}
+
+// Supabase containers restart with Docker, so an idle E2E runtime keeps holding memory until it is stopped.
+function stopSupabaseRuntime(workdir) {
+  console.log("Stopping isolated Supabase E2E runtime...");
+  const stop = runSupabase(workdir, ["stop"], { stdio: "inherit" });
+  const remaining = spawnSync("docker", ["ps", "-a", "-q", "--filter", runtimeContainerFilter], {
+    encoding: "utf8",
+    shell: false,
+  });
+  if (stop.status === 0 && remaining.status === 0 && remaining.stdout.trim() === "") return true;
+
+  // Reported instead of thrown so a test or setup error raised earlier is not replaced.
+  console.error(
+    "Unable to stop the isolated Supabase E2E runtime; run `npx supabase stop --project-id voca_space_e2e` and check `docker ps -a`.",
+  );
+  return false;
 }
 
 function getSupabaseEnv(workdir) {
