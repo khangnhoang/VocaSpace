@@ -39,7 +39,7 @@ vi.mock("@/app/actions/course-preview", () => ({
 // - Ổn định/invariant: chưa có học viên thì không vẽ biểu đồ hay phần trăm; khóa chưa có bài được tính thì không có phân bố.
 // - Biểu đồ ghi danh: ba tab Cột / Xu hướng / Bảng, một tab stop, mũi tên/Home/End, panel ẩn là inert.
 // - Bộ lọc việc khác: số đếm theo loại, lọc đúng loại, báo rỗng, khóa bộ lọc chưa tải, nút thử lại ở "Tất cả".
-// - Kết quả verify gần nhất: xem báo cáo checkpoint CP2.
+// - Kết quả verify gần nhất: passed 28/28 bằng `npx vitest run __tests__/components/teacher-course-overview.test.tsx` (ba27cd9, 2026-10-24).
 // - Lệnh: `npx vitest run __tests__/components/teacher-course-overview.test.tsx`.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
