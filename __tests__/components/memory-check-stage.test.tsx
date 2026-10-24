@@ -16,7 +16,7 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
 // Test plan:
 // - LF9 Owner QA: ẩn nút Tới Bài tập khi còn khóa; mở khóa thì hiện lại. Test đổi bước khi đang lưu dùng Từ vựng đã mở.
-// - LF9 review r1: dữ liệu local cũ không thắng snapshot server; kết quả qua remount giữ progress; tự chuyển đưa focus tới khung tác vụ mới.
+// - LF9 review r1: dữ liệu local cũ không thắng snapshot server; kết quả qua remount giữ progress; tự chuyển đưa focus tới khung tác vụ mới (cả dưới StrictMode, không bị tiêu đề câu bài tập giành lại).
 // - Mục tiêu: bảo vệ stage memory check D3 (H6) trong learning workspace.
 // - Loại test: component interaction test qua action boundary mock.
 // - Case thành công: câu sai quay lại cuối hàng; hết hàng (server báo đã qua) thì mở bài tập.
@@ -297,6 +297,8 @@ describe("D3 memory check stage", () => {
     await answer("Đúng 2");
     expect(screen.getByText("Câu bài tập")).not.toBeNull();
     expect(mockedSubmit).toHaveBeenCalledTimes(1);
+    // StrictMode chạy lại effect của câu bài tập vừa mount sau effect của khung; focus vẫn phải ở khung bước.
+    expect(document.activeElement).toBe(document.querySelector("main[tabindex='-1']"));
   });
 
   it("marks memory done and opens exercises immediately after the confirmed pass", async () => {
