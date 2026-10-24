@@ -68,6 +68,12 @@ export default function PrivacyPage() {
           không xem được dữ liệu này.
         </p>
         <p>
+          Giáo viên và cộng tác viên soạn nội dung của một khoá học xem được số liệu tổng hợp của khoá học đó: số học
+          viên ghi danh theo tháng và số học viên chưa bắt đầu, đang học hoặc đã hoàn thành. Số liệu này không kèm tên
+          hay thông tin tài khoản của bạn, nhưng với khoá học có rất ít học viên, số liệu có thể phản ánh tiến độ của
+          một người cụ thể.
+        </p>
+        <p>
           Khi quản trị viên VocaSpace duyệt, hạ về bản nháp hoặc gỡ một khoá học, họ sẽ xem được tên tác giả và nội dung của
           khoá học đó.
         </p>

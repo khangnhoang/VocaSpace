@@ -63,6 +63,13 @@ describe("/privacy", () => {
     ).toBeTruthy();
   });
 
+  it("discloses the aggregate enrollment and progress figures course collaborators can see (TOV1 AC16)", () => {
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/xem được số liệu tổng hợp của khoá học đó/)).toBeTruthy();
+    expect(screen.getByText(/với khoá học có rất ít học viên, số liệu có thể phản ánh tiến độ của\s+một người cụ thể/)).toBeTruthy();
+  });
+
   it("exports the browser tab title", () => {
     expect(privacyMetadata.title).toBe("Chính sách quyền riêng tư | VocaSpace");
   });

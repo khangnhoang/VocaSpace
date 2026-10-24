@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course Overview Aid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist:wght@500;600&display=swap">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<!--
+  Bản xem thử không chính thức cho /teacher/courses/[id] (Tổng quan khóa học).
+  Nguồn thiết kế: docs/ui-design-system-and-review/screen-types/teacher-authoring.md mục 6,
+  product-language.md và components/button.md. Mọi số liệu là dữ liệu giả cố định.
+  Ghi chú màu hồng tím = cần RPC/read mới; ghi chú xám = dữ liệu đã có; ghi chú tím = quyết định chưa chốt.
+-->
+<style>
+:root {
+  --canvas:#F8FAFC; --surface:#FFFFFF; --subtle:#F1F5F9; --border:#CBD5E1; --line:#E2E8F0;
+  --ink:#0F172A; --text-2:#475569; --muted:#64748B;
+  --route:#2563EB; --route-quiet:#EFF6FF; --action:#2B6CED; --action-hover:#1D4ED8;
+  --recall:#0E7490; --recall-quiet:#ECFEFF; --growth:#15803D; --growth-quiet:#F0FDF4;
+  --attention:#A16207; --attention-quiet:#FFFBEB; --correction:#B91C1C; --correction-quiet:#FEF2F2;
+  --note-rpc:#C026D3; --note-rpc-quiet:#FDF4FF; --note-open:#6D28D9; --note-open-quiet:#F5F3FF;
+  --note-ok:#475569; --note-ok-quiet:#F8FAFC;
+  color-scheme: light;
+}
+* { box-sizing:border-box; }
+[hidden] { display:none !important; }
+body { margin:0; background:#E2E8F0; color:var(--ink); font:14px/22px "Plus Jakarta Sans",system-ui,sans-serif; }
+button, select { font:inherit; color:inherit; }
+button:focus-visible, select:focus-visible, a:focus-visible, summary:focus-visible { outline:3px solid var(--route); outline-offset:2px; }
+svg { flex-shrink:0; }
+.sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+
+/* ---------- Thanh điều khiển của bản xem thử (không thuộc UI) ---------- */
+.aid-bar { position:sticky; top:0; z-index:20; background:#0F172A; color:#E2E8F0; padding:10px 16px; display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; font:12px/16px "Geist",system-ui,sans-serif; }
+.aid-bar strong { color:#fff; font-size:13px; }
+.aid-bar label { display:flex; align-items:center; gap:6px; }
+.aid-bar select { background:#1E293B; color:#fff; border:1px solid #334155; border-radius:6px; padding:5px 8px; font-size:12px; }
+.aid-bar .aid-toggle { display:flex; gap:6px; align-items:center; cursor:pointer; }
+.aid-bar .aid-seg { display:flex; border:1px solid #334155; border-radius:6px; overflow:hidden; }
+.aid-bar .aid-seg button { background:none; border:0; padding:5px 10px; font-size:12px; color:#CBD5E1; cursor:pointer; }
+.aid-bar .aid-seg button[aria-pressed="true"] { background:#334155; color:#fff; }
+.aid-legend { display:flex; gap:12px; flex-wrap:wrap; margin-left:auto; }
+.aid-legend span { display:inline-flex; align-items:center; gap:5px; }
+.aid-legend i { width:10px; height:10px; border-radius:3px; display:inline-block; }
+.aid-stage { padding:24px 16px 48px; }
+.aid-frame { margin:0 auto; max-width:1280px; background:var(--canvas); border-radius:12px; overflow:hidden; box-shadow:0 1px 3px #0f172a1a; transition:max-width .22s ease; }
+.aid-frame.mobile { max-width:390px; }
+.aid-deferred { max-width:1280px; margin:16px auto 0; background:#fff; border:1px dashed var(--note-rpc); border-radius:12px; padding:14px 18px; font-size:13px; color:var(--text-2); }
+.aid-frame.mobile + .aid-deferred { max-width:390px; }
+.aid-deferred h2 { font-size:13px; margin:0 0 6px; color:var(--note-rpc); }
+.aid-deferred ul { margin:0; padding-left:18px; }
+
+/* ---------- Ghi chú dữ liệu ---------- */
+.dn { display:none; position:relative; margin:0 0 12px; border:1px dashed; border-radius:8px; padding:8px 10px 8px 10px; font:12px/17px "Geist",system-ui,sans-serif; }
+.show-notes .dn { display:block; }
+.show-notes [data-noted] { outline:2px dashed var(--outline-color, transparent); outline-offset:4px; border-radius:inherit; }
+.dn b { display:inline-flex; align-items:center; gap:4px; font-weight:600; margin-right:4px; }
+.dn code { font-family:ui-monospace,Consolas,monospace; font-size:11px; background:#ffffffb3; padding:0 3px; border-radius:3px; }
+.dn ul { margin:4px 0 0; padding-left:16px; }
+.dn-rpc { border-color:var(--note-rpc); background:var(--note-rpc-quiet); color:#701A75; }
+.dn-rpc b { color:var(--note-rpc); }
+.dn-open { border-color:var(--note-open); background:var(--note-open-quiet); color:#4C1D95; }
+.dn-open b { color:var(--note-open); }
+.dn-ok { border-color:#94A3B8; background:var(--note-ok-quiet); color:var(--note-ok); }
+.show-notes [data-noted="rpc"] { --outline-color:var(--note-rpc); }
+.show-notes [data-noted="open"] { --outline-color:var(--note-open); }
+
+/* ---------- Khung trang ---------- */
+.ov-top { background:var(--surface); border-bottom:1px solid var(--line); padding:12px 32px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.ov-crumb { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font:500 12px/16px "Geist",system-ui,sans-serif; color:var(--muted); min-width:0; }
+.ov-crumb a { color:var(--muted); text-decoration:none; }
+.ov-crumb a:hover { color:var(--ink); }
+.ov-crumb [aria-current] { color:var(--ink); font-weight:600; overflow-wrap:anywhere; }
+.ov-fixture { font:500 11px/16px "Geist",system-ui,sans-serif; color:var(--muted); white-space:nowrap; }
+.ov-tabs { background:var(--surface); border-bottom:1px solid var(--line); padding:0 32px; display:flex; gap:24px; position:relative; }
+.ov-tab { display:inline-flex; align-items:center; gap:8px; padding:12px 0; min-height:48px; border:0; background:none; color:var(--text-2); font-weight:600; font-size:14px; cursor:pointer; text-decoration:none; }
+.ov-tab:hover { color:var(--ink); }
+.ov-tab[aria-current="page"] { color:var(--route); box-shadow:inset 0 -2px 0 var(--route); }
+.ov-main { max-width:1200px; margin:0 auto; padding:28px 32px 48px; display:flex; flex-direction:column; gap:28px; }
+
+/* Hero nhận diện khóa học */
+.ov-hero { background:var(--surface); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+.ov-hero-body { display:grid; grid-template-columns:200px minmax(0,1fr) auto; gap:24px; padding:24px; align-items:start; }
+.ov-cover { width:200px; aspect-ratio:4/3; border-radius:12px; background:linear-gradient(135deg,#DBEAFE,#ECFEFF); display:flex; align-items:flex-end; padding:12px; color:var(--route); position:relative; overflow:hidden; }
+.ov-cover .ov-cover-mark { position:absolute; right:-10px; top:-10px; opacity:.18; }
+.ov-cover span { font:600 11px/16px "Geist",system-ui,sans-serif; background:#ffffffd9; padding:2px 8px; border-radius:999px; }
+.ov-identity { min-width:0; }
+.ov-state { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; font:600 12px/16px "Geist",system-ui,sans-serif; margin-bottom:8px; }
+.ov-status { display:inline-flex; align-items:center; gap:5px; }
+.ov-status.draft { color:var(--text-2); }
+.ov-status.pending { color:var(--attention); }
+.ov-status.published { color:var(--growth); }
+.ov-status.rejected { color:var(--correction); }
+.ov-role { color:var(--ink); }
+.ov-dot { color:var(--border); }
+h1 { font-size:32px; line-height:40px; font-weight:800; letter-spacing:-.015em; margin:0 0 8px; overflow-wrap:anywhere; }
+.ov-desc { color:var(--text-2); margin:0 0 16px; max-width:640px; overflow-wrap:anywhere; }
+.ov-facts { display:flex; flex-wrap:wrap; gap:8px 24px; margin:0; }
+.ov-facts div { display:flex; flex-direction:column; }
+.ov-facts dt { font:500 12px/16px "Geist",system-ui,sans-serif; color:var(--muted); }
+.ov-facts dd { margin:2px 0 0; font-weight:700; font-size:14px; }
+.ov-hero-actions { display:flex; flex-direction:column; gap:8px; align-items:stretch; min-width:190px; }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface); font-weight:600; font-size:14px; line-height:20px; cursor:pointer; text-decoration:none; color:var(--ink); white-space:normal; text-align:center; transition:background-color .12s ease,border-color .12s ease; }
+.btn:hover { background:var(--subtle); }
+.btn-primary { background:var(--action); border-color:var(--action); color:#fff; }
+.btn-primary:hover { background:var(--action-hover); border-color:var(--action-hover); }
+.btn-text { border-color:transparent; background:none; color:var(--route); padding-left:8px; padding-right:8px; }
+.btn-text:hover { background:var(--route-quiet); }
+.btn-quiet-danger { border-color:transparent; background:none; color:var(--correction); }
+.btn-quiet-danger:hover { background:var(--correction-quiet); }
+.btn[disabled] { opacity:.55; cursor:not-allowed; }
+
+/* Dải cộng tác */
+.ov-collab { border-top:1px solid var(--line); background:#FBFCFE; padding:14px 24px; display:flex; flex-wrap:wrap; align-items:center; gap:12px 20px; }
+.ov-collab h2 { font-size:14px; line-height:20px; margin:0; font-weight:700; }
+.ov-avatars { display:flex; }
+.ov-avatars span { width:32px; height:32px; border-radius:999px; border:2px solid #fff; margin-left:-8px; display:flex; align-items:center; justify-content:center; font:600 12px/1 "Geist",system-ui,sans-serif; background:var(--route-quiet); color:var(--route); }
+.ov-avatars span:first-child { margin-left:0; }
+.ov-avatars span.more { background:var(--subtle); color:var(--text-2); }
+.ov-collab-roles { color:var(--text-2); font-size:13px; }
+.ov-collab-actions { margin-left:auto; display:flex; gap:4px; flex-wrap:wrap; }
+
+/* Lưới insight + hành động */
+.ov-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr); gap:24px; align-items:start; }
+.ov-col { display:flex; flex-direction:column; gap:24px; min-width:0; }
+.panel { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:24px; min-width:0; }
+.panel-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.panel-head h2 { font-size:18px; line-height:26px; margin:0; font-weight:700; }
+.panel-sub { color:var(--muted); font:500 12px/16px "Geist",system-ui,sans-serif; margin:2px 0 0; }
+
+/* Biểu đồ ghi danh */
+.kpi-line { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 16px; margin-bottom:16px; }
+.kpi { font-size:32px; line-height:38px; font-weight:800; font-variant-numeric:tabular-nums; }
+.kpi-label { color:var(--text-2); }
+.delta { font-weight:600; color:var(--growth); display:inline-flex; align-items:center; gap:4px; font-size:13px; }
+.chart { width:100%; height:auto; display:block; }
+.chart text { font:500 12px "Geist",system-ui,sans-serif; fill:var(--muted); }
+.chart .val { fill:var(--ink); font-weight:600; }
+.chart .bar { fill:#BFDBFE; }
+.chart .bar.current { fill:var(--route); }
+.chart-wrap { overflow-x:auto; }
+.chart-foot { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap; }
+.chart-summary { color:var(--text-2); font-size:13px; margin:0; }
+table.values { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
+table.values th, table.values td { padding:6px 8px; border-bottom:1px solid var(--line); text-align:left; }
+table.values td:last-child, table.values th:last-child { text-align:right; font-variant-numeric:tabular-nums; }
+
+/* Tiến độ học viên */
+.dist { display:flex; height:14px; border-radius:999px; overflow:hidden; background:var(--subtle); margin:4px 0 16px; }
+.dist span { display:block; height:100%; }
+.dist .s-none { background:#CBD5E1; }
+.dist .s-prog { background:var(--recall); }
+.dist .s-done { background:var(--growth); }
+.dist-list { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.dist-list li { border-left:3px solid; padding-left:10px; }
+.dist-list .l-none { border-color:#CBD5E1; }
+.dist-list .l-prog { border-color:var(--recall); }
+.dist-list .l-done { border-color:var(--growth); }
+.dist-list strong { display:block; font-size:20px; line-height:28px; font-variant-numeric:tabular-nums; }
+.dist-list span { color:var(--text-2); font-size:13px; }
+
+/* Trạng thái chưa có dữ liệu / tải / lỗi */
+.nodata { border:1px dashed var(--border); background:var(--subtle); border-radius:12px; padding:24px; display:flex; gap:16px; align-items:flex-start; }
+.nodata .ic { width:40px; height:40px; border-radius:8px; background:var(--surface); display:flex; align-items:center; justify-content:center; color:var(--route); flex-shrink:0; }
+.nodata h3 { font-size:16px; line-height:24px; margin:0 0 4px; }
+.nodata p { margin:0 0 12px; color:var(--text-2); }
+.nodata .signal { display:flex; flex-wrap:wrap; gap:6px 16px; font:600 12px/16px "Geist",system-ui,sans-serif; color:var(--ink); }
+.skeleton { background:linear-gradient(90deg,var(--subtle),#E9EEF5,var(--subtle)); background-size:200% 100%; animation:sk 1.4s ease-in-out infinite; border-radius:8px; }
+@keyframes sk { from { background-position:200% 0; } to { background-position:-200% 0; } }
+.err { border:1px solid var(--correction-quiet); background:var(--correction-quiet); border-radius:12px; padding:16px; display:flex; gap:12px; align-items:flex-start; color:var(--ink); }
+.err .ic { color:var(--correction); }
+.err p { margin:2px 0 10px; color:var(--text-2); }
+
+/* Việc tiếp theo */
+.next { background:var(--surface); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+.next-main { padding:24px; border-left:4px solid var(--attention); }
+.next-main.ok { border-left-color:var(--growth); }
+.next-main.fix { border-left-color:var(--correction); }
+.eyebrow { display:flex; align-items:center; gap:6px; font:600 12px/16px "Geist",system-ui,sans-serif; letter-spacing:.04em; text-transform:uppercase; color:var(--attention); margin:0 0 8px; }
+.ok .eyebrow { color:var(--growth); }
+.fix .eyebrow { color:var(--correction); }
+.next-main h2 { font-size:18px; line-height:26px; margin:0 0 6px; overflow-wrap:anywhere; }
+.next-main p { margin:0 0 16px; color:var(--text-2); }
+.next-main .reject { background:var(--correction-quiet); border-radius:8px; padding:10px 12px; color:var(--ink); margin:0 0 16px; font-size:13px; }
+.next-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.next-more { border-top:1px solid var(--line); }
+.next-more h3 { font:600 12px/16px "Geist",system-ui,sans-serif; color:var(--muted); margin:0; padding:14px 24px 4px; text-transform:uppercase; letter-spacing:.04em; }
+.next-more ul { list-style:none; margin:0; padding:0 24px 8px; max-height:236px; overflow-y:auto; }
+.next-more li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+.next-more li:last-child { border-bottom:0; }
+.next-more .t { min-width:0; }
+.next-more .t strong { display:block; font-size:14px; line-height:20px; overflow-wrap:anywhere; }
+.next-more .t span { color:var(--muted); font-size:12px; line-height:16px; display:flex; align-items:center; gap:4px; }
+.next-more .k-review { color:var(--attention); }
+.next-more .k-fix { color:var(--correction); }
+
+/* Thông tin khóa học */
+.facts { display:grid; grid-template-columns:1fr; gap:0; margin:0; }
+.facts div { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid var(--line); }
+.facts div:last-child { border-bottom:0; }
+.facts dt { color:var(--text-2); }
+.facts dd { margin:0; font-weight:600; text-align:right; font-variant-numeric:tabular-nums; }
+
+.toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; z-index:30; max-width:calc(100% - 32px); }
+
+/* ---------- Responsive (áp dụng cả khi chọn khung Mobile) ---------- */
+@media (max-width:1023px) { .ov-grid { grid-template-columns:minmax(0,1fr); } .ov-hero-body { grid-template-columns:160px minmax(0,1fr); } .ov-cover { width:160px; } .ov-hero-actions { grid-column:1/-1; flex-direction:row; flex-wrap:wrap; } }
+.mobile .ov-top, .mobile .ov-tabs { padding-left:16px; padding-right:16px; }
+.mobile .ov-main { padding:20px 16px 32px; gap:20px; }
+.mobile .ov-grid { grid-template-columns:minmax(0,1fr); gap:20px; }
+.mobile .ov-col { gap:20px; }
+.mobile .ov-hero-body { grid-template-columns:minmax(0,1fr); padding:20px; gap:16px; }
+.mobile .ov-cover { width:100%; aspect-ratio:16/7; }
+.mobile h1 { font-size:26px; line-height:34px; }
+.mobile .ov-hero-actions { flex-direction:column; min-width:0; }
+.mobile .ov-collab { padding:14px 20px; }
+.mobile .ov-collab-actions { margin-left:0; width:100%; }
+.mobile .panel, .mobile .next-main { padding:20px; }
+.mobile .next-more ul, .mobile .next-more h3 { padding-left:20px; padding-right:20px; }
+.mobile .dist-list { grid-template-columns:minmax(0,1fr); }
+.mobile .next-actions { flex-direction:column; }
+.mobile .next-actions .btn { width:100%; }
+.mobile .ov-fixture { display:none; }
+.mobile .order-first { order:-1; }
+@media (max-width:640px) { .aid-frame { max-width:100%; } .ov-hero-body { grid-template-columns:minmax(0,1fr); } .ov-cover { width:100%; aspect-ratio:16/7; } .dist-list { grid-template-columns:1fr; } }
+@media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body>
+<div class="aid-bar" role="region" aria-label="Điều khiển bản xem thử">
+  <strong>Tổng quan khóa học · bản xem thử</strong>
+  <label>Dữ liệu học viên
+    <select id="c-data">
+      <option value="populated">Có dữ liệu</option>
+      <option value="empty">Khóa mới, chưa có học viên</option>
+      <option value="loading">Đang tải phân tích</option>
+      <option value="error">Lỗi tải phân tích</option>
+    </select>
+  </label>
+  <label>Việc tiếp theo
+    <select id="c-next">
+      <option value="blocking">Còn việc chặn</option>
+      <option value="rejected">Khóa học bị từ chối niêm yết</option>
+      <option value="ready">Đã sẵn sàng</option>
+    </select>
+  </label>
+  <label>Vai trò
+    <select id="c-role">
+      <option value="owner">Chủ sở hữu</option>
+      <option value="co_owner">Đồng sở hữu</option>
+      <option value="editor">Biên tập viên</option>
+    </select>
+  </label>
+  <div class="aid-seg" role="group" aria-label="Khung hiển thị">
+    <button type="button" data-w="desktop" aria-pressed="true">Desktop</button>
+    <button type="button" data-w="mobile" aria-pressed="false">Mobile 390</button>
+  </div>
+  <label class="aid-toggle"><input type="checkbox" id="c-notes" checked> Hiện ghi chú dữ liệu</label>
+  <div class="aid-legend" aria-hidden="true">
+    <span><i style="background:#C026D3"></i>Cần RPC mới</span>
+    <span><i style="background:#94A3B8"></i>Dữ liệu đã có</span>
+    <span><i style="background:#6D28D9"></i>Chưa chốt</span>
+  </div>
+</div>
+
+<div class="aid-stage">
+  <div class="aid-frame show-notes" id="frame"></div>
+  <section class="aid-deferred" id="deferred" aria-label="Phần để sau">
+    <h2>Ngoài phạm vi đề xuất (để sau, không vẽ trên trang)</h2>
+    <ul>
+      <li><b>Học viên tích cực nhất · 30 ngày</b>: thiết kế xếp vào nhóm "Bounded later data work". Cần định nghĩa "hoạt động học", quyền xem và cập nhật <code>/privacy</code> vì lộ tên học viên cho giáo viên.</li>
+      <li><b>Doanh thu theo tháng</b>: chỉ dành cho owner/co-owner. Cần thiết kế quyền đọc <code>payments</code> mới.</li>
+      <li><b>Người chỉ xem trước (previewer)</b>: hiện bị chuyển sang trang Cấu trúc (<code>PREVIEWER_STRUCTURE_ONLY</code>), nên không vẽ biến thể vai trò này.</li>
+    </ul>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = v => String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const ic = (n, size = 16) => `<i data-lucide="${n}" width="${size}" height="${size}" aria-hidden="true"></i>`;
+  const state = { data:"populated", next:"blocking", role:"owner", width:"desktop", notes:true, table:false };
+
+  // ---- Dữ liệu giả cố định (không phải số liệu thật) ----
+  const course = {
+    title:"Tiếng Anh giao tiếp căn bản",
+    description:"Xây dựng nền tảng giao tiếp qua những tình huống quen thuộc mỗi ngày: chào hỏi, hỏi đường, mua sắm và gọi món.",
+    price:299000
+  };
+  const counts = { chapters:6, topics:24, published:18, flashcards:412, exercises:38, questions:186 };
+  const months = [["Th4",118],["Th5",146],["Th6",203],["Th7",227],["Th8",254],["Th9",286]];
+  const enrolledTotal = 1234;
+  const progress = { none:222, prog:703, done:309 };
+  const members = [["M","Mai Anh","Chủ sở hữu"],["K","Minh Khoa","Đồng sở hữu"],["H","Thu Hà","Biên tập viên"],["T","Quốc Thái","Biên tập viên"],["L","Ngọc Lan","Chỉ xem trước"]];
+  const issues = [
+    { kind:"issue", title:"Chương 3 · Đi lại trong thành phố", text:"Chương chưa có bài học nào", action:"Thêm bài học" },
+    { kind:"issue", title:"Hỏi đường và chỉ dẫn", text:"Bài tập 2 cần ít nhất một đáp án đúng", action:"Mở bài học" },
+    { kind:"issue", title:"Mua sắm ở chợ", text:"Bài học chưa có flashcard", action:"Mở bài học" }
+  ];
+  const reviews = [
+    { kind:"review", title:"Gọi món ở nhà hàng", text:"Chờ bạn duyệt · Thu Hà gửi hôm qua", action:"Xem bài gửi duyệt" },
+    { kind:"review", title:"Đặt phòng khách sạn", text:"Chờ bạn duyệt · Quốc Thái gửi hôm nay", action:"Xem bài gửi duyệt" }
+  ];
+
+  const canManage = () => state.role === "owner" || state.role === "co_owner";
+  const roleLabel = { owner:"Chủ sở hữu", co_owner:"Đồng sở hữu", editor:"Biên tập viên" };
+  const vnd = n => new Intl.NumberFormat("vi-VN",{style:"currency",currency:"VND"}).format(n);
+  const num = n => new Intl.NumberFormat("vi-VN").format(n);
+
+  // ---- Ghi chú dữ liệu ----
+  const note = (type, title, body) => {
+    const cls = { rpc:"dn-rpc", ok:"dn-ok", open:"dn-open" }[type];
+    const icon = { rpc:"database-zap", ok:"database", open:"circle-help" }[type];
+    return `<aside class="dn ${cls}" aria-label="Ghi chú dữ liệu"><b>${ic(icon,13)}${title}</b>${body}</aside>`;
+  };
+  const RPC = "<code>get_teacher_course_insights(p_course_id)</code>";
+
+  function courseStatus() {
+    if (state.next === "rejected") return `<span class="ov-status rejected">${ic("message-square-warning",14)}Bị từ chối niêm yết</span>`;
+    if (state.data === "empty") return `<span class="ov-status draft">${ic("file-pen-line",14)}Bản nháp</span>`;
+    return `<span class="ov-status published">${ic("circle-check",14)}Đã xuất bản</span>`;
+  }
+
+  function hero() {
+    const enrolledFact = state.data === "populated" ? num(enrolledTotal) : state.data === "empty" ? "0" : "—";
+    const actions = [];
+    if (canManage() && state.next === "ready") actions.push(`<button type="button" class="btn btn-primary" data-msg="Mở xác nhận gửi duyệt niêm yết">${ic("send")}Gửi duyệt niêm yết</button>`);
+    actions.push(`<a class="btn" href="#" data-msg="Mở trang Cấu trúc">${ic("layers")}Mở cấu trúc</a>`);
+    actions.push(`<button type="button" class="btn btn-text" data-msg="Mở bản xem trước như học viên">${ic("eye")}Xem trước như học viên</button>`);
+    if (canManage()) actions.push(`<button type="button" class="btn btn-text" data-msg="Mở form sửa thông tin khóa học">${ic("pencil")}Sửa thông tin</button>`);
+
+    const collabActions = canManage()
+      ? `<button type="button" class="btn btn-text" data-msg="Mở hộp thoại quản lý cộng tác viên">${ic("user-plus")}Quản lý cộng tác viên</button>`
+      : "";
+    const leave = state.role !== "owner" ? `<button type="button" class="btn btn-quiet-danger" data-msg="Mở xác nhận rời khóa học">${ic("log-out")}Rời khóa học</button>` : "";
+
+    return `
+    <section class="ov-hero" aria-labelledby="course-title">
+      <div class="ov-hero-body">
+        <div class="ov-cover" role="img" aria-label="Ảnh bìa khóa học">${'<span class="ov-cover-mark">' + ic("messages-square",120) + "</span>"}<span>Ảnh bìa</span></div>
+        <div class="ov-identity">
+          ${note("ok","Đã có","<code>getCourseDashboardReadiness</code> → <code>course.title, description, thumbnail_url, price, status, reviewed_at</code> và <code>role</code>. Không hiển thị slug/UUID (thiết kế cấm lộ khóa kỹ thuật).")}
+          <div class="ov-state">${courseStatus()}<span class="ov-dot">·</span><span class="ov-role">${roleLabel[state.role]}</span></div>
+          <h1 id="course-title">${esc(course.title)}</h1>
+          <p class="ov-desc">${esc(course.description)}</p>
+          <dl class="ov-facts">
+            <div><dt>Giá</dt><dd>${vnd(course.price)}</dd></div>
+            <div><dt>Bài đã xuất bản</dt><dd>${counts.published} / ${counts.topics} bài</dd></div>
+          </dl>
+        </div>
+        <div class="ov-hero-actions">${actions.join("")}</div>
+      </div>
+      <div class="ov-collab" id="collaborators">
+        <h2>Cộng tác viên</h2>
+        <div class="ov-avatars" aria-hidden="true">${members.slice(0,4).map(m => `<span>${m[0]}</span>`).join("")}<span class="more">+${members.length - 4}</span></div>
+        <span class="ov-collab-roles">${members.length} thành viên · 1 chủ sở hữu · 1 đồng sở hữu · 2 biên tập viên · 1 chỉ xem trước</span>
+        <div class="ov-collab-actions">${collabActions}${leave}</div>
+      </div>
+      <div style="padding:0 24px">${note("ok","Đã có","<code>getCourseCollaboratorMembers</code> (đang gọi phía client trong <code>CourseCollaboratorSummary</code>). Đề xuất đọc sẵn phía server để dải này không nhảy layout khi tải. Không cần RPC mới.")}</div>
+    </section>`;
+  }
+
+  function enrollmentPanel() {
+    let body;
+    if (state.data === "loading") {
+      body = `<div role="status" aria-label="Đang tải số liệu ghi danh"><div class="skeleton" style="height:38px;width:180px;margin-bottom:16px"></div><div class="skeleton" style="height:200px"></div></div>`;
+    } else if (state.data === "error") {
+      body = `<div class="err" role="alert"><span class="ic">${ic("cloud-off",20)}</span><div><strong>Chưa tải được số liệu ghi danh</strong><p>Phần soạn nội dung và cấu trúc vẫn dùng bình thường.</p><button type="button" class="btn" data-msg="Thử tải lại số liệu">${ic("rotate-cw")}Thử lại</button></div></div>`;
+    } else if (state.data === "empty") {
+      body = `<div class="nodata"><span class="ic">${ic("sprout",20)}</span><div><h3>Chưa có xu hướng ghi danh</h3><p>Khóa học chưa có học viên ghi danh nên chưa có xu hướng để hiển thị. Khi khóa học được niêm yết và có người ghi danh, số liệu theo tháng sẽ xuất hiện ở đây.</p><div class="signal"><span>Bản nháp</span><span>0 học viên ghi danh</span><span>Chưa niêm yết</span></div></div></div>`;
+    } else {
+      const max = Math.max(...months.map(m => m[1]));
+      const W = 640, H = 220, padB = 28, padT = 24, gap = 28;
+      const bw = (W - gap * (months.length + 1)) / months.length;
+      const bars = months.map((m, i) => {
+        const h = Math.round((m[1] / max) * (H - padB - padT));
+        const x = gap + i * (bw + gap), y = H - padB - h;
+        const cur = i === months.length - 1;
+        return `<rect class="bar${cur ? " current" : ""}" x="${x}" y="${y}" width="${bw}" height="${h}" rx="6"/><text class="val" x="${x + bw / 2}" y="${y - 8}" text-anchor="middle">${m[1]}</text><text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${m[0]}</text>`;
+      }).join("");
+      const last = months[months.length - 1][1], prev = months[months.length - 2][1];
+      body = `
+        <div class="kpi-line"><span class="kpi">${last}</span><span class="kpi-label">ghi danh mới trong tháng 9</span><span class="delta">${ic("trending-up",14)}+${last - prev} so với tháng 8</span></div>
+        <div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-sum"><line x1="0" x2="${W}" y1="${H - padB}" y2="${H - padB}" stroke="#E2E8F0"/>${bars}</svg></div>
+        <div class="chart-foot"><p class="chart-summary" id="chart-sum">Ghi danh mới tăng đều từ 118 (tháng 4) lên 286 (tháng 9). Tổng ${num(enrolledTotal)} học viên đã ghi danh.</p>
+        <button type="button" class="btn btn-text" id="toggle-table" aria-expanded="${state.table}">${ic("table")}${state.table ? "Ẩn bảng số liệu" : "Xem bảng số liệu"}</button></div>
+        ${state.table ? `<table class="values"><caption class="sr">Ghi danh mới theo tháng</caption><thead><tr><th scope="col">Tháng</th><th scope="col">Ghi danh mới</th></tr></thead><tbody>${months.map(m => `<tr><td>${m[0].replace("Th","Tháng ")}</td><td>${m[1]}</td></tr>`).join("")}</tbody></table>` : ""}`;
+    }
+    return `
+    <section class="panel" aria-labelledby="enroll-title" data-noted="rpc">
+      ${note("rpc","RPC mới · ghi danh theo tháng",`${RPC} trả <code>enrollments_by_month: {month, count}[6]</code> (tháng không có ghi danh trả 0, tính theo giờ <code>Asia/Ho_Chi_Minh</code>).<ul><li>Chỉ trả số tổng hợp, không trả <code>user_id</code>.</li><li>Kiểm tra người gọi là cộng tác viên đang hoạt động có vai trò owner/co_owner/editor (SECURITY DEFINER + kiểm tra quyền trong hàm, giống RPC portfolio <code>tport1</code>).</li><li>Nguồn: <code>enrollments(course_id, enrolled_at)</code>.</li></ul>`)}
+      <div class="panel-head"><div><h2 id="enroll-title">Ghi danh</h2><p class="panel-sub">Ghi danh mới · 6 tháng gần nhất</p></div></div>
+      ${body}
+    </section>`;
+  }
+
+  function progressPanel() {
+    let body;
+    if (state.data === "loading") body = `<div role="status" aria-label="Đang tải tiến độ học viên"><div class="skeleton" style="height:14px;margin:4px 0 16px"></div><div class="skeleton" style="height:56px"></div></div>`;
+    else if (state.data === "error") body = `<p class="chart-summary">Chưa tải được tiến độ học viên. ${'<button type="button" class="btn btn-text" data-msg="Thử tải lại tiến độ">Thử lại</button>'}</p>`;
+    else if (state.data === "empty") body = `<p class="chart-summary">Tiến độ sẽ xuất hiện khi có học viên ghi danh và bắt đầu học. Hiện chưa có học viên nào.</p>`;
+    else {
+      const total = progress.none + progress.prog + progress.done;
+      const pct = v => Math.round(v / total * 100);
+      body = `
+        <div class="dist" role="img" aria-label="Chưa bắt đầu ${pct(progress.none)}%, đang học ${pct(progress.prog)}%, hoàn thành ${pct(progress.done)}%">
+          <span class="s-none" style="width:${pct(progress.none)}%"></span><span class="s-prog" style="width:${pct(progress.prog)}%"></span><span class="s-done" style="width:${pct(progress.done)}%"></span>
+        </div>
+        <ul class="dist-list">
+          <li class="l-none"><strong>${pct(progress.none)}%</strong><span>Chưa bắt đầu · ${num(progress.none)} học viên</span></li>
+          <li class="l-prog"><strong>${pct(progress.prog)}%</strong><span>Đang học · ${num(progress.prog)} học viên</span></li>
+          <li class="l-done"><strong>${pct(progress.done)}%</strong><span>Hoàn thành · ${num(progress.done)} học viên</span></li>
+        </ul>`;
+    }
+    return `
+    <section class="panel" aria-labelledby="prog-title" data-noted="rpc">
+      ${note("rpc","RPC mới · phân bố tiến độ",`Cùng ${RPC} trả <code>progress: {not_started, in_progress, completed}</code> trên toàn bộ học viên đã ghi danh. Nguồn: <code>enrollments</code> + <code>user_topic_progress.is_topic_completed</code> của các bài đang hoạt động.`)}
+      ${note("open","Cần chốt định nghĩa","\"Hoàn thành\" = hoàn thành mọi bài <i>đã xuất bản</i> đang hoạt động? \"Đang học\" = có ít nhất một dòng tiến độ nhưng chưa hoàn thành? Khi giáo viên thêm bài mới, học viên đã hoàn thành có bị tính lại là \"đang học\" không?")}
+      <div class="panel-head"><div><h2 id="prog-title">Tiến độ học viên</h2><p class="panel-sub">Toàn bộ học viên đã ghi danh · hiện tại</p></div></div>
+      ${body}
+    </section>`;
+  }
+
+  function nextPanel() {
+    let main, more = [];
+    if (state.next === "rejected") {
+      main = `<div class="next-main fix">
+        ${canManage()
+          ? `<p class="eyebrow">${ic("message-square-warning",14)}Cần sửa để niêm yết</p><h2>Khóa học bị từ chối niêm yết</h2><div class="reject"><strong>Lý do từ quản trị viên:</strong> Bổ sung mô tả đối tượng học và mục tiêu đầu ra của khóa học.</div><p>Sửa thông tin khóa học theo góp ý rồi gửi duyệt lại để học viên có thể tìm thấy khóa học.</p><div class="next-actions"><button type="button" class="btn btn-primary" data-msg="Mở form sửa thông tin">${ic("pencil")}Sửa thông tin khóa học</button><button type="button" class="btn btn-text" data-msg="Gửi duyệt lại (sau khi sửa)">Gửi duyệt lại</button></div>`
+          : `<p class="eyebrow">${ic("message-square-warning",14)}Cần sửa để niêm yết</p><h2>Khóa học bị từ chối niêm yết</h2><div class="reject"><strong>Lý do từ quản trị viên:</strong> Bổ sung mô tả đối tượng học và mục tiêu đầu ra của khóa học.</div><p>Sửa thông tin theo góp ý; chủ sở hữu hoặc đồng sở hữu sẽ gửi duyệt lại.</p><div class="next-actions"><button type="button" class="btn btn-primary" data-msg="Mở form sửa thông tin">${ic("pencil")}Sửa thông tin khóa học</button></div>`}
+      </div>`;
+      more = reviews;
+    } else if (state.next === "ready") {
+      main = `<div class="next-main ok"><p class="eyebrow">${ic("circle-check",14)}Không còn việc chặn</p><h2>Nội dung đã đủ điều kiện kiểm tra</h2><p>${canManage() ? "Bạn có thể gửi duyệt niêm yết hoặc tiếp tục bổ sung bài học." : "Chủ sở hữu có thể gửi duyệt niêm yết. Bạn có thể tiếp tục bổ sung bài học."}</p><div class="next-actions">${canManage() ? `<button type="button" class="btn btn-primary" data-msg="Mở xác nhận gửi duyệt niêm yết">${ic("send")}Gửi duyệt niêm yết</button>` : ""}<a class="btn ${canManage() ? "btn-text" : ""}" href="#" data-msg="Mở trang Cấu trúc">${ic("layers")}Mở cấu trúc</a></div></div>`;
+      more = reviews;
+    } else {
+      const first = issues[0];
+      main = `<div class="next-main"><p class="eyebrow">${ic("circle-alert",14)}Việc tiếp theo · còn ${issues.length} việc chặn</p><h2>${esc(first.title)}</h2><p>${esc(first.text)}. Khóa học chưa thể gửi duyệt niêm yết khi còn chương trống.</p><div class="next-actions"><button type="button" class="btn btn-primary" data-msg="Đi tới chương 3 trong trang Cấu trúc">${ic("plus")}${first.action}</button><a class="btn btn-text" href="#" data-msg="Mở trang Cấu trúc">Xem toàn bộ cấu trúc</a></div></div>`;
+      more = [...issues.slice(1), ...reviews];
+    }
+    const rows = more.map(it => `<li><div class="t"><strong>${esc(it.title)}</strong><span class="${it.kind === "review" ? "k-review" : "k-fix"}">${ic(it.kind === "review" ? "clipboard-check" : "circle-alert",13)}${esc(it.text)}</span></div><button type="button" class="btn btn-text" data-msg="${esc(it.action)}: ${esc(it.title)}">${esc(it.action)}${ic("arrow-right",14)}</button></li>`).join("");
+    return `
+    <section class="next order-first" aria-labelledby="next-title">
+      <div style="padding:16px 24px 0">
+        ${note("ok","Đã có",`<code>readiness.issues</code> + <code>primaryCta</code> (việc chặn, đúng thứ tự sửa) và <code>course.reject_message</code> (mọi vai trò thấy lý do, như hiện tại). Nút "Gửi duyệt niêm yết" dùng lại <code>CourseListingReviewControls</code>.`)}
+      </div>
+      <h2 class="sr" id="next-title">Việc cần làm</h2>
+      ${main}
+      ${more.length ? `<div class="next-more"><h3>Việc khác trong khóa học · ${more.length}</h3>
+        <div style="padding:0 24px">${note("ok","Đã có","Các dòng <b>Chờ bạn duyệt</b> dùng lại <code>getTeacherCoursePortfolio()</code> (RPC <code>tport1</code>) rồi lọc <code>attention</code> theo <code>course_id</code> phía server; không đổi RPC, giữ nguyên luật ai được duyệt. Dòng việc chặn còn lại đã có trong <code>readiness.issues</code>.")}</div>
+        <ul>${rows}</ul></div>` : ""}
+    </section>`;
+  }
+
+  function factsPanel() {
+    return `
+    <section class="panel" aria-labelledby="facts-title">
+      ${note("ok","Đã có","<code>readiness.counts</code> và <code>publishedTopicCount</code>. Chỉ là số tóm tắt; quản lý chi tiết thuộc trang Cấu trúc.")}
+      <div class="panel-head"><div><h2 id="facts-title">Nội dung khóa học</h2><p class="panel-sub">Tóm tắt nhanh · chi tiết ở trang Cấu trúc</p></div><a class="btn btn-text" href="#" data-msg="Mở trang Cấu trúc">Cấu trúc${ic("arrow-right",14)}</a></div>
+      <dl class="facts">
+        <div><dt>Chương</dt><dd>${counts.chapters}</dd></div>
+        <div><dt>Bài học</dt><dd>${counts.topics} · ${counts.published} đã xuất bản</dd></div>
+        <div><dt>Flashcard</dt><dd>${num(counts.flashcards)}</dd></div>
+        <div><dt>Bài tập · câu hỏi</dt><dd>${counts.exercises} · ${counts.questions}</dd></div>
+      </dl>
+    </section>`;
+  }
+
+  function render() {
+    const frame = $("#frame");
+    frame.classList.toggle("mobile", state.width === "mobile");
+    frame.classList.toggle("show-notes", state.notes);
+    frame.innerHTML = `
+      <div class="ov-top"><nav class="ov-crumb" aria-label="Breadcrumb"><a href="#" data-msg="Về Khóa học của tôi">Khóa học của tôi</a>${ic("chevron-right",14)}<span aria-current="page">${esc(course.title)}</span></nav><span class="ov-fixture">Bản xem thử · Dữ liệu giả cố định</span></div>
+      <nav class="ov-tabs" aria-label="Trang của khóa học" data-noted="open">
+        <a class="ov-tab" href="#" aria-current="page">${ic("layout-dashboard")}Tổng quan</a>
+        <a class="ov-tab" href="#" data-msg="Chuyển sang tab Cấu trúc">${ic("layers")}Cấu trúc</a>
+      </nav>
+      <div style="padding:8px 32px 0">${note("open","Chưa chốt · tab dùng chung","Thiết kế mô tả Tổng quan và Cấu trúc là hai tab ngang hàng. Nếu làm, tab phải xuất hiện cả trên trang Cấu trúc (đã được duyệt riêng). Phương án thay thế: giữ breadcrumb + nút \"Mở cấu trúc\".")}</div>
+      <main class="ov-main">
+        ${hero()}
+        <div class="ov-grid">
+          <div class="ov-col">${enrollmentPanel()}${progressPanel()}</div>
+          <div class="ov-col">${nextPanel()}${factsPanel()}</div>
+        </div>
+      </main>`;
+    // Mobile: đưa "Việc tiếp theo" lên ngay sau hero, theo thứ tự ưu tiên của thiết kế.
+    if (state.width === "mobile") {
+      const grid = $(".ov-grid", frame), next = $(".next", frame);
+      grid.prepend(next);
+    }
+    const t = $("#toggle-table", frame);
+    if (t) t.addEventListener("click", () => { state.table = !state.table; render(); $("#toggle-table").focus(); });
+    frame.querySelectorAll("[data-msg]").forEach(el => el.addEventListener("click", e => { e.preventDefault(); toast("Minh họa: " + el.dataset.msg); }));
+    if (window.lucide) lucide.createIcons();
+  }
+
+  let timer;
+  function toast(msg) { const el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(timer); timer = setTimeout(() => el.hidden = true, 2800); }
+
+  $("#c-data").addEventListener("change", e => { state.data = e.target.value; render(); });
+  $("#c-next").addEventListener("change", e => { state.next = e.target.value; render(); });
+  $("#c-role").addEventListener("change", e => { state.role = e.target.value; render(); });
+  $("#c-notes").addEventListener("change", e => { state.notes = e.target.checked; render(); });
+  document.querySelectorAll("[data-w]").forEach(b => b.addEventListener("click", () => {
+    state.width = b.dataset.w;
+    document.querySelectorAll("[data-w]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    render();
+  }));
+  render();
+})();
+</script>
+</body>
+</html>

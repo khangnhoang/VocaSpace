@@ -1,4 +1,4 @@
-import type { TeacherAttentionItem, TeacherCoursePortfolio } from "@/lib/schemas/teacher-course-portfolio";
+import type { TeacherAttentionItem, TeacherCoursePortfolio, TeacherCoursePortfolioResult } from "@/lib/schemas/teacher-course-portfolio";
 import { getCourseOverviewPath, getTopicBuilderPath } from "./routes";
 
 export function attentionIdentity(item: TeacherAttentionItem) {
@@ -29,3 +29,17 @@ export function attentionPath(item: TeacherAttentionItem) {
 
 export const courseRoleLabels = { owner: "Chủ sở hữu", co_owner: "Đồng sở hữu", editor: "Biên tập viên", previewer: "Chỉ xem trước" } as const;
 export const courseStatusLabels = { draft: "Bản nháp", pending: "Chờ duyệt", published: "Đã xuất bản" } as const;
+
+export type CourseAttentionResult = { success: true; items: TeacherAttentionItem[] } | { success: false };
+
+// Trang Tổng quan chỉ được gửi xuống trình duyệt bài chờ duyệt / bài cần sửa của đúng khóa học này (G6);
+// course_rejection đã có ở khối lý do từ chối nên không lặp lại.
+export function selectCourseAttention(result: TeacherCoursePortfolioResult, courseId: string): CourseAttentionResult {
+  if (!result.success) return { success: false };
+  return {
+    success: true,
+    items: sortAttention(result.data.attention).filter(
+      (item) => item.course_id === courseId && (item.kind === "topic_review" || item.kind === "topic_correction"),
+    ),
+  };
+}

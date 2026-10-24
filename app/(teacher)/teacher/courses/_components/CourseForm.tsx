@@ -31,6 +31,9 @@ interface CourseFormProps {
   setPreviewUrl: (url: string | null) => void;
   onCancel: () => void;
   isEditMode?: boolean;
+  // "embedded": chỉ phần form (không khung trang, nút quay lại, tiêu đề hay cột phụ) để đặt trong dialog;
+  // trường nhập và validation giữ nguyên.
+  layout?: "page" | "embedded";
 }
 
 const getCourseFieldClassName = (isInvalid: boolean, className: string) =>
@@ -48,7 +51,9 @@ export default function CourseForm({
   setPreviewUrl,
   onCancel,
   isEditMode,
+  layout = "page",
 }: CourseFormProps) {
+  const isEmbedded = layout === "embedded";
   // Lấy giá trị đang nhập để render phần xem trước
   const watchedValues = useWatch({ control: form.control });
 
@@ -61,35 +66,12 @@ export default function CourseForm({
     }).format(Number(price));
   };
 
-  return (
-    <div className="min-h-screen w-full bg-[#F9FAFB] flex flex-col p-4 sm:p-8 text-slate-800 font-sans">
-      <div className="w-full max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 mx-auto">
-        <Button
-          type="button"
-          variant="link"
-          onClick={onCancel}
-          disabled={isPending}
-          className="mb-6 w-fit px-0 coarse-input:h-11"
-        >
-          <ArrowLeft
-            className="size-4.5 coarse-input:size-5"
-            aria-hidden="true"
-          />
-          Quay lại danh sách
-        </Button>
-
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 sm:p-10">
-          <h2 className="text-2xl font-bold mb-8 text-slate-900 border-b border-slate-100 pb-5">
-            {isEditMode
-              ? "✏️ Cập nhật thông tin khóa học"
-              : "✨ Khởi tạo dự án khóa học mới"}
-          </h2>
-
+  const formElement = (
           <Form {...form}>
             <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+              <div className={isEmbedded ? "grid grid-cols-1 gap-6" : "grid grid-cols-1 lg:grid-cols-12 gap-10"}>
                 {/* CỘT TRÁI: Thông tin khóa học */}
-                <div className="lg:col-span-7 space-y-6">
+                <div className={isEmbedded ? "min-w-0 space-y-6" : "lg:col-span-7 space-y-6"}>
                   <FormField
                     control={form.control}
                     name="title"
@@ -234,7 +216,7 @@ export default function CourseForm({
                 </div>
 
                 {/* CỘT PHẢI: HIỂN THỊ ĐỘNG DỰA VÀO CHẾ ĐỘ TẠO HAY SỬA */}
-                <div className="lg:col-span-5 space-y-6">
+                {isEmbedded ? null : <div className="lg:col-span-5 space-y-6">
                   {!isEditMode ? (
                     // === HIỂN THỊ KHI TẠO MỚI: XEM TRƯỚC (REVIEW) ===
                     <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 h-fit sticky top-6">
@@ -295,7 +277,7 @@ export default function CourseForm({
                       </p>
                     </div>
                   )}
-                </div>
+                </div>}
               </div>
 
               {/* NÚT SUBMIT CHÍNH CỦA KHÓA HỌC */}
@@ -328,6 +310,35 @@ export default function CourseForm({
               </div>
             </form>
           </Form>
+  );
+
+  if (isEmbedded) return formElement;
+
+  return (
+    <div className="min-h-screen w-full bg-[#F9FAFB] flex flex-col p-4 sm:p-8 text-slate-800 font-sans">
+      <div className="w-full max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 mx-auto">
+        <Button
+          type="button"
+          variant="link"
+          onClick={onCancel}
+          disabled={isPending}
+          className="mb-6 w-fit px-0 coarse-input:h-11"
+        >
+          <ArrowLeft
+            className="size-4.5 coarse-input:size-5"
+            aria-hidden="true"
+          />
+          Quay lại danh sách
+        </Button>
+
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 sm:p-10">
+          <h2 className="text-2xl font-bold mb-8 text-slate-900 border-b border-slate-100 pb-5">
+            {isEditMode
+              ? "✏️ Cập nhật thông tin khóa học"
+              : "✨ Khởi tạo dự án khóa học mới"}
+          </h2>
+
+          {formElement}
         </div>
       </div>
     </div>

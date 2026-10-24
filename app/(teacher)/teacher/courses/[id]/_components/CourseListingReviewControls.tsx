@@ -23,12 +23,18 @@ export const courseStatusLabels: Record<
 
 interface CourseListingReviewControlsProps {
   readiness: CourseDashboardReadiness;
+  // Chỉ đổi cách trình bày; mặc định giữ nguyên giao diện cũ (EmptyCourseDashboard dùng mặc định).
+  // Trang Tổng quan hạ nút "Gửi duyệt" xuống outline khi có hành động chính khác và tự hiển thị lý do từ chối.
+  emphasis?: "filled" | "outline";
+  showRejectionReason?: boolean;
 }
 
 // Gửi duyệt / rút yêu cầu duyệt khóa học (AD2). Quyền thật nằm ở RPC; component chỉ ẩn nút với
 // vai trò không được dùng và hiển thị lý do bị từ chối gần nhất của admin.
 export default function CourseListingReviewControls({
   readiness,
+  emphasis = "filled",
+  showRejectionReason = true,
 }: CourseListingReviewControlsProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -67,7 +73,7 @@ export default function CourseListingReviewControls({
 
   return (
     <div className="flex flex-col gap-2">
-      {rejectionReason ? (
+      {rejectionReason && showRejectionReason ? (
         <div
           role="note"
           className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm leading-6 text-rose-800"
@@ -81,6 +87,7 @@ export default function CourseListingReviewControls({
         <>
           <Button
             type="button"
+            variant={emphasis === "outline" ? "outline" : "default"}
             disabled={isPending || !hasPublishedTopic}
             aria-busy={isPending}
             size="lg"
