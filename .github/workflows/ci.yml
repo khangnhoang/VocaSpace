@@ -208,8 +208,13 @@ jobs:
           npm run test:integration -- __tests__/integration/learner-integrity.test.ts __tests__/integration/lf2-memory-check-answer-gate.test.ts __tests__/integration/lf2-learning-action-rpcs.test.ts __tests__/integration/lf3-content-read-boundary.test.ts __tests__/integration/lf3-memory-check-cards-seen-gate.test.ts __tests__/integration/ad7-admin-hardening.test.ts __tests__/integration/feat3-learning-activity.test.ts __tests__/integration/feat6-payment-history.test.ts __tests__/integration/tport1-teacher-course-portfolio.test.ts
 
   e2e:
-    name: E2E smoke tests on isolated Supabase
+    name: E2E smoke tests on isolated Supabase (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
+    # Each shard gets its own runner and Supabase runtime; one shard's failure must not cancel the other's evidence.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     # public.ecr.aws often rejects this job's image pulls with "Data limit exceeded"; job-level so `db reset` resolves the same images.
     env:
       SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
@@ -246,7 +251,7 @@ jobs:
           npm run build
 
       - name: Run E2E smoke tests
-        run: npm run test:e2e:smoke
+        run: npm run test:e2e:smoke -- --shard=${{ matrix.shard }}/2
         env:
           E2E_WEB_SERVER: start
 
@@ -254,7 +259,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v5
         with:
-          name: e2e-test-results
+          name: e2e-test-results-${{ matrix.shard }}
           path: test-results/e2e
           if-no-files-found: ignore
 
