@@ -182,7 +182,7 @@ function StageThread({
               <li
                 key={step.key}
                 aria-current={step.state === "current" ? "step" : undefined}
-                className={`flex shrink-0 items-center gap-1.5 text-[13px] max-[360px]:gap-1 sm:gap-2 sm:text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
+                className={`flex shrink-0 items-center gap-1.5 text-[13px] max-[360px]:gap-1 max-[360px]:text-xs sm:gap-2 sm:text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
                   step.state === "current"
                     ? "font-bold text-slate-900"
                     : step.done
@@ -634,10 +634,12 @@ export default function LearningWorkspace({
     (position) => !userAnswers[position.questionId],
   );
 
-  const goToFirstRemainingQuestion = () => {
+  // Lần tự vào bước bài tập đã xin focus cho khung bước (planeFocusRequest) thì không xin thêm focus tiêu đề câu hỏi:
+  // hai yêu cầu trong cùng lần commit tranh nhau, và StrictMode chạy lại effect của câu vừa mount sau effect của khung.
+  const goToFirstRemainingQuestion = (focusQuestion = true) => {
     const [first] = remainingQuestions;
     if (!first) return;
-    setEntry({ direction: "next", focus: true });
+    setEntry({ direction: "next", focus: focusQuestion });
     setCurrentExerciseIndex(first.exerciseIndex);
     setCurrentGroupIndex(first.groupIndex);
     setCurrentQuestionIndex(first.questionIndex);
@@ -685,7 +687,7 @@ export default function LearningWorkspace({
         : queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
     } else if (next === "exercise") {
       // Owner QA FEAT12: vào bài tập sau khi xong bước trước thì mở câu đầu tiên chưa đúng, không phải câu 1.
-      goToFirstRemainingQuestion();
+      goToFirstRemainingQuestion(false);
       goToStage("exercise");
       setPlaneFocusRequest((current) => current + 1);
       toast.success(queueKind === "first" ? "Đã nạp xong từ vựng! Chuyển sang bài tập."
@@ -1028,7 +1030,7 @@ export default function LearningWorkspace({
                 pendingCompletion
                   ? { label: "Hoàn thành", onClick: goToComplete }
                   : remainingQuestions.length > 0
-                  ? { label: "Làm câu còn thiếu", onClick: goToFirstRemainingQuestion }
+                  ? { label: "Làm câu còn thiếu", onClick: () => goToFirstRemainingQuestion() }
                   : isTopicCompleted
                   ? { label: "Hoàn thành", onClick: goToComplete }
                   : lessonNeighbors.next
@@ -1177,7 +1179,7 @@ export default function LearningWorkspace({
               } else if (next === "complete") {
                 goToComplete();
               } else if (next) {
-                if (next === "exercise") goToFirstRemainingQuestion();
+                if (next === "exercise") goToFirstRemainingQuestion(false);
                 goToStage(next);
                 setPlaneFocusRequest((current) => current + 1);
               } else {

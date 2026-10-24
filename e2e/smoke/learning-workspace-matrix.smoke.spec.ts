@@ -139,17 +139,23 @@ test("card box keeps one height for long and short cards", async ({ page }) => {
     // Layout height, not the painted box: a card that is mid-turn is perspective-projected,
     // so its bounding box changes size without the layout moving at all.
     const layoutHeight = () => box.evaluate((element) => (element as HTMLElement).offsetHeight);
+    // Vị trí theo trang, không theo khung nhìn: `goto` lại cùng URL khôi phục vị trí cuộn rồi có thể bị đặt lại về đầu trang
+    // giữa hai lần đo, nên `boundingBox()` lệch theo độ cuộn dù bố cục không đổi.
+    const pageTop = (name: string) =>
+      page.getByRole("button", { name }).evaluate((element) => element.getBoundingClientRect().top + window.scrollY);
+    // Trên bản production, ngay sau `goto` khung thẻ có thể chưa hiển thị (offsetHeight 0); chỉ đo khi thẻ đã hiện.
+    await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
     const longFront = await layoutHeight();
     await page.getByRole("button", { name: "Hiện đáp án" }).click();
     const longBack = await layoutHeight();
-    const rating = await page.getByRole("button", { name: "Lại" }).boundingBox();
+    const rating = await pageTop("Lại");
     await page.getByRole("button", { name: "Ổn" }).click();
     await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
     const next = await layoutHeight();
     expect(longBack).toBe(longFront);
     expect(next).toBe(longFront);
-    const revealAgain = await page.getByRole("button", { name: "Hiện đáp án" }).boundingBox();
-    expect(Math.abs((revealAgain?.y ?? 0) - (rating?.y ?? 0))).toBeLessThan(2);
+    const revealAgain = await pageTop("Hiện đáp án");
+    expect(Math.abs(revealAgain - rating)).toBeLessThan(2);
     await expectNoHorizontalOverflow(page);
   }
 });
