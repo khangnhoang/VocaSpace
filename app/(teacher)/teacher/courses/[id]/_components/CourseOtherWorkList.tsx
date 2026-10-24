@@ -58,12 +58,13 @@ function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; 
 
   return (
     <div className="border-t border-slate-200">
-      {/* Tiêu đề và bộ lọc là một dải riêng có nền và đường kẻ, để nội dung cuộn bên dưới không trông như bị chữ đè lên. */}
-      <div className="border-b border-slate-200 bg-slate-50 px-5 pt-3 sm:px-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-          Việc khác trong khóa học{attentionKnown ? ` · ${total}` : ""}
-        </h3>
-        <div role="group" aria-label="Lọc việc khác trong khóa học" className="relative mt-2 grid grid-cols-4">
+      {/* Cùng bố cục với "Cần bạn xử lý" ở /teacher/courses: tiêu đề và bộ lọc cố định trên nền trắng, chỉ danh sách bên dưới cuộn. */}
+      <div className="px-5 pt-5 sm:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-bold text-slate-900">Việc khác trong khóa học</h3>
+          {attentionKnown ? <span className="shrink-0 text-sm font-semibold text-slate-600" aria-label={`${total} việc`}>{total} việc</span> : null}
+        </div>
+        <div role="group" aria-label="Lọc việc khác trong khóa học" className="relative mt-3 grid grid-cols-4 border-b border-slate-200">
           {filters.map((entry) => {
             const disabled = entry.count === null && entry.id !== "all";
             return (
@@ -73,12 +74,12 @@ function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; 
                 aria-pressed={filter === entry.id}
                 disabled={disabled}
                 onClick={() => setFilter(entry.id)}
-                className={`flex min-h-11 min-w-0 flex-col items-center justify-center px-0.5 py-1.5 text-xs leading-4 font-semibold outline-none transition-colors duration-220 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none ${
-                  filter === entry.id ? "text-route" : "text-slate-600 hover:bg-slate-100"
+                className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-xs leading-4 font-semibold whitespace-nowrap outline-none transition-colors duration-220 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none ${
+                  filter === entry.id ? "text-route" : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                <span className="text-center">{entry.label}</span>
-                <span className="text-[11px] font-medium tabular-nums">{entry.count ?? "…"}</span>
+                <span>{entry.label}</span>
+                <span className="text-xs font-medium tabular-nums">{entry.count ?? "…"}</span>
               </button>
             );
           })}

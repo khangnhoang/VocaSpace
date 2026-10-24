@@ -277,7 +277,7 @@ describe("course overview other work list (AC5, AC6)", () => {
     renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { attention });
 
     expect(await screen.findByText("Gọi món")).toBeTruthy();
-    expect(screen.getByText("Việc khác trong khóa học · 3")).toBeTruthy();
+    expect(screen.getByText("3 việc")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Duyệt bài học: Gọi món" }).getAttribute("href")).toBe(`/teacher/courses/${courseId}/topics/55555555-5555-4555-8555-555555555555`);
     expect(screen.getByRole("link", { name: "Xem và chỉnh sửa: Hỏi đường" })).toBeTruthy();
   });
@@ -320,7 +320,7 @@ describe("course overview other work list (AC5, AC6)", () => {
     cleanup();
 
     renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { attention: Promise.resolve({ success: true as const, items: [] }) });
-    expect(await screen.findByText("Việc khác trong khóa học · 1")).toBeTruthy();
+    expect(await screen.findByText("1 việc")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^Chờ duyệt/ }));
     expect(screen.getByText("Không có việc trong bộ lọc này.")).toBeTruthy();
   });
