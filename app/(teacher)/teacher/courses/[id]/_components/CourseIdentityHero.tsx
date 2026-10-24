@@ -67,7 +67,7 @@ export default function CourseIdentityHero({ readiness, isRejected }: CourseIden
         <div className="min-w-0">
           <h2 className="text-sm font-bold">Cộng tác viên</h2>
           {/* Danh sách thành viên tải phía client; giữ sẵn chỗ cho hai dòng (avatar + vai trò) để trang không bị đẩy xuống. */}
-          <div className="mt-2 min-h-17">
+          <div className="mt-2 min-h-24 sm:min-h-17">
             <CourseCollaboratorSummary courseId={course.id} />
           </div>
         </div>
