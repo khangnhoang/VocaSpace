@@ -55,7 +55,7 @@ const VIEWS: { id: ViewId; label: string; icon: LucideIcon }[] = [
 ];
 
 // Chiều cao vùng xem cố định để đổi cách xem không làm trang nhảy; vùng vẽ chừa 28px trên cho nhãn số, 28px dưới cho tháng.
-const BODY_HEIGHT_CLASS = "h-[248px]";
+const BODY_HEIGHT_CLASS = "h-[272px]";
 const PLOT_CLASS = "absolute inset-x-0 top-7 bottom-7";
 
 function ratioOf(value: number, max: number) {
