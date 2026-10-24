@@ -182,7 +182,7 @@ function StageThread({
               <li
                 key={step.key}
                 aria-current={step.state === "current" ? "step" : undefined}
-                className={`flex shrink-0 items-center gap-1.5 text-[13px] max-[360px]:gap-1 sm:gap-2 sm:text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
+                className={`flex shrink-0 items-center gap-1.5 text-[13px] max-[360px]:gap-1 max-[360px]:text-xs sm:gap-2 sm:text-sm transition-colors duration-[220ms] motion-reduce:transition-none ${
                   step.state === "current"
                     ? "font-bold text-slate-900"
                     : step.done
