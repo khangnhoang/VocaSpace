@@ -210,6 +210,9 @@ jobs:
   e2e:
     name: E2E smoke tests on isolated Supabase
     runs-on: ubuntu-latest
+    # public.ecr.aws often rejects this job's image pulls with "Data limit exceeded"; job-level so `db reset` resolves the same images.
+    env:
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
 
     steps:
       - name: Checkout code
