@@ -7,6 +7,7 @@ This index records what each top-level item under `docs/` is for today. Document
 | Path | Purpose |
 | --- | --- |
 | `programs/<program>/` | Program home for every program, refactor or feature: `plan.md` (master), `progress.md`, `problems.md`, `implementation-plans/<unit>/plan.md`, optional `future-features.md` and `sources/` |
+| `backlog/` | Future features and problems that no open program owns. It is not a program |
 | `refactors/` | Redirect files only, for the three paths that published migrations cite. Each points to the moved file under `programs/` |
 | `adr/` | Architecture decision records, indexed in [adr/README.md](./adr/README.md) |
 | `sop/` | Repeatable operating procedures (local development, release gate, smoke E2E) |
