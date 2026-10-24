@@ -228,7 +228,7 @@ jobs:
         run: |
           set -euo pipefail
           node --input-type=module -e "import { prepareSupabaseWorkdir } from './scripts/e2e/prepare-supabase-workdir.mjs'; prepareSupabaseWorkdir(process.cwd());"
-          npx supabase --workdir .e2e-runtime start -x studio,imgproxy,realtime,inbucket,edge-runtime,functions,analytics,vector,meta > /dev/null
+          npx supabase --workdir .e2e-runtime start -x studio,imgproxy,realtime,mailpit,edge-runtime,logflare,vector,postgres-meta > /dev/null
 
       - name: Run E2E smoke tests
         run: npm run test:e2e:smoke
