@@ -19,6 +19,9 @@ import { watchBrowserConsole } from "../support/console";
 // - Invariant cần giữ: issue biến mất nhờ active flashcard trong database, không nhờ client tự ẩn issue.
 // - Kết quả verify: scenario passed trong lượt focused bốn spec E2E-001 bằng `npm run test:e2e`.
 
+// Owner 2026-10-24: bỏ qua trên CI vì lỗi hàng đợi action của Next 16.2.6 làm nút "Quay lại tổng quan" đôi khi không chuyển trang; vẫn chạy ở máy local.
+test.skip(!!process.env.CI, "ACTION-QUEUE-001: lỗi hàng đợi action của Next 16.2.6, thay bằng test mới khi làm lại topic builder (TFEAT-004)");
+
 test.afterEach(async () => {
   await cleanupDashboardReturnFreshnessFixture();
 });
