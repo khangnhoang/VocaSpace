@@ -38,10 +38,11 @@ function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; 
 
   return (
     <div className="border-t border-slate-200">
-      <h3 className="px-5 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-600 sm:px-6">
+      {/* Tiêu đề là một dải riêng có nền và đường kẻ, để nội dung cuộn bên dưới không trông như bị chữ đè lên. */}
+      <h3 className="border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600 sm:px-6">
         Việc khác trong khóa học{attention.status === "ready" ? ` · ${total}` : ""}
       </h3>
-      <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto overscroll-contain px-5 pb-2 sm:px-6" aria-label="Việc khác trong khóa học">
+      <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto overscroll-contain px-5 pt-1 pb-2 sm:px-6" aria-label="Việc khác trong khóa học">
         {issues.map((issue) => (
           <WorkRow
             key={issue.id}
