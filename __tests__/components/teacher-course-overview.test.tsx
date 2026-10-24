@@ -282,6 +282,49 @@ describe("course overview other work list (AC5, AC6)", () => {
     expect(screen.getByRole("link", { name: "Xem và chỉnh sửa: Hỏi đường" })).toBeTruthy();
   });
 
+  it("filters the other work by kind with counts, like the portfolio attention list", async () => {
+    const attention = Promise.resolve({
+      success: true as const,
+      items: [attentionItem("topic_correction", courseId, "Hỏi đường"), attentionItem("topic_review", courseId, "Gọi món")],
+    });
+    renderOverview(makeReadiness({ issues: [issue(1), issue(2), issue(3)] }), { attention });
+    expect(await screen.findByText("Gọi món")).toBeTruthy();
+
+    const group = screen.getByRole("group", { name: "Lọc việc khác trong khóa học" });
+    const filterButton = (label: string) => within(group).getByRole("button", { name: new RegExp(`^${label}`) });
+    expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["Tất cả4", "Hoàn thiện2", "Chờ duyệt1", "Cần sửa1"]);
+    expect(filterButton("Tất cả").getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(filterButton("Chờ duyệt"));
+    expect(filterButton("Chờ duyệt").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("link", { name: "Duyệt bài học: Gọi món" })).toBeTruthy();
+    expect(screen.queryByText("Hỏi đường")).toBeNull();
+    expect(screen.queryByText(issue(2).context)).toBeNull();
+
+    fireEvent.click(filterButton("Hoàn thiện"));
+    expect(screen.getByText(issue(2).context)).toBeTruthy();
+    expect(screen.getByText(issue(3).context)).toBeTruthy();
+    expect(screen.queryByText("Gọi món")).toBeNull();
+
+    fireEvent.click(filterButton("Cần sửa"));
+    expect(screen.getByRole("link", { name: "Xem và chỉnh sửa: Hỏi đường" })).toBeTruthy();
+    expect(screen.queryByText(issue(2).context)).toBeNull();
+  });
+
+  it("shows an empty-filter message and keeps unloaded filters disabled", async () => {
+    renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }));
+    const group = screen.getByRole("group", { name: "Lọc việc khác trong khóa học" });
+    expect((within(group).getByRole("button", { name: /^Chờ duyệt/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(group).getByRole("button", { name: /^Cần sửa/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(group).getByRole("button", { name: /^Hoàn thiện/ }) as HTMLButtonElement).disabled).toBe(false);
+    cleanup();
+
+    renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { attention: Promise.resolve({ success: true as const, items: [] }) });
+    expect(await screen.findByText("Việc khác trong khóa học · 1")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Chờ duyệt/ }));
+    expect(screen.getByText("Không có việc trong bộ lọc này.")).toBeTruthy();
+  });
+
   it("keeps readiness work and offers retry when the portfolio read fails", async () => {
     renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { attention: Promise.resolve({ success: false as const }) });
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { use, useTransition } from "react";
+import { use, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CircleAlert, ClipboardCheck, Loader2, MessageSquareWarning } from "lucide-react";
+import { ArrowRight, CheckCheck, CircleAlert, ClipboardCheck, Loader2, MessageSquareWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { attentionIdentity, attentionPath, type CourseAttentionResult } from "@/lib/course-authoring/portfolio";
 import type { CourseReadinessIssue } from "@/lib/schemas/course-readiness";
@@ -29,21 +29,69 @@ function WorkRow({ icon, label, title, detail, href, action }: { icon: React.Rea
   );
 }
 
+type FilterId = "all" | "issue" | "review" | "correction";
+
 function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; attention: AttentionState }) {
   const router = useRouter();
   const [isRetrying, startRetry] = useTransition();
+  const [filter, setFilter] = useState<FilterId>("all");
   const items = attention.status === "ready" ? attention.items : [];
+  const reviews = items.filter((item) => item.kind === "topic_review");
+  const corrections = items.filter((item) => item.kind === "topic_correction");
   const total = issues.length + items.length;
   if (attention.status === "ready" && total === 0) return null;
 
+  // Cùng cách lọc với "Cần bạn xử lý" ở /teacher/courses: nhóm theo loại việc, mỗi nút kèm số đếm.
+  // Khi bài chờ duyệt / cần sửa chưa tải được thì hai bộ lọc đó chưa có số và không chọn được.
+  const attentionKnown = attention.status === "ready";
+  const filters: { id: FilterId; label: string; count: number | null }[] = [
+    { id: "all", label: "Tất cả", count: attentionKnown ? total : null },
+    { id: "issue", label: "Hoàn thiện", count: issues.length },
+    { id: "review", label: "Chờ duyệt", count: attentionKnown ? reviews.length : null },
+    { id: "correction", label: "Cần sửa", count: attentionKnown ? corrections.length : null },
+  ];
+  const filterIndex = filters.findIndex((entry) => entry.id === filter);
+  const showIssues = filter === "all" || filter === "issue";
+  const visibleItems = filter === "all" ? items : filter === "review" ? reviews : filter === "correction" ? corrections : [];
+  const visibleCount = (showIssues ? issues.length : 0) + visibleItems.length;
+  const showAttentionStatus = filter !== "issue";
+
   return (
     <div className="border-t border-slate-200">
-      {/* Tiêu đề là một dải riêng có nền và đường kẻ, để nội dung cuộn bên dưới không trông như bị chữ đè lên. */}
-      <h3 className="border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600 sm:px-6">
-        Việc khác trong khóa học{attention.status === "ready" ? ` · ${total}` : ""}
-      </h3>
-      <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto overscroll-contain px-5 pt-1 pb-2 sm:px-6" aria-label="Việc khác trong khóa học">
-        {issues.map((issue) => (
+      {/* Tiêu đề và bộ lọc là một dải riêng có nền và đường kẻ, để nội dung cuộn bên dưới không trông như bị chữ đè lên. */}
+      <div className="border-b border-slate-200 bg-slate-50 px-5 pt-3 sm:px-6">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+          Việc khác trong khóa học{attentionKnown ? ` · ${total}` : ""}
+        </h3>
+        <div role="group" aria-label="Lọc việc khác trong khóa học" className="relative mt-2 grid grid-cols-4">
+          {filters.map((entry) => {
+            const disabled = entry.count === null && entry.id !== "all";
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                aria-pressed={filter === entry.id}
+                disabled={disabled}
+                onClick={() => setFilter(entry.id)}
+                className={`flex min-h-11 min-w-0 flex-col items-center justify-center px-0.5 py-1.5 text-xs leading-4 font-semibold outline-none transition-colors duration-220 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none ${
+                  filter === entry.id ? "text-route" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                <span className="text-center">{entry.label}</span>
+                <span className="text-[11px] font-medium tabular-nums">{entry.count ?? "…"}</span>
+              </button>
+            );
+          })}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 left-0 h-0.5 w-1/4 bg-route transition-transform duration-220 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
+            style={{ transform: `translateX(${filterIndex * 100}%)` }}
+          />
+        </div>
+      </div>
+      {/* Đổi bộ lọc thì dựng lại vùng cuộn để bắt đầu từ việc đầu tiên. */}
+      <ul key={filter} className="max-h-72 divide-y divide-slate-100 overflow-y-auto overscroll-contain px-5 pt-1 pb-2 sm:px-6" aria-label="Việc khác trong khóa học">
+        {showIssues ? issues.map((issue) => (
           <WorkRow
             key={issue.id}
             icon={<CircleAlert className="size-3.5 text-attention" aria-hidden="true" />}
@@ -52,8 +100,8 @@ function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; 
             href={issue.destination.href}
             action={issue.actionLabel}
           />
-        ))}
-        {items.map((item) => item.kind === "topic_review" ? (
+        )) : null}
+        {visibleItems.map((item) => item.kind === "topic_review" ? (
           <WorkRow
             key={attentionIdentity(item)}
             icon={<ClipboardCheck className="size-3.5 text-attention" aria-hidden="true" />}
@@ -73,12 +121,17 @@ function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; 
             action="Xem và chỉnh sửa"
           />
         ))}
-        {attention.status === "loading" ? (
+        {attentionKnown && visibleCount === 0 ? (
+          <li className="flex items-center gap-2 py-4 text-sm text-slate-600">
+            <CheckCheck className="size-4 text-growth" aria-hidden="true" />Không có việc trong bộ lọc này.
+          </li>
+        ) : null}
+        {attention.status === "loading" && showAttentionStatus ? (
           <li className="py-3 text-sm text-slate-600">
             <span role="status" className="flex items-center gap-2"><Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" />Đang tải bài chờ duyệt và bài cần sửa…</span>
           </li>
         ) : null}
-        {attention.status === "error" ? (
+        {attention.status === "error" && showAttentionStatus ? (
           <li className="flex flex-col gap-2 py-3 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
             <span role="alert">Chưa tải được bài chờ duyệt và bài cần sửa.</span>
             <Button type="button" variant="outline" size="sm" disabled={isRetrying} onClick={() => startRetry(() => router.refresh())} className="coarse-input:h-11">
