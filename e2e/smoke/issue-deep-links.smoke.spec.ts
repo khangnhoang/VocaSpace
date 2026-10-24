@@ -23,6 +23,9 @@ import {
 // - Dùng fixture teacher/course local thật; giữ assertion về URL/UI và console hydration.
 // - Verify: xem State D6 trong progress.md; không dùng networkidle; chỉ giữ ERR_ABORTED đã biết của redirect.
 
+// Owner 2026-10-24: bỏ qua trên CI vì lỗi hàng đợi action của Next 16.2.6 làm tab Cài đặt treo ngẫu nhiên; vẫn chạy ở máy local.
+test.skip(!!process.env.CI, "ACTION-QUEUE-001: lỗi hàng đợi action của Next 16.2.6, thay bằng test mới khi làm lại topic builder (TFEAT-004)");
+
 test("dashboard issue links survive stale target redirects without hydration errors", async ({
   page,
 }) => {

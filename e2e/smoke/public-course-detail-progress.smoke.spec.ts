@@ -10,10 +10,10 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf3/plan.md
 // Test plan:
 // - Mục tiêu: kiểm chứng trên trình duyệt thật đề cương ở trang chi tiết khóa học của học viên đã ghi danh (LF3 AC10, Q7):
-//   mọi chủ đề là liên kết /learn (kể cả chủ đề Preview), trạng thái Đã hoàn thành / Học tiếp / Sắp tới, "Tiếp tục học".
+//   mọi chủ đề là liên kết /learn (kể cả chủ đề Preview), trạng thái Đã hoàn thành / Học tiếp / Sắp tới, nút chính "Tiếp tục: <tên chủ đề>" (FEAT3 AC6a).
 // - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với fixture ma trận D8 tạo trong beforeAll, dọn trong afterAll.
 // - Case thành công: chưa có tiến độ thì chủ đề đầu là Học tiếp; hoàn thành thật một chủ đề trong workspace rồi quay lại trang chi tiết
-//   thì chủ đề đó là Đã hoàn thành (tải mới, không phải bản cũ); "Tiếp tục học" mở đúng chủ đề Học tiếp.
+//   thì chủ đề đó là Đã hoàn thành (tải mới, không phải bản cũ); "Tiếp tục: <tên chủ đề>" mở đúng chủ đề Học tiếp.
 // - Case thất bại / ranh giới: khách chưa đăng nhập vẫn thấy đề cương cũ (liên kết xem thử, khóa), không có liên kết /learn.
 // - Bảo mật/phân quyền: ghi chỉ bằng service role trong runtime E2E cô lập để dọn tiến độ của học viên seed.
 // - Ổn định/resilience: không tràn ngang ở 375px và 1280px.
@@ -66,8 +66,11 @@ async function expectNoHorizontalOverflow(page: Page) {
   ).toBe(true);
 }
 
+// Chỉ tìm trong đề cương: thẻ đang học (FEAT3 AC6) cũng có liên kết tới các chủ đề vừa học.
 const topicLink = (page: Page, title: string) =>
-  page.getByRole("link", { name: new RegExp(`^${title}`) });
+  page
+    .getByRole("region", { name: "Đề cương khóa học" })
+    .getByRole("link", { name: new RegExp(`^${title}`) });
 
 test("a visitor still sees the preview syllabus without learning links", async ({ page }) => {
   await page.goto(coursePath);
@@ -111,10 +114,10 @@ for (const width of [375, 1280]) {
     await page.getByRole("radio", { name: /đáng tin cậy/ }).click();
     await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
     await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
-    await page.getByRole("button", { name: "Tiếp tục" }).click();
+    await page.getByRole("button", { name: "Câu tiếp theo" }).click();
     await page.getByRole("radio", { name: /enhance/ }).click();
     await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
-    await page.getByRole("button", { name: "Mở bài tập" }).click();
+    // LF9: khi server xác nhận đạt, workspace tự mở bài tập; không còn nút trung gian.
     await expect(page.getByText("Part 5 sau memory check")).toBeVisible();
     await page.getByRole("radio", { name: /^(?:[A-C]\.?\s*)?return$/ }).click();
     await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
@@ -139,8 +142,8 @@ for (const width of [375, 1280]) {
     await expect(page.getByText("Đã hoàn thành", { exact: true })).toHaveCount(1);
     await expectNoHorizontalOverflow(page);
 
-    // "Tiếp tục học" mở đúng chủ đề Học tiếp.
-    await page.getByRole("button", { name: "Tiếp tục học" }).click();
+    // FEAT3 AC6a: nút chính của thẻ đang học "Tiếp tục: <tên chủ đề>" mở đúng chủ đề Học tiếp.
+    await page.getByRole("button", { name: `Tiếp tục: ${firstTopic.title}` }).click();
     await expect(page).toHaveURL(new RegExp(`/learn/${MATRIX_COURSE_SLUG}/${firstTopic.slug}$`));
     // Chờ trang học tải xong để afterAll không dọn fixture giữa lúc trang đang đồng bộ tiến độ.
     await expect(page.getByRole("list", { name: "Các bước của bài học" })).toBeVisible();
