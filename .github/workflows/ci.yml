@@ -229,8 +229,23 @@ jobs:
           node --input-type=module -e "import { prepareSupabaseWorkdir } from './scripts/e2e/prepare-supabase-workdir.mjs'; prepareSupabaseWorkdir(process.cwd());"
           npx supabase --workdir .e2e-runtime start -x studio,imgproxy,realtime,mailpit,edge-runtime,logflare,vector,postgres-meta > /dev/null
 
+      # NEXT_PUBLIC_* values are inlined at build time, so build against the isolated runtime that the tests use.
+      - name: Build application for E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx supabase --workdir .e2e-runtime status -o env > .e2e-runtime/supabase.env
+          source .e2e-runtime/supabase.env
+          NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+          NEXT_DIST_DIR=.next-e2e \
+          npm run build
+
       - name: Run E2E smoke tests
         run: npm run test:e2e:smoke
+        env:
+          E2E_WEB_SERVER: start
 
       - name: Upload Playwright traces
         if: failure()
