@@ -1,0 +1,67 @@
+/* Hiệu ứng của biểu đồ ghi danh trên trang Tổng quan. Cùng cơ chế với dashboard /admin (RevealScope đặt data-reveal:
+   waiting = cắt cho tới khi biểu đồ vào khung nhìn, playing = chạy một lần), nhưng chậm hơn theo yêu cầu của Owner
+   (2026-10-24): cột lộ trong 1–1,6s, đường xu hướng 1,6s. Nhãn số liệu luôn hiện ngay, không chờ animation.
+   Không có data-reveal (chưa hydrate, jsdom) hoặc prefers-reduced-motion: mọi thứ hiện đầy đủ, không trượt. */
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-reveal="waiting"] .revealUp {
+    clip-path: inset(100% 0 0 0);
+  }
+
+  [data-reveal="waiting"] .trendReveal {
+    clip-path: inset(-8px 100% -8px 0);
+  }
+
+  [data-reveal="waiting"] .markerFade {
+    opacity: 0;
+  }
+
+  [data-reveal="playing"] .revealUp {
+    animation: revealUp var(--reveal-duration, 1600ms) cubic-bezier(0.2, 0, 0, 1) var(--reveal-delay, 0ms) both;
+  }
+
+  [data-reveal="playing"] .trendReveal {
+    animation: revealTrend 1600ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+
+  [data-reveal="playing"] .markerFade {
+    animation: fadeIn 200ms cubic-bezier(0.2, 0, 0, 1) var(--reveal-delay, 0ms) both;
+  }
+
+  /* Đổi cách xem: ba panel nằm trên một dải ngang, chỉ dịch dải bằng transform. */
+  .slideTrack {
+    transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tabIndicator {
+    transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes revealUp {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Biên dọc âm để nét 3px sát mép vùng vẽ không bị cắt khi đã lộ hết. */
+@keyframes revealTrend {
+  from {
+    clip-path: inset(-8px 100% -8px 0);
+  }
+  to {
+    clip-path: inset(-8px -8px -8px 0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

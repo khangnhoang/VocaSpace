@@ -294,18 +294,47 @@ describe("course overview other work list (AC5, AC6)", () => {
 });
 
 describe("course overview insights (AC7–AC10)", () => {
-  it("shows exact enrollment values, the month comparison and a table on demand", async () => {
+  it("shows exact enrollment values and the month comparison", async () => {
     renderOverview(makeReadiness(), { insights: Promise.resolve({ success: true as const, data: insightsData }) });
 
     expect(await screen.findByText("học viên đã ghi danh")).toBeTruthy();
     expect(screen.getByText("24")).toBeTruthy();
     expect(screen.getByText(/Tháng 10\/2026 \(tính đến hôm nay\)/)).toBeTruthy();
     expect(screen.getByText(/−2 so với tháng 9\/2026/)).toBeTruthy();
-    expect(screen.getByRole("img", { name: /Tháng 5\/2026 2, Tháng 6\/2026 3, Tháng 7\/2026 4, Tháng 8\/2026 5, Tháng 9\/2026 6, Tháng 10\/2026 4/ })).toBeTruthy();
-    expect(screen.queryByRole("table")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Xem bảng số liệu/ }));
-    const table = screen.getByRole("table");
+    expect(screen.getByRole("img", { name: /dạng cột: Tháng 5\/2026 2, Tháng 6\/2026 3, Tháng 7\/2026 4, Tháng 8\/2026 5, Tháng 9\/2026 6, Tháng 10\/2026 4/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /dạng xu hướng: Tháng 5\/2026 2/ })).toBeTruthy();
+    expect(screen.getAllByTestId("enrollment-column")).toHaveLength(6);
+    expect(screen.getAllByTestId("trend-point")).toHaveLength(6);
+  });
+
+  it("switches between column, trend and table views with one tab stop and keeps hidden views inert", async () => {
+    renderOverview(makeReadiness(), { insights: Promise.resolve({ success: true as const, data: insightsData }) });
+    const tablist = await screen.findByRole("tablist", { name: "Cách xem ghi danh theo tháng" });
+    const tabs = within(tablist).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Cột", "Xu hướng", "Bảng"]);
+    expect(tabs.map((tab) => tab.getAttribute("aria-selected"))).toEqual(["true", "false", "false"]);
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([0, -1, -1]);
+
+    const panelOf = (tab: HTMLElement) => document.getElementById(tab.getAttribute("aria-controls") ?? "") as HTMLElement;
+    expect(panelOf(tabs[0]).hasAttribute("inert")).toBe(false);
+    expect(panelOf(tabs[2]).hasAttribute("inert")).toBe(true);
+
+    fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
+    expect(tabs[1].getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tabs[1]);
+    expect(panelOf(tabs[1]).hasAttribute("inert")).toBe(false);
+    expect(panelOf(tabs[0]).hasAttribute("inert")).toBe(true);
+
+    fireEvent.keyDown(tabs[1], { key: "End" });
+    expect(tabs[2].getAttribute("aria-selected")).toBe("true");
+    const table = within(panelOf(tabs[2])).getByRole("table");
     expect(within(table).getAllByRole("row")).toHaveLength(7);
+    expect(within(table).getByText("Tháng 10/2026")).toBeTruthy();
+
+    fireEvent.keyDown(tabs[2], { key: "ArrowRight" });
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(tabs[1]);
+    expect(tabs[1].getAttribute("aria-selected")).toBe("true");
   });
 
   it("shows the progress split with percentages summing to 100", async () => {
@@ -324,6 +353,7 @@ describe("course overview insights (AC7–AC10)", () => {
 
     expect(await screen.findByText("Chưa có học viên ghi danh")).toBeTruthy();
     expect(screen.queryByRole("img", { name: /Ghi danh mới/ })).toBeNull();
+    expect(screen.queryByRole("tablist", { name: "Cách xem ghi danh theo tháng" })).toBeNull();
     expect(screen.queryByText(/%$/)).toBeNull();
   });
 
