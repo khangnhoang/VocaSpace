@@ -62,7 +62,7 @@ function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; 
       <div className="px-5 pt-5 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-base font-bold text-slate-900">Việc khác trong khóa học</h3>
-          {attentionKnown ? <span className="shrink-0 text-sm font-semibold text-slate-600" aria-label={`${total} việc`}>{total} việc</span> : null}
+          {attentionKnown ? <span className="shrink-0 text-sm font-semibold text-slate-600">{total} việc</span> : null}
         </div>
         <div role="group" aria-label="Lọc việc khác trong khóa học" className="relative mt-3 grid grid-cols-4 border-b border-slate-200">
           {filters.map((entry) => {
@@ -122,7 +122,8 @@ function OtherWorkView({ issues, attention }: { issues: CourseReadinessIssue[]; 
             action="Xem và chỉnh sửa"
           />
         ))}
-        {attentionKnown && visibleCount === 0 ? (
+        {/* "Hoàn thiện" chỉ phụ thuộc readiness nên báo rỗng được cả khi bài chờ duyệt / cần sửa chưa tải xong. */}
+        {visibleCount === 0 && (attentionKnown || filter === "issue") ? (
           <li className="flex items-center gap-2 py-4 text-sm text-slate-600">
             <CheckCheck className="size-4 text-growth" aria-hidden="true" />Không có việc trong bộ lọc này.
           </li>

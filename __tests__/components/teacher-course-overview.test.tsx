@@ -37,6 +37,8 @@ vi.mock("@/app/actions/course-preview", () => ({
 // - Case thất bại: lưu lỗi giữ dialog và dữ liệu đã nhập; read số liệu lỗi không hiện số 0 và có nút thử lại; read portfolio lỗi vẫn giữ việc readiness.
 // - Bảo mật/phân quyền: editor không có nút gửi duyệt nhưng vẫn thấy lý do từ chối; việc lọc theo khóa học nằm ở selectCourseAttention (utils test).
 // - Ổn định/invariant: chưa có học viên thì không vẽ biểu đồ hay phần trăm; khóa chưa có bài được tính thì không có phân bố.
+// - Biểu đồ ghi danh: ba tab Cột / Xu hướng / Bảng, một tab stop, mũi tên/Home/End, panel ẩn là inert.
+// - Bộ lọc việc khác: số đếm theo loại, lọc đúng loại, báo rỗng, khóa bộ lọc chưa tải, nút thử lại ở "Tất cả".
 // - Kết quả verify gần nhất: xem báo cáo checkpoint CP2.
 // - Lệnh: `npx vitest run __tests__/components/teacher-course-overview.test.tsx`.
 
@@ -325,6 +327,27 @@ describe("course overview other work list (AC5, AC6)", () => {
     expect(screen.getByText("Không có việc trong bộ lọc này.")).toBeTruthy();
   });
 
+  it("explains an empty completion filter while review and correction items are still loading", async () => {
+    renderOverview(makeReadiness({ issues: [issue(1)] }));
+    expect(screen.getByText("Đang tải bài chờ duyệt và bài cần sửa…")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Hoàn thiện/ }));
+    // Bộ lọc nằm trong fallback của Suspense nên lần render sau khi chọn có thể đến bất đồng bộ.
+    expect(await screen.findByText("Không có việc trong bộ lọc này.")).toBeTruthy();
+    expect(screen.queryByText("Đang tải bài chờ duyệt và bài cần sửa…")).toBeNull();
+  });
+
+  it("keeps the retry reachable from the all filter after a failed read", async () => {
+    renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { attention: Promise.resolve({ success: false as const }) });
+    expect(await screen.findByText("Chưa tải được bài chờ duyệt và bài cần sửa.")).toBeTruthy();
+    const group = screen.getByRole("group", { name: "Lọc việc khác trong khóa học" });
+    expect((within(group).getByRole("button", { name: /^Chờ duyệt/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(group).getByRole("button", { name: /^Hoàn thiện/ }));
+    expect(screen.getByText(issue(2).context)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
+    fireEvent.click(within(group).getByRole("button", { name: /^Tất cả/ }));
+    expect(screen.getByRole("button", { name: "Thử lại" })).toBeTruthy();
+  });
+
   it("keeps readiness work and offers retry when the portfolio read fails", async () => {
     renderOverview(makeReadiness({ issues: [issue(1), issue(2)] }), { attention: Promise.resolve({ success: false as const }) });
 
@@ -376,6 +399,12 @@ describe("course overview insights (AC7–AC10)", () => {
 
     fireEvent.keyDown(tabs[2], { key: "ArrowRight" });
     expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tabs[0], { key: "ArrowLeft" });
+    expect(tabs[2].getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tabs[2]);
+    fireEvent.keyDown(tabs[2], { key: "Home" });
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tabs[0]);
     fireEvent.click(tabs[1]);
     expect(tabs[1].getAttribute("aria-selected")).toBe("true");
   });

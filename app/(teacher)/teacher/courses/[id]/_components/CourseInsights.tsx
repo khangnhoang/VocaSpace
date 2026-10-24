@@ -291,7 +291,7 @@ function EnrollmentChart({ insights }: { insights: TeacherCourseInsights }) {
                 aria-labelledby={tabId(view.id)}
                 inert={!isSelected}
                 tabIndex={isSelected ? 0 : undefined}
-                className="h-full w-1/3 shrink-0 rounded-lg px-1 outline-none focus-visible:ring-2 focus-visible:ring-route"
+                className="h-full w-1/3 shrink-0 rounded-lg px-1 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-route"
               >
                 {view.id === "columns" ? <ColumnsView months={months} max={max} total={insights.enrollment_total} active={isSelected} /> : null}
                 {view.id === "trend" ? <TrendView months={months} max={max} total={insights.enrollment_total} active={isSelected} /> : null}
