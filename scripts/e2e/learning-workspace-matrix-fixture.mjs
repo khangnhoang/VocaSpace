@@ -470,6 +470,10 @@ export async function cleanupLearningWorkspaceMatrix(env = process.env, options 
     : [];
   const cardIds = cards.map((row) => row.id);
 
+  // Gỡ ghi danh trước tiên: trang học vừa đóng vẫn có thể còn request đang chạy (sync tiến độ khi mở bài, lưu thẻ/đáp án).
+  // Các RPC đó đều đòi ghi danh, nên sau bước này chúng bị từ chối thay vì tạo lại user_topic_progress giữa lúc dọn,
+  // làm bước xóa topics hỏng vì khóa ngoại utp_topic_id_fkey.
+  checked(await supabase.from("enrollments").delete().eq("course_id", COURSE_ID), "Clean enrollment");
   if (questionIds.length) {
     checked(await supabase.from("user_question_answers").delete().in("question_id", questionIds), "Clean answers");
     checked(await supabase.from("question_options").delete().in("question_id", questionIds), "Clean options");
@@ -482,7 +486,6 @@ export async function cleanupLearningWorkspaceMatrix(env = process.env, options 
     checked(await supabase.from("exercises").delete().in("id", exerciseIds), "Clean exercises");
   }
   if (cardIds.length) checked(await supabase.from("cards").delete().in("id", cardIds), "Clean cards");
-  checked(await supabase.from("enrollments").delete().eq("course_id", COURSE_ID), "Clean enrollment");
   checked(await supabase.from("topics").delete().eq("course_id", COURSE_ID), "Clean topics");
   checked(await supabase.from("chapters").delete().eq("course_id", COURSE_ID), "Clean chapter");
   checked(await supabase.from("course_collaborators").delete().eq("course_id", COURSE_ID), "Clean owner");

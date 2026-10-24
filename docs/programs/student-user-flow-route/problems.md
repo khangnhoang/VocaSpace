@@ -49,6 +49,22 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: in a payment unit, guard both updates on `status = 'creating'`, check the affected row count, and release the discount only when this checkout's own transition succeeded. Low impact: it needs a PayOS call that takes more than 15 minutes.
 - Exit condition: the checkout transitions are status-guarded with a test for the late-completion case, or the Owner accepts the risk and closes the entry.
 
+### ACTION-QUEUE-001: the topic builder Settings tab can spin forever after quick tab switches
+
+- Status: Open (found 2026-10-24 while fixing the smoke failures on `main` `8932c6a7`; the Owner chose a separate task).
+- Problem: in Next 16.2.6 `dispatchAction` (`next/dist/client/components/app-router-instance.js`) a navigate or restore drops the pending action but does not move `actionQueue.last`, so the next server action is chained to a dead node and never runs. `TopicBuilderTabs` writes tab changes with native `history.replaceState(null, …)` (D6, `4903edd2`), which dispatches a restore; when it lands while a tab's server action is pending, the Settings tab's `getTopicById` is never sent and its spinner stays. Reaches real users on the production build.
+- Evidence: reproduced on a local production build without the dashboard: open a topic, switch quickly Từ vựng → Bài tập → Cài đặt; stuck in one run of two (intermittent). It is the cause of `issue-deep-links:26` failing on the production build (passed on CI run 40094283510). Upstream fixes it from 16.3.0 (`if (actionQueue.last === actionQueue.pending) actionQueue.last = newAction`); 16.2.12 still has the bug. A trial of 16.3.8 made `issue-deep-links:144` fail in dev (the structure notice was not dismissed), so the upgrade needs its own verification.
+- Direction: a separate unit upgrades Next to a fixed release and re-verifies the smoke suite, or adds an app workaround that does not issue a restore while a server action is pending.
+- Exit condition: the quick tab-switch repro and `issue-deep-links` pass repeatedly on the production build.
+
+### E2E-DEV-001: `dashboard-return-freshness` fails under `next dev` only
+
+- Status: Accepted (2026-10-24, Owner: record, do not fix; it passes on the production build used by CI).
+- Problem: under `next dev` an HMR refresh rebuilds the request from the router's `renderedSearch`, which the restore reducer took from the old history entry (still `?from=dashboard…`) after `TopicBuilderTabs`' native `replaceState`; the page hard-navigates back to the old deep link and the spec fails at line 26.
+- Evidence: local dev smoke runs on 2026-10-24 fail at `dashboard-return-freshness:26`; the same spec passes on a local production build and on CI run 40094283510. Next 16.4.3's restore reducer is unchanged here.
+- Direction: none in the app for now; a full local dev smoke run lists this as a known failure.
+- Exit condition: the spec passes under `next dev`, for example after a Next upgrade, or the smoke suite runs only against the production build.
+
 ## Resolved
 
 One line each. Details stay in Git (`git show eb36618:docs/refactors/student-user-flow-route/problems.md`) and in the cited PR.
