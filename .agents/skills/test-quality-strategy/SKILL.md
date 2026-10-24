@@ -348,6 +348,17 @@ Do not invent scripts.
 
 For DB integration changes, also follow `supabase-safe-migration`.
 
+## Local Supabase runtimes
+
+Local stacks are identified by `project_id`: `voca_space` (root `supabase/`, API 45321) for development and manual QA, and `voca_space_e2e` (`.e2e-runtime`, API 45441) for smoke E2E and isolated integration or perf runs. Supabase containers restart with Docker, so a stack left running keeps holding memory until it is stopped.
+
+* Start a stack only when a check needs it, then confirm `npx supabase --workdir <dir> status` reports it running and `docker ps --filter label=com.supabase.cli.project=<project_id>` lists its containers.
+* Stop it when that check ends with `npx supabase stop --project-id <project_id>`, then confirm `docker ps -a --filter label=com.supabase.cli.project=<project_id>` lists nothing. Keep the development stack running only while manual QA needs it.
+* `npm run test:e2e` starts the E2E stack without unused services and stops it when Playwright finishes; `E2E_KEEP_SUPABASE=1` keeps it running for debugging, after which you stop it yourself.
+* `npm run dev` starts the development stack without analytics, vector, imgproxy and edge-runtime and leaves it running after Next.js exits; stop it with `npm run supabase:dev:stop`.
+* When the Owner asks to close the dev server and no remaining test or manual QA needs the development stack, also run `npm run supabase:dev:stop` and confirm its containers are gone. Keep the stack running when another session or run is still using it, and say so.
+* Before `db reset` or another data-wiping command, confirm no other session or run is using that stack, because the reset deletes its data. Ask the Owner when this cannot be established.
+
 ## Evidence and coverage claims
 
 Final reports must distinguish:
