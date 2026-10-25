@@ -8,6 +8,9 @@ const projectId = "voca_space";
 const expectedApiPort = 45321;
 const expectedDbPort = 45322;
 const checkedPorts = [45320, 45321, 45322, 45323, 45324, 45327, 45329];
+// Analytics (logflare), its vector collector, image transforms and edge functions are unused locally; analytics and vector alone take about 0.5 GB.
+// CLI 2.106 matches these image names, not the older names its --help still lists.
+const excludedServices = ["logflare", "vector", "imgproxy", "edge-runtime"];
 const forwardedArgs = process.argv.slice(3);
 const command = process.argv[2] ?? "dev";
 
@@ -52,7 +55,7 @@ async function ensureRootSupabaseStarted() {
   }
 
   await assertConfiguredPortsAvailable();
-  const start = runSupabase(["start"], { stdio: "inherit" });
+  const start = runSupabase(["start", ...excludedServices.flatMap((service) => ["-x", service])], { stdio: "inherit" });
   if (start.status !== 0) {
     throw new Error("Unable to start root local Supabase. Check Docker, Supabase CLI, and the canonical 4532x ports.");
   }

@@ -682,6 +682,8 @@ for (const width of WIDTHS) {
 
     // Memory check đã qua, bài tập chưa làm: tải lại mở thẳng Bài tập.
     await answerMemory(page, FULL_MEMORY);
+    // Bài tập chỉ hiện khi server đã ghi nhận câu đúng cuối; tải lại sớm hơn thì memory check có thể chưa được lưu.
+    await expect(page.getByRole("radio", { name: FULL_EXERCISES[0] })).toBeVisible();
     await page.reload();
     await expect(stepThread(page)).toContainText("Bài tập (đang học)");
     await expect(stepThread(page)).toContainText("Memory check (đã xong)");
