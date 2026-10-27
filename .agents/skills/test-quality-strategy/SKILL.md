@@ -48,7 +48,8 @@ Focused UI/CSS changes normally need directly related interaction tests, relevan
 Local project IDs are voca_space (root supabase/, API 45321) for dev/manual QA and voca_space_e2e (.e2e-runtime, API 45441) for isolated tests. Do not infer a project is unused from one process ending.
 
 - Start a stack only when needed; verify its status and project-labeled containers.
-- npm run test:e2e manages the E2E stack and normally stops it; E2E_KEEP_SUPABASE=1 retains it for debugging.
+- When a check or debugging session ends, stop the exact stack the task started with npx supabase stop --project-id <project_id> and confirm docker ps -a --filter label=com.supabase.cli.project=<project_id> lists no containers. First establish that no other session/run or remaining manual QA needs it; if shared use is uncertain, ask instead of stopping it, and report why cleanup remains pending. Do not stop a pre-existing stack the task does not own.
+- npm run test:e2e manages the E2E stack and normally stops it; E2E_KEEP_SUPABASE=1 retains it for debugging and remains subject to the cleanup rule above.
 - npm run dev leaves its dev stack up after Next exits. When asked to close development, also use npm run supabase:dev:stop if no other session/QA needs it; verify containers are gone.
 - Before any data-wiping reset, establish no other session/run uses that stack; ask when uncertain. Stop only the exact stack the task owns.
 

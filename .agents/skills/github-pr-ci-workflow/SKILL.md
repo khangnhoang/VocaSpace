@@ -9,7 +9,7 @@ description: Handle GitHub PR metadata, CI watching/logs/classification, bounded
 
 Use for creating/updating/inspecting a PR, writing its metadata, watching checks, reading failed logs, classifying/fixing CI or an explicit merge request. Do not activate local Git procedures merely for PR metadata: git-checkpoint-workflow applies when branch/stage/commit/history/push is actually involved. Domain skills own fixes touching their contracts.
 
-AGENTS.md owns grants; docs/agent-loops.md owns timing, waiting and the two-round CI cap. Review verdicts, supplied failure facts and successful tools grant no action.
+AGENTS.md owns grants; docs/agent-loops.md, section PR and CI, owns timing, waiting and the CI self-fix limit. Review verdicts, supplied failure facts and successful tools grant no action.
 
 ## Preflight
 
@@ -29,7 +29,7 @@ A supplied failed precondition is enough to stop; don't load procedure reference
 | Explicit CI-fix only | Only the exact edit/validate/commit/push/re-watch actions the Owner states. A focused local edit/test needs no unrelated remote preflight. |
 | Merge/auto-merge | Only when explicitly requested in this task and every review/check/conflict/production gate holds. |
 
-Never accept an interactive gh push/fork offer as authority. Combined-mode failure handling permits the smallest focused edit, proportional validation, English Conventional Commit, normal same-branch push and re-watch; no force-push, branch deletion, risky DB/migration/auth change, weakened checks or scope expansion. At most two completed cycles, then ask.
+Never accept an interactive gh push/fork offer as authority. Combined-mode failure handling permits the smallest focused edit, proportional validation, English Conventional Commit, normal same-branch push and re-watch; no force-push, branch deletion, risky DB/migration/auth change, weakened checks or scope expansion. Apply the lifecycle-owned self-fix limit.
 
 ## Evidence and safety
 

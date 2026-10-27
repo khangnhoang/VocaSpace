@@ -7,13 +7,13 @@ Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](
 | Field | Value |
 | --- | --- |
 | Spec revision | [AR3 plan](./implementation-plans/ar3/plan.md) r3, Owner-approved 2026-10-27 |
-| Current unit / checkpoint | AR3 CP1–CP4 committed locally as `f49d5099`; independent implementation review pending. AR2 remains merged (PR 163, `5dbcbce`). |
+| Current unit / checkpoint | AR3 CP1–CP4 committed locally as `f49d5099`; Owner-requested audit corrections restore runtime cleanup, reconcile CI waiting and centralize the CI attempt limit. Correction re-review pending. AR2 remains merged (PR 163, `5dbcbce`). |
 | Status | automated checks passed |
-| Completed evidence | Plan commit `c0964167`; implementation author review passed. Validator/eval-tool tests 167/167 and docs-checker tests 27/27 passed after Git-fixture permission failures were resolved by rerunning outside sandbox. Final docs:check: 0 structure violations / 0 broken links. Skill validator: 14 valid skills, 1 non-blocking Playwright length warning. Suite validation: 33 files / 232 cases valid. Static checks: 14 symlinks expose 78 files, 3 imports resolve, 12 ask patterns match positive/negative command examples. No live Claude/browser/model or independent implementation review ran. |
+| Completed evidence | Plan commit `c0964167`; implementation author review passed. Validator/eval-tool tests 167/167 and docs-checker tests 27/27 passed after Git-fixture permission failures were resolved by rerunning outside sandbox. Final docs:check: 0 structure violations / 0 broken links. Skill validator: 14 valid skills, 1 non-blocking Playwright length warning. Suite validation: 33 files / 232 cases valid. Static checks: 14 symlinks expose 78 files, 3 imports resolve, 12 ask patterns match positive/negative command examples. These are historical implementation checks. A separate app audit of `747dfbdf` returned static PASS, but subsequent author audit found the three issues corrected here; that PASS does not cover this correction. Correction checks: 14 skills valid (the existing Playwright length warning remains), 33 suites / 232 cases structurally valid, docs:check passed and git diff --check passed. No live Claude approval-prompt/browser evidence exists. |
 | Accepted deviations | None to the Spec. CP1–CP4 form one coherent implementation commit because shared-source retirement, consumer routing and compatibility must land together. Existing docs/checker migration remains deferred. |
-| Blockers / Owner decisions | No unresolved implementation finding. Independent implementation review and live Claude approval-prompt evidence remain pending; structural checks do not substitute for them. |
-| Next action | Obtain independent implementation review under a separate model-execution grant, then address any in-scope findings. No push/PR authority is active. |
-| Current authority | Implement approved AR3 r3 and create local plan/implementation commits throughout. No push, PR, merge, extra model execution, browser or database action. |
+| Blockers / Owner decisions | The three Owner-approved audit findings are corrected locally; correction re-review and live Claude approval-prompt evidence remain pending. Structural checks do not substitute for them. |
+| Next action | Obtain separately authorized independent re-review of the corrected candidate before claiming review readiness. No push/PR authority is active. |
+| Current authority | Owner authorized correction of the three audit findings and a local correction commit. No push, PR, merge, extra model execution, browser or database action. |
 
 ## Milestones
 
@@ -36,3 +36,4 @@ Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](
 - 2026-10-18 AR2 merged (PR 163, `5dbcbce`).
 - 2026-10-27 AR3 r3 approved after independent plan review PASS; local plan/implementation commits authorized (`c0964167`).
 - 2026-10-27 AR3 CP1–CP4 implemented and deterministic checks passed; independent implementation/runtime review pending (`f49d5099`).
+- 2026-10-27 Corrected runtime cleanup and CI waiting; CI attempt limit now has one lifecycle owner (this commit).

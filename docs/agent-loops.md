@@ -61,6 +61,6 @@ Review is read-only unless fixes were authorized. code-review-and-quality owns f
 
 ## PR and CI
 
-Use github-pr-ci-workflow and the narrowest granted mode: inspect-only, watch-only, PR-create-only, PR-update-only, combined PR plus watching, or exact CI-fix actions. A missing initial remote head never grants push. Only the existing bounded branch-caused-small-safe exception may commit/push a focused CI correction; maximum 2 completed self-fix rounds, then ask.
+Use github-pr-ci-workflow and the narrowest granted mode: inspect-only, watch-only, PR-create-only, PR-update-only, combined PR plus watching, or exact CI-fix actions. A missing initial remote head never grants push. Only the existing bounded branch-caused-small-safe exception may commit/push a focused CI correction; default maximum 2 completed self-fix rounds, then stop and ask. Further completed rounds require an explicit Owner grant.
 
-When asked to wait for CI, keep the turn active with the foreground/native wait until terminal or blocked. Do not schedule polling or end the turn to wait for an app event. Report skipped, cancelled, failed and pending honestly; local checks are not CI evidence.
+When asked to wait for CI, keep the turn active with the foreground/native wait until the requested checks reach terminal states, the Owner interrupts, a concrete access/service/execution blocker prevents continuation, or an explicit execution budget is exhausted. Slowness or a native wait-tool timeout alone is not a blocker. Do not schedule polling or end the turn to wait for an app event. Report skipped, cancelled, failed and pending honestly, plus any blocker or exhausted budget; local checks are not CI evidence.
