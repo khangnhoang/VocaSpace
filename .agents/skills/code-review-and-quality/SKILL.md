@@ -1,389 +1,64 @@
 ---
 name: code-review-and-quality
-description: Repository-specific code review and quality-gate workflow for completed checkpoints, implementation prompts, branches, pull requests, and plans. Use after implementation, before merge, when reviewing code written by a human or agent, when reviewing a plan or brief, validating a correction commit, or deciding readiness for manual QA, further revision, push, or merge.
+description: Review plans, briefs, code, checkpoints, branches and PRs; perform author self-review and prepare independent Codex review briefs. Use for correctness, scope, verification and readiness review or before preparing/running/resuming Codex.
 ---
 
-# Code Review and Quality
+# Code review and quality
 
-## Activation scope
+## Use when / do not use when
 
-Use this skill when reviewing:
+Use for author self-review, reviewing a plan/brief, checkpoint, correction, diff, branch or PR, deciding readiness, or preparing a Codex review. Do not use to author a plan, create a commit or replace domain procedures: planning, Git and the matching domain skills own those actions.
 
-* a completed implementation prompt or local checkpoint
-* a correction commit
-* several checkpoints, a branch, or a pull request
-* code written by a human or agent
-* a bug fix, refactor, migration, RLS/RPC change, validation boundary, frontend change, test change, or documentation change
-* whether implementation matches an approved plan
-* a plan, brief or other plan candidate, using the core Plan review section
-* whether manual QA can begin
-* whether a change is ready for the next approved Git or merge action
+AGENTS.md owns permissions; docs/agent-loops.md owns review timing, the 3-pass cap, evidence block and waiting. Review is read-only unless corrections were authorized. A verdict grants no implementation, Git, model, remote or production action.
 
-Review is read-only by default. Do not modify code unless the user explicitly asks for fixes or the approved workflow already authorizes them.
+## Self-review
 
-For `MULTI_AGENT_E2E`, Plan Reviewer and Implementation Reviewer are mandatory lifecycle roles regardless of whether any Specialist is justified. Each Reviewer keeps the candidate read-only, writes only Main's exact preassigned review artifact, completes every required dimension, and returns a lifecycle status for Main to admit. Main alone transitions the workflow. `PASS`, `Approved`, or any other verdict never grants implementation, commit, push, PR, merge, deployment, database, production, destructive, or remote authority.
+Read this method at the lifecycle's author boundary; small work does not load every formal-review reference.
 
-## Ownership
+1. **Anchor.** Return to the exact Owner request/accepted plan, scope, exclusions and authority. Open the actual current candidate, Git state and evidence, not memory, author intent/summary, planned steps or an earlier revision. Resolve cheap candidate/currentness questions first.
+2. **Falsify.** Challenge plausible material failures: missing requirement, wrong owner, unsupported assumption, unhandled state, scope leakage, stale evidence and claims stronger than proof. Use deterministic tools when a machine can decide. Check the strongest plausible remaining rejection reason before concluding; no fixed hypothesis count, magic phrase, invented defect or extra artifact.
+3. **Verify and reconcile.** After semantic stability, run applicable checks or reuse still-current passing evidence when candidate/inputs/environment hold; explain reuse. A failure cannot be overridden by narrative. Material readiness claims need concrete current evidence; absent/partial/blocked evidence stays visible.
+4. **Proportion.** Use depth appropriate to risk and the claim. No extra role/session/report or repeated check just for ceremony. Self-review creates neither independence nor fresh-reader evidence and replaces neither required review nor manual QA.
 
-This skill owns:
+Apply artifact/domain extensions without copying the method. Report the lifecycle's evidence block and remaining findings. Fixes stay within the current grant.
 
-* understanding approved intent and scope
-* choosing the review range
-* coordinating domain-specific review skills
-* evaluating correctness, boundaries, maintainability, and evidence
-* classifying findings
-* identifying scope creep and missing work
-* issuing and updating a readiness verdict
+## Review workflow
 
-`docs/agent-loops.md` owns author self-review activation and routes its generic methodology to `docs/agent-self-review.md`. This skill owns any additionally applicable formal, integration, independent, or correction review and does not restate the generic author methodology.
+1. Understand Owner intent, accepted behavior, scope/exclusions, acceptance, dependencies, known risks and required verification.
+2. Establish the actual baseline/range, candidate revision and staged/unstaged/untracked state; never assume main is current. Read untracked plan files explicitly.
+3. Read the relevant plan, matching skills, direct contracts/tests and nearby conventions. Judge approved behavior, not preference.
+4. Trace the affected input through validation, permission, business rule, side effect, persistence, response, UI and docs; inspect what the tests actually protect.
+5. Apply relevant dimensions and check evidence currentness, skipped checks and manual QA.
+6. Audit required/supporting/unrelated/unclear changes. Report out-of-scope defects; fix only when granted.
+7. Report supported findings, verification limits, verdict and the smallest next action. Do not rubber-stamp, invent defects or turn review into a redesign.
 
-It does not own plan content (owned by `implementation-planning-and-pr-breakdown`), commit creation, push permission, domain implementation rules, test taxonomy, or comment policy.
+For one committed checkpoint use git show --stat HEAD and git diff HEAD^..HEAD; for a range use git log --oneline <base>..HEAD and git diff <base>..HEAD. For an uncommitted candidate also inspect its files and working-tree diff.
 
-## Related skills
+## Plan review
 
-Use:
+Check fidelity to Owner intent; current repository/ownership; assumptions and dependencies; scope/exclusions; implementability without a material decision being invented downstream; observable acceptance tied to evidence; permission, rollout/rollback and stop routes; and that every required behavior has an owner and reachable verification. A plan verdict does not approve an Owner-controlled choice or grant implementation.
 
-* `implementation-planning-and-pr-breakdown` for goal, scope, dependencies, acceptance criteria, risks, and planned verification
-* `git-checkpoint-workflow` for branch state, baseline, checkpoint ranges, commit boundaries, and remote-action limits
-* `frontend-workflow` and `frontend-design` for frontend implementation and UI/UX
-* `frontend-ui-review` for a rendered UI review domain result, consumed here as evidence
-* `nextjs-server-action-zod` for validation, Server Actions, Route Handlers, payloads, and schema/type SSOT
-* `supabase-safe-migration` for migrations, RLS, RPC, triggers, constraints, and concurrency
-* `test-quality-strategy` for test layers, behavior coverage, test-plan headers, and verification
-* `code-commenting-and-maintainability` for comments, JSDoc/TSDoc, TODO/FIXME, and structured file documentation
+## Findings and verdicts
 
-Read all relevant skills before issuing findings or a verdict.
+Critical blocks: exploitable security, data loss/corruption, authorization bypass, broad RLS exposure, broken migration/destructive production behavior, core failure or exposed secrets.
+Required blocks: wrong/missing promised behavior, important unhandled path, invalid permission/state, necessary verification gap, wrong owner, out-of-scope work or materially misleading docs.
+Suggestion, Nit and FYI are non-blocking. Each blocker needs evidence, consequence and a feasible smallest correction; do not disguise blockers as suggestions.
+
+Verdicts: Approved; Implementation review passed; manual QA pending; Changes required; Blocked; Rejected approach. Use Blocked for missing context/evidence/authority, not a fabricated defect. Approved requires complete relevant behavior, evidence, QA, scope and docs with no Critical/Required. A Codex brief may request PASS/CHANGES REQUIRED; PASS never erases required pending QA.
+
+Verification statuses: Verified, Partially verified, Not verified, Blocked. Distinguish automated, manual, static, fixture-backed, historical and environment-limited evidence. Passing tests are evidence, not proof of completeness.
+
+## Re-review and advice
+
+Check each prior finding against the actual correction, new regressions and affected verification. An uncommitted candidate is fixed in place; a committed reviewed candidate normally gets a correction commit under Git authority. Broaden re-review only when material scope/behavior changed.
+
+An authorized adviser receives a specific question, relevant bounded sources and real access limits. Its output stays advisory; Main verifies and owns the conclusion. Do not infer independence, isolation or model-quality improvement from a new session or a structural validator.
 
 ## Resource routing
 
-Read only the references whose conditions match:
-
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
-| [`references/domain-review-dimensions.md`](references/domain-review-dimensions.md) | Must read when formal or integration review inspects validation, database/concurrency, frontend/UX, tests or CI coverage, manual behavior evidence, security, performance, comments, Git state, or cross-owner change-set evidence. This includes correction re-review with post-correction tests/status and any verdict limited by required manual behavior or a state matrix | The task only classifies or renders already-supplied findings, prepares a bounded specialist package without inspecting its sources, or performs a small docs/metadata review with none of these boundaries |
-| [`references/special-review-cases.md`](references/special-review-cases.md) | Must read only when the prompt or review target explicitly identifies a bug fix needing root-cause/regression assessment, a refactor needing contract-preservation assessment, a dead-code removal, or a dependency change | A correction re-review only verifies resolution of earlier findings, or a feature/checkpoint review has none of the four explicit change types |
-| [`references/managed-lifecycle-review.md`](references/managed-lifecycle-review.md) | Must read before performing, correcting, rereviewing, or reporting a `MULTI_AGENT_E2E` Plan Reviewer or Implementation Reviewer round, including mapping a human-facing verdict to a managed lifecycle status | Ordinary checkpoint/PR review, small documentation review, Specialist consultation, and all reviews outside a managed E2E lifecycle |
-| [`references/specialist-review.md`](references/specialist-review.md) | After the applicable main review, the concise core gate leaves a materially viable specialist candidate; read before deciding, packaging, executing, or reconciling that action | Default main-only review, or no candidate passes the core gate |
-| [`references/review-report-templates.md`](references/review-report-templates.md) | Must read before producing or classifying a formal report with multiple current supported findings, or preparing any bounded specialist package | Small review has no actionable finding and needs only a compact verdict, or a correction re-review only records disposition of earlier resolved findings |
-
-Treat every matching read condition as mandatory: read that direct reference before answering instead of relying on a remembered or core summary. When signals overlap, apply these boundaries before the broader table wording:
-
-* Producing or classifying a report from already-supplied findings reads only the report template; mentioning Git, tests, permission, naming, or other domains inside those findings does not select domain dimensions.
-* Deciding or preparing a bounded specialist action reads the specialist and report references; the owning domain skill may remain active, but do not read this skill's domain-dimensions reference unless the main review itself is inspecting domain sources.
-* Re-reviewing a correction against post-correction tests or verification status reads domain dimensions; do not read special cases or the report template merely because the correction resolves earlier defects or the answer uses report headings.
-* Issuing a limited verdict because required manual behavior or a state matrix remains pending reads domain dimensions.
-* Enforcing read-only authority or returning `Blocked` because the review target, range, or implementation evidence was not supplied uses the core only; do not read domain dimensions merely to restate the absent inputs or forbidden mutations.
-* Reviewing baseline, range, currentness, ancestry, divergence, worktree state, or cumulative change-set evidence reads domain dimensions only; do not read special cases or the report template merely because the range contains a refactor or supports multiple findings.
-
-Do not preload references merely because this skill is active, and do not infer a route from subject matter alone when its skip condition matches. The core remains sufficient to select the applicable main review depth and decide whether each reference must be read.
-
-## Core principles
-
-* Review against approved behavior, not personal preference.
-* Read the task, plan, and repository context before judging the diff.
-* Review observable behavior and system guarantees, not only style.
-* Verify claims through code, tests, types, migrations, and repository evidence.
-* A passing test suite is evidence, not proof of completeness.
-* Do not rubber-stamp, invent defects, soften blockers, or turn review into unrelated redesign.
-* Separate required changes from suggestions.
-* Follow repository conventions when multiple valid approaches exist.
-* Surface conflicts instead of averaging them.
-* Keep findings surgical, evidenced, and actionable.
-* Approval never grants permission to push or merge.
-
-## Approval standard
-
-Approve only when:
-
-* approved behavior and acceptance criteria are satisfied
-* explicit exclusions were respected
-* no Critical or Required finding remains
-* relevant domain rules are satisfied
-* verification is current and appropriate
-* required manual QA is complete, or the verdict explicitly remains limited
-* no known security, authorization, data-integrity, migration, or concurrency blocker remains
-* the diff is coherent and free of unrelated scope expansion
-* comments, tests, and progress documentation match the implementation
-
-Do not approve merely because the code is cleaner. Do not reject merely because it differs from your preferred implementation.
-
-## Review targets and ranges
-
-### Prompt checkpoint or correction
-
-Typical commands:
-
-```bash
-git show --stat --oneline HEAD
-git diff HEAD^..HEAD
-```
-
-Review the prompt outcome, coherence, verification, and any correction regression.
-
-### Multiple checkpoints or branch
-
-Confirm the actual baseline, then inspect:
-
-```bash
-git log --oneline <baseline>..HEAD
-git diff <baseline>..HEAD
-```
-
-Review both final cumulative behavior and checkpoint history when corrections matter.
-
-### Pull request
-
-Review goal, baseline, commit history, cumulative diff, dependency order, verification evidence, manual QA, and known limitations.
-
-Do not assume `main` is current or the branch started from the latest remote commit.
-
-## Review modes
-
-### Read-only review
-
-Default for review, audit, assessment, verification, or readiness requests.
-
-* do not edit
-* do not commit or push
-* report findings, verdict, and smallest next action
-
-### Fix and re-review
-
-Use only when fixes are explicitly authorized.
-
-1. Review and list findings.
-2. Make surgical corrections.
-3. Run relevant verification.
-4. Audit the new diff.
-5. Create a new local correction checkpoint through `git-checkpoint-workflow`.
-6. Re-review the final state.
-
-Do not amend the earlier checkpoint by default.
-
-## Required review workflow
-
-1. **Understand intent:** goal, actor, current/expected behavior, business rules, scope, exclusions, acceptance criteria, dependencies, verification, manual QA, and known risks.
-2. **Confirm range:** branch, baseline, commits, staged/unstaged changes, untracked files, and prerequisites.
-3. **Read instructions:** applicable `AGENTS.md`, domain skills, tests, docs, and similar repository patterns.
-4. **Inspect tests early:** confirm they protect approved behavior and meaningful failure/boundary paths.
-5. **Trace integration:** follow input or user action through validation, permission, business rule, side effect, persistence, response, UI feedback, tests, and docs.
-6. **Apply relevant review dimensions.**
-7. **Audit the change set:** scope, missing files, unrelated work, generated files, comments, dead code, and progress documentation.
-8. **Verify evidence:** commands, results, later edits, skipped checks, environment limits, and manual QA.
-9. **Classify findings with one severity taxonomy.**
-10. **Issue a verdict and exact next action.**
-
-If reliable approved scope is missing, state that the review is limited.
-
-## Review dimensions
-
-Apply only the dimensions relevant to the change.
-
-### Scope and behavior
-
-Check:
-
-* approved goal and acceptance criteria
-* explicit exclusions
-* missing prerequisites
-* silent business-rule changes
-* incomplete state transitions
-* happy, failure, empty, null, boundary, retry, duplicate, stale, rollback, and partial-failure paths
-* consistency between client, server, and persisted state
-
-A polished solution to the wrong problem is a failure.
-
-### Readability and architecture
-
-Check:
-
-* names and control flow
-* responsibility and module boundaries
-* abstractions that earn their complexity
-* duplicated business rules or state
-* client/server and database/application responsibility
-* schema/type SSOT
-* shared versus feature-specific components
-* compatibility code and speculative generalization
-* adherence to nearby patterns
-
-Do not demand abstraction because two blocks merely look similar.
-
-### Plan review
-
-Use this section to review a plan, brief or other plan candidate, in or outside a managed workflow. `implementation-planning-and-pr-breakdown` owns what a plan must contain; this section owns how to review it. A `MULTI_AGENT_E2E` Plan Reviewer round adds the managed checks in [`references/managed-lifecycle-review.md`](references/managed-lifecycle-review.md).
-
-Disposition every item for the exact plan revision:
-
-* fidelity to the Owner source and approved scope, including material ambiguity and scope exclusions;
-* current repository reality, semantic ownership, activated skills, and absence of a competing source of truth;
-* dependencies, assumption evidence and invalidation, and blast radius;
-* exact and forbidden paths, branch/base/prerequisites, and implementability without downstream material invention;
-* observable acceptance mapped to deterministic, native/runtime, manual, and external evidence with truthful claim limits;
-* action permissions, progress ownership, rollback, stop, and Owner-decision routes;
-* consumer-to-owner and acceptance-to-evidence closure.
-
-Plan review does not implement, approve the Owner's material decision, or grant any action. A material defect within the author's current authority is a blocking finding; missing external evidence or permission, or material Owner ambiguity, is a blocker with the exact resolver.
-
-## Change-set audit
-
-Classify changed areas as:
-
-```txt
-required for approved scope
-directly supporting approved scope
-unrelated
-unclear ownership
-```
-
-Unrelated changes should normally be removed. Unclear ownership must be investigated.
-
-Do not use line or file count as a hard gate. Reviewability depends on independent behaviors, domains, semantic risk, migration/permission sensitivity, concurrency, verification complexity, and rollback needs.
-
-Recommend splitting when outcomes, dependency chains, review models, verification, or rollback should be independent.
-
-## Review depth and specialist orchestration
-
-### Review levels
-
-Use the smallest level that can establish readiness:
-
-| Level | Purpose | Route |
-| --- | --- | --- |
-| Minimum review | Audit every actual change for intended scope, artifacts, truthful claims and proportional verification | Lifecycle invariant; exact change-set/Git audit belongs to `git-checkpoint-workflow` |
-| Formal main review | Apply this skill's full intent, range, domain, finding and verdict workflow | Checkpoint, branch or PR when the task or lifecycle requires it |
-| Main integration review | Trace and reconcile a multi-boundary outcome rather than concatenate domain reports | Main agent; required when correctness depends on interactions across owners |
-| Specialist review | Answer a bounded uncertainty for one hard-risk cluster | Optional, separately justified, and covered by current explicit permission after main review remains insufficient |
-
-For integration review, trace only affected boundaries, for example data/storage invariant → schema/type → validation/permission/business rule → action/handler/RPC → result contract → UI state → tests/fixtures/manual QA. The main agent verifies every reported issue and owns the final readiness verdict.
-
-### Applicable main review depth
-
-Use final sizing and the actual review target to select the smallest sufficient main-agent depth:
-
-* Final `small/low-risk` self-authored work applies the shared author methodology plus the universal minimum review and normally skips this skill's formal workflow and specialist-decision evaluation.
-* Formal main review applies when the task, checkpoint, lifecycle or discovered risk requires the full workflow. A medium size label alone does not require a heavyweight formal-review ceremony.
-* Main integration review applies when correctness depends on interactions across owners or boundaries.
-* A self-authored non-small implementation first completes the shared author self-review boundary, then uses formal main review when the task, checkpoint, lifecycle or discovered risk requires it, plus integration review when affected boundaries require it.
-* A human- or other-agent-authored branch or PR uses formal main review, plus integration review when its risk or boundaries require it; do not label that work `main self-review`.
-* Every agent-authored plan presented to the Owner keeps the narrower planning-owned rule that main-agent plan self-review comes first.
-
-If review evidence exposes a concrete hard risk or material uncertainty that invalidates final sizing, reclassify before specialist consideration, complete the newly applicable formal or integration review, and then evaluate the gates below.
-
-### Two-tier activation and permission
-
-An owning domain signal first activates the relevant domain skill for the main agent. It does not automatically call a specialist.
-
-* Default to `0 specialist`; small tasks do not call or spawn a Specialist.
-
-After the main agent completes the applicable review depth, a specialist may be considered for each candidate cluster only when all of these are true:
-
-* an activated owning domain skill supplies a concrete hard-risk signal, or the owner explicitly requests a specialist perspective;
-* the unresolved uncertainty could materially change correctness, safety or readiness;
-* repository evidence, main review and current verification remain insufficient;
-* the uncertainty fits one risk cluster and 1–3 exact questions;
-* expected benefit justifies the initial context/quota cost;
-* current permission explicitly allows the specialist action.
-
-Task size, file count, domain activation, a formal-review route, or a confidence label is not a specialist trigger or permission. Before domain-owned signals exist, do not invent one from a subjective “complex task” label. An explicit owner request activates consideration outside the default trigger, but does not bypass applicable review depth, material uncertainty, the evidence gap, bounded context, expected quota benefit or explicit specialist permission.
-
-If specialist evidence is necessary to establish safety but permission or a valid bounded package is unavailable, report the evidence as `not_run` and use `Blocked` when the main review cannot reach a trustworthy result. Escalation never grants edit, commit, push, PR, merge, production, database or remote permission.
-
-## Finding severity
-
-Keep the exact severity taxonomy and semantics below. In a Vietnamese owner-facing report, present each label with the unambiguous mapping `Nghiêm trọng (Critical)`, `Bắt buộc (Required)`, `Đề xuất (Suggestion)`, `Tiểu tiết (Nit)`, or `Thông tin (FYI)`. If a machine-readable consumer requires the canonical value, use the exact English value.
-
-### Nghiêm trọng (`Critical`)
-
-Blocks approval. Use for exploitable security issues, data loss/corruption, authorization bypass, broad RLS exposure, broken migration paths, destructive production behavior, core workflow failure, irrecoverable consistency violations, or exposed secrets.
-
-### Bắt buộc (`Required`)
-
-Blocks approval. Use for missing/incorrect approved behavior, important unhandled paths, invalid permission or state transition, necessary regression/verification gaps, wrong contract ownership, scope that must be removed, or misleading documentation that affects correctness.
-
-### Đề xuất (`Suggestion`)
-
-Non-blocking maintainability, clarity, low-risk test, future refactor, documentation, or UX improvement.
-
-### Tiểu tiết (`Nit`)
-
-Minor non-blocking wording, formatting, or local consistency issue.
-
-### Thông tin (`FYI`)
-
-Information only; no change required.
-
-Do not disguise blockers as suggestions or nits.
-
-## Verification status
-
-Keep the exact verification-status taxonomy and semantics below. In a Vietnamese owner-facing report, use the mapped labels below. If a machine-readable consumer requires a canonical value, use the exact English value. Verification statuses are not finding severities or review verdicts.
-
-* **Đã xác minh (`Verified`):** evidence directly covers affected behavior
-* **Xác minh một phần (`Partially verified`):** relevant evidence exists but important behavior remains unchecked
-* **Chưa xác minh (`Not verified`):** no meaningful or still-valid evidence exists
-* **Bị chặn (`Blocked`):** environment, dependency, conflict, or missing decision prevents verification
-
-Check what changed, which risks were tested, commands and results, skipped checks, manual QA, and whether later edits invalidated evidence.
-
-Manual QA pending may allow:
-
-```txt
-Implementation review passed; manual QA pending.
-```
-
-It does not allow `Approved` when that QA is required.
-
-## Re-review
-
-After corrections:
-
-1. Review the correction diff.
-2. Confirm every Critical and Required finding is resolved.
-3. Check for new regressions.
-4. Rerun affected verification.
-5. Confirm comments and docs were updated.
-6. Confirm a new local correction checkpoint exists.
-7. Update the verdict.
-
-Do not rely only on the author’s claim that findings were fixed.
-
-## Kết luận review
-
-### Được duyệt (`Approved`)
-
-All required behavior, evidence, manual QA, scope, and documentation are complete. No Critical or Required finding remains.
-
-Approval does not authorize push or merge.
-
-### Review implementation đạt; còn manual QA (`Implementation review passed; manual QA pending`)
-
-No code-review blocker remains and automated verification is appropriate, but required manual QA is outstanding.
-
-### Cần thay đổi (`Changes required`)
-
-One or more blocking findings, incorrect scope/behavior, or insufficient verification remains.
-
-### Bị chặn (`Blocked`)
-
-Missing context, unclear baseline/ownership, repository conflict, environment limitation, or unresolved decision prevents a trustworthy review.
-
-### Cách tiếp cận bị từ chối (`Rejected approach`)
-
-The implementation strategy fundamentally violates approved architecture, safety, or business constraints and cannot be repaired incrementally.
-
-## Final checklist
-
-* [ ] Goal, scope, exclusions, and acceptance criteria are understood
-* [ ] Baseline and review range are correct
-* [ ] Relevant skills, tests, and docs were read
-* [ ] Implementation was traced through affected layers
-* [ ] Scope creep, missing files, and dead code were checked
-* [ ] Relevant validation, permission, database, frontend, test, security, and performance risks were reviewed
-* [ ] Comments, progress docs, and Git checkpoints match behavior
-* [ ] Verification evidence is current
-* [ ] Manual QA status is explicit
-* [ ] Findings use the defined severity taxonomy
-* [ ] Verdict matches remaining risk
-* [ ] Next action is clear
-* [ ] No remote action is implied
+| [Domain dimensions](references/domain-review-dimensions.md) | Formal review inspects validation, DB/concurrency, frontend, tests, security, performance, comments or Git/change-set evidence. | Small author self-review, or only rendering supplied findings without source inspection. |
+| [Special cases](references/special-review-cases.md) | Reviewing an explicitly identified bug fix, refactor, dead-code removal or dependency change. | Ordinary feature review or a correction only checking prior findings. |
+| [Report format](references/review-report-templates.md) | Writing a formal report with several findings. | Compact verdict with no actionable findings. |
+| [Codex brief](references/codex-brief.md) | Preparing, running or resuming an independent Codex review. | No Codex round. |

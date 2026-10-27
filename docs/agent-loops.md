@@ -1,179 +1,66 @@
-# Agent Lifecycle Loops
+# Agent lifecycle loops
 
-This document defines lifecycle routing for agent work in this repository. It sits on top of `AGENTS.md` and the domain skills in `.agents/skills/*/SKILL.md`.
+This file owns when to plan, review, wait, checkpoint and stop. AGENTS.md owns shared principles and permissions; task skills own procedures. A more specific skill controls its domain but cannot widen Owner authority. Direct Owner instructions may narrow work or make it read-only.
 
-It answers when to plan, checkpoint, review, inspect CI, fix CI, and stop. It does not replace domain-specific skills.
+## Universal lightweight preflight
 
-## Precedence and Safety
+Identify intent, authority and exclusions; read applicable instructions, direct repository evidence and matching skills completely; inspect Git when ownership/base/files matter. Read program plan/progress/problems and Owner decisions only when they affect this task. Do not read unrelated sources for ceremony.
 
-When this document conflicts with a domain skill, follow the more specific domain skill by default.
+Size after routing and again after discovery. Outcomes, risk, ownership, dependencies, verification and rollback decide size, not file count:
+- Small: one clear bounded outcome, no material decision, obvious verification/rollback. Main implements directly with a micro-plan, checks and self-review.
+- Medium: one bounded contract with stable ownership. Use a concise plan/brief, or the owning program's detail plan.
+- Large/high-risk: several owners/dependencies, governance/permission/security/DB/auth/payment/concurrency/CI/deployment risk or material uncertainty. Use a durable plan and independent Codex review of plan and implementation.
+Escalation changes process depth, never permission. Routine work needs no managed roles, ledger, review-artifact protocol or orchestration runtime.
 
-When permission is ambiguous, choose the safer and more restrictive rule and report the ambiguity.
+## Planning
 
-Direct user instructions may narrow scope or require read-only/no-code behavior.
+Read implementation-planning-and-pr-breakdown for non-trivial planning, unclear scope, dependency/PR split, handoff or plan correction. Repository facts come from discovery; ask only material decisions the Owner owns. Planning alone grants no implementation.
 
-Remote, destructive, production-risk, database, auth, RLS, payment, security-boundary, deployment, and merge actions require explicit permission at the correct level.
+An approved plan/current instruction may authorize implementation when scope and acceptance are clear and prerequisites hold. Stop for a material contract conflict, missing decision, unclear writer ownership or ungranted action.
 
-Confidence labels, review verdicts, CI classifications, and checkpoint summaries are informational only. They never grant permission to stage, commit, push, create or update a PR, merge, deploy, modify a remote database, or perform destructive actions.
+## Review and self-review
 
-Use the canonical confidence labels `High`, `Medium`, `Low`, `Blocked`, and `Not assessed`. In a Vietnamese owner-facing report, present them as Cao (`High`), Trung bình (`Medium`), Thấp (`Low`), Bị chặn (`Blocked`) and Chưa đánh giá (`Not assessed`). If a machine-readable consumer requires a canonical value, use the exact English value. Confidence labels are informational and are not finding severities or verdicts. Numeric scores are optional and informational only; do not use them instead of findings, verification status, risks, manual QA status, or verdicts.
+Every author self-reviews each plan presented to the Owner and each implementation checkpoint, including small work. Read the Self-review section of code-review-and-quality at that boundary, once while its complete unchanged text remains available. Reapply it to a corrected candidate; reread only when context or the contract changed. A micro-plan inside implementation is covered by that implementation's self-review.
 
-## Skill Ownership
+A pass reviews the whole current candidate. End when a pass leaves no Critical or Required finding, at most 3 passes. After pass 3 with blocking findings, stop and ask the Owner: describe the findings and offer the recommended resolution first, continue fixing, or recording in the owning problems.md when it exists. Never claim PASS with unresolved blockers.
 
-Use this document for lifecycle routing, confidence reporting, self-review activation, and stop rules. The generic author methodology lives in [`docs/agent-self-review.md`](./agent-self-review.md); artifact and domain skills own their local extensions and exact procedures:
+Review after each checkpoint; the final author review covers the whole diff and acceptance before external review or delivery. A one-checkpoint review is also the final review. Fix pre-commit findings before committing; a later correction has its own self-review.
 
-* Planning / PR breakdown: `implementation-planning-and-pr-breakdown`
-* Repo-local skill governance: `maintain-repo-skills`
-* Program documentation shape, templates and State placement: `repo-docs-system`
-* Frontend/UI work: `frontend-workflow`, `frontend-design`
-* Rendered UI review against accepted designs: `frontend-ui-review` (domain result; final review stays with `code-review-and-quality`)
-* Server Actions, schemas, DTOs, validation boundaries: `nextjs-server-action-zod`
-* Supabase, DB, RLS, RPC, triggers, storage, migrations: `supabase-safe-migration`
-* Tests and verification: `test-quality-strategy`
-* Comments and maintainability: `code-commenting-and-maintainability`
-* Review: `code-review-and-quality`
-* Managed native multi-agent workflow: `native-multi-agent-workflow`
-* Checkpoint and commits: `git-checkpoint-workflow`
-* GitHub PR / CI: `github-pr-ci-workflow`
+Codex review is required for large/high-risk plans and their implementation, or when the Owner asks. Small/medium work keeps proportional self-review; small copy/layout/styling fixes during Owner QA need no Codex round unless requested. Read code-review-and-quality and its Codex brief reference before dispatch. Review does not authorize extra model calls: use the actual standing/current Owner grant and stop if it does not cover the action. A reviewer does not recursively dispatch another review because it loaded this lifecycle.
 
-PR creation and update are owned by `github-pr-ci-workflow`. This document does not redefine that workflow.
+Optional advisers/Specialists require authority, a specific question and relevant bounded evidence. Advice does not approve a decision, grant an action or replace verification. No separate Specialist admission workflow or automatic call is required. Existing domain references to global specialist gates mean this short optional-advice rule; their risk signals never activate the retired workflow.
 
-## Universal Lightweight Preflight
+### Waiting for an independent review
 
-Every task begins with this lightweight preflight before choosing discovery depth: identify the owner's current intent, action permissions and exclusions; apply the `AGENTS.md` instructions for the target path; inspect the target and direct repository evidence; activate every skill whose read condition matches; and inspect Git state when file, branch, dependency or ownership state matters.
+Keep the turn active until the review result, an actual blocker or an Owner interruption. Independent already-authorized work is allowed only if it cannot change the reviewed candidate/dependencies/evidence or bias the reviewer. Do not invent work to avoid waiting.
 
-* For tracked-program implementation, load the authoritative program source, current status/problem sources, exact per-PR implementation contract and recorded owner decision when those artifacts exist. Route detailed reading and reconciliation to `implementation-planning-and-pr-breakdown`; stop on material conflict or missing permission.
-* Record preliminary size after routing and final size during discovery before implementation. Size by outcomes, ownership, dependency, permission/risk, verification and rollback signals rather than file count alone; escalation changes depth or stops work but never grants permission.
-* Use a micro-flow for small clear work, a concise plan for bounded medium work, and an existing or new durable plan for large/high-risk work. Do not create a plan file or list irrelevant sources merely to complete a taxonomy.
+With no such work, use native completion/event waiting. A wait-tool timeout is not reviewer completion: continue waiting. Do not repeatedly tail logs, inspect reviewer reasoning/tool activity or narrate unchanged status instead of waiting. Updates follow material progress, blockers and applicable communication requirements.
 
-### Execution mode routing
+Inspect a log to diagnose a concrete failure, unexpected exit, lost completion signal or an Owner request; normal slowness alone is not a failure. Waiting never grants candidate edits, retries, replacement reviewers or parallel rounds. Reconcile the completed report against the repository and confirm the candidate stayed unchanged before reporting its verdict.
 
-Choose mode from the requested outcome, ownership, dependency shape, and unresolved material risk; file count alone never selects a managed workflow.
+### Self-review evidence block
 
-| Mode | Use when | Boundary |
-| --- | --- | --- |
-| `NORMAL` | One agent can complete one coherent bounded outcome with stable ownership and proportional verification | Default; do not spawn roles merely for ceremony or file count |
-| `MULTI_AGENT_MASTER_PLAN` | A broad initiative must first become an independently reviewed Master Plan with reliable scope, dependency, and phase gates | Ends with a reviewed plan; no implementation |
-| `MULTI_AGENT_E2E` | A bounded deliverable benefits materially from fresh planning, implementation, and mandatory lifecycle review because ambiguity or cross-owner risk remains | Uses serialized candidate writers and required Reviewer phases |
-| `OWNER_DECISION_REQUIRED` | GOAL, scope, ownership, permission, acceptance, baseline, or exhausted correction budget cannot be resolved safely | Stop and ask the Owner; do not average conflicts |
+Every plan/implementation report includes one Tự review block:
+- Object and requirement/accepted plan checked.
+- Owning sources read, or reused unchanged.
+- Material claims and their command or file:line evidence.
+- Checks/results for the final bytes; explain why reused evidence remains valid.
+- Findings/fixes per pass, ending with remaining Critical/Required counts.
 
-When either managed mode is selected, read `native-multi-agent-workflow` before dispatching a role. Main alone owns transitions. Reviewer is the mandatory full lifecycle review role; Specialist remains an optional, bounded, advisory consultation owned by its caller and never substitutes for Reviewer verdict or phase coverage. The native skill owns detailed role, handoff, artifact, correction, blocker, and Owner-steer procedure; this lifecycle overlay does not duplicate its state machine.
+Small work may use two lines with concrete evidence. This is a report section, not another artifact or a reason to reread/rerun unchanged work. Self-review is not independent/fresh-reader/runtime evidence.
 
-### Review depth routing
+## Checkpoint and delivery
 
-Every actual change receives the universal minimum review in Loop 1. Formal main review applies only when the task, checkpoint, lifecycle or discovered risk requires it; a medium size label alone does not create a heavyweight review ceremony. Multi-boundary or high-risk work also requires main-agent integration review across the affected contract. The main agent remains responsible for verifying findings and issuing the final conclusion.
+Before completing implementation, use git-checkpoint-workflow: inspect staged/unstaged/untracked content, intended scope, encoding/EOL, conflicts, secrets/debug artifacts, evidence and pending QA. Report changed files and why, actual checks, skipped/failed checks, limitations, self-review and exact Git/remote state. Without a commit grant, propose an English Conventional Commit; with a grant, report the resulting hash/message.
 
-Final `small/low-risk` work normally ends after the universal minimum review without specialist-decision evaluation. If review evidence reveals a concrete hard risk or material uncertainty that invalidates that sizing, reclassify first, complete the newly applicable formal or integration review, and only then evaluate specialist gates.
+Local commits, push, PR, merge, deployment, database mutation and branch deletion remain separate. A checkpoint is not automatic Git authority.
 
-Specialist review defaults to `0 specialist` and is never activated by task size, file count, domain-skill routing, formal-review depth, confidence, or an owner request alone. After the main agent completes the applicable review depth, consider a bounded specialist action only when an owning domain skill supplies a concrete hard-risk signal or the owner explicitly requests a specialist perspective, material uncertainty remains, existing evidence is insufficient, the uncertainty fits one threatened-invariant risk cluster, expected benefit justifies the initial package, and current explicit permission covers that action. An owner request activates consideration only; it does not bypass any remaining gate.
+## PR review
 
-Group signals that threaten the same invariant or causal chain and can be resolved by one bounded answer into one cluster, even when several domains report them. Multiple specialists are possible only for genuinely independent unresolved material clusters whose evidence gaps, bounded questions, benefit, and permission coverage each pass separately; there is no task-wide specialist entitlement or hard cap. Every specialist handles one cluster. One owner instruction may cover a bounded count or class of actions, and another owner round-trip is required only when the next action exceeds the granted count, domain, access, package, or action boundary.
+Review is read-only unless fixes were authorized. code-review-and-quality owns findings and verdict. PASS/Approved means review readiness only, not GitHub approval, Owner approval, push, merge or deployment.
 
-Quota controls package width, deduplication, low-value calls, and repetition. Token cost alone must not veto bounded evidence that could materially resolve an unresolved correctness or safety risk blocking a trustworthy main-agent verdict. Trigger satisfaction never grants specialist, implementation, Git, remote, database, production, or destructive permission. Route self-review of every agent-authored plan presented to the Owner (durable plan, approved brief or concise response plan; a micro-plan inside an implementation turn is covered by that turn's implementation self-review) to the plan self-review rule in `implementation-planning-and-pr-breakdown` and reusable Specialist package/behavior to `code-review-and-quality`; record `not_run` when required permission or a valid executor/package is unavailable, and use `Blocked` when main evidence cannot establish trustworthy readiness.
+## PR and CI
 
-### Shared author self-review routing
+Use github-pr-ci-workflow and the narrowest granted mode: inspect-only, watch-only, PR-create-only, PR-update-only, combined PR plus watching, or exact CI-fix actions. A missing initial remote head never grants push. Only the existing bounded branch-caused-small-safe exception may commit/push a focused CI correction; maximum 2 completed self-fix rounds, then ask.
 
-When a planning or implementation author reaches an applicable self-review boundary, read [`docs/agent-self-review.md`](./agent-self-review.md) completely once for that boundary and apply it to the actual current candidate together with every applicable artifact and domain extension. Do not load the shared methodology during the Universal Lightweight Preflight merely because a task may later produce a candidate. A task that reviews or changes the shared methodology still reads it during preflight because it is then a governing or target source.
-
-Plan and implementation self-review are separate boundaries; several local extensions within one boundary do not create repeated reads. A changed candidate requires the author to reapply the affected methodology and evidence checks, but not to reread an unchanged shared contract that remains reliably available in current context.
-
-**Self-review evidence block.** Every author report to the Owner at a plan or implementation self-review boundary includes one evidence block, headed `Tự review` in a Vietnamese report. It records:
-
-1. Review object: the plan revision, commit or diff, and the Owner request or plan it is checked against.
-2. Sources: the owning sources read at this boundary, or reused from an unchanged complete read in current context.
-3. Claims: each material claim checked (command, flag, path, line, count, behavior) with the command or `file:line` used.
-4. Checks: the checks whose result holds for the bytes after the last edit, either run after it or reused because the last edit cannot affect them (say why), with their results.
-5. Passes: one line per pass with its findings by severity and the fix.
-
-Small work may use one or two lines but still names concrete evidence. "No issues found" without claims and checks does not satisfy the block. The block records evidence; it never requires rereading or rerunning only to fill it, and [`docs/agent-self-review.md`](./agent-self-review.md) still decides reuse. It is a report section, not a new file, role or session.
-
-```text
-Tự review:
-- Đối tượng: <commit/diff hoặc plan revision>, so với <yêu cầu Owner hoặc plan>
-- Nguồn: <file đã đọc ở boundary này, hoặc dùng lại bản đọc đầy đủ chưa đổi>
-- Claim: <claim> — <command hoặc file:line>
-- Kiểm tra: <command> — <kết quả>; <command> dùng lại vì <lý do lần sửa cuối không ảnh hưởng>
-- Lượt 1: <finding theo mức độ> → <cách sửa>; Lượt 2: 0 Critical, 0 Required
-```
-
-**Passes and cadence.** A pass is one full review of the current candidate. The loop ends when a pass leaves no `Critical` or `Required` finding, with at most 3 passes. Self-review runs after each checkpoint. The final review is the last author review before the work goes to push or external review: it covers the whole diff against its base and every acceptance criterion the author can verify, and names criteria that wait on external evidence as pending. A one-checkpoint task's review is its final review. A later correction gets its own self-review over the correction and the criteria it affects. Self-review does not replace a required Reviewer, Codex review, fresh-reader round or manual QA, and the cap and cadence never grant commit, push or wider scope.
-
-**Findings left after the cap.** When pass 3 still leaves a `Critical` or `Required` finding, the author asks the Owner with its structured question tool, or in the reply when it has none. It describes each finding and offers: the author's recommended resolution, listed first; continue fixing; record it in the owning program's `problems.md`, only when that file exists. A managed role does not ask the Owner; it returns the findings to Main in its handoff, and Main asks the Owner in the same way: with its structured question tool, or in the reply when it has none, offering the same options. The author never stops silently or reports the work as passed.
-
-## Loop 0: Planning / PR Breakdown
-
-**Trigger:** after the universal preflight, continue into the detailed planning/PR-breakdown procedure for explicit planning requests, unclear scope, non-trivial or multi-step implementation, cross-domain changes, large UI/workflow changes, DB/RLS/auth/permission/route-flow/payment/deployment/security-sensitive work, PR breakdown, dependency ordering, refactor planning, or unclear acceptance criteria.
-
-**Mode:** read, analyze, and propose. This loop must not create a new approval gate by itself; it only identifies whether existing user intent, repo state, and domain skills allow implementation to proceed.
-
-**Skill owner:** `implementation-planning-and-pr-breakdown`
-
-**Owner-facing output:** mục tiêu, phần trong phạm vi, phần ngoài phạm vi, sự thật đã xác nhận, giả định, xung đột/câu hỏi còn mở, thứ tự dependency, phase hoặc PR đề xuất khi hữu ích, acceptance criteria, kế hoạch kiểm tra/xác minh, rủi ro và block `Tự review` của plan (xem "Shared author self-review routing"). Dùng ngôn ngữ owner yêu cầu; khi owner dùng tiếng Việt và không yêu cầu khác, tiêu đề cùng phần diễn giải phải là tiếng Việt tự nhiên, còn technical literal và exact evidence được giữ nguyên.
-
-**Mức độ tin cậy trong báo cáo:** độ rõ của phạm vi, độ tin cậy của yêu cầu, mức rủi ro, implementation gate và lý do.
-
-**Stop rule:** stop and ask/report instead of implementing when:
-
-* the user requested planning-only or read-only work;
-* guessing would affect business behavior;
-* implementation would touch high-risk areas without explicit permission;
-* a domain skill or repo state creates a hard stop;
-* user request, repo conventions, and domain skills conflict.
-
-If the user clearly requested implementation, scope is sufficiently clear, and no domain skill creates a hard stop, proceed with a concise plan and implement surgically.
-
-## Loop 1: Implementation Checkpoint
-
-**Trigger:** after completing an implementation task and before ending the turn.
-
-**Mode:** self-check and report.
-
-**Skill owner:** `git-checkpoint-workflow`, plus any domain skill touched by the implementation.
-
-**Universal minimum review:** apply the shared author self-review route above. Every actual change set must also be checked for intended scope only, unrelated formatting, encoding/EOL hygiene, secrets/debug/conflict markers, accurate behavior/status claims, verification proportional to discovered risk, staged/unstaged/untracked content and permission/scope leakage. `git-checkpoint-workflow` owns the exact change-set and Git audit procedure.
-
-**Owner-facing output:** file đã thay đổi và lý do, kiểm tra/xác minh thực tế đã chạy cùng kết quả, rủi ro/khoảng trống/giả định/manual QA còn lại, block `Tự review` (xem "Shared author self-review routing"), mức độ tin cậy, English Conventional Commit message đề xuất và trạng thái remote action. Dùng tiêu đề cùng phần diễn giải bằng tiếng Việt tự nhiên khi owner dùng tiếng Việt, trừ khi owner yêu cầu ngôn ngữ khác; giữ nguyên command, path, branch, commit message và exact technical evidence.
-
-**Mức độ tin cậy trong báo cáo:** mức khớp phạm vi, độ tin cậy của kiểm tra/xác minh, mức rủi ro, nhu cầu manual QA và mức sẵn sàng để commit.
-
-**Stop rule:** do not stage, commit, push, create PRs, merge, deploy, modify remote services, or perform destructive actions unless the user explicitly approves that action.
-
-Checkpoint confidence does not authorize commit, push, PR creation, merge, or deployment.
-
-## Loop 2: PR Review
-
-**Trigger:** user asks to review a PR, branch, diff, commit range, checkpoint, or merge readiness.
-
-**Mode:** read-only by default.
-
-**Skill owner:** `code-review-and-quality`; use `github-pr-ci-workflow` when reading PR or CI state through GitHub tooling.
-
-**Owner-facing output:** phạm vi review, context liên quan đã đọc, finding theo mức độ, mục blocking và non-blocking, đánh giá test cùng kết quả kiểm tra/xác minh, checklist manual QA khi cần, mức độ tin cậy và kết luận.
-
-**Finding severities:** trình bày bằng nhãn Việt hóa có mapping không mơ hồ với taxonomy hiện tại: Nghiêm trọng (`Critical`), Bắt buộc (`Required`), Đề xuất (`Suggestion`), Tiểu tiết (`Nit`) và Thông tin (`FYI`). `Critical` và `Required` vẫn blocking; ba mức còn lại vẫn non-blocking.
-
-**Mức độ tin cậy trong báo cáo:** mức khớp yêu cầu, rủi ro code, độ tin cậy của test, nhu cầu manual QA và độ tin cậy về merge readiness.
-
-**Verdict options:** Được duyệt (`Approved`), Review implementation đạt; còn manual QA (`Implementation review passed; manual QA pending`), Cần thay đổi (`Changes required`), Bị chặn (`Blocked`) hoặc Cách tiếp cận bị từ chối (`Rejected approach`). Mapping chỉ Việt hóa cách trình bày, không thay readiness meaning.
-
-`Approved` is a code-review verdict only. It does not submit a GitHub review approval and does not authorize merge, push, or deployment.
-
-**Stop rule:** do not edit code during PR Review Loop unless the user explicitly asks to fix findings. Do not stage, commit, push, merge, or approve on behalf of the human maintainer.
-
-The human maintainer decides whether to merge, reject, request fixes, or authorize another implementation loop.
-
-## Loop 3: PR / CI Permission Routing
-
-**Trigger:** after the universal preflight, use this loop when the owner asks to inspect PR/CI state, watch checks, create or update a PR, fix CI, or handle a failed check.
-
-**Mode:** select the narrowest permission mode stated by the owner:
-
-* `inspect-only`: read state or logs and report; do not edit, validate a fix, commit, push, or merge.
-* `watch-only`: watch and report until a terminal or blocked state; do not edit, commit, push, or merge.
-* `create PR only` / `update PR only`: perform only the requested PR action. Creation requires an existing remote head; neither mode grants local edits, commits, pushes, CI fixing, or acceptance of an interactive push/fork path.
-* `create/update PR plus CI watching`: create or update the PR and watch checks, but do not initial-push. Only after a PR/check exists, failed logs have been read, and the failure is `branch-caused-small-safe` may the bounded self-fix exception owned by `github-pr-ci-workflow` apply.
-* `explicit CI-fix only`: perform only the exact edit, validation, commit, push, or re-watch actions the owner states; do not infer the others.
-
-**Skill owner:** `github-pr-ci-workflow` owns commands, exact failure classification, the bounded self-fix cycle, attempt definition, normal-push conditions, and reporting. `git-checkpoint-workflow` continues to own generic branch, staging, commit, and push safety.
-
-**Stop rule:** stop before any ungranted action, initial push, interactive push/fork, unclear or non-small-safe fix, scope expansion, risky/domain-sensitive change, force-push, branch deletion, or merge. The default maximum is two completed self-fix attempts; a third completed attempt requires explicit owner permission. Merge remains a separate permission mode.
+When asked to wait for CI, keep the turn active with the foreground/native wait until terminal or blocked. Do not schedule polling or end the turn to wait for an app event. Report skipped, cancelled, failed and pending honestly; local checks are not CI evidence.

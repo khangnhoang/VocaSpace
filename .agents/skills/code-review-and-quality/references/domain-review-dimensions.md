@@ -62,7 +62,7 @@ Check:
 * regression, failure, permission, hostile-input, retry, and concurrency coverage
 * deterministic fixtures
 * guarantees not mocked away
-* required test-plan header and accurate verification metadata
+* required test-plan header with stable intent; actual verification evidence in the report
 * no duplicated low-value tests
 
 Do not require unavailable E2E infrastructure or expensive coverage when a lower layer proves the same guarantee.

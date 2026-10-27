@@ -1,8 +1,8 @@
-<!-- Template: detail plan. Copy to docs/programs/<program>/implementation-plans/<unit>/plan.md, fill every <placeholder>, delete this comment. No State section. Real markdown links to sibling files are added when the file is copied into the program folder. -->
+<!-- Template: detail plan for a unit/initiative/entry, or the root plan of a single-unit delivery program. Copy to docs/programs/<program>/implementation-plans/<unit>/plan.md, fill every <placeholder>, delete this comment. No State section. Real markdown links to sibling files are added when the file is copied into the program folder. -->
 
 # <Unit ID> detail plan — <unit title>
 
-Revision: r<n>, <YYYY-MM-DD>. Owner approval: <date or pending>. Master plan: `<relative path to plan.md>`.
+Revision: r<n>, <YYYY-MM-DD>. Owner approval: <date or pending>. Master plan/charter: `<relative path>`, or none for a single-unit program.
 
 ## 1. Binding Spec
 

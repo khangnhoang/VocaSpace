@@ -16,7 +16,7 @@ This index records what each top-level item under `docs/` is for today. Document
 | `data_flow/` | Data-flow diagrams (HTML) |
 | `ui-design-system-and-review/` | UI design system, accepted designs and UI review program |
 | `agent-skills/`, `agent-workflow/`, `native-multi-agent/` | Agent-governance programs (plans, progress, problems) |
-| `agent-loops.md`, `agent-self-review.md` | Agent lifecycle routing and shared self-review methodology. Cited by `AGENTS.md`, skills, `.claude/` and `.codex/`; they stay at these paths |
+| `agent-loops.md` | Common lifecycle, review timing and waiting. The review skill owns the self-review method. |
 | `agent-self-review-plan.md` | Plan for the self-review methodology (a program doc at the top level) |
 
 ## Programs
@@ -48,4 +48,4 @@ Candidates only; each move needs its links fixed and a link check.
 - `data_flow/`.
 - Top-level `agent-self-review-plan.md`.
 
-Do not move `agent-loops.md` or `agent-self-review.md`.
+Keep `agent-loops.md` at its shared import path. Historical self-review and managed-workflow plans describe retired contracts; active instructions live in AGENTS.md, the lifecycle and current skills.

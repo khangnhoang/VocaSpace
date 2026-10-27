@@ -137,7 +137,7 @@ Remove TODO/FIXME notes when the condition no longer exists.
 
 Preserve the `test-quality-strategy` convention: non-trivial test files need a concise Vietnamese test-plan header when that skill requires it.
 
-The header may be longer than ordinary comments because it documents test intent, covered behavior, verification status, and known gaps. Keep it accurate and update it when cases or verification change.
+The header may be longer than ordinary comments because it documents test intent, covered behavior and known gaps; current verification results belong in the report. Keep it accurate and update it when its promised behavior or cases change.
 
 ## Review workflow
 

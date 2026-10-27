@@ -1,31 +1,9 @@
-# Normal push and remote delivery
+# Normal push
 
-## Local and remote boundaries
+Read for an authorized normal push/remote-delivery procedure. A local commit never grants push. github-pr-ci-workflow owns its narrow failed-CI exception, which does not allow initial publication.
 
-A successful commit is local only unless `github-pr-ci-workflow` has activated and owns its exact bounded post-failure normal-push cycle.
+Before pushing confirm the exact granted branch/range and remote/ref, clean index/worktree, upstream, fresh remote state and ahead/behind. Ensure a normal push suffices; force-push is not implied. Stop if any required evidence or permission is unavailable.
 
-Without explicit approval or that exact narrow exception, do not:
+Perform only the exact authorized push. Inspect the resulting remote head/tracking state: it must equal the intended local head, with the expected upstream/divergence and clean tree/index. Report actual command/result and exact observed IDs/counts; never invent identifiers or claim delivery from a proposed command, stale tracking ref or local commit.
 
-* push or force-push;
-* create/update a remote branch;
-* open, update, merge, or close a PR;
-* create tags or releases;
-* deploy;
-* push migrations;
-* modify remote environments.
-
-A request to save, checkpoint, or commit does not authorize any remote action. The narrow PR/CI exception never authorizes initial publication of a branch.
-
-Before a requested push, confirm:
-
-* the worktree and index are clean;
-* the exact current branch and intended commit range;
-* the configured upstream and intended remote/ref;
-* refreshed remote branch state and local/remote ahead-behind counts;
-* a normal push is sufficient and force-push is neither required nor authorized.
-
-Use exact branch, commit, upstream, remote/ref, remote-state, and ahead/behind literals when the supplied evidence actually provides them. When the bounded package instead truthfully establishes that those values are known and the normal-push preconditions are satisfied, rely on that supplied state to describe the authorized procedure without inventing missing identifiers or counts. Do not claim delivery until post-push evidence proves the actual result.
-
-Perform only the exact authorized normal push. Reconcile the result by refreshing or inspecting the remote-tracking ref, then verify the remote HEAD equals the intended local delivery HEAD, the upstream is correct, divergence is the expected `0 behind / 0 ahead`, and the worktree/index remain clean. Report the command result, local and remote commit IDs, upstream, divergence, and cleanliness. Do not claim delivery from a proposed command, a local commit, or stale remote state.
-
-PR readiness and description are reviewed separately; known blockers require a draft or no PR unless the owner decides otherwise.
+PR actions, merge, tags/releases, deployment, database writes and branch deletion remain separate. Known blockers mean draft/no PR unless the Owner decides otherwise.

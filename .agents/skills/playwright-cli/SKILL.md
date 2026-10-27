@@ -1,9 +1,25 @@
 ---
 name: playwright-cli
-description: Automate browser interactions, test web pages and work with Playwright tests.
+description: Automate browser interactions and Playwright tests. Use for browser driving or page verification and authoring/running/debugging/healing Playwright tests; not source-only discussion or an unrelated open browser.
 ---
 
 # Browser Automation with playwright-cli
+
+## VocaSpace policy
+
+This policy wins over conflicting examples and every reference below; it remains subordinate to AGENTS.md and the Owner's actual grant. Upstream examples describe mechanics, never permission.
+
+- Use when driving/verifying a page in a browser or authoring/running/debugging/healing Playwright tests. Do not use merely because a browser/config exists or for source-only discussion. test-quality-strategy decides the required evidence; frontend skills own UI acceptance.
+- Default to the local app/test runtime. Hosted/production pages require an explicit task grant; never run external-site examples just because they appear below.
+- Prefer the installed local CLI through npx --no-install playwright cli. If unavailable, report it; no automatic global install, package update or browser download.
+- Ask before attach, --cdp or --extension, including debug/test-generation examples. Shared .claude/settings.json contains ask patterns for canonical direct/npx Bash/PowerShell forms. They are command-text rules, not a security boundary over alternate wrappers; do not bypass them with another spelling, driver or script.
+- Use canonical test fixtures/saved sessions or the Owner's signed-in session as authorized. Do not expose credentials/cookies/storage or record them in an artifact. Do not wipe profiles, delete user data or close unrelated browser sessions without authority.
+- Keep screenshots/traces/video in ignored task paths. PR attachments, issue creation/comments and every hosted write need their exact action/target grant; browser access alone does not grant publishing or mutation.
+- A test/spec is the accepted behavior contract. Repair technical locators only when the promised behavior holds; do not rewrite expected behavior, weaken assertions, mark fixme/skip/expected-failure or fabricate success to make a broken app pass. Report the defect and obtain the necessary Owner decision. There is no knownBug helper in VocaSpace yet.
+- Reuse VocaSpace's actual runner/fixtures; do not copy DevSpace payment/auth paths. Respect test-quality-strategy's isolated-stack/one-run rule. Permission/fixture/verification limits stay visible.
+
+The existing command/reference body below is retained, not updated to another upstream revision. No byte-identical-upstream or new provenance claim is made.
+
 
 ## Resource routing
 
