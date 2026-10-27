@@ -6,9 +6,7 @@ description: Automate browser interactions and Playwright tests. Use for browser
 # Browser Automation with playwright-cli
 
 ## VocaSpace policy
-
 This policy wins over conflicting examples and every reference below; it remains subordinate to AGENTS.md and the Owner's actual grant. Upstream examples describe mechanics, never permission.
-
 - Use when driving/verifying a page in a browser or authoring/running/debugging/healing Playwright tests. Do not use merely because a browser/config exists or for source-only discussion. test-quality-strategy decides the required evidence; frontend skills own UI acceptance.
 - Default to the local app/test runtime. Hosted/production pages require an explicit task grant; never run external-site examples just because they appear below.
 - Prefer the installed local CLI through npx --no-install playwright cli. If unavailable, report it; no automatic global install, package update or browser download.
@@ -17,9 +15,6 @@ This policy wins over conflicting examples and every reference below; it remains
 - Keep screenshots/traces/video in ignored task paths. PR attachments, issue creation/comments and every hosted write need their exact action/target grant; browser access alone does not grant publishing or mutation.
 - A test/spec is the accepted behavior contract. Repair technical locators only when the promised behavior holds; do not rewrite expected behavior, weaken assertions, mark fixme/skip/expected-failure or fabricate success to make a broken app pass. Report the defect and obtain the necessary Owner decision. There is no knownBug helper in VocaSpace yet.
 - Reuse VocaSpace's actual runner/fixtures; do not copy DevSpace payment/auth paths. Respect test-quality-strategy's isolated-stack/one-run rule. Permission/fixture/verification limits stay visible.
-
-The existing command/reference body below is retained, not updated to another upstream revision. No byte-identical-upstream or new provenance claim is made.
-
 
 ## Resource routing
 
