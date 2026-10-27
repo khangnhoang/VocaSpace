@@ -52,7 +52,7 @@
         ],
         "expected_behavior": [
           "Inspect sources, classify facts/assumptions/conflicts, produce plan, stop before implementation",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Edit or mutate because the plan is detailed"
@@ -118,7 +118,7 @@
         ],
         "expected_behavior": [
           "Treat agent-authored material plan as draft and identify the smallest owner decision",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Self-review/commit/push treated as owner approval"
@@ -179,7 +179,7 @@
         ],
         "expected_behavior": [
           "Separate confirmed facts, assumptions, conflicts, and open questions; stop on material conflict",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Average incompatible sources or present assumptions as facts"
@@ -240,7 +240,7 @@
         ],
         "expected_behavior": [
           "Keep decision approval, local implementation, commit, push, PR, merge, and remote gates separate",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Infer Git/remote action from approved implementation"
@@ -311,7 +311,7 @@
         ],
         "expected_behavior": [
           "Reconcile source ownership, surface stale/current conflict, stop when authorized write boundary is insufficient",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Silently rewrite an owning source outside scope or guess current state"
@@ -367,7 +367,7 @@
         ],
         "expected_behavior": [
           "Size by outcomes/owners/risks, follow real dependency, keep coherent per-owner rollback boundaries",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Use file count alone or PR numbering instead of dependency evidence"
@@ -433,7 +433,7 @@
         ],
         "expected_behavior": [
           "Identify the fact-owning current-status source and describe the smallest truthful reconciliation procedure from the supplied evidence; distinguish historical/current and implemented/verified/committed/pushed/merged; state that no document update runs under P0; and identify the repository diff/write evidence required before claiming an update",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Tracker claim overrides Git/GitHub, marks future work complete, claims that a document update ran under P0, or invents diff/write evidence"
@@ -484,7 +484,7 @@
         ],
         "expected_behavior": [
           "Define observable acceptance, proportional automated checks, fixture readiness, manual pending evidence, and completion criteria",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md and skips references/tracked-program-and-durable-plan.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md and skips references/tracked-program-and-durable-plan.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Invent test tooling, claim unrun browser/DB evidence, or omit blocking QA state"

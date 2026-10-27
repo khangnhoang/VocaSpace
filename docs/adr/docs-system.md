@@ -24,3 +24,7 @@ Program documents grew without one owner for status. Master plans and detail pla
 - Moving a program, changing a lifecycle or adding an ADR needs a matching row or index entry, or the check fails.
 - Paths that published migrations cite must keep their redirect files, because published migrations cannot be edited.
 - The check is line-based and has no markdown parser, so documents must follow the stated grammar (milestone lines, problem fields) literally.
+
+## Amendment — 2026-10-27
+
+The Owner approved the prospective delivery/single-unit/evergreen/backlog/entry-plan model in [AR3](../programs/agent-rules/implementation-plans/ar3/plan.md), decision D9. The current [repo-docs-system skill](../../.agents/skills/repo-docs-system/SKILL.md) owns its document roles/templates. This extends the original single-State-owner decision; it does not migrate or reassign existing documents. Current checker/index lifecycle support remains active/closed/legacy. Charter/evergreen, entry-plan and global feature-ID checks require the separate follow-up before claiming enforcement or delivering an unsupported new shape.

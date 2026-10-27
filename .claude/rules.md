@@ -1,16 +1,8 @@
 # Claude Code working rules
 
-Imported by `CLAUDE.md`; Codex does not load this file. Rules shared with Codex live in `AGENTS.md` and the skills.
+Imported by `CLAUDE.md`. This file owns Claude-specific tools and session bindings. `AGENTS.md` owns shared rules, `docs/agent-loops.md` owns the shared lifecycle, and `.agents/skills/` owns task procedures.
 
-Three rules below are standing Owner permissions that apply without asking again: the Codex review scope, Explore fan-out on Haiku, and foreground CI watching.
-
-## Codex
-
-- Standing permission: run a Codex review on your own for every plan and for the main implementation. Loop fix and resume until PASS; ask the Owner only when a finding needs a new decision.
-- Small fixes during Owner QA (copy, layout, styling) get no Codex round. Any other Codex call happens only when the Owner asks.
-- Use `codex exec`, not an MCP server. Default review: `codex exec - -m gpt-6.1-sol -c model_reasoning_effort='"high"' -c sandbox_mode='"read-only"' -o <out> < <prompt>`, main session only. Add Codex subagents only when the Owner asks for multi-agent; they use `gpt-6.1-sol` at effort `medium` unless the Owner names another model or effort.
-- A new task or review target gets a fresh session; use `codex exec resume <id>` only for later rounds of the same task. Resume does not keep the first round's flags, so repeat `-m`, effort and sandbox on every resume and check the log header.
-- If a Codex app thread holds the writer (`thread-store conflict`), give the Owner the round prompt to paste there instead of resuming.
+Standing platform permissions below cover Explore fan-out on Haiku and foreground CI watching.
 
 ## Planning
 
@@ -19,17 +11,16 @@ Three rules below are standing Owner permissions that apply without asking again
 
 ## Preflight reading
 
-- Claude Code does not load the skills in `.agents/skills/` on its own. Before the first tool call of any task that is not a pure read-only question, read `docs/agent-loops.md` and the whole `SKILL.md` of every skill whose row in the `AGENTS.md` routing table matches the task.
+- `.claude/skills/<name>` exposes each shared `.agents/skills/<name>` through a relative directory symlink so Claude Code can discover its name and description. Edit the canonical target. Discovery does not load the whole skill: before acting, invoke the skill or read its whole `SKILL.md` whenever the `AGENTS.md` routing matches the task. Apply the shared preflight in `docs/agent-loops.md`, already imported by `CLAUDE.md`.
 
 ## Implementation through Sonnet
 
+- Confirm the requested model/session/effort is available; never substitute silently. Check the started session's actual effort and correct it to the granted level through native session controls if needed.
 - When the Owner hands a plan to Sonnet (orchestrator mode), start one implementor session for all checkpoints with `start_session`, not a subagent: model `claude-sonnet-5-5`, effort `high`, in the product checkout on the current branch (`use_worktree: false`). Do this only for an approved plan with no open decision; otherwise ask the Owner first. The handoff grants local commits only.
-- The session has no agent definition, so the brief states the implementor limits itself: before the first edit, read `docs/agent-loops.md` and the whole `SKILL.md` of every skill the `AGENTS.md` routing table matches for the plan; do only the assigned checkpoints, stop and report on any mismatch with the plan, and no push, no PR, no merge.
+- The session has no agent definition. Use the implementation brief in `.agents/skills/implementation-planning-and-pr-breakdown/references/pr-breakdown-and-handoff.md`; name the accepted plan and add only assigned work, read-first sources, missing operational facts and the actual grant. No push, PR or merge.
 - When the session ends a turn, Main is called to handle the next step. That note quotes only the start of the report, so read the full report and check the diff and commits before trusting it.
 - Send corrections and later checkpoints to the same session with SendMessage; do not start a new session, a subagent or an independent review per checkpoint. Reviews or evidence that the plan or a skill requires (for example a fresh-reader round) still run at their checkpoint.
 - While an implementor owns the plan, Main does not edit product code or tests, even for small QA fixes.
-- The handoff prompt names the plan file as the single source of truth (the plan wins on any conflict) and adds only the checkpoint scope, the authority and operational notes the plan lacks. Do not restate the plan's scope or acceptance in your own words.
-- A concern the plan does not cover goes into the prompt as a risk to prove with tests, stating the expected result. Hand over all checkpoints in one dispatch; split them only when a later checkpoint needs an Owner decision based on an earlier result, not so Main can check in between.
 
 ## Discovery
 

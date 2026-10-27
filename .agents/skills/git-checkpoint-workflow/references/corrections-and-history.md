@@ -1,45 +1,11 @@
-# Corrections and history safety
+# Corrections and history
 
-## Corrections, amend, and squash
+Read for a correction, conflict, rewrite or destructive recovery question.
 
-Later corrections:
+Fix findings from pre-commit self-review before committing. A finding after a reviewed commit normally gets a new independently understandable correction commit, preserving prior checkpoints.
 
-* create a new commit by default;
-* clearly describe the correction;
-* preserve earlier checkpoints;
-* remain independently understandable.
+Amend, squash, autosquash, rebase and interactive history edits need an explicit Owner request. Before rewriting, identify affected commits, pushed status, intended history and whether a force-push would follow; force-push needs a separate grant.
 
-Example:
+For conflicts inspect both sides and intent, preserve unrelated work, use domain checks and stop for a material decision. Never select ours/theirs wholesale. Inspect state before aborting, because resolved work may be lost.
 
-```text
-feat(course-review): add rejection detail panel
-fix(course-review): preserve rejection text after status refresh
-```
-
-Do not amend, squash, autosquash, or interactive-rebase unless the owner explicitly requests history cleanup.
-
-Before rewriting history, identify affected commits, whether they were pushed, the resulting history, and whether force-push would be required. Force-push still requires a separate explicit request.
-
-## Conflicts and destructive commands
-
-For merge, rebase, cherry-pick, or sync conflicts:
-
-* inspect both sides and repository intent;
-* preserve unrelated changes;
-* use relevant domain skills;
-* run affected verification;
-* create a new correction commit only after owner approval;
-* stop when a product decision is required.
-
-Do not broadly choose `ours` or `theirs`.
-
-Do not run commands that may discard work without explicit approval, including:
-
-```bash
-git reset --hard
-git clean -fd
-git checkout -- .
-git restore .
-```
-
-Inspect state before aborting merge/rebase operations because conflict-resolution work may be lost.
+git reset --hard, git clean, git checkout -- . and git restore . can discard work and require explicit authority. A failed command never grants destructive recovery.

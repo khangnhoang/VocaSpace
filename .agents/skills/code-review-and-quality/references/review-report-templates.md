@@ -1,6 +1,6 @@
 # Review report templates
 
-Read this reference before producing or classifying a formal report with multiple current supported findings, or preparing any bounded specialist package. Skip it when a small review has no actionable finding and needs only a compact verdict, when a correction re-review only records disposition of earlier resolved findings, or when a baseline/range/currentness review reports its supported findings from domain evidence.
+Read this reference before producing or classifying a formal report with multiple current supported findings. Skip it when a small review has no actionable finding and needs only a compact verdict, when a correction re-review only records disposition of earlier resolved findings, or when a baseline/range/currentness review reports its supported findings from domain evidence.
 
 ## Finding format
 

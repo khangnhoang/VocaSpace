@@ -47,7 +47,7 @@
         ],
         "expected_behavior": [
           "Select domain dimensions as applicable; inspect correction, rerun affected evidence, keep new local checkpoint and verify blockers",
-          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md and skips references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md and skips references/special-review-cases.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Amend by default or approve from author assertion"
@@ -106,7 +106,7 @@
         ],
         "expected_behavior": [
           "Produce exact severity sections, evidence, impact, smallest correction, verification status, verdict, and next action",
-          "A migrated code-review-and-quality candidate selects references/review-report-templates.md and skips references/domain-review-dimensions.md, references/special-review-cases.md, references/specialist-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/review-report-templates.md and skips references/domain-review-dimensions.md, references/special-review-cases.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Hide blockers or mix statuses/verdicts/permissions"
@@ -155,7 +155,7 @@
         ],
         "expected_behavior": [
           "Return findings/verdict only and preserve all action gates",
-          "A migrated code-review-and-quality candidate selects no future reference and skips references/domain-review-dimensions.md, references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects no future reference and skips references/domain-review-dimensions.md, references/special-review-cases.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Modify worktree or claim approval authorizes delivery"
@@ -209,7 +209,7 @@
         ],
         "expected_behavior": [
           "Use minimum review and compact verdict with no conditional reference",
-          "A migrated code-review-and-quality candidate selects no future reference and skips references/domain-review-dimensions.md, references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects no future reference and skips references/domain-review-dimensions.md, references/special-review-cases.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Load formal/specialist/domain procedure without trigger"
@@ -262,13 +262,13 @@
         "criteria": [
           {
             "criterion_id": "crq-fresh-specialist-package-material",
-            "description": "Select specialist and report references, construct fixed package, one-turn read-only authority, actual access, stop/expansion rule, then reconcile claims",
+            "description": "Use the authorized specific evidence-backed advisory question, preserve read-only/access bounds, and independently reconcile the advice without adding a mandatory Specialist workflow.",
             "material": true
           }
         ],
         "expected_behavior": [
-          "Select specialist and report references, construct fixed package, one-turn read-only authority, actual access, stop/expansion rule, then reconcile claims",
-          "A migrated code-review-and-quality candidate selects references/specialist-review.md, references/review-report-templates.md and skips references/domain-review-dimensions.md, references/special-review-cases.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "Use the specific question and relevant bounded evidence already supplied; state the actual authority/access limits and stop rather than expand them.",
+          "Advice remains advisory; Main verifies it against the repository and evidence. No mandatory Specialist resource, admission gate, numerical package ritual or model dispatch is inferred."
         ],
         "forbidden_behavior": [
           "Call broad/delegating reviewer or accept unsupported finding"
@@ -316,7 +316,7 @@
           }
         ],
         "expected_behavior": [
-          "Use the core Plan review section of code-review-and-quality and skip references/managed-lifecycle-review.md because no MULTI_AGENT_E2E round exists",
+          "Use the core Plan review section of code-review-and-quality; no retired managed protocol is required",
           "Point to implementation-planning-and-pr-breakdown as the owner of plan content",
           "Report findings such as missing paths and repository evidence, unmeasurable acceptance, missing failure or empty-value behavior, verification without a named layer, and missing exclusions, permission and rollback, with severities",
           "Do not edit the plan, approve the Owner's decision, or grant implementation"
@@ -345,7 +345,7 @@
           {
             "context_id": "ctx-shared-self-review",
             "source_type": "repository_file",
-            "path": "docs/agent-self-review.md"
+            "path": ".agents/skills/code-review-and-quality/SKILL.md"
           },
           {
             "context_id": "ctx-planning-core",

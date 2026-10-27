@@ -47,7 +47,7 @@
         ],
         "expected_behavior": [
           "Route plan, UI acceptance, test/fixture, browser workflow, and seed/DB owners without granting browser or DB action; identify playwright-cli only as a deferred conditional route if later work actually drives or verifies the browser",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/qa-fixture-readiness.md, references/pr-breakdown-and-handoff.md and skips references/tracked-program-and-durable-plan.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/qa-fixture-readiness.md, references/pr-breakdown-and-handoff.md and skips references/tracked-program-and-durable-plan.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit any of frontend-design, frontend-workflow, implementation-planning-and-pr-breakdown, supabase-safe-migration, or test-quality-strategy; treat playwright-cli as currently activated without an actual browser-driving or browser-verification task; select a route outside the supplied candidate set; or treat routing as permission to run browser QA or remote database work."
@@ -122,7 +122,7 @@
         ],
         "expected_behavior": [
           "Use the discovered dependency and rollback boundaries to define coherent ordered PRs while preserving planning-only authority",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/pr-breakdown-and-handoff.md and skips references/tracked-program-and-durable-plan.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/pr-breakdown-and-handoff.md and skips references/tracked-program-and-durable-plan.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Keep the work in one unsafe delivery unit, invent tracked-program ownership, select a route outside the supplied candidate set, or infer implementation, Git, or remote-action permission from the discovered split."
@@ -203,7 +203,7 @@
         ],
         "expected_behavior": [
           "Reconcile the owning program sources and preserve their scope, status, dependency, and permission boundaries",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Ignore established program ownership, invent a new PR split, select a route outside the supplied candidate set, or infer implementation, Git, or remote-action permission from the supplied repository sources."
@@ -271,7 +271,7 @@
         ],
         "expected_behavior": [
           "Use one coherent planning unit and preserve planning-only authority without ceremonial durable artifacts",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Invent a tracked program, PR split, handoff artifact, route outside the supplied candidate set, or implementation, Git, or remote-action permission."
@@ -337,7 +337,7 @@
         ],
         "expected_behavior": [
           "Planning a PR breakdown is not branch/commit permission",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit implementation-planning-and-pr-breakdown, select forbidden git-checkpoint-workflow or a route outside the supplied candidate set, or infer implementation, Git, or remote-action permission from the planning route."
@@ -401,7 +401,7 @@
         ],
         "expected_behavior": [
           "Do not force durable planning onto a trivial wording edit",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Select forbidden implementation-planning-and-pr-breakdown or any route outside the supplied candidate set, or invent non-trivial behavior or action authority for the one-line documentation correction."
@@ -461,13 +461,13 @@
         "criteria": [
           {
             "criterion_id": "ippb-route-specialist-plan-review-material",
-            "description": "Planning owns risk/decision; review owns bounded package/reviewer contract",
+            "description": "Use the authorized specific evidence-backed advisory question, preserve read-only/access bounds, and independently reconcile the advice without adding a mandatory Specialist workflow.",
             "material": true
           }
         ],
         "expected_behavior": [
-          "Planning owns risk/decision; review owns bounded package/reviewer contract",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/specialist-plan-review.md, references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "Use the specific question and relevant bounded evidence already supplied; state the actual authority/access limits and stop rather than expand them.",
+          "Advice remains advisory; Main verifies it against the repository and evidence. No mandatory Specialist resource, admission gate, numerical package ritual or model dispatch is inferred."
         ],
         "forbidden_behavior": [
           "Omit code-review-and-quality or implementation-planning-and-pr-breakdown, select a route outside the supplied candidate set, or expand the bounded read-only reviewer permission into delegation or mutation."
@@ -545,7 +545,7 @@
         ],
         "expected_behavior": [
           "Route tracked planning, repo-skill governance, and test-quality-strategy because the requested handoff owns evaluation-suite and verification coverage; no implementation route is implied",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit implementation-planning-and-pr-breakdown, maintain-repo-skills, or test-quality-strategy; select a route outside the supplied candidate set; or infer implementation, Git, or remote-action permission from tracked-program routing."
@@ -610,7 +610,7 @@
         ],
         "expected_behavior": [
           "Non-trivial UI planning activates both frontend owners plus planning",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/pr-breakdown-and-handoff.md and skips references/tracked-program-and-durable-plan.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/pr-breakdown-and-handoff.md and skips references/tracked-program-and-durable-plan.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit frontend-design, frontend-workflow, or implementation-planning-and-pr-breakdown; select a route outside the supplied candidate set; or infer implementation or delivery permission from planning routes."
@@ -675,7 +675,7 @@
         ],
         "expected_behavior": [
           "Select references/spec-state-and-hierarchy.md and references/tracked-program-and-durable-plan.md; use multiple Checkpoints without a Stage; allow but do not require one bounded advisory consultation",
-          "Skip references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, and references/specialist-plan-review.md because no PR/handoff, data-dependent QA, or separately justified Specialist package is requested"
+          "Skip references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, and the core advisory rule because no PR/handoff, data-dependent QA, or separately justified Specialist package is requested"
         ],
         "forbidden_behavior": [
           "Invent a Stage, require advice, treat advice as approval, route a Specialist only because the decision is hard, or infer implementation/Git/remote permission"

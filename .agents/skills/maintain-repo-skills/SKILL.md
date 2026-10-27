@@ -1,174 +1,59 @@
 ---
 name: maintain-repo-skills
-description: Repository-specific governance contract for creating, changing, reviewing, documenting, progressive-disclosing, or evaluating repo-local agent skills and bundled resources. Use before altering `.agents/skills/**`, skill routes in `AGENTS.md`, or repo-local skill governance and evidence contracts.
+description: Create, maintain, split, route and review repository skills/references and audit instruction ownership. Use when a repo-local skill or its governance changes, or when deciding where a working rule belongs.
 ---
 
-# Maintain Repo Skills
+# Maintain repository skills
 
-## Activation and ownership
+## Use when / do not use when
 
-Use this skill for work that creates, changes, reviews, splits, routes, documents, or evaluates a repo-local agent skill or its bundled resources.
+Use for a SKILL.md/reference change, routing/description update, ownership audit or a new durable instruction. Do not activate merely because a product task follows a skill. AGENTS.md owns shared permissions; this skill grants no action. A new skill or material ownership/permission/acceptance change needs the Owner's decision; an exact current instruction may already settle it.
 
-Do not use it merely because an ordinary product, test, database, frontend, or documentation task follows an existing skill. Trigger it when the repo-local skill artifact, routing, governance, or evidence contract itself is in scope.
+## Placement
 
-This skill is the authoritative VocaSpace contract for the lifecycle, safety, documentation, evaluation boundary, permission invariant, and stop conditions of repo-local skill changes. System or external skill-authoring guidance is optional and generic. It may help with authoring technique, but it is not a dependency and cannot override this contract or a more restrictive repository rule.
+Choose by owner and load time, not line count:
+| Content | Owner |
+| --- | --- |
+| Shared principles, permissions, language and skill activation | AGENTS.md |
+| When to plan/review/wait/stop and self-review cap/cadence | docs/agent-loops.md |
+| Claude-specific tools, sessions and memory mechanics | .claude/rules.md |
+| Importing shared instructions for Claude | CLAUDE.md |
+| A task procedure all its users need | Its existing SKILL.md |
+| Situational detail a meaningful group can skip | A directly linked reference with an exact read condition |
+| Program shape/state or cross-program decisions | repo-docs-system's program/ADR owners |
 
-This skill does not own Git command procedure, product-domain behavior, or remote operations.
+Link another owner's rule rather than restating it. Keep enough permission/safety/ownership context in core for a reader to determine whether it may act, which resource to read and when to stop. Never reduce context by weakening an invariant.
 
-## Authority and precedence
+## Author and maintain
 
-Apply higher-level safety and permission restrictions first. Within repository-owned guidance:
+1. Read the target, direct consumers and owning sources. Separate confirmed facts, Owner decisions, assumptions and conflicts.
+2. State the scope, consumer, acceptance and verification proportionally; planning owns non-trivial plans. Do not build a new runner, registry or durable tracker for a prose edit.
+3. Core holds activation, ownership, action/evidence boundaries, routing and stops. References hold only needed conditional procedure, examples or templates. Every reference must be directly linked from core, contained in the bundle and have an observable read condition; no hidden nested required chain or reparse-point routing.
+4. Write descriptions with the verbs/objects a real request uses. Check matching requests and near misses against overlapping skill descriptions. This judgment check is not proof of native auto-trigger behavior.
+5. Edit the canonical .agents/skills target. Keep its per-skill Claude symlink aligned when adding/removing a skill. Find every pointer to moved/changed paths/commands/sections with rg; fix active false pointers and preserve historical meaning.
+6. State only tooling that exists. Deferred tooling is named once as deferred, not described as usable steps. Prefer current project choices/pitfalls over generic API tutorials; version-specific traps need an evidence source.
+7. Self-review and run node .agents/scripts/validate-skill.mjs. For docs/pointer edits run npm run docs:check; if validator code changed run its tests. Read the review skill for readiness; report actual results, limits and authority, not a token/quality claim.
 
-1. Follow the owner's explicit current-task decisions and action permissions.
-2. Follow `AGENTS.md` for explicit repository routing and `docs/agent-loops.md` for lifecycle routing.
-3. Use this skill for repo-local skill-change governance.
-4. Use the relevant domain and lifecycle skills for the work they own.
-5. Treat system or external skill-authoring guidance as optional generic advice only.
+The validator owns its actual frontmatter/routing syntax. Do not copy another project's metadata/heading rules or change schema merely to make a new document pass. Length is a review signal, never a limit. No line reduction outweighs a known safety, routing, ownership or correctness regression.
 
-When sources conflict, follow the more specific or more restrictive rule and report the conflict. Do not average incompatible rules.
+## Evaluation and claims
 
-This skill cannot approve itself. An agent-authored skill, plan, evaluation, or material governance revision remains a draft until the owner approves the material decision that the agent introduced or changed.
+Structural validation proves structure only. Existing eval tooling remains available; it is not a mandatory model-call workflow for every edit. No model, independent reader or remote call is granted by this skill. When execution is absent, report not_run rather than semantic PASS; historical evidence stays historical.
 
-## Permission and approval boundaries
-
-Keep these gates separate:
-
-- **Decision approval:** approves the specified scope, behavior, architecture, ownership, or acceptance criteria.
-- **Implementation permission:** allows the specified local file changes.
-- **Review permission:** is read-only by default unless the owner or an already-approved workflow explicitly authorizes corrections.
-- **Git and remote permission:** branch changes, staging, commit, push, pull-request actions, merge, release, and deployment each follow their owning workflow and the owner's explicit permission.
-
-Plan approval does not grant implementation permission unless the same instruction clearly grants both. Implementation permission does not grant stage, commit, push, pull-request, merge, deploy, production, remote-mutation, destructive, history-rewrite, or force permission.
-
-A review verdict, confidence label, verification result, or the word `approved` is informational. It never grants another action.
-
-Do not use a plan or material brief revision written by the agent as authority to implement that revision. Unchanged, previously approved work may continue only when it is independent of the unresolved revision and remains within the current permission.
-
-## Safety veto and evaluation boundary
-
-Reject a skill change when it introduces a known regression in safety, permission handling, routing, correctness, ownership clarity, stop behavior, or verification truthfulness. Context, line, byte, or complexity reduction never outweighs such a regression.
-
-Keep evaluation claims within the evidence actually produced:
-
-- Separate deterministic structure checks from semantic behavior judgment.
-- Record checks that ran, their actual result, skipped checks, and environment limits.
-- Label historical evidence and revalidate it before presenting it as current.
-- Do not call manual observation runner-produced, isolated, baseline-equivalent, formal A/B, or versioned-suite evidence unless those properties were actually enforced and recorded.
-- Do not infer native platform auto-trigger behavior from explicit `AGENTS.md` routing.
-- Do not invoke a model, runner, remote service, or mutation-capable evaluation unless the current task and the owning contract authorize it.
-
-## Specialist escalation signals
-
-A hard-risk signal exists when observable governance facts expose a potentially material unresolved uncertainty about authority or precedence, approval or permission, activation or routing, source-of-truth ownership, lifecycle or status interpretation, safety stop behavior, evidence claims, or material fresh-reader behavior. Group wording from several skills into one cluster when it governs the same invariant.
-
-Clarifying an already-owned rule, adding an approved deterministic structural check, and updating metadata or resource routing with an exact consumer are conditional review signals unless a semantic conflict remains. Typo or style-only edits, line count or validator warning alone, skill activation, and owner request alone are ordinary non-triggers.
-
-Route a hard-risk candidate through the global specialist gates only after applicable main review. Existing authority, safety veto, approval/implementation separation, resource read conditions, evaluation claim boundaries, and stop conditions remain authoritative. Every specialist or fresh-reader action must be covered by current explicit permission; one bounded instruction may cover multiple in-scope actions, and none can approve the skill change.
-
-## Required workflow
-
-1. Read root and nested repository instructions, lifecycle overlays, relevant domain skills, current plans/progress sources, and the affected skill bundle before writing.
-2. Reconcile draft or tracker claims with Git and repository evidence. Separate confirmed facts, owner-approved decisions, agent proposals, conflicts, and unknowns.
-3. Identify the source that owns each intended or current fact. Do not create a duplicate plan, tracker, ADR, reference, or resource when an authoritative source already exists.
-4. For non-trivial work, use `implementation-planning-and-pr-breakdown` to define goal, scope, exclusions, dependencies, acceptance criteria, verification, risks, and stop conditions. Do not turn this program's durable-documentation requirement into a universal plan-file gate.
-5. Stop before implementation unless the owner has approved the material decisions and granted implementation permission for the current scope.
-6. Implement the smallest coherent change. Preserve existing conventions and avoid speculative resources, tooling, metadata, or migrations.
-7. Verify the actual diff with checks proportional to the changed contract. Do not claim checks that did not run.
-8. Use `code-review-and-quality` for a read-only review. Correct findings only when the current instruction or approved workflow authorizes corrections.
-9. Update only the documents that own changed information, then report the exact permission and remote-action state.
-
-## Core and bundled-resource boundary
-
-Keep the following in core when applicable:
-
-- activation and ownership;
-- authority and precedence;
-- approval, implementation, review, Git, remote, production, and destructive boundaries;
-- safety veto and evaluation-claim boundary;
-- source-of-truth and documentation ownership;
-- related-skill routing;
-- resource-routing conditions;
-- stop conditions;
-- output and reporting contract.
-
-Use references only for detailed procedure, matrix, checklist, template, example, questionnaire, or guidance that a meaningful group of valid invocations does not need.
-
-Every bundled reference must:
-
-- have a demonstrated consumer;
-- be linked directly from `SKILL.md`;
-- have an exact, non-empty read condition in the resource-routing table;
-- use a relative path that stays inside the skill bundle;
-- avoid an unnecessary nested reference chain;
-- avoid duplicating mandatory core rules.
-
-Do not split content based only on line count. Do not create an empty or speculative resource.
+Optional authorized advice needs a concrete question, relevant bounded evidence and stated access limits. It cannot grant authority or decide acceptance. Comparative/model-quality/isolation claims require actual comparable evidence; don't infer them from file metrics or a new session.
 
 ## Resource routing
 
-| Resource | Read condition |
-| --- | --- |
-| [references/progressive-disclosure.md](references/progressive-disclosure.md) | Read before adding, deleting, renaming, or moving a bundled resource; moving content between core and a reference; or reviewing a proposed core/reference split of a repo-local skill. |
-| [references/fresh-reader-testing.md](references/fresh-reader-testing.md) | Read before designing, running, or reporting a fresh-reader check; and when changed skill text adds, removes, or changes required behavior about ownership, approval, permission, resource routing, source-of-truth hierarchy, durable handoff, or lifecycle/status interpretation. |
-| [references/eval-design.md](references/eval-design.md) | Read before designing, adding, changing, validating, preparing, or reporting a repo-local skill evaluation suite or runner-owned evidence artifact; and before making comparative, isolation, provenance, or evidence-retention claims from those artifacts. |
-| [references/evaluation-adjudication-and-correction.md](references/evaluation-adjudication-and-correction.md) | Read before planning semantic acceptance or a sampling/reliability protocol for repo-local skill evaluation; adjudicating semantic results or assigning `Critical`/`Required` findings from them; deciding a resulting correction; selecting a post-correction probe; or making final semantic acceptance claims. |
+| Resource | Read condition | Skip when |
+| --- | --- | --- |
+| [Core/reference split](references/progressive-disclosure.md) | Moving content between core/reference, adding/removing/moving a bundled resource or reviewing such a split. | Ordinary edits without a split. |
+| [Instruction audit](references/audit.md) | Auditing placement/duplication or deciding where existing instructions belong. | A bounded edit with settled ownership. |
+| [Skill template](references/templates/skill.md) | Writing a new skill. | Editing an existing skill. |
+| [Reference template](references/templates/reference.md) | Writing a new reference. | Editing an existing reference. |
+| [Fresh reader](references/fresh-reader-testing.md) | Designing/running/reporting a separately authorized fresh-reader check. | No independent observation is requested or authorized. |
+| [Eval design](references/eval-design.md) | Designing/changing/validating/preparing/reporting a skill evaluation suite or claiming comparative evidence. | Ordinary instruction edits without evaluation artifacts/claims. |
+| [Eval adjudication](references/evaluation-adjudication-and-correction.md) | Planning semantic acceptance/sampling, grading observations or selecting a bounded correction probe. | No semantic evaluation/adjudication. |
 
-Do not read a reference merely because it exists. Read it when its condition is true, before performing the affected work or making the affected evidence claim.
+## Stop and report
 
-## Documentation ownership
-
-For a tracked agent-skill governance program, preserve these non-overlapping owners:
-
-- The Master Plan owns approved program intent, semantic architecture, workstreams, dependencies, and phase gates; it does not own transient runtime state.
-- An approved phase or per-PR plan owns the stable execution contract for that unit: scope, design, dependencies, invariants, acceptance, and verification.
-- Material Owner decisions and approval identity live in the master plan or the approved phase or per-PR plan; there is no separate owner-review brief role, and existing briefs stay as history that is not updated.
-- The program progress source owns concise current truth and stable completion evidence, not a full review, correction, or dispatch journal.
-- The ephemeral managed-workflow context owns the projected Owner Source Package, role/session identities, review round and counters, temporary candidate/artifact identity, the run's authority snapshot, and admission state. The durable record of current authority is the progress State; a snapshot never grants more than it.
-- `AGENTS.md` owns explicit repository skill routing.
-- The affected skill bundle owns its operational behavior.
-
-This durable-documentation arrangement is a continuity requirement for this multi-PR program. It is not a repository-wide rule requiring every implementation task to create a plan file.
-
-Update only the source that owns information changed by real evidence. Do not record future work as completed. Distinguish at least `implemented`, `verified`, `committed`, `pushed`, `PR open`, and `merged` when those states matter. Historical branch, verification, or approval evidence must remain labeled as historical rather than current.
-
-## Related-skill routing
-
-Read and follow:
-
-- `implementation-planning-and-pr-breakdown` for non-trivial discovery, scope, dependencies, acceptance criteria, verification planning, and durable handoff;
-- `code-review-and-quality` for checkpoint, branch, diff, or readiness review;
-- `git-checkpoint-workflow` for branch provenance, dirty-tree safety, staging, commit, correction, and local/remote Git boundaries;
-- `github-pr-ci-workflow` for GitHub pull-request and CI operations when the owner activates that workflow;
-- every domain skill affected by the content or behavior of the skill being changed.
-
-Related-skill routing does not grant the action that the related skill describes. The current owner instruction must still authorize it.
-
-## Stop conditions
-
-Stop and report instead of guessing or expanding scope when:
-
-- repository evidence materially conflicts with an owner-approved decision;
-- branch, base, dependency, dirty-tree ownership, or authoritative source cannot be established;
-- a material business, architecture, ownership, permission, acceptance, or verification decision remains unresolved;
-- the work requires a resource, tool, schema, runner, CI change, migration, or refactor outside the approved scope;
-- a mandatory invariant cannot remain in required context;
-- an exact resource read condition or valid contained path cannot be established;
-- evidence is stale, incomplete, non-equivalent, or stronger than the environment can support;
-- a safety, permission, routing, correctness, ownership, stop-behavior, or verification regression is found;
-- proceeding requires ungranted Git, remote, destructive, production, database, deployment, or credential access;
-- a required review finding remains unresolved.
-
-## Output contract
-
-At a planning, implementation, or review checkpoint, report:
-
-- goal, approved scope, exclusions, and authoritative source;
-- branch/base/dependency and working-tree ownership when Git state is relevant;
-- changed files or proposed file tree and why each source owns the change;
-- permission state for implementation, commit, push, PR, merge, deploy, remote, production, and destructive actions;
-- verification commands actually run, results, skipped checks, and evidence limitations;
-- review type, findings, resolutions, remaining Critical/Required findings, and readiness verdict;
-- fresh-reader status and claim boundary when the change requires that evidence;
-- exact current Git/remote state and the smallest next owner action.
-
-After a completed implementation prompt, follow `git-checkpoint-workflow`: recommend an English Conventional Commit message, but do not stage or commit without explicit owner approval.
+Stop for unresolved material authority/ownership/acceptance, conflicting approved sources, unsupported verification or scope/tooling expansion. Report the changed owner/files, checks and limitations, unresolved findings, pending independent/runtime evidence and Git/remote state. Review or a skill cannot approve itself.

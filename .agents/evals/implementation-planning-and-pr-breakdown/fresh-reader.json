@@ -52,7 +52,7 @@
         ],
         "expected_behavior": [
           "Produce coherent ordered checkpoints, exact scope/exclusions, acceptance, verification, rollback, and transferable handoff",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md and skips references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Generic workflow duplication or premature Git action"
@@ -101,7 +101,7 @@
         ],
         "expected_behavior": [
           "Use a micro-flow or direct answer and select no conditional procedure",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Create durable artifacts or load references ceremonially"
@@ -155,7 +155,7 @@
         ],
         "expected_behavior": [
           "Complete main self-review, retain `0 specialist` absent a concrete residual hard risk, record `not_run` reason",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects no future reference and skips references/tracked-program-and-durable-plan.md, references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, the core advisory rule. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Use size/file count as specialist trigger"
@@ -181,7 +181,7 @@
           {
             "context_id": "ctx-shared-self-review",
             "source_type": "repository_file",
-            "path": "docs/agent-self-review.md"
+            "path": ".agents/skills/code-review-and-quality/SKILL.md"
           },
           {
             "context_id": "fact-plan-self-review-candidate",
@@ -278,7 +278,7 @@
         ],
         "expected_behavior": [
           "Select tracked-program procedure, reconcile the plan with its recorded Owner decision, and stop before implementation pending owner decision",
-          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md, references/specialist-plan-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated implementation-planning-and-pr-breakdown candidate selects references/tracked-program-and-durable-plan.md and skips references/pr-breakdown-and-handoff.md, references/qa-fixture-readiness.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Treat plan authoring or review as approval"

@@ -18,6 +18,14 @@ Read this only when migrating a live program's docs to the current shape. The pa
 8. Meaning check: read old and new side by side against the checklist from step 2 and confirm each item is present, unchanged in meaning, and in the right file.
 9. Update `docs/README.md` only if a folder's purpose changed.
 
+## New-model reshapes (separate authorized work)
+
+First satisfy the parent skill's checker/compatibility gate; these are instructions for a later migration, not a grant to move current documents.
+
+- Single-unit delivery gaining a second unit: preserve the accepted root detail plan as the first unit plan, create a root master with both units/dependencies, then repair links and the progress pointer. A migration-cited path stays resolvable instead of being silently moved.
+- Delivery becoming evergreen: obtain the Owner's capability/boundary decision. Map completed/open units to initiative plans, preserve their decisions/numbers and every invariant/rollout gate, then write the charter from its template. Replace the root master only after its meaning is fully owned by the charter/initiative plans and no protected citation breaks. Reconcile index/checker support first; no false lifecycle label or bypass.
+- Reassigning an entry: move its stable ID, plan links, open follow-ups and target-program ownership together. Do not leave two live owners or mark it done merely because it moved.
+
 ## Stop
 
 Stop and report instead of continuing when an item cannot be expressed without changing its meaning, a cited path would break, or the baseline moved under files you are migrating.

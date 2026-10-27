@@ -22,13 +22,7 @@ Definition:
 
 Under a policy that prevents executing the cycle, preserve supplied eligibility facts and state that the cycle did not run. Before claiming completion, require failed-log and classification evidence, the focused diff and validation result, the resulting commit identity, proof of a normal push to the same branch, and terminal check results for that pushed commit.
 
-Loop limits:
-
-* default maximum: 2 fix attempts;
-* a third completed attempt is allowed only when the owner explicitly permits it;
-* after the limit, stop and report instead of continuing.
-
-Apply the limit to the current supplied authority: report a two-attempt maximum unless the supplied facts explicitly include permission for a third completed attempt. Do not volunteer a hypothetical third attempt when that permission is absent.
+Apply the self-fix limit and escalation in [the shared lifecycle](../../../../docs/agent-loops.md#pr-and-ci), counting attempts as defined above. Report the limit covered by current authority; do not volunteer extra attempts without an explicit Owner grant.
 
 The self-fix loop must not:
 

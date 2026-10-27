@@ -2,7 +2,3 @@
 # One entry per line: <source file> -> <link target as written>. Lines starting with # are comments.
 # Do not add entries for new links; fix the link instead. Remove an entry when its link is fixed
 # (the check prints entries that are no longer broken).
-# Stays: docs/native-multi-agent/reviews/ is gitignored (review artifacts are not committed), so the
-# link is broken on a clean checkout. The check treats gitignored paths as missing, so it reports this
-# entry the same way locally and in CI.
-.claude/README.md -> ../docs/native-multi-agent/reviews/

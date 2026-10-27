@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(playwright-cli *attach*)",
+      "Bash(playwright-cli *--cdp*)",
+      "Bash(playwright-cli *--extension*)",
+      "Bash(npx *playwright cli *attach*)",
+      "Bash(npx *playwright cli *--cdp*)",
+      "Bash(npx *playwright cli *--extension*)",
+      "PowerShell(playwright-cli *attach*)",
+      "PowerShell(playwright-cli *--cdp*)",
+      "PowerShell(playwright-cli *--extension*)",
+      "PowerShell(npx *playwright cli *attach*)",
+      "PowerShell(npx *playwright cli *--cdp*)",
+      "PowerShell(npx *playwright cli *--extension*)"
+    ]
+  }
+}

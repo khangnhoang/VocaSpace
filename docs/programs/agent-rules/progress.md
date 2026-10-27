@@ -1,19 +1,19 @@
 # Progress — Agent rules
 
-Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](./implementation-plans/ar2/plan.md). Git history is the final evidence when documents disagree.
+Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](./implementation-plans/ar2/plan.md), [AR3 detail plan](./implementation-plans/ar3/plan.md). Git history is the final evidence when documents disagree.
 
 ## State
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [AR2 plan](./implementation-plans/ar2/plan.md) r6 (last executed unit) |
-| Current unit / checkpoint | None active. AR2 is merged (PR 163, `5dbcbce`). |
-| Status | merged |
-| Completed evidence | Finished units are in the milestones; AR2 checkpoint evidence is in its commits and the PR 163 body. |
-| Accepted deviations | none |
-| Blockers / Owner decisions | None. AR2 decisions D1–D14 stay in the plan §1.4. |
-| Next action | The Owner picks the next agent-rules unit; candidates are in [future-features.md](./future-features.md). |
-| Current authority | None active. A new unit needs its own plan and Owner grant. |
+| Spec revision | [AR3 plan](./implementation-plans/ar3/plan.md) r3, Owner-approved 2026-10-27 |
+| Current unit / checkpoint | AR3 CP1–CP4 committed locally as `f49d5099`; Owner-requested audit corrections restore runtime cleanup, reconcile CI waiting and centralize the CI attempt limit. Correction re-review pending. AR2 remains merged (PR 163, `5dbcbce`). |
+| Status | automated checks passed |
+| Completed evidence | Plan commit `c0964167`; implementation author review passed. Validator/eval-tool tests 167/167 and docs-checker tests 27/27 passed after Git-fixture permission failures were resolved by rerunning outside sandbox. Final docs:check: 0 structure violations / 0 broken links. Skill validator: 14 valid skills, 1 non-blocking Playwright length warning. Suite validation: 33 files / 232 cases valid. Static checks: 14 symlinks expose 78 files, 3 imports resolve, 12 ask patterns match positive/negative command examples. These are historical implementation checks. A separate app audit of `747dfbdf` returned static PASS, but subsequent author audit found the three issues corrected here; that PASS does not cover this correction. Correction checks passed. PR 180 first CI run failed because the newly added Playwright length warning was outside the validator test allowlist; removed only redundant editorial text/spacing from the new policy. Current validator: 14 skills valid, 0 warnings; all four skill/eval tool suites: 443/443 passed. Suite schema validation: 33 suites / 232 cases valid. Docs/diff checks passed; final PR CI pending. No live Claude approval-prompt/browser evidence exists. |
+| Accepted deviations | None to the Spec. CP1–CP4 form one coherent implementation commit because shared-source retirement, consumer routing and compatibility must land together. Existing docs/checker migration remains deferred. |
+| Blockers / Owner decisions | The three Owner-approved audit findings are corrected locally; correction re-review and live Claude approval-prompt evidence remain pending. Structural checks do not substitute for them. |
+| Next action | Push the focused CI correction to [PR 180](https://github.com/khangnhoang/VocaSpace/pull/180), wait for final CI and merge only after the requested check/review gates hold. Independent correction re-review and live Claude evidence remain unrun. |
+| Current authority | Owner explicitly authorized push, PR creation, waiting for green CI and merge when ready; bounded small-safe CI correction is permitted. No extra model execution, browser or database action. |
 
 ## Milestones
 
@@ -34,3 +34,8 @@ Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](
 - 2026-10-17 AR2 CP3 correction: Main asks the Owner about capped findings with the structured question tool and the same options; native test assertion updated (`6fe4aed`).
 - 2026-10-17 AR2 CP3 closed: GCW probe passed on `6fe4aed`; Owner decision D14 sets the `crq-fresh-plan-review-normal` acceptance scope; AC11 met (`6d5c750`).
 - 2026-10-18 AR2 merged (PR 163, `5dbcbce`).
+- 2026-10-27 AR3 r3 approved after independent plan review PASS; local plan/implementation commits authorized (`c0964167`).
+- 2026-10-27 AR3 CP1–CP4 implemented and deterministic checks passed; independent implementation/runtime review pending (`f49d5099`).
+- 2026-10-27 Corrected runtime cleanup and CI waiting; CI attempt limit now has one lifecycle owner (`0a53c0cd`).
+
+- 2026-10-27 PR 180 opened; first bounded CI correction removes the new Playwright length warning without changing policy or upstream commands; 443 tool tests passed (this commit).

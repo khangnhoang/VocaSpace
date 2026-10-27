@@ -1,128 +1,84 @@
 ---
 name: repo-docs-system
-description: Repository-specific contract for the shape of program documentation, covering master plans, detail plans, progress State, problems, future-features and sources, the docs taxonomy, document lifecycle and legacy marking, and migrating a live program to the current shape. Use when creating, updating, reshaping, or migrating program docs under docs/.
+description: Own program document shape, delivery/evergreen models, backlog, State, problems, templates, ADRs and migration. Use when creating/changing/closing/migrating program docs or docs taxonomy.
 ---
 
-# Repo Docs System
+# Repository docs system
 
-## Activation and ownership
+## Use when / do not use when
 
-Use this skill when a task creates, updates, reshapes, closes, marks as legacy, or migrates program documentation: a master plan, a per-unit detail plan, `progress.md`, `problems.md`, `future-features.md`, `sources/`, or the `docs/` folder taxonomy.
+Use for program plans/charters, detail plans, progress, problems/future features, ADRs, backlog, docs index and migrations. Do not use merely to read a plan, author product code or decide planning method. AGENTS.md owns permissions; lifecycle owns timing; planning owns Spec/hypotheses/approval. Build from templates, not historical document structure.
 
-Do not use it for product code, skill governance, or the planning method itself. Do not use it merely to read a plan.
+## Model and compatibility
 
-This skill owns document shape only: file roles, State placement, update points, taxonomy, lifecycle, the legacy banner, and the migration procedure. It does not own, restate, or weaken:
+The Owner accepted two kinds: delivery programs finish an observable goal; evergreen programs maintain a capability through initiatives. Small work no open program owns belongs in docs/backlog/, not a fabricated program.
 
-- planning method, Spec/State/hypothesis classification, approval and implementation permission: `implementation-planning-and-pr-breakdown`;
-- governance of repo-local skills and their routing: `maintain-repo-skills`;
-- lifecycle routing, review depth, and stop rules: `docs/agent-loops.md`;
-- commits, staging, and remote actions: `git-checkpoint-workflow`.
-
-When a rule here and a rule in those sources disagree, follow the more restrictive one and report the conflict. A document edit never grants implementation, commit, push, PR, merge, deploy, database, or production permission.
-
-## Use the templates, never old program docs
-
-Build a new program document from the templates listed in Resource routing, not by copying the structure of an existing program's files. Existing program docs may be long, hold State in several places, or follow an older shape. A closed or legacy program is a source of content, not of structure.
+This skill specifies the new model. Existing programs keep their current paths, shape, lifecycle and decisions until a separately authorized migration. This unit does not reassign documents or create missing evergreen homes. Current scripts/docs/check-structure.mjs still checks active/closed/legacy and the existing shape rules; it does not enforce charter/evergreen, entry-plan IDs or global FEAT IDs. Do not claim otherwise. Before delivering a new shape the current checker cannot accept, obtain the follow-up checker/migration work; do not bypass the check or silently use a false lifecycle value.
 
 ## File roles
 
-| File | Holds | Must not hold |
+| Source | Holds | Must not hold |
 | --- | --- | --- |
-| Master `plan.md` | Goal and outcome; numbered, dated Owner decisions, one line each; shared invariants; unit/PR table with dependencies and gates; rollout order; program risks; out of scope | State, history, review journal |
-| Detail `implementation-plans/<unit>/plan.md` | Binding Spec (outcome, acceptance, scope and non-goals, guardrails, Owner decisions that bind the unit); repository facts only where they justify a Spec item or expose a conflict, with a baseline commit; short bounded hypotheses; checkpoint table (ID, outcome, verification); risk, rollout and rollback runbook; one line pointing to progress | State, review journal, detailed code map |
-| `progress.md` | Exactly two sections: `## State` (one block at the top, edited in place) and `## Milestones` (a list, one line each) | Any other section, review rounds, command logs, a copy of the Spec |
-| `problems.md` | Open entries with ID, status, problem, evidence, direction, exit condition; resolved entries as one line | Planning decisions, State |
-| `future-features.md` | Owner direction outside the current scope. Optional, no template | Work that is in scope |
-| `sources/` | Frozen reviewed inputs, kept in the language they were reviewed in. Optional, no template | Live decisions, State |
+| Delivery master plan.md | Observable goal, dated numbered decisions, shared invariants, units/dependencies/gates, rollout, risks, exclusions. | Current State, review journal. |
+| Evergreen charter README.md | Capability/boundary, decisions/invariants, initiative table and opening gates. | State or a competing root plan.md. |
+| Detail plan.md | Binding Spec, acceptance, necessary guardrails, baseline facts that justify them, bounded hypotheses, checkpoints/verification, risks/rollout/rollback, progress link. | Duplicate State, command/review history or a large code map. |
+| progress.md | Exactly State and Milestones; current unit/authority/evidence/blocker/next action and concise milestones. | Spec copy or append-only command/review log. |
+| problems.md | Open ID/status/problem/evidence/direction/exit condition; resolved entries one line. | Decisions or duplicated State. |
+| future-features.md | Owner direction outside scope, ID/status/direction/target program. | Work already accepted into the current plan. |
+| sources/ | Optional frozen reviewed inputs in their reviewed language. | Live State or competing decisions. |
 
-## State has one owner
+A single-unit delivery program starts with a root detail plan, not an empty master plus folder. A multi-unit program has a root master and implementation-plans/u<n>-<slug>/plan.md. An evergreen uses a charter and initiative detail plans under that folder.
 
-- `progress.md` is the only State owner. The master plan has no State. A detail plan has one line pointing to progress and no State section: a plan heading whose text is exactly `State` or `Current State` is allowed only when its sole content is that one-line pointer. A detail plan links to its `progress.md`.
-- State describes the current unit and the current authority only. When a unit finishes, its evidence shrinks to milestone lines citing the PR or commit that holds the detail; do not keep finished units' evidence in State.
-- A standalone durable plan with no program progress may keep an inline State block shaped like the progress template.
-- State fields and the milestone format are defined once, in the progress template. Do not redefine them elsewhere.
-- Spec identity (plan revision, approval date) lives in the detail plan; State only names the revision being executed.
+Delivery follow-up work recorded in its own problems/future-features may have implementation-plans/<id>-<slug>/plan.md, linked to that entry without inventing another Units row. Evergreen work uses initiative rows instead. These conventions apply prospectively after the compatibility gate above, not by renumbering existing accepted plans.
 
-### Default update rule
+## State and closure
 
-- Update State in the same commit as the checkpoint code or document change it describes.
-- Use a standalone docs commit only for a blocker, a merge or rollout event, or a session handoff.
-- A milestone is one line: date, what happened, commit or PR, in the grammar defined by the progress template. A milestone added in the commit it describes cites `(this commit)`; in the next commit that edits the file, replace it with the hash. Do not record review rounds or command logs in progress; Git keeps them.
-- Record an implementation discovery as an accepted deviation in State. Do not edit the frozen Spec or facts to match it; route material changes through `implementation-planning-and-pr-breakdown`.
+progress.md alone owns program State; plans have a one-line progress link. A standalone durable plan without program progress may retain the existing inline-State exception. Exact fields and milestone grammar live only in the progress template.
 
-## Repository facts rule
+Keep current unit/authority in State; finished evidence shrinks to milestones citing a commit/PR. Update State with the checkpoint it describes; separate docs commits are for blockers, merge/rollout events or handoff. A final milestone may cite (this commit), replaced with its hash the next time the file changes.
 
-A detail plan keeps only repository facts that justify a Spec item or expose a conflict, each tied to a baseline commit. Facts are frozen once the plan is approved. A code map or call-path inventory is a bounded hypothesis, not a fact.
+Keep facts frozen after plan approval; record a bounded discovery in State and route material Spec changes to planning. Never alter approved history to match current code.
 
-## Problems
+Resolve problems only after their exit condition holds and move still-live follow-ups before shrinking the entry. Keep IDs. Future-feature IDs are unique across program/backlog future-features under the new model; current checker does not enforce that uniqueness.
 
-Each open entry has: ID, status, problem, evidence, direction, exit condition. When resolved, first move any still-live follow-up into an open entry, then shrink it to one line (ID, status, one-line outcome). Keep the original ID, and keep an entry open until its exit condition is met.
+## Backlog and program lifecycle
 
-## Lifecycle and legacy marking
+docs/backlog/ holds problems.md/future-features.md with no plan, progress or Programs row. Close entries as one-line Done (with delivered evidence), Moved to (link) or Dropped (reason); keep an undelivered fix open as Fixed locally, awaiting delivery.
 
-| Lifecycle | Meaning | Rule |
-| --- | --- | --- |
-| active | The program has unfinished units or open rollout steps | Follows the templates. A live program in an older shape is migrated, not bannered (see `references/migration.md`) |
-| closed | All units merged and rolled out; no open rollout step | Stays in place; content is not rewritten |
-| legacy | A closed or frozen document in an older shape that is not migrated | Starts with the legacy banner below |
+A delivery program closes when its units/rollout are done and open problems are resolved/moved. An evergreen capability remains open while its initiatives close independently; at most one open initiative plan at a time. Existing Lifecycle rows remain active/closed/legacy until the new checker/index contract is implemented in the follow-up work.
 
-Exact legacy banner, placed as the first non-blank line of a legacy file, or as the first non-blank line after its YAML front matter when it has one:
+Do not duplicate current status into docs/README.md. Update its program/folder index when the owning facts actually change. A legacy-format exemption is not permission to label an active unfinished program closed or legacy.
 
-```text
+Use an ADR in docs/adr/ for a decision spanning/outliving programs and index it in docs/adr/README.md. A program-only decision stays in the plan/charter. No dependency-update check is introduced by this skill.
+
+Existing closed/frozen old-format documents may carry this exact first-line banner (after YAML frontmatter when present):
+
 > Legacy format — do not use as a template. Use the templates in .agents/skills/repo-docs-system/.
-```
 
-A frozen reviewed detail plan inside a migrated program keeps its content and path; its State section is replaced by the progress pointer and it gets the banner.
-
-A program whose `progress.md` carries the banner has the legacy-format exemption: its files are not held to the file roles or shape rules above. Lifecycle is recorded separately, in the Programs index, and is independent of file format: a closed program may be bannered or not, and an active program is never bannered. To close a program, state in State that it is completed, resolve its open problems or move them to another program, and set its Programs row to `closed`.
-
-## Language
-
-Repository docs are written in English. A frozen `sources/` input keeps the language it was reviewed in. Reports and replies to the Owner follow the Owner-facing language rule in `AGENTS.md`.
-
-## Size guidance
-
-Rough targets, soft guidance and never a hard limit: master plan about 150-250 lines; detail plan about 150-300; progress State block about 25 lines plus one line per milestone; problems entry about 8 lines open, 1 line resolved. Exceeding a target is a prompt to remove duplication, not to drop a Spec item, invariant, gate, or rollout step.
-
-## Taxonomy
-
-New and active programs, refactor or feature, live in `docs/programs/<program>/`. Closed programs listed in the Programs index may stay where they are. `docs/refactors/` holds only redirect files for paths that published migrations cite: each is one heading and one line linking under `docs/programs/`. The other top-level folders under `docs/` are listed in `docs/README.md`, which owns the taxonomy index. Update it when a folder's purpose changes.
-
-### Programs index
-
-A program is a folder under `docs/` that contains `progress.md`. Every program has exactly one row in the Programs table of `docs/README.md`, with its path relative to `docs/` in a `Path` column and `active`, `closed` or `legacy` in a `Lifecycle` column. Do not copy status into the table; current status is read from the program's `progress.md` State. Update the row when the lifecycle changes.
-
-### ADRs
-
-Write an ADR in `docs/adr/` for a decision that outlives one program or spans programs (architecture, product rule, workflow, docs structure), using [references/templates/adr.md](references/templates/adr.md). A decision that matters only to one program stays in that program's master plan. Every `docs/adr/*.md` is listed in `docs/adr/README.md` with date, status and a one-line summary.
+This preserves the current checker's legacy exemption; it does not mark an unfinished active program as historical.
 
 ## Verify
 
-After editing program docs, `docs/README.md` or `docs/adr/`, and before claiming the docs follow this shape or committing, run `npm run docs:check` (the structure check and the link check) and report its result. Do not claim the docs shape is correct without it. The check enforces only the mechanical rules stated in this skill and its templates; whether State is true, whether an exit condition is met, and whether meaning was preserved stay your judgment.
+After docs/index/ADR edits run npm run docs:check. It checks its existing mechanical rules/links only; manually inspect meaning, current State, entry closure and expanded-model rules. Do not claim a future checker or docs:check:test script exists. If checker code actually changes, run the affected node --test scripts/docs/<checker>.test.mjs.
+
+Soft size targets are prompts to remove duplication, never reasons to drop a decision, invariant or rollout step. Docs/skills use English; frozen inputs keep their reviewed language and Owner reports follow AGENTS.md.
 
 ## Resource routing
 
 | Resource | Read condition | Skip when |
 | --- | --- | --- |
-| [references/templates/master-plan.md](references/templates/master-plan.md) | Read before creating or reshaping a program master `plan.md` | The task does not create or reshape a master plan |
-| [references/templates/detail-plan.md](references/templates/detail-plan.md) | Read before creating or reshaping a per-unit detail plan `implementation-plans/<unit>/plan.md` | The task does not create or reshape a detail plan |
-| [references/templates/progress.md](references/templates/progress.md) | Read before creating or reshaping a `progress.md` or an inline State block in a standalone plan, or when the State field list or milestone format is needed | The task does not create or reshape a `progress.md` or an inline State block, and does not need the State field list or milestone format |
-| [references/templates/problems.md](references/templates/problems.md) | Read before creating or reshaping a `problems.md`, or before shrinking a resolved entry | The task does not create or reshape a `problems.md` and does not shrink a resolved entry |
-| [references/templates/adr.md](references/templates/adr.md) | Read before creating or reshaping an ADR in `docs/adr/` | The task does not create or reshape an ADR |
-| [references/migration.md](references/migration.md) | Read before migrating an existing live program to this shape, or before replacing its State, master plan, progress, or problems files | The task does not migrate an existing live program and does not replace its State, master plan, progress, or problems files |
+| [Master plan](references/templates/master-plan.md) | Creating/reshaping a delivery master. | No master change. |
+| [Charter](references/templates/charter.md) | Designing an evergreen charter under the compatibility gate. | No charter. |
+| [Detail plan](references/templates/detail-plan.md) | Creating/reshaping a unit, initiative, entry or single-unit plan. | No detail plan change. |
+| [Progress](references/templates/progress.md) | Creating/changing State shape or using its field/milestone grammar. | No State-shape/grammar decision. |
+| [Problems](references/templates/problems.md) | Creating/reshaping problems or shrinking a resolved entry. | No such change. |
+| [Future features](references/templates/future-features.md) | Creating a future-features file/entry. | No future-feature change. |
+| [ADR](references/templates/adr.md) | Writing/reshaping a cross-program decision record. | No ADR. |
+| [Handoff](references/templates/handoff.md) | An explicitly requested handoff. | No handoff request. |
+| [Migration](references/migration.md) | Moving/reshaping a live program or designing its delivery-to-evergreen conversion. | Ordinary bounded docs edit. |
 
-Do not read a resource merely because it exists.
+## Stop and report
 
-## Stop conditions
+Stop for a missing Owner boundary/authority, conflicting decisions, another writer, unsupported checker requirement or a published migration citation that would break. No automatic document reassignment.
 
-Stop and report instead of continuing when:
-
-- a migrated Owner decision, invariant, gate, rollout step, or open problem cannot keep its meaning in the new shape;
-- a published migration (`supabase/migrations/*.sql`) cites a path you would move or rename; never edit a published migration;
-- the files you would change are owned by a parallel session or branch you cannot coordinate with;
-- the work would also change planning-method, permission, or skill-governance rules owned elsewhere;
-- a required Owner decision about taxonomy, ownership, or scope is missing.
-
-## Output contract
-
-Report which documents changed and the role each now plays, that State has exactly one owner, the result of `npm run docs:check` and any meaning check actually run, and anything skipped. A migration report also names the Git revision of the old files used for comparison.
+Report changed sources/roles, State ownership, actual checker vs manual results, limitations and Git/remote state. A migration also names its old baseline and proves each decision/invariant/gate/open problem kept its meaning.

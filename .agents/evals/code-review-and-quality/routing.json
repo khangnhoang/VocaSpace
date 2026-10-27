@@ -47,7 +47,7 @@
         ],
         "expected_behavior": [
           "Review root cause/regression evidence and test adequacy",
-          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit code-review-and-quality or test-quality-strategy, select a route outside the supplied candidate set, or infer fix, commit, push, or other mutation permission from the review routes."
@@ -115,7 +115,7 @@
         ],
         "expected_behavior": [
           "Assess the reproduced prior failure, corrected boundary, root cause, and fail-before/pass-after regression evidence",
-          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Treat the change as an additive feature, omit code-review-and-quality or test-quality-strategy, select a route outside the supplied candidate set, or infer fix, Git, or remote-action permission from review routing."
@@ -183,7 +183,7 @@
         ],
         "expected_behavior": [
           "Assess preservation of public inputs, outputs, errors, side effects, and observable regression behavior across the internal move",
-          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Treat unchanged public behavior as sufficient without contract-preservation review, omit code-review-and-quality or test-quality-strategy, select a route outside the supplied candidate set, or infer mutation permission."
@@ -246,7 +246,7 @@
         ],
         "expected_behavior": [
           "Route main review plus every affected validation/DB/test owner",
-          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md and skips references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md and skips references/special-review-cases.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit code-review-and-quality, nextjs-server-action-zod, supabase-safe-migration, or test-quality-strategy; select a route outside the supplied candidate set; or infer validation, database, fix, or delivery permission from routing."
@@ -318,7 +318,7 @@
         ],
         "expected_behavior": [
           "Review the new public contract and focused unit coverage proportionally without classifying the change as a special review case",
-          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md and skips references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md and skips references/special-review-cases.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Classify the additive feature as a bug fix, refactor, dead-code removal, or dependency change; omit code-review-and-quality or test-quality-strategy; select a route outside the supplied candidate set; or infer mutation permission."
@@ -386,7 +386,7 @@
         ],
         "expected_behavior": [
           "Code/readiness review and GitHub state/log inspection are separate owners",
-          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md, references/review-report-templates.md and skips references/special-review-cases.md, references/specialist-review.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/domain-review-dimensions.md, references/review-report-templates.md and skips references/special-review-cases.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit code-review-and-quality or github-pr-ci-workflow, select a route outside the supplied candidate set, or infer edit, push, pull-request mutation, merge, or deployment permission from read-only review and inspection routes."
@@ -449,7 +449,7 @@
         ],
         "expected_behavior": [
           "Preserve observable contracts and assess behavior-protecting tests",
-          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects references/special-review-cases.md, references/domain-review-dimensions.md and skips references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit code-review-and-quality or test-quality-strategy, select a route outside the supplied candidate set, or infer refactor, test, fix, or delivery permission from the read-only review routes."
@@ -517,7 +517,7 @@
         ],
         "expected_behavior": [
           "Small documentation review remains review-owned and may skip domain/special/report references",
-          "A migrated code-review-and-quality candidate selects no future reference and skips references/domain-review-dimensions.md, references/special-review-cases.md, references/specialist-review.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "A migrated code-review-and-quality candidate selects no future reference and skips references/domain-review-dimensions.md, references/special-review-cases.md, references/review-report-templates.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
         ],
         "forbidden_behavior": [
           "Omit code-review-and-quality, select any route outside the supplied candidate set, or infer edit, commit, push, or other mutation permission for the small read-only documentation review."
@@ -577,13 +577,13 @@
         "criteria": [
           {
             "criterion_id": "crq-route-specialist-review-material",
-            "description": "A branch-review specialist is review-owned, not plan-review-owned",
+            "description": "Use the authorized specific evidence-backed advisory question, preserve read-only/access bounds, and independently reconcile the advice without adding a mandatory Specialist workflow.",
             "material": true
           }
         ],
         "expected_behavior": [
-          "A branch-review specialist is review-owned, not plan-review-owned",
-          "A migrated code-review-and-quality candidate selects references/specialist-review.md, references/review-report-templates.md and skips references/domain-review-dimensions.md, references/special-review-cases.md. The unsplit baseline is judged on the same behavior without naming, selecting, supplying, or reading future references."
+          "Use the specific question and relevant bounded evidence already supplied; state the actual authority/access limits and stop rather than expand them.",
+          "Advice remains advisory; Main verifies it against the repository and evidence. No mandatory Specialist resource, admission gate, numerical package ritual or model dispatch is inferred."
         ],
         "forbidden_behavior": [
           "Omit code-review-and-quality, select forbidden implementation-planning-and-pr-breakdown or a route outside the supplied candidate set, or expand the one-turn read-only specialist action into delegation or mutation."
