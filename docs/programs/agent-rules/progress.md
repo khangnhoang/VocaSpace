@@ -1,19 +1,19 @@
 # Progress — Agent rules
 
-Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](./implementation-plans/ar2/plan.md). Git history is the final evidence when documents disagree.
+Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](./implementation-plans/ar2/plan.md), [AR3 detail plan](./implementation-plans/ar3/plan.md). Git history is the final evidence when documents disagree.
 
 ## State
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [AR2 plan](./implementation-plans/ar2/plan.md) r6 (last executed unit) |
-| Current unit / checkpoint | None active. AR2 is merged (PR 163, `5dbcbce`). |
-| Status | merged |
-| Completed evidence | Finished units are in the milestones; AR2 checkpoint evidence is in its commits and the PR 163 body. |
-| Accepted deviations | none |
-| Blockers / Owner decisions | None. AR2 decisions D1–D14 stay in the plan §1.4. |
-| Next action | The Owner picks the next agent-rules unit; candidates are in [future-features.md](./future-features.md). |
-| Current authority | None active. A new unit needs its own plan and Owner grant. |
+| Spec revision | [AR3 plan](./implementation-plans/ar3/plan.md) r3, Owner-approved 2026-10-27 |
+| Current unit / checkpoint | AR3 CP1 next; implementation not started. AR2 remains merged (PR 163, `5dbcbce`). |
+| Status | approved for implementation |
+| Completed evidence | Independent gpt-6.1-sol high read-only review passed r3 on 2026-10-27 in the original reviewer session; no findings, candidate hash unchanged. Docs/diff checks passed. Baseline `33550348`: 15 skills and 33 suite files / 232 cases structurally valid. Review covers the plan, not implementation or runtime enforcement. |
+| Accepted deviations | None. AR3 proposes replacing prior method-location/managed-workflow decisions prospectively; AR2 history is unchanged. |
+| Blockers / Owner decisions | None for CP1; AR3 decisions D1–D12 are recorded in §1.4. |
+| Next action | Commit the approved plan, then implement CP1–CP4 and verify each checkpoint. |
+| Current authority | Implement approved AR3 r3 and create local plan/implementation commits throughout. No push, PR, merge, extra model execution, browser or database action. |
 
 ## Milestones
 
@@ -34,3 +34,4 @@ Plans: [AR1 detail plan](./implementation-plans/ar1/plan.md), [AR2 detail plan](
 - 2026-10-17 AR2 CP3 correction: Main asks the Owner about capped findings with the structured question tool and the same options; native test assertion updated (`6fe4aed`).
 - 2026-10-17 AR2 CP3 closed: GCW probe passed on `6fe4aed`; Owner decision D14 sets the `crq-fresh-plan-review-normal` acceptance scope; AC11 met (`6d5c750`).
 - 2026-10-18 AR2 merged (PR 163, `5dbcbce`).
+- 2026-10-27 AR3 r3 approved after independent plan review PASS; local plan/implementation commits authorized (this commit).
