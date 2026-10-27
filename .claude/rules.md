@@ -1,6 +1,6 @@
 # Claude Code working rules
 
-Imported by `CLAUDE.md`; Codex does not load this file. Rules shared with Codex live in `AGENTS.md` and the skills.
+Imported by `CLAUDE.md`. This file owns Claude-specific tools and session bindings. `AGENTS.md` owns shared rules, `docs/agent-loops.md` owns the shared lifecycle, and `.agents/skills/` owns task procedures.
 
 Three rules below are standing Owner permissions that apply without asking again: the Codex review scope, Explore fan-out on Haiku, and foreground CI watching.
 
@@ -19,7 +19,7 @@ Three rules below are standing Owner permissions that apply without asking again
 
 ## Preflight reading
 
-- Claude Code does not load the skills in `.agents/skills/` on its own. Before the first tool call of any task that is not a pure read-only question, read `docs/agent-loops.md` and the whole `SKILL.md` of every skill whose row in the `AGENTS.md` routing table matches the task.
+- `.claude/skills/<name>` exposes each shared `.agents/skills/<name>` through a relative directory symlink so Claude Code can discover its name and description. Edit the canonical target. Discovery does not load the whole skill: before acting, invoke the skill or read its whole `SKILL.md` whenever the `AGENTS.md` routing matches the task. Apply the shared preflight in `docs/agent-loops.md`, already imported by `CLAUDE.md`.
 
 ## Implementation through Sonnet
 
@@ -28,7 +28,7 @@ Three rules below are standing Owner permissions that apply without asking again
 - When the session ends a turn, Main is called to handle the next step. That note quotes only the start of the report, so read the full report and check the diff and commits before trusting it.
 - Send corrections and later checkpoints to the same session with SendMessage; do not start a new session, a subagent or an independent review per checkpoint. Reviews or evidence that the plan or a skill requires (for example a fresh-reader round) still run at their checkpoint.
 - While an implementor owns the plan, Main does not edit product code or tests, even for small QA fixes.
-- The handoff prompt names the plan file as the single source of truth (the plan wins on any conflict) and adds only the checkpoint scope, the authority and operational notes the plan lacks. Do not restate the plan's scope or acceptance in your own words.
+- The handoff prompt names the approved plan file as the source of task scope and acceptance and adds only the checkpoint scope, the authority and operational notes the plan lacks. Shared precedence and permission rules still apply; stop and report a material conflict. Do not restate the plan's scope or acceptance in your own words.
 - A concern the plan does not cover goes into the prompt as a risk to prove with tests, stating the expected result. Hand over all checkpoints in one dispatch; split them only when a later checkpoint needs an Owner decision based on an earlier result, not so Main can check in between.
 
 ## Discovery
