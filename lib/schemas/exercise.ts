@@ -505,14 +505,7 @@ export function validateQuestionGroupToeicContext(
   return { success: true as const };
 }
 
-export const bulkExerciseSchema = z.object({
-  title: z.string().min(4, "Tên bài tập phải dài hơn 3 ký tự"),
-  part_type: z.string().min(1, "Vui lòng chọn Part (VD: part7)"),
-  bulkText: z.string().min(1, "Vui lòng nhập nội dung văn bản theo cấu trúc Aiken"),
-});
-
 export type ExerciseFormValues = z.infer<typeof exerciseSchema>;
-export type BulkExerciseFormValues = z.infer<typeof bulkExerciseSchema>;
 
 export type FullExerciseOption = z.infer<typeof optionSchema> & { id: string };
 

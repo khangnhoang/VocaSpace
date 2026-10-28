@@ -19,7 +19,6 @@ const mocks = vi.hoisted(() => ({
   createExercise: vi.fn(),
   getCardsByTopicId: vi.fn(),
   deleteCard: vi.fn(),
-  createBulkCards: vi.fn(),
   getTopicById: vi.fn(),
   updateTopic: vi.fn(),
   deleteTopic: vi.fn(),
@@ -45,7 +44,6 @@ vi.mock("@/app/actions/exercise", () => ({
 vi.mock("@/app/actions/card", () => ({
   getCardsByTopicId: mocks.getCardsByTopicId,
   deleteCard: mocks.deleteCard,
-  createBulkCards: mocks.createBulkCards,
   createCard: vi.fn(),
   updateCard: vi.fn(),
 }));

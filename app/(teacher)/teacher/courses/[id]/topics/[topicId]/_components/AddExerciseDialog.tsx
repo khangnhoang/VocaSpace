@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useTransition, useState } from "react";
+import React, { useEffect, useTransition, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,11 +27,9 @@ import {
 } from "@/components/ui/form";
 import {
   ArrowLeft,
-  FileText,
   HelpCircle,
   Loader2,
   Plus,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -50,11 +48,6 @@ import {
   type ExerciseFormValues,
 } from "@/lib/schemas/exercise";
 import { createExercise, deleteQuestionGroupMedia } from "@/app/actions/exercise";
-import {
-  AikenParseError,
-  formatAikenParseIssues,
-  parseAikenToGroups,
-} from "@/lib/utils/aiken-parser";
 import QuestionGroupMediaField, {
   type UploadedQuestionGroupMedia,
 } from "./QuestionGroupMediaField";
@@ -162,12 +155,7 @@ export default function AddExerciseDialog({
   readOnly = false,
 }: AddExerciseDialogProps) {
   const [isPending, startTransition] = useTransition();
-  const [isBulkMode, setIsBulkMode] = useState(false);
-  const [bulkText, setBulkText] = useState("");
-  const [bulkError, setBulkError] = useState("");
-  const [bulkErrorDetails, setBulkErrorDetails] = useState("");
   const [uploadedMedia, setUploadedMedia] = useState<UploadedQuestionGroupMedia[]>([]);
-  const bulkTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const exerciseFormResolver: Resolver<ExerciseFormValues> = async (
     values,
@@ -311,23 +299,6 @@ export default function AddExerciseDialog({
     removeGroup(gIndex);
   };
 
-  const focusBulkTextarea = () => {
-    requestAnimationFrame(() => {
-      bulkTextareaRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-      bulkTextareaRef.current?.focus();
-    });
-  };
-
-  const showBulkError = (summary: string, details = "") => {
-    setBulkError(summary);
-    setBulkErrorDetails(details);
-    toast.error("Vui lòng kiểm tra lại nội dung nhập hàng loạt.");
-    focusBulkTextarea();
-  };
-
   useEffect(() => {
     if (partType === "part5") {
       form.setValue("groups", undefined);
@@ -390,48 +361,12 @@ export default function AddExerciseDialog({
 
   const handleValidatedFormSubmit = (values: ExerciseFormValues) => {
     if (readOnly) return;
-    if (isBulkMode && !bulkText.trim()) {
-      showBulkError("Vui lòng nhập nội dung câu hỏi.");
-      return;
-    }
-
     startTransition(async () => {
-      let finalPayload: ExerciseFormValues;
-
-      if (isBulkMode) {
-        try {
-          const parsedGroups = parseAikenToGroups(bulkText);
-          finalPayload = {
-            title: values.title,
-            part_type: values.part_type,
-            order_index: values.order_index || 1,
-            ...(values.part_type === "part5"
-              ? { questions: parsedGroups.flatMap((group) => group.questions) }
-              : { groups: parsedGroups }),
-          };
-        } catch (error) {
-          showBulkError(
-            "Định dạng nhập hàng loạt không hợp lệ. Vui lòng kiểm tra lại các dòng bị lỗi.",
-            error instanceof AikenParseError
-              ? formatAikenParseIssues(error)
-              : "Không thể phân tích nội dung nhập hàng loạt.",
-          );
-          return;
-        }
-      } else {
-        finalPayload = buildManualPayload(values);
-      }
+      const finalPayload = buildManualPayload(values);
 
       const validation = exerciseSchema.safeParse(finalPayload);
       if (!validation.success) {
-        if (isBulkMode) {
-          showBulkError(
-            "Định dạng nhập hàng loạt không hợp lệ. Vui lòng kiểm tra lại các dòng bị lỗi.",
-            validation.error.issues[0].message,
-          );
-        } else {
-          toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
-        }
+        toast.error("Vui lòng kiểm tra lại các trường chưa hợp lệ.");
         return;
       }
 
@@ -467,9 +402,6 @@ export default function AddExerciseDialog({
         ],
         questions: undefined,
       });
-      setBulkText("");
-      setBulkError("");
-      setBulkErrorDetails("");
       setIsOpen(false);
       onSuccess();
     });
@@ -510,18 +442,9 @@ export default function AddExerciseDialog({
           <Button
             disabled={isPending}
             aria-label="Save exercise"
-            onClick={async () => {
-              if (isBulkMode) {
-                const isHeaderValid = await form.trigger([
-                  "title",
-                  "part_type",
-                ]);
-                  if (isHeaderValid) handleValidatedFormSubmit(form.getValues());
-                  else handleInvalidSubmit(form.formState.errors);
-                } else {
-                  form.handleSubmit(handleValidatedFormSubmit, handleInvalidSubmit)();
-                }
-            }}
+            onClick={() =>
+              form.handleSubmit(handleValidatedFormSubmit, handleInvalidSubmit)()
+            }
             className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-lg font-bold px-6"
           >
             {isPending ? (
@@ -603,25 +526,7 @@ export default function AddExerciseDialog({
               />
             </div>
 
-            <div className="flex bg-slate-200/60 p-1 rounded-lg max-w-md shadow-inner">
-              <button
-                type="button"
-                onClick={() => setIsBulkMode(false)}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${!isBulkMode ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-              >
-                <FileText size={14} /> Nhập thủ công
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsBulkMode(true)}
-                className={`flex-1 py-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${isBulkMode ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-              >
-                <Sparkles size={14} /> Nhập hàng loạt
-              </button>
-            </div>
-
-            {!isBulkMode ? (
-              partType === "part5" ? (
+            {partType === "part5" ? (
                 <div className="space-y-6">
                   {standaloneQuestionFields.map((question, qIndex) => (
                     <div
@@ -829,62 +734,7 @@ export default function AddExerciseDialog({
                     <Plus className="mr-2" /> Thêm nhóm câu hỏi
                   </Button>
                 </div>
-              )
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
-                <div className="lg:col-span-7 flex flex-col space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Nội dung văn bản Aiken
-                  </label>
-                  <Textarea
-                    ref={bulkTextareaRef}
-                    value={bulkText}
-                    onChange={(e) => {
-                      setBulkText(e.target.value);
-                      setBulkError("");
-                      setBulkErrorDetails("");
-                    }}
-                    placeholder="Dán nội dung đề đã soạn theo cấu trúc Aiken vào đây..."
-                    aria-invalid={!!bulkError}
-                    className="flex-1 min-h-[50vh] font-mono text-sm bg-slate-900 text-slate-100 rounded-lg p-6 shadow-inner border border-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  {bulkError && (
-                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                      <p className="font-semibold">{bulkError}</p>
-                      {bulkErrorDetails && (
-                        <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed">
-                          {bulkErrorDetails}
-                        </pre>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="lg:col-span-5 bg-white border border-slate-200 p-6 rounded-xl shadow-sm space-y-4 h-fit sticky top-24">
-                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                    <Sparkles size={16} className="text-emerald-500" />
-                    Quy định cấu trúc Aiken mở rộng
-                  </h4>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Hệ thống tự bóc tách đoạn văn, audio, câu hỏi và đáp án.
-                    Hãy giữ đúng cấu trúc để tránh lỗi nhập liệu.
-                  </p>
-
-                  <div className="bg-slate-950 text-emerald-400 font-mono text-[11px] p-4 rounded-lg space-y-1 select-all whitespace-pre leading-relaxed border border-slate-900 shadow-md">
-{`Passage: Read the text and answer questions
-[Audio]: https://vocaspace.com/audio/sample.mp3
-[Image]: https://placehold.co/600x400.png
-Q: What is indicated about the speaker?
-A) He is a student.
-B) He is a chef.
-C) He is a manager.
-D) He is a designer.
-E) He is a trainer.
-ANSWER: A`}
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
           </form>
         </Form>
       </DialogContent>

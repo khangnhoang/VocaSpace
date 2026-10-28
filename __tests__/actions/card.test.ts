@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createBulkCards,
   createCard,
   deleteCard,
   updateCard,
@@ -12,9 +11,9 @@ vi.mock("@/utils/supabase/server", () => ({
 }));
 
 // Test plan:
-// - Mục tiêu: kiểm tra card Server Actions an toàn cho tạo/sửa/xóa mềm/bulk flashcard.
+// - Mục tiêu: kiểm tra card Server Actions an toàn cho tạo/sửa/xóa mềm flashcard.
 // - Loại test: action/unit với Supabase mock.
-// - Đối tượng: createCard, updateCard, deleteCard, createBulkCards.
+// - Đối tượng: createCard, updateCard, deleteCard.
 // - Case thành công:
 //   - Chỉ trả success khi trusted card RPC trả shape kết quả hợp lệ.
 // - Case thất bại:
@@ -170,7 +169,7 @@ describe("deleteCard", () => {
   });
 });
 
-describe("card create/update/bulk actions", () => {
+describe("card create/update actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -178,15 +177,9 @@ describe("card create/update/bulk actions", () => {
   it("rejects invalid topic and card IDs before auth or database access", async () => {
     const createResult = await createCard("not-a-topic-id", validCardValues);
     const updateResult = await updateCard("not-a-card-id", validCardValues);
-    const bulkResult = await createBulkCards("not-a-topic-id", [
-      validCardValues,
-    ]);
 
     expect(createResult).toEqual({ error: "ID bài học không hợp lệ." });
     expect(updateResult).toEqual({ error: "ID thẻ từ vựng không hợp lệ." });
-    expect(bulkResult).toEqual({
-      error: "Dữ liệu lỗi: ID bài học không hợp lệ.",
-    });
     expect(mockedCreateClient).not.toHaveBeenCalled();
   });
 
@@ -228,25 +221,6 @@ describe("card create/update/bulk actions", () => {
     });
     expect(client.rpc).toHaveBeenCalledWith("d1_update_card", expect.objectContaining({
       p_card_id: cardId,
-    }));
-    expect(client.rpc.mock.calls[0][1]).not.toHaveProperty("p_confirm_published");
-  });
-
-  it("does not report bulk success when the trusted RPC returns no row", async () => {
-    const client = authClientWithQueries([], { data: null, error: null });
-    mockCreateClient(client);
-
-    const result = await createBulkCards(topicId, [
-      validCardValues,
-      { ...validCardValues, word: "goodbye", translation: "tạm biệt" },
-    ]);
-
-    expect(result).toEqual({
-      error:
-        "Không thể thêm đầy đủ danh sách thẻ từ vựng. Bài học có thể không tồn tại hoặc bạn không có quyền chỉnh sửa.",
-    });
-    expect(client.rpc).toHaveBeenCalledWith("d1_bulk_create_cards", expect.objectContaining({
-      p_topic_id: topicId,
     }));
     expect(client.rpc.mock.calls[0][1]).not.toHaveProperty("p_confirm_published");
   });

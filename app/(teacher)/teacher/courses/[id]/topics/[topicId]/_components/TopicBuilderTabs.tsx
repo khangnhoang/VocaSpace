@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, ClipboardList, Settings } from "lucide-react";
+import { BookOpen, Brain, ClipboardList, Settings } from "lucide-react";
 import ExerciseTab from "./ExerciseTab";
 import MemoryCheckSection from "./MemoryCheckSection";
 import FlashcardTab from "./FlashcardTab";
@@ -305,6 +305,12 @@ export default function TopicBuilderTabs({
             <BookOpen size={18} /> Từ vựng
           </TabsTrigger>
           <TabsTrigger
+            value="memory-check"
+            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+          >
+            <Brain size={18} /> Memory check
+          </TabsTrigger>
+          <TabsTrigger
             value="exercises"
             className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
           >
@@ -328,14 +334,16 @@ export default function TopicBuilderTabs({
           />
         </TabsContent>
 
-        <TabsContent value="exercises" className="min-w-0 space-y-8">
-          {/* D3: memory check đứng trước bài tập đúng như thứ tự learner gặp. */}
+        <TabsContent value="memory-check" className="min-w-0">
           <MemoryCheckSection
             topicId={topicId}
             readOnly={!workflow.canEdit || workflow.status === "pending"}
             isPublished={workflow.status === "published"}
             onMutationSuccess={() => router.refresh()}
           />
+        </TabsContent>
+
+        <TabsContent value="exercises" className="min-w-0">
           <ExerciseTab
             topicId={topicId}
             readOnly={!workflow.canEdit || workflow.status === "pending"}

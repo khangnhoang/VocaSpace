@@ -596,10 +596,12 @@ describe("course workspace route contract", () => {
     );
     expect(TOPIC_BUILDER_TABS).toEqual([
       "flashcards",
+      "memory-check",
       "exercises",
       "settings",
     ]);
     expect(getTopicBuilderTab("settings")).toBe("settings");
+    expect(getTopicBuilderTab("memory-check")).toBe("memory-check");
     expect(getTopicBuilderTab("unknown")).toBe("exercises");
   });
 

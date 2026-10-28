@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, Loader2, BookType, CopyPlus } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, BookType } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,6 @@ import { toast } from "sonner";
 import { Card } from "@/app/(teacher)/teacher/courses/[id]/_components/types";
 import { getCardsByTopicId, deleteCard } from "@/app/actions/card";
 import AddFlashcardDialog from "@/app/(teacher)/teacher/courses/[id]/_components/AddFlashcardDialog";
-import BulkAddFlashcardDialog from "./BulkAddFlashcardDialog";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 import { PUBLISHED_DELETE_IMPACT } from "@/lib/course-authoring/published-edit-impact";
 import { PublishedImpactNotice } from "@/app/(teacher)/teacher/courses/[id]/_components/PublishedEditWarning";
@@ -44,9 +43,6 @@ export default function FlashcardTab({
   // States cho Modal Xóa
   const [deletingCard, setDeletingCard] = useState<Card | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
-
-  // State quản lý Modal thêm hàng loạt
-  const [isBulkOpen, setIsBulkOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -105,16 +101,7 @@ export default function FlashcardTab({
         <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 md:hidden">
           Tính năng soạn nội dung học phù hợp hơn trên màn hình lớn. Vui lòng dùng máy tính để thêm hoặc chỉnh sửa flashcard/bài tập.
         </p>
-        {/* SỬA KHU VỰC BUTTON THÀNH 2 NÚT */}
         <div className="hidden gap-3 md:flex">
-          <Button
-            onClick={() => setIsBulkOpen(true)}
-            disabled={readOnly}
-            variant="outline"
-            className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-xl shadow-sm px-5 py-6 font-bold"
-          >
-            <CopyPlus size={18} className="mr-2" /> Thêm hàng loạt
-          </Button>
           <Button
             onClick={handleAddClick}
             disabled={readOnly}
@@ -209,17 +196,6 @@ export default function FlashcardTab({
                   topicId,
                 }) ?? false
         }
-      />
-
-      <BulkAddFlashcardDialog 
-        isOpen={isBulkOpen} 
-        setIsOpen={setIsBulkOpen} 
-        topicId={topicId} 
-        readOnly={readOnly}
-        onSuccess={() => {
-          setRefreshKey((prev) => prev + 1);
-          onMutationSuccess?.();
-        }}
       />
 
       {/* MODAL XÁC NHẬN XÓA */}

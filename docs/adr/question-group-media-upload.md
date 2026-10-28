@@ -39,7 +39,7 @@ PR4 follow-up bổ sung rule TOEIC MVP theo `part_type`:
 
 Rule này hiện được hardcode có chủ đích trong TypeScript validation và trong `create_exercise_with_content` RPC replacement migration. Đây là quyết định MVP tạm thời để hoàn tất đúng TOEIC scope, không phải kiến trúc format/template lâu dài.
 
-Bulk insert/import qua AIKEN parser cũng phải đi qua cùng rule TOEIC như manual create. Parser failure hoặc Zod/context validation failure phải dừng trước DB insert; RPC failure phải rollback transaction.
+Zod/context validation failure phải dừng trước DB insert; RPC failure phải rollback transaction. Nhập hàng loạt qua AIKEN parser đã bị gỡ khỏi topic builder (TFEAT4, 2026-10-28).
 
 UI create/edit cũng dùng rule TOEIC MVP hardcoded để chỉ hiển thị các field media/context phù hợp với từng `part_type`. Mục tiêu là giảm việc nhập dư `passage_text`, `audio_url`, hoặc `image_url` khi TOEIC part hiện tại không cần đến chúng. DB vẫn giữ linh hoạt vì `question_groups.passage_text`, `audio_url`, và `image_url` đều nullable; PR này không tự xóa stored values và không thêm rule RPC/server để reject extra optional fields.
 
@@ -52,7 +52,6 @@ UI create/edit cũng dùng rule TOEIC MVP hardcoded để chỉ hiển thị cá
 - Large files không còn đi qua Server Action body payload.
 - Invalid pasted media URL hiển thị inline error, toast/form error, và focus/scroll tới field lỗi.
 - TOEIC Part-specific context được chặn ở create UI, Server Action, `updateQuestionGroup`, và `create_exercise_with_content`.
-- Bulk insert/import không được bypass TOEIC context rules.
 
 ## Trade-offs
 
@@ -73,7 +72,6 @@ UI create/edit cũng dùng rule TOEIC MVP hardcoded để chỉ hiển thị cá
 - Storage paths được sinh server-side, không tin original filename.
 - Bucket-level `file_size_limit` và `allowed_mime_types` được set trong migration khi Storage schema hỗ trợ.
 - `create_exercise_with_content` là write-boundary cuối cho TOEIC context validation.
-- Bulk parser errors không expose stack trace/raw DB errors ra UI.
 
 ## Testing / Verification
 
@@ -82,9 +80,9 @@ Verification gồm:
 - Unit tests cho URL/file validators.
 - Route/action tests cho upload route và cleanup action.
 - Integration tests với local Supabase Storage cho buckets, upload/read/delete policies và lưu public URL qua `create_exercise_with_content`.
-- Unit tests cho TOEIC context schema và AIKEN parser.
+- Unit tests cho TOEIC context schema.
 - Server Action tests cho create/update context validation và block đổi `part_type`.
-- Integration tests cho `create_exercise_with_content` với TOEIC Part 1-7 và bulk/import payload.
+- Integration tests cho `create_exercise_with_content` với TOEIC Part 1-7.
 - Manual QA checklist cho paste URL, upload, remove, cleanup, create/edit group media và DB persistence.
 
 ## Risks / TODO

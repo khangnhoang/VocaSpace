@@ -26,20 +26,10 @@ export const updateCardActionSchema = z.object({
   values: cardSchema,
 });
 
-export const createBulkCardsActionSchema = z.object({
-  topicId: topicIdSchema,
-  cardsData: z
-    .array(cardSchema)
-    .min(1, "Danh sách thẻ từ vựng không được để trống."),
-});
-
 export const deleteCardSchema = z.object({
   cardId: cardIdSchema,
 });
 
 export type CreateCardActionInput = z.infer<typeof createCardActionSchema>;
 export type UpdateCardActionInput = z.infer<typeof updateCardActionSchema>;
-export type CreateBulkCardsActionInput = z.infer<
-  typeof createBulkCardsActionSchema
->;
 export type DeleteCardInput = z.infer<typeof deleteCardSchema>;

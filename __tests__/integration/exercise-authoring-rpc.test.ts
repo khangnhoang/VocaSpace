@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
-import { parseAikenToGroups } from "@/lib/utils/aiken-parser";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -469,86 +468,6 @@ describe.sequential("exercise authoring RPC integration", () => {
       expect(error).toBeNull();
       expect(await getActiveExerciseCount(topicId, payload.title)).toBe(1);
     }
-  });
-
-  it("bulk AIKEN Part 5 payload creates standalone questions through the RPC flow", async () => {
-    const { topicId } = await createCourseTree("owner");
-    const title = `Bulk Part 5 ${randomUUID()}`;
-    const groups = parseAikenToGroups(`Q: What is the correct answer?
-A. First option
-B. Second option
-C. Third option
-D. Fourth option
-ANSWER: B
-
-Q2: Choose the best response.
-A. Option A
-B. Option B
-C. Option C
-D. Option D
-ANSWER: D`);
-
-    const { data, error } = await teacherClient.rpc("create_exercise_with_content", {
-      p_topic_id: topicId,
-      p_payload: {
-        title,
-        part_type: "part5",
-        questions: groups.flatMap((group) => group.questions),
-      },
-    });
-
-    expect(error).toBeNull();
-    const exerciseId = (data as { exercise_id: string }).exercise_id;
-    const { data: questions } = await supabaseAdmin
-      .from("questions")
-      .select("id, group_id, question_options(id)")
-      .eq("exercise_id", exerciseId);
-
-    expect(questions).toHaveLength(2);
-    expect(questions?.every((question) => question.group_id === null)).toBe(true);
-    expect(await getActiveExerciseCount(topicId, title)).toBe(1);
-  });
-
-  it("invalid bulk AIKEN parser errors stop before RPC insert", async () => {
-    const { topicId } = await createCourseTree("owner");
-    const title = `Invalid Bulk Parse ${randomUUID()}`;
-
-    expect(() =>
-      parseAikenToGroups(`Q: What is the correct answer?
-A. First option
-B. Second option`),
-    ).toThrow();
-    expect(await getActiveExerciseCount(topicId, title)).toBe(0);
-  });
-
-  it("bulk AIKEN grouped payload follows TOEIC context rules without partial inserts", async () => {
-    const { topicId } = await createCourseTree("owner");
-    const groups = parseAikenToGroups(`Q: What is the correct answer?
-A. First option
-B. Second option
-C. Third option
-D. Fourth option
-ANSWER: B`);
-
-    await expectRpcRejectsWithoutPartialInsert(
-      topicId,
-      {
-        title: `Bulk Part 7 Missing Passage ${randomUUID()}`,
-        part_type: "part7",
-        groups,
-      },
-      "GROUP_REQUIRES_PASSAGE",
-    );
-
-    await expectRpcRejectsWithoutPartialInsert(
-      topicId,
-      {
-        title: `Bulk Part 1 Missing Media ${randomUUID()}`,
-        part_type: "part1",
-        groups,
-      },
-      "GROUP_REQUIRES_IMAGE",
-    );
   });
 
   it("create_exercise_with_content rejects unauthorized users", async () => {
