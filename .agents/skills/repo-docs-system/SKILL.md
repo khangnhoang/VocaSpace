@@ -13,7 +13,7 @@ Use for program plans/charters, detail plans, progress, problems/future features
 
 The Owner accepted two kinds: delivery programs finish an observable goal; evergreen programs maintain a capability through initiatives. Small work no open program owns belongs in docs/backlog/, not a fabricated program.
 
-This skill specifies the new model. Existing programs keep their current paths, shape, lifecycle and decisions until a separately authorized migration. This unit does not reassign documents or create missing evergreen homes. Current scripts/docs/check-structure.mjs still checks active/closed/legacy and the existing shape rules; it does not enforce charter/evergreen, entry-plan IDs or global FEAT IDs. Do not claim otherwise. Before delivering a new shape the current checker cannot accept, obtain the follow-up checker/migration work; do not bypass the check or silently use a false lifecycle value.
+The Programs index has separate Kind (`delivery`, `evergreen`) and Lifecycle (`active`, `closed`, `legacy`) columns. Existing accepted delivery paths/layouts remain valid until an authorized migration; do not bulk rename them. The checker supports the shapes below. Migration never grants the actions described by the moved documents.
 
 ## File roles
 
@@ -29,7 +29,7 @@ This skill specifies the new model. Existing programs keep their current paths, 
 
 A single-unit delivery program starts with a root detail plan, not an empty master plus folder. A multi-unit program has a root master and implementation-plans/u<n>-<slug>/plan.md. An evergreen uses a charter and initiative detail plans under that folder.
 
-Delivery follow-up work recorded in its own problems/future-features may have implementation-plans/<id>-<slug>/plan.md, linked to that entry without inventing another Units row. Evergreen work uses initiative rows instead. These conventions apply prospectively after the compatibility gate above, not by renumbering existing accepted plans.
+Delivery follow-up work recorded in its own problems/future-features may have implementation-plans/<id>-<slug>/plan.md, linked reciprocally to the exact entry anchor without inventing another Units row. The checker matches complete uppercase-prefixed IDs case-insensitively in that directory convention. Existing feat3/feat6/feat12 and other accepted older directories may keep their whole-tracker Source links. Evergreen initiative tables have a Plan column: each initiative links exactly one existing plan in its own home, and every initiative plan is registered once. Used reference links count; definitions or examples alone do not. New plans/charters link their own program progress.
 
 ## State and closure
 
@@ -39,13 +39,15 @@ Keep current unit/authority in State; finished evidence shrinks to milestones ci
 
 Keep facts frozen after plan approval; record a bounded discovery in State and route material Spec changes to planning. Never alter approved history to match current code.
 
-Resolve problems only after their exit condition holds and move still-live follow-ups before shrinking the entry. Keep IDs. Future-feature IDs are unique across program/backlog future-features under the new model; current checker does not enforce that uniqueness.
+Resolve problems only after their exit condition holds and move still-live follow-ups before shrinking the entry. Keep IDs. Canonical feature IDs are globally unique across every future-features.md, including closed/bannered trackers. Use FEAT-NNN for new directions; existing TFEAT/BFEAT and other uppercase prefixed IDs stay valid. DOCS-MIG's Owner-approved exception maps auth-onboarding FEAT-001..005 to FEAT-013..017; preserve their original scoped identity and old anchors as aliases. This exception grants no other renumbering.
+
+A moved feature section contains only `Moved to` followed by one Markdown link to the canonical tracker entry anchor and a period, on one line. The only optional suffixes are `Legacy identity: <origin-program>:<old-ID>.` and preserved HTML anchors; no Status/Direction content stays on that line. Alternatively, use one list line starting with the original ID, an em dash and `Moved to` under Closed/Resolved. The link label must equal the canonical ID. Used reference links and their definitions are allowed; definitions do not count as visible entry content. Keep old heading anchors with inline `<a id="old-anchor"></a>` when necessary. Transfer pointers must resolve directly to a canonical entry, never another pointer; they are references, not duplicate declarations. Do not leave editable copies at both locations. An explicit anchor must belong to the entry body or stand immediately before its heading; inline-code examples are not anchors. New shaped feature entries carry Status, Direction and Target program; retained feature bodies keep their prior field grammar unless the migration reshapes them.
 
 ## Backlog and program lifecycle
 
 docs/backlog/ holds problems.md/future-features.md with no plan, progress or Programs row. Close entries as one-line Done (with delivered evidence), Moved to (link) or Dropped (reason); keep an undelivered fix open as Fixed locally, awaiting delivery.
 
-A delivery program closes when its units/rollout are done and open problems are resolved/moved. An evergreen capability remains open while its initiatives close independently; at most one open initiative plan at a time. Existing Lifecycle rows remain active/closed/legacy until the new checker/index contract is implemented in the follow-up work.
+A delivery program closes when its units/rollout are done and open problems are resolved/moved. An evergreen capability remains active while its initiatives close independently, including when none is open; at most one open initiative plan at a time. Check that limit manually against progress and accepted plans: there is no second initiative-status owner in the index or charter. An evergreen has an unbannered README charter with Capability and boundary, Owner decisions, Invariants, Initiatives and Opening an initiative sections; it cannot have a competing root plan.md, even bannered.
 
 Do not duplicate current status into docs/README.md. Update its program/folder index when the owning facts actually change. A legacy-format exemption is not permission to label an active unfinished program closed or legacy.
 
@@ -59,7 +61,7 @@ This preserves the current checker's legacy exemption; it does not mark an unfin
 
 ## Verify
 
-After docs/index/ADR edits run npm run docs:check. It checks its existing mechanical rules/links only; manually inspect meaning, current State, entry closure and expanded-model rules. Do not claim a future checker or docs:check:test script exists. If checker code actually changes, run the affected node --test scripts/docs/<checker>.test.mjs.
+After docs/index/ADR edits run npm run docs:check. Structure checks cover roles, State/progress ownership, milestones/problems, Kind/lifecycle/indexes, charter sections and initiative registration, new ID-prefixed reciprocal entry-plan links, backlog roles, global canonical feature IDs and transfer targets. The link checker checks files/directories, not every heading fragment. Manually inspect meaning, authority, historical/frozen provenance, entry closure, inherited field grammar, preserved old anchors and at-most-one-open initiative. Structural success is not agent/product/hosted proof. If checker code changes, run the affected node --test scripts/docs/<checker>.test.mjs; no docs:check:test script is provided.
 
 Soft size targets are prompts to remove duplication, never reasons to drop a decision, invariant or rollout step. Docs/skills use English; frozen inputs keep their reviewed language and Owner reports follow AGENTS.md.
 

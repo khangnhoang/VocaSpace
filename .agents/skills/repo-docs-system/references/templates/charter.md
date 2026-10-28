@@ -25,9 +25,9 @@ Rules every initiative must keep. One line each, with the failure it prevents.
 
 At most one initiative has an open plan at a time. A closed initiative keeps its row.
 
-| Initiative | Branch | Outcome | Dependencies | Gate to open |
-| --- | --- | --- | --- | --- |
-| U1 <title> | `<branch>` | <observable result> | <none, or hard/soft on U<n>> | <Owner approval, merge of U<n>> |
+| Initiative | Plan | Branch | Outcome | Dependencies | Gate to open |
+| --- | --- | --- | --- | --- | --- |
+| U1 <title> | `implementation-plans/u1-<slug>/plan.md` (replace with the actual Plan link) | `<branch>` | <observable result> | <none, or hard/soft on U<n>> | <Owner approval, merge of U<n>> |
 
 ## 5. Opening an initiative
 
