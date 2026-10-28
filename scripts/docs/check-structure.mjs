@@ -31,6 +31,7 @@ const REQUIRED_STATE_FIELDS = [
 ];
 const OPEN_ENTRY_FIELDS = ["Status", "Problem", "Evidence", "Direction", "Exit condition"];
 const LIFECYCLES = new Set(["active", "closed", "legacy"]);
+const KINDS = new Set(["delivery", "evergreen"]);
 
 // Ngữ pháp milestone trong template progress: `- YYYY-MM-DD <text> (<ref>)`, dấu chấm cuối là tùy chọn.
 const HASH = "(?:`[0-9a-f]{7,40}`|[0-9a-f]{7,40})";
@@ -38,6 +39,11 @@ const MILESTONE_PATTERN = new RegExp(
   `^[-*+] \\d{4}-\\d{2}-\\d{2} .+ \\((${HASH}|PR \\d+|PR \\d+, ${HASH}|this commit)\\)\\.?$`,
 );
 const ID_PATTERN = /\b([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)\b/;
+const ID_TOKEN = "[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\\d+";
+const TRANSFER_PATTERN = new RegExp(
+  `^Moved to \\[(${ID_TOKEN})\\](?:\\([^\\n)]+\\)|\\[[^\\n\\]]*\\])?\\.` +
+  `(?: Legacy identity: [a-z0-9-]+:${ID_TOKEN}\\.)?(?: <a\\s+id="[^"]+"\\s*><\\/a>)*$`,
+);
 
 function parseArgs(argv) {
   const options = { root: resolve(scriptDir, "..", "..") };
@@ -314,7 +320,7 @@ function checkProblems(doc, report) {
   }
 }
 
-function checkPlan(doc, kind, report) {
+function checkPlan(doc, kind, report, owner) {
   const definitions = parseDefinitions(doc.content);
   for (const heading of doc.headings) {
     const title = heading.title.replace(/^\d+(?:\.\d+)*\.?\s+/, "").toLowerCase();
@@ -332,16 +338,175 @@ function checkPlan(doc, kind, report) {
       );
     }
   }
-  if (kind === "detail") {
-    const linksProgress = doc.content.some((line) =>
-      linkTargets(line, definitions).some((target) => isProgressTarget(target)),
-    );
-    if (!linksProgress) report(1, "no-state-in-plan", "detail plan must link to progress.md");
+  const progressLinks = doc.content.flatMap((line) => linkTargets(line, definitions)).filter(isProgressTarget);
+  if (kind === "detail" && progressLinks.length === 0) {
+    report(1, "no-state-in-plan", "detail plan must link to progress.md");
+  }
+  if (owner && progressLinks.length && !progressLinks.some((target) => resolveLink(doc, target)?.file === `${owner}/progress.md`)) {
+    report(1, "plan-owner", "plan must link to its own program's progress.md");
+  }
+}
+
+const headingName = (heading) => heading.title.replace(/^\d+(?:\.\d+)*\.?\s+/, "").toLowerCase();
+const headingAnchor = (title) => title.toLowerCase().replace(/[^\p{L}\p{N}_\s-]/gu, "").replace(/\s/g, "-");
+const withoutInlineCode = (text) => text.replace(/(`+)[^`\n]*?\1/g, "");
+const htmlAnchors = (lines) => lines.flatMap((line) =>
+  [...withoutInlineCode(line.text).matchAll(/<a\s+id="([^"]+)"\s*><\/a>/g)].map((match) => match[1]),
+);
+const anchorOnly = (line) => htmlAnchors([line]).length > 0 &&
+  withoutInlineCode(line.text).replace(/<a\s+id="[^"]+"\s*><\/a>/g, "").trim() === "";
+
+// Anchor đứng ngay trước heading thuộc entry sau, không thuộc body của entry trước.
+function leadingAnchorLines(doc, n) {
+  const lines = [];
+  for (const line of doc.content.filter((line) => line.n < n).reverse()) {
+    if (line.text.trim() && !anchorOnly(line)) break;
+    lines.unshift(line);
+  }
+  return lines;
+}
+
+function entryBody(doc, heading) {
+  const lines = sectionLines(doc, heading, heading.level);
+  const next = doc.headings.find((item) => item.n === sectionRange(doc, heading, heading.level).to);
+  const nextId = next && ID_PATTERN.exec(next.title);
+  if (next?.level === heading.level && nextId?.index === 0) {
+    while (lines.length && (!lines.at(-1).text.trim() || anchorOnly(lines.at(-1)))) lines.pop();
+  }
+  return lines;
+}
+
+function resolveLink(doc, target) {
+  if (/^[a-z][a-z\d+.-]*:|^\//i.test(target)) return null;
+  const [path, fragment = ""] = target.split("#");
+  try {
+    return { file: path ? posix.normalize(posix.join(posix.dirname(doc.rel), decodeURIComponent(path.split("?")[0]))) : doc.rel,
+      fragment: decodeURIComponent(fragment) };
+  } catch { return null; }
+}
+
+function usedLinks(doc, lines = doc.content) {
+  const definitions = parseDefinitions(doc.content);
+  return lines.flatMap((line) => linkTargets(line, definitions)).map((target) => resolveLink(doc, target)).filter(Boolean);
+}
+
+function checkCharter(dir, docs, reportFor) {
+  const path = `${dir}/README.md`;
+  const doc = docs.get(path);
+  const report = reportFor(path);
+  if (!doc || doc.bannered) {
+    report(1, "charter-shape", "evergreen requires an unbannered README.md charter");
+    return;
+  }
+  if (docs.has(`${dir}/plan.md`)) reportFor(`${dir}/plan.md`)(1, "charter-shape", "evergreen cannot have a competing root plan.md, even bannered");
+  for (const name of ["capability and boundary", "owner decisions", "invariants", "initiatives", "opening an initiative"]) {
+    if (!doc.headings.some((h) => h.level === 2 && headingName(h) === name)) report(1, "charter-shape", `charter is missing section "${name}"`);
+  }
+  if (!usedLinks(doc).some((link) => link.file === `${dir}/progress.md`)) report(1, "charter-shape", "charter must link to its own progress.md");
+  checkPlan(doc, "charter", report, dir);
+  if (doc.headings.some((h) => ["state", "current state"].includes(headingName(h)))) report(1, "charter-shape", "charter cannot contain a State section, even a pointer");
+  const section = doc.headings.find((h) => h.level === 2 && headingName(h) === "initiatives");
+  const rows = section ? sectionLines(doc, section, 2).filter((l) => /^\s*\|/.test(l.text)) : [];
+  const cells = (line) => line.text.trim().replace(/^\||\|$/g, "").split("|").map((s) => s.trim());
+  const column = rows.length ? cells(rows[0]).findIndex((c) => c.toLowerCase() === "plan") : -1;
+  if (column < 0) report(section?.n ?? 1, "initiative-plan", "Initiatives table requires a Plan column (an empty table is valid)");
+  const registered = new Set();
+  for (const row of rows.slice(2)) {
+    const cell = cells(row)[column] ?? "";
+    const links = usedLinks(doc, [{ ...row, text: cell }]);
+    if (links.length !== 1 || !links[0].file.startsWith(`${dir}/implementation-plans/`) || !/^implementation-plans\/[^/]+\/plan\.md$/.test(links[0].file.slice(dir.length + 1)) || !docs.has(links[0].file)) {
+      report(row.n, "initiative-plan", "initiative Plan cell must link to one existing plan in this evergreen home");
+      continue;
+    }
+    if (registered.has(links[0].file)) report(row.n, "initiative-plan", "initiative plan is registered more than once");
+    registered.add(links[0].file);
+  }
+  for (const path of docs.keys()) {
+    if (path.startsWith(`${dir}/implementation-plans/`) && /^implementation-plans\/[^/]+\/plan\.md$/.test(path.slice(dir.length + 1)) && !registered.has(path)) report(1, "initiative-plan", `${path} is not registered in Initiatives`);
+  }
+}
+
+// Chỉ entry canonical tham gia kiểm tra ID. Pointer phải là một dòng và trỏ thẳng tới entry canonical,
+// để alias lịch sử không trở thành cách bỏ qua kiểm tra trùng ID hoặc giữ hai bản nội dung.
+function trackerEntries(docs, reportFor) {
+  const entries = [];
+  const transfers = [];
+  const featureIds = new Map();
+  for (const doc of docs.values()) {
+    if (!/\/(future-features|problems)\.md$/.test(doc.rel)) continue;
+    const feature = doc.rel.endsWith("/future-features.md");
+    const definitions = parseDefinitions(doc.content);
+    const note = (id, line, title, lines) => {
+      const anchors = title ? [headingAnchor(title)] : [];
+      anchors.push(...htmlAnchors([...leadingAnchorLines(doc, line), ...lines]));
+      const entry = { id, doc, n: line, anchors, lines };
+      entries.push(entry);
+      if (feature) {
+        const prior = featureIds.get(id);
+        if (prior) reportFor(doc.rel)(line, "feature-id", `${id} is already declared at ${prior.doc.rel}:${prior.n}`);
+        else featureIds.set(id, entry);
+      }
+    };
+    const pointer = (line, text) => {
+      const normalized = text.replace(new RegExp(`^[-*+]\\s+${ID_TOKEN}\\s+[—–-]\\s+`), "");
+      const match = TRANSFER_PATTERN.exec(normalized);
+      if (!match) {
+        reportFor(doc.rel)(line, "entry-transfer", "pointer permits only a canonical-ID link, optional Legacy identity and preserved HTML anchors");
+        return;
+      }
+      const targets = usedLinks(doc, [{ n: line, text }]);
+      transfers.push({ doc, n: line, targets, id: match[1] });
+    };
+    for (const heading of doc.headings.filter((h) => h.level === (feature ? 2 : 3))) {
+      const id = /^([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)\b/.exec(heading.title)?.[1];
+      const lines = entryBody(doc, heading);
+      const body = lines.filter((line) => line.text.trim() && !anchorOnly(line) && !definitions.lines.has(line.n));
+      if (body.some((l) => /^Moved to \[/.test(l.text))) {
+        if (body.length !== 1 || !/^Moved to \[/.test(body[0].text)) reportFor(doc.rel)(heading.n, "entry-transfer", "a moved entry must contain only its one-line Moved to pointer");
+        else pointer(body[0].n, body[0].text);
+      } else if (id) note(id, heading.n, heading.title, lines);
+    }
+    const closedSections = doc.headings.filter((h) => h.level === 2 && h.title === (feature ? "Closed" : "Resolved"));
+    for (const closed of closedSections) {
+      let movedLine = false;
+      for (const line of sectionLines(doc, closed, 2)) {
+        const match = /^[-*+]\s+([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)\s+[—–-]\s+(.+)/.exec(line.text);
+        if (!match) {
+          if (movedLine && line.text.trim() && !definitions.lines.has(line.n)) {
+            reportFor(doc.rel)(line.n, "entry-transfer", "a closed transfer must be one list line, without copied entry fields");
+          }
+          continue;
+        }
+        movedLine = /^Moved to \[/.test(match[2]);
+        if (movedLine) pointer(line.n, line.text);
+        else note(match[1], line.n, null, [line]);
+      }
+    }
+  }
+  for (const transfer of transfers) {
+    if (transfer.targets.length !== 1 || !entries.some((entry) => entry.id === transfer.id && entry.doc.rel === transfer.targets[0].file && entry.anchors.includes(transfer.targets[0].fragment))) {
+      reportFor(transfer.doc.rel)(transfer.n, "entry-transfer", "Moved to pointer must resolve directly to one canonical tracker entry and anchor");
+    }
+  }
+  return entries;
+}
+
+function checkEntryPlans(docs, entries, reportFor, programOf, kindOf) {
+  for (const doc of docs.values()) {
+    const match = /\/implementation-plans\/([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-\d+)-[^/]+\/plan\.md$/i.exec(doc.rel);
+    if (!match || doc.bannered) continue;
+    const owner = programOf(doc.rel);
+    if (kindOf.get(owner) !== "delivery") continue;
+    const entry = entries.find((e) => e.id === match[1].toUpperCase() && posix.dirname(e.doc.rel) === owner);
+    const forward = entry && usedLinks(entry.doc, entry.lines).some((l) => l.file === doc.rel);
+    const back = entry && usedLinks(doc).some((l) => l.file === entry.doc.rel && entry.anchors.includes(l.fragment));
+    if (!forward || !back) reportFor(doc.rel)(1, "entry-plan", "ID-prefixed entry plan needs reciprocal links to the exact owning tracker entry");
   }
 }
 
 // Vai trò file trong chương trình, theo đường dẫn tương đối so với thư mục chương trình.
-function roleOf(relInProgram) {
+function roleOf(relInProgram, kind) {
+  if (relInProgram === "README.md" && kind === "evergreen") return "charter";
   if (["plan.md", "progress.md", "problems.md"].includes(relInProgram)) {
     return relInProgram.slice(0, -3);
   }
@@ -359,14 +524,16 @@ function parseProgramsTable(readme, report) {
   const rows = [];
   let pathColumn = -1;
   let lifecycleColumn = -1;
+  let kindColumn = -1;
   for (const line of sectionLines(readme, heading, 2)) {
     if (!/^\s*\|/.test(line.text)) continue;
     const cells = line.text.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
     if (pathColumn === -1) {
       pathColumn = cells.findIndex((cell) => cell.toLowerCase() === "path");
       lifecycleColumn = cells.findIndex((cell) => cell.toLowerCase() === "lifecycle");
-      if (pathColumn === -1 || lifecycleColumn === -1) {
-        report("docs/README.md", line.n, "programs-index", "Programs table needs Path and Lifecycle columns");
+      kindColumn = cells.findIndex((cell) => cell.toLowerCase() === "kind");
+      if (pathColumn === -1 || lifecycleColumn === -1 || kindColumn === -1) {
+        report("docs/README.md", line.n, "programs-index", "Programs table needs Path, Kind and Lifecycle columns");
         return { rows, line: heading.n };
       }
       continue;
@@ -374,7 +541,8 @@ function parseProgramsTable(readme, report) {
     if (cells.every((cell) => /^:?-+:?$/.test(cell))) continue;
     const path = (cells[pathColumn] ?? "").replace(/`/g, "").replace(/\/+$/, "");
     const lifecycle = (cells[lifecycleColumn] ?? "").replace(/[`*]/g, "").toLowerCase();
-    rows.push({ n: line.n, path: posix.join(DOCS_DIR, path), lifecycle });
+    const kind = (cells[kindColumn] ?? "").replace(/[`*]/g, "").toLowerCase();
+    rows.push({ n: line.n, path: posix.join(DOCS_DIR, path), lifecycle, kind });
   }
   return { rows, line: heading.n };
 }
@@ -411,11 +579,20 @@ export function checkStructure(root) {
     programDirs.filter((dir) => docs.get(`${dir}/progress.md`).bannered),
   );
 
+  const readme = docs.get("docs/README.md");
+  const index = readme ? parseProgramsTable(readme, (file, n, rule, message) => reportFor(file)(n, rule, message)) : { rows: [], line: 1 };
+  const kindOf = new Map(index.rows.map((row) => [row.path, row.kind]));
+
   for (const doc of docs.values()) {
+    if (doc.rel.startsWith("docs/backlog/")) {
+      if (!["docs/backlog/problems.md", "docs/backlog/future-features.md"].includes(doc.rel)) reportFor(doc.rel)(1, "backlog-shape", "backlog holds only problems.md and future-features.md; it is not a program");
+      else if (doc.rel.endsWith("/problems.md")) checkProblems(doc, reportFor(doc.rel));
+      continue;
+    }
     const dir = programOf(doc.rel);
     if (!dir || exempt.has(dir) || doc.bannered) continue;
     const report = reportFor(doc.rel);
-    const role = roleOf(doc.rel.slice(dir.length + 1));
+    const role = roleOf(doc.rel.slice(dir.length + 1), kindOf.get(dir));
     if (!role) {
       report(
         1,
@@ -427,21 +604,24 @@ export function checkStructure(root) {
     } else if (role === "problems") {
       checkProblems(doc, report);
     } else if (role === "plan" || role === "detail") {
-      checkPlan(doc, role, report);
+      const rootDetail = role === "plan" && doc.headings.some((h) => headingName(h) === "binding spec");
+      checkPlan(doc, rootDetail ? "detail" : role, report, dir);
     }
   }
 
-  const readme = docs.get("docs/README.md");
   const programs = programDirs.filter((dir) => dir !== DOCS_DIR);
   if (readme) {
     const report = (file, n, rule, message) => reportFor(file)(n, rule, message);
-    const { rows, line } = parseProgramsTable(readme, report);
+    const { rows, line } = index;
     const byPath = new Map();
     for (const row of rows) {
       if (byPath.has(row.path)) {
         report("docs/README.md", row.n, "programs-index", `program ${row.path} has more than one row`);
       }
       byPath.set(row.path, row);
+      if (!KINDS.has(row.kind)) report("docs/README.md", row.n, "programs-index", `kind "${row.kind}" must be delivery or evergreen`);
+      if (row.path === "docs/backlog") report("docs/README.md", row.n, "backlog-shape", "backlog cannot have a Programs row");
+      if (row.kind === "evergreen") checkCharter(row.path, docs, reportFor);
       if (!programs.includes(row.path)) {
         report("docs/README.md", row.n, "programs-index", `row ${row.path} does not point to a program (a folder with progress.md)`);
       }
@@ -461,6 +641,9 @@ export function checkStructure(root) {
   } else if (programs.length > 0) {
     reportFor("docs/README.md")(1, "programs-index", "docs/README.md is missing, so programs have no index");
   }
+
+  const entries = trackerEntries(docs, reportFor);
+  checkEntryPlans(docs, entries, reportFor, programOf, kindOf);
 
   const adrFiles = [...docs.keys()].filter(
     (rel) => posix.dirname(rel) === "docs/adr" && posix.basename(rel) !== "README.md",

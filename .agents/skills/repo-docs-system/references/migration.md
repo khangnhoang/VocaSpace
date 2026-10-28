@@ -20,11 +20,11 @@ Read this only when migrating a live program's docs to the current shape. The pa
 
 ## New-model reshapes (separate authorized work)
 
-First satisfy the parent skill's checker/compatibility gate; these are instructions for a later migration, not a grant to move current documents.
+The checker supports Kind/lifecycle, charters, initiative registration and the prospective ID-prefixed entry-plan convention. This procedure still grants no move or new initiative; use the actual approved migration scope.
 
 - Single-unit delivery gaining a second unit: preserve the accepted root detail plan as the first unit plan, create a root master with both units/dependencies, then repair links and the progress pointer. A migration-cited path stays resolvable instead of being silently moved.
 - Delivery becoming evergreen: obtain the Owner's capability/boundary decision. Map completed/open units to initiative plans, preserve their decisions/numbers and every invariant/rollout gate, then write the charter from its template. Replace the root master only after its meaning is fully owned by the charter/initiative plans and no protected citation breaks. Reconcile index/checker support first; no false lifecycle label or bypass.
-- Reassigning an entry: move its stable ID, plan links, open follow-ups and target-program ownership together. Do not leave two live owners or mark it done merely because it moved.
+- Reassigning an entry: move its stable ID, plan links, open follow-ups and target-program ownership together. Replace its old location with a one-line Moved to pointer using the parent skill's grammar; retain old anchors. Verify the pointer resolves directly to the canonical entry. Do not mark it done merely because it moved. ID changes need an explicit Owner-approved mapping preserving old scoped identities, not a new automatic numbering policy.
 
 ## Stop
 
