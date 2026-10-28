@@ -4,8 +4,9 @@
 // - Đối tượng: `scripts/docs/check-structure.mjs`.
 // - Case thành công: cây fixture đúng template thoát 0; file có banner (cả sau YAML front matter) bị bỏ qua bởi luật hình dạng; chương trình có progress.md đặt banner được miễn luật file; heading `State transitions` và pointer `State` một dòng hợp lệ; mọi dạng ref milestone hợp lệ; trường `Hosted state` tùy chọn.
 // - Case thất bại: mỗi luật (legacy-banner, file-role, progress-state, no-state-in-plan, milestone-format, this-commit, problems-shape, programs-index, adr-index, redirect-only) có một fixture vi phạm, thoát 1 và nêu đúng `file:line [rule-id]`; chương trình ở thư mục bất kỳ được tìm bằng progress.md; usage sai hoặc root không tồn tại thoát 2.
-// - Invariant cần giữ: kết quả chỉ phụ thuộc vào cây fixture, không phụ thuộc docs/ thật; checker không tự đặt luật ngoài §1.5 của plan PR2.
-// - Kết quả verify gần nhất: `node --test scripts/docs/check-structure.test.mjs`.
+// - Nhóm mới: Kind/lifecycle, charter/initiative, entry-plan mới, backlog và ID/transfer pointer toàn cục; giữ tương thích plan lịch sử.
+// - Invariant và cleanup: fixture độc lập, xóa trong finally; luật theo skill repo-docs-system và DOCS-MIG, không phán đoán State có đúng hay không.
+// - Khoảng trống: ý nghĩa quyết định, nguồn lịch sử và số initiative đang mở cần review nội dung.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -81,7 +82,8 @@ const OPEN_ENTRY = (id) =>
   ].join("\n");
 
 const README = (rows) =>
-  ["# Docs", "", "## Programs", "", "| Path | Lifecycle | Purpose |", "| --- | --- | --- |", ...rows, ""].join("\n");
+  ["# Docs", "", "## Programs", "", "| Path | Kind | Lifecycle | Purpose |", "| --- | --- | --- | --- |",
+    ...rows.map((row) => row.replace(/^(\|[^|]+\|)/, "$1 delivery |")), ""].join("\n");
 
 function baseTree() {
   return {
@@ -572,4 +574,147 @@ test("unknown arguments and a missing root exit 2", () => {
     encoding: "utf8",
   });
   assert.equal(missing.status, 2);
+});
+
+function charter(rows = []) {
+  return ["# Charter — Alpha", "", "Progress: [progress](progress.md).", "",
+    "## 1. Capability and boundary", "", "Capability and boundary.", "",
+    "## 2. Owner decisions", "", "1. Keep the capability.", "",
+    "## 3. Invariants", "", "- Keep evidence.", "",
+    "## 4. Initiatives", "", "| Initiative | Plan | Branch | Outcome | Dependencies | Gate to open |",
+    "| --- | --- | --- | --- | --- | --- |", ...rows, "",
+    "## 5. Opening an initiative", "", "Owner approval first.", ""].join("\n");
+}
+
+function evergreen(rows = []) {
+  return {
+    "docs/README.md": README(["| `programs/alpha/` | active | Alpha | "]).replace("| delivery |", "| evergreen |"),
+    "docs/programs/alpha/plan.md": null,
+    "docs/programs/alpha/README.md": charter(rows),
+    "docs/programs/alpha/implementation-plans/u1/plan.md": null,
+  };
+}
+
+test("Kind is required and independent of lifecycle", () => {
+  assertViolation(run({"docs/README.md": README(["| `programs/alpha/` | active | A | "]).replace("Kind", "Type")}), "docs/README.md", "programs-index");
+  assertViolation(run({"docs/README.md": README(["| `programs/alpha/` | active | A | "]).replace("delivery", "unknown")}), "docs/README.md", "programs-index");
+  const idle = run(evergreen());
+  assert.equal(idle.status, 0, idle.stderr);
+  const history = run({...evergreen(),"docs/programs/alpha/README.md":charter()+"\nRelated history: [old progress](../old/progress.md).\n"});
+  assert.equal(history.status,0,history.stderr);
+});
+
+test("evergreen requires an unbannered charter with all sections and its own progress", () => {
+  for (const body of [null, `${BANNER}\n${charter()}`, charter().replace("## 3. Invariants", "## 3. Notes"), charter().replace("(progress.md)", "(../other/progress.md)"), `${charter()}\n## State\n\nRunning.\n`, `${charter()}\n## State\n\nSee [progress](progress.md).\n`]) {
+    const result = run({...evergreen(), "docs/programs/alpha/README.md": body});
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /\[(charter-shape|no-state-in-plan)\]/);
+  }
+  assertViolation(run({...evergreen(), "docs/programs/alpha/plan.md": `${BANNER}\n# Old\n`}), "docs/programs/alpha/plan.md", "charter-shape");
+});
+
+test("initiative registration is local, unique and uses real links in the Initiatives table", () => {
+  const plan = "# U1\n\nProgress: [progress](../../progress.md).\n";
+  const row = "| U1 | [plan](implementation-plans/u1/plan.md) | branch | result | none | Owner |";
+  const good = {...evergreen([row]), "docs/programs/alpha/implementation-plans/u1/plan.md": plan};
+  assert.equal(run(good).status, 0);
+  for (const rows of [[], [row,row], [row.replace("implementation-plans/u1/plan.md", "../other/implementation-plans/u1/plan.md")]]) {
+    assertViolation(run({...good,"docs/programs/alpha/README.md":charter(rows)}), "docs/programs/alpha/README.md", "initiative-plan");
+  }
+  const unused = run({...good,"docs/programs/alpha/README.md": `${charter()}\n[p]: implementation-plans/u1/plan.md\n\n\`\`\`\n${row}\n\`\`\`\n`});
+  assertViolation(unused, "docs/programs/alpha/README.md", "initiative-plan");
+  const reference = run({...good,"docs/programs/alpha/README.md": `${charter([row.replace("[plan](implementation-plans/u1/plan.md)", "[plan][p]")])}\n[p]: implementation-plans/u1/plan.md\n`});
+  assert.equal(reference.status, 0, reference.stderr);
+  assertViolation(run({...good,"docs/programs/alpha/implementation-plans/u1/plan.md":plan.replace("../../progress.md","../../../other/progress.md")}), "docs/programs/alpha/implementation-plans/u1/plan.md", "plan-owner");
+});
+
+test("single-unit root detail needs its own progress; existing unit names remain valid", () => {
+  const root = "# Detail\n\n## 1. Binding Spec\n\nProgress: [progress](progress.md).\n";
+  const good = run({"docs/programs/alpha/plan.md":root,"docs/programs/alpha/implementation-plans/u1/plan.md":null});
+  assert.equal(good.status, 0, good.stderr);
+  assertViolation(run({"docs/programs/alpha/plan.md":root.replace("Progress: [progress](progress.md).", "")}),"docs/programs/alpha/plan.md","no-state-in-plan");
+});
+
+test("new ID-prefixed entry plans require reciprocal entry links; old feat3 layout stays valid", () => {
+  const tracker = problems(`${OPEN_ENTRY("ALPHA-001")}\n- Plan: [plan](implementation-plans/alpha-001-repair/plan.md).`, "");
+  const path = "docs/programs/alpha/implementation-plans/alpha-001-repair/plan.md";
+  const plan = "# Repair\n\nSource: [ALPHA-001](../../problems.md#alpha-001-something).\nProgress: [progress](../../progress.md).\n";
+  const good = {"docs/programs/alpha/problems.md":tracker,[path]:plan};
+  assert.equal(run(good).status, 0);
+  assertViolation(run({...good,[path]:plan.replace("alpha-001-something", "alpha-002-something")}),path,"entry-plan");
+  assertViolation(run({...good,"docs/programs/alpha/problems.md":problems(OPEN_ENTRY("ALPHA-001"),"")}),path,"entry-plan");
+  assertViolation(run({...good,[path]:plan.replace("../../progress.md", "../../../other/progress.md")}),path,"plan-owner");
+  const old = run({"docs/programs/alpha/implementation-plans/feat3/plan.md":"# Old\n\nSource: [tracker](../../future-features.md).\nProgress: [progress](../../progress.md).\n"});
+  assert.equal(old.status, 0, old.stderr);
+});
+
+test("backlog accepts trackers but cannot contain plans, progress or a program index row", () => {
+  assert.equal(run({"docs/backlog/problems.md":problems(OPEN_ENTRY("BACK-001"),"")}).status,0);
+  assertViolation(run({"docs/backlog/plan.md":"# Plan\n"}),"docs/backlog/plan.md","backlog-shape");
+  assertViolation(run({"docs/backlog/progress.md":progress()}),"docs/backlog/progress.md","backlog-shape");
+  assertViolation(run({"docs/README.md":README(["| `programs/alpha/` | active | A |","| `backlog/` | active | B |"])}),"docs/README.md","backlog-shape");
+});
+
+test("canonical feature IDs are global, including closed and bannered tracker declarations", () => {
+  const original = "# Features\n\n## FEAT-001: One\n\n- Status: Deferred.\n";
+  const good = {"docs/programs/alpha/future-features.md":original};
+  assert.equal(run({...good,"docs/backlog/future-features.md":"# Future\n\n## TFEAT-001: Different\n"}).status,0);
+  for (const duplicate of ["## FEAT-001: Duplicate\n", "## Closed\n\n- FEAT-001 — Done: delivered (PR 1).\n", `${BANNER}\n\n## FEAT-001: Duplicate\n`]) {
+    assertViolation(run({...good,"docs/backlog/future-features.md":duplicate}),"docs/programs/alpha/future-features.md","feature-id");
+  }
+  const example=run({...good,"docs/backlog/future-features.md":"# Future\n\n```md\n## FEAT-001: Example\n```\n"});
+  assert.equal(example.status,0,example.stderr);
+});
+
+test("transfer pointers resolve to canonical entries and cannot hide copied full entries", () => {
+  const canonical = "# Future\n\n<a id=\"feat-013\"></a>\n\n## FEAT-013: Notice\n\n- Status: Deferred.\n";
+  const pointer = "Moved to [FEAT-013](../programs/alpha/future-features.md#feat-013). Legacy identity: auth-onboarding:FEAT-001.";
+  const good = {"docs/programs/alpha/future-features.md":canonical,"docs/backlog/future-features.md":`# Future\n\n## FEAT-001: Old\n\n${pointer}\n`};
+  assert.equal(run(good).status,0);
+  assertViolation(run({...good,"docs/backlog/future-features.md":`# Future\n\n## FEAT-001: Old\n\n${pointer}\n- Status: Deferred.\n`}),"docs/backlog/future-features.md","entry-transfer");
+  assertViolation(run({...good,"docs/backlog/future-features.md":`# Future\n\n## FEAT-001: Old\n\n${pointer.replace("#feat-013", "#feat-099")}\n`}),"docs/backlog/future-features.md","entry-transfer");
+  assertViolation(run({...good,"docs/backlog/future-features.md":`# Future\n\n## Closed\n\n- FEAT-001 — ${pointer}\n- Status: Deferred.\n`}),"docs/backlog/future-features.md","entry-transfer");
+  const missingAnchor = run({...good,"docs/programs/alpha/future-features.md":"# Future\n\n## Closed\n\n- FEAT-013 — Done: delivered.\n"});
+  assertViolation(missingAnchor,"docs/backlog/future-features.md","entry-transfer");
+  const closedTarget=run({...good,"docs/programs/alpha/future-features.md":'\n# Future\n\n## Closed\n\n- FEAT-013 — Done: delivered. <a id="feat-013"></a>\n'});
+  assert.equal(closedTarget.status,0,closedTarget.stderr);
+});
+
+test("moved problem entries retain explicit old anchors in one-line transfer records", () => {
+  const result=run({"docs/programs/alpha/problems.md":problems("None.",'- ALPHA-002 — Moved to [BACK-001](../../backlog/problems.md#back-001-something). <a id="alpha-002-original"></a>'),"docs/backlog/problems.md":problems(OPEN_ENTRY("BACK-001"),"")});
+  assert.equal(result.status,0,result.stderr);
+});
+
+test("entry anchors belong to their entry and inline code does not create an anchor", () => {
+  const path="docs/programs/alpha/implementation-plans/alpha-001-repair/plan.md";
+  const plan="# Repair\n\nSource: [ALPHA-001](../../problems.md#alpha-001).\nProgress: [progress](../../progress.md).\n";
+  const tracker=problems(`${OPEN_ENTRY("ALPHA-001")}\n- Plan: [repair](implementation-plans/alpha-001-repair/plan.md).\n\n<a id="alpha-001"></a>\n\n${OPEN_ENTRY("ALPHA-002")}`,"");
+  assertViolation(run({[path]:plan,"docs/programs/alpha/problems.md":tracker}),path,"entry-plan");
+  const pointer="# Future\n\n## FEAT-001: Old\n\nMoved to [FEAT-013](../programs/alpha/future-features.md#feat-013).\n";
+  assertViolation(run({"docs/backlog/future-features.md":pointer,"docs/programs/alpha/future-features.md":'# Future\n\n## FEAT-013: New\n\nExample: `<a id="feat-013"></a>`.\n'}),"docs/backlog/future-features.md","entry-transfer");
+});
+
+test("pointer labels and suffixes must describe only the canonical transfer", () => {
+  const canonical='# Future\n\n<a id="feat-013"></a>\n\n## FEAT-013: New\n';
+  for(const tail of ['Moved to [FEAT-099](../programs/alpha/future-features.md#feat-013).','Moved to [FEAT-013](../programs/alpha/future-features.md#feat-013). Status: Planned. Direction: keep editing here.']) {
+    assertViolation(run({"docs/programs/alpha/future-features.md":canonical,"docs/backlog/future-features.md":'# Future\n\n## FEAT-001: Old\n\n'+tail+'\n'}),"docs/backlog/future-features.md","entry-transfer");
+  }
+});
+
+test("a transfer can use a reference definition inside its own section", () => {
+  const result=run({"docs/programs/alpha/future-features.md":'# Future\n\n<a id="feat-013"></a>\n\n## FEAT-013: New\n',"docs/backlog/future-features.md":'# Future\n\n## FEAT-001: Old\n\nMoved to [FEAT-013][new].\n\n[new]: ../programs/alpha/future-features.md#feat-013\n'});
+  assert.equal(result.status,0,result.stderr);
+});
+
+test("all Closed sections participate in global canonical ID checks", () => {
+  const result=run({"docs/programs/alpha/future-features.md":'# Future\n\n## FEAT-013: One\n',"docs/backlog/future-features.md":'# Future\n\n## Closed\n\n- FEAT-014 — Done: other.\n\n## Closed\n\n- FEAT-013 — Done: duplicate.\n'});
+  assertViolation(result,"docs/programs/alpha/future-features.md","feature-id");
+});
+
+test("body anchors before Closed and Resolved containers remain attached to the entry", () => {
+  const feature=run({"docs/programs/alpha/future-features.md":'# Future\n\n## FEAT-013: Notice\n\n- Status: Deferred.\n\n<a id="feat-013"></a>\n\n## Closed\n',"docs/backlog/future-features.md":'# Future\n\n## FEAT-001: Old\n\nMoved to [FEAT-013](../programs/alpha/future-features.md#feat-013).\n'});
+  assert.equal(feature.status,0,feature.stderr);
+  const tracker=problems(`${OPEN_ENTRY("ALPHA-001")}\n- Plan: [repair](implementation-plans/alpha-001-repair/plan.md).\n\n<a id="alpha-001"></a>`,"");
+  const problem=run({"docs/programs/alpha/problems.md":tracker,"docs/programs/alpha/implementation-plans/alpha-001-repair/plan.md":'# Repair\n\nSource: [ALPHA-001](../../problems.md#alpha-001).\nProgress: [progress](../../progress.md).\n'});
+  assert.equal(problem.status,0,problem.stderr);
 });

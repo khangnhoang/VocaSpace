@@ -24,3 +24,5 @@ Reference briefs for their routes. New pages do not need one; a PR that makes pa
 
 - [Teacher Course Structure](./surfaces/teacher/course-structure.md) — `Accepted` 2026-10-02 as a design brief and the surface template (PR #116). Route-specific composition of `/teacher/courses/[id]/structure` on top of Product Language, Teacher Authoring, and Button.
 - [Learning Workspace and Public Preview](./surfaces/learner/learning-workspace.md) — `Accepted` 2026-10-09 as a design brief by Owner review of the running local UI; accepted content at `c819416`. Route-specific composition of `/learn/[course-slug]/[topic-slug]` and `/courses/[course-slug]/preview/[topic-slug]` on top of Product Language, Learning Experience, and Button.
+
+Continuing capability and initiative navigation: [UI/UX design charter](../programs/ui-ux-design/README.md). This index and its accepted artifacts retain design-decision ownership.

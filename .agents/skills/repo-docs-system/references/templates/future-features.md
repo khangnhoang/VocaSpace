@@ -1,4 +1,4 @@
-<!-- Template: future features. Copy to docs/programs/<program>/future-features.md (or docs/backlog/future-features.md), fill every <placeholder>, delete this comment. IDs are FEAT-NNN, unique across every future-features.md. To close an entry, replace it with one line under a "## Closed" heading: `- FEAT-nnn — Done: <how> (PR #n)`, `- FEAT-nnn — Moved to [<program>](<link>)` or `- FEAT-nnn — Dropped: <reason>` (see the program-docs skill). -->
+<!-- Template: future features. Copy to docs/programs/<program>/future-features.md (or docs/backlog/future-features.md), fill every placeholder, delete this comment. New IDs are FEAT-NNN and globally unique, including closed declarations. Preserve existing uppercase-prefixed IDs. Close under "## Closed" with one line: `- FEAT-nnn — Done: <how> (PR #n)`, `- FEAT-nnn — Moved to [<canonical ID>](<tracker>#<entry-anchor>).` or `- FEAT-nnn — Dropped: <reason>`. A moved heading may instead retain only the one-line Moved to pointer; preserve old anchors and scoped identities when required. -->
 
 # Future features — <program or backlog name>
 
