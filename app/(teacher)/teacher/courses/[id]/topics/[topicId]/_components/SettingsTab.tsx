@@ -1,9 +1,9 @@
 "use client";
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useId, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { Check, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getTopicById, updateTopic, deleteTopic } from "@/app/actions/topic";
 import type { Topic } from "@/types/database";
@@ -17,6 +17,7 @@ import {
   useCoursePreviewAllocation,
 } from "../../../_components/course-preview-controls";
 import PreviewQuotaResolutionDialog from "../../../_components/PreviewQuotaResolutionDialog";
+import { useRegisterAuthoringEditor, useSingleFlightSave } from "./authoring-guard";
 
 interface SettingsTabProps {
   topicId: string;
@@ -37,10 +38,12 @@ export default function SettingsTab({
   isPublished = false,
   onSaved,
 }: SettingsTabProps) {
+  const titleId = useId();
   const [isLoading, setIsLoading] = useState(true);
-  const [isPending, startTransition] = useTransition();
-  
-  // States quản lý Form
+  const [isPending, setIsPending] = useState(false);
+  const [savedTitle, setSavedTitle] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saved">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<Topic["status"]>("draft");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -56,6 +59,7 @@ export default function SettingsTab({
       const res = await getTopicById(topicId);
       if (res.data) {
         setTitle(res.data.title);
+        setSavedTitle(res.data.title);
         setStatus(res.data.status as Topic["status"]);
       }
       setIsLoading(false);
@@ -63,17 +67,40 @@ export default function SettingsTab({
     loadData();
   }, [isDeleting, topicId]);
 
-  const handleSave = () => {
-    if (readOnly) return;
-    startTransition(async () => {
-      const res = await updateTopic({ topicId, title });
-      if (res.error) toast.error(res.error);
-      else {
-        toast.success(res.message);
-        onSaved?.();
-      }
-    });
+  const isDirty = !isLoading && title !== savedTitle;
+  const saveFlight = useSingleFlightSave();
+
+  const handleSave = async () => {
+    if (readOnly) return false;
+    setIsPending(true);
+    setSaveError(null);
+    const res = await updateTopic({ topicId, title });
+    setIsPending(false);
+    if (res.error) {
+      setSaveError(res.error);
+      return false;
+    }
+    toast.success(res.message);
+    setSavedTitle(title);
+    setSaveState("saved");
+    onSaved?.();
+    return true;
   };
+
+  useRegisterAuthoringEditor(
+    readOnly
+      ? null
+      : {
+          isDirty: () => isDirty,
+          save: () => saveFlight.run(handleSave),
+          pendingSave: saveFlight.pending,
+          discard: () => {
+            setTitle(savedTitle);
+            setSaveError(null);
+          },
+          label: "Tên bài học",
+        },
+  );
 
   const handleDelete = async (unmarkTopicIds: string[]) => {
     if (readOnly) return { error: "Bài học đang chờ duyệt hoặc chỉ có quyền xem." };
@@ -103,49 +130,81 @@ export default function SettingsTab({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 animate-in fade-in duration-500">
-      <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:rounded-3xl sm:p-8">
-        <h2 className="text-xl font-bold text-slate-800 border-b pb-4">Cài đặt chung</h2>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Tên bài học</label>
-            <Input
-              value={title} 
-              onChange={(e) => setTitle(e.target.value)} 
-              disabled={readOnly}
-              className="h-14 w-full rounded-2xl text-lg font-medium"
-            />
-          </div>
-
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Trạng thái hiện tại
+    <div className="mx-auto max-w-3xl space-y-6">
+      <section
+        aria-labelledby={`${titleId}-heading`}
+        className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+      >
+        <h2 id={`${titleId}-heading`} className="text-lg font-bold text-slate-900">
+          Thông tin bài học
+        </h2>
+        <div>
+          <label htmlFor={titleId} className="mb-1.5 block text-sm font-semibold text-slate-800">
+            Tên bài học
+          </label>
+          <Input
+            id={titleId}
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setSaveState("idle");
+              setSaveError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !isPending && isDirty) void saveFlight.run(handleSave);
+            }}
+            disabled={readOnly}
+            aria-invalid={saveError ? true : undefined}
+            aria-describedby={saveError ? `${titleId}-error` : undefined}
+            className="h-12 w-full text-base font-medium"
+          />
+          {saveError ? (
+            <p id={`${titleId}-error`} role="alert" className="mt-1.5 text-sm font-medium text-correction">
+              {saveError}
             </p>
-            <p className="mt-1 font-semibold text-slate-800">
-              {status === "published"
-                ? "Đã xuất bản"
-                : status === "pending"
-                  ? "Đang chờ duyệt"
-                  : "Bản nháp"}
-            </p>
-            <p className="mt-1">
-              Trạng thái được quản lý qua quy trình duyệt; cài đặt này chỉ cập
-              nhật thông tin bài học.
-            </p>
-          </div>
+          ) : null}
         </div>
 
-        <div className="flex justify-stretch pt-4 sm:justify-end">
-          <Button size="lg" disabled={isPending || readOnly} aria-busy={isPending} onClick={handleSave} className="w-full sm:w-auto">
-            {isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-            Lưu cài đặt
-          </Button>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">
+            Trạng thái hiện tại:{" "}
+            {status === "published"
+              ? "Đã xuất bản"
+              : status === "pending"
+                ? "Đang chờ duyệt"
+                : "Bản nháp"}
+          </p>
+          <p className="mt-1">
+            Trạng thái được quản lý qua quy trình duyệt; cài đặt này chỉ cập
+            nhật thông tin bài học.
+          </p>
         </div>
-      </div>
+
+        {!readOnly ? (
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {isDirty ? (
+              <span className="text-sm font-semibold text-attention">Chưa lưu</span>
+            ) : saveState === "saved" ? (
+              <span className="inline-flex items-center gap-1 text-sm font-semibold text-growth">
+                <Check className="size-4" aria-hidden="true" /> Đã lưu
+              </span>
+            ) : null}
+            <Button
+              size="lg"
+              disabled={isPending || !isDirty}
+              aria-busy={isPending}
+              onClick={() => void saveFlight.run(handleSave)}
+              className="w-full sm:w-auto"
+            >
+              {isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
+              Lưu cài đặt
+            </Button>
+          </div>
+        ) : null}
+      </section>
 
       {canManagePreviewMarkers ? (
-        <div className="space-y-4">
+        <section aria-label="Xem thử miễn phí" className="space-y-4">
           <PreviewSuspensionNotice
             allocation={preview.allocation}
             canManage={canManagePreviewMarkers}
@@ -170,25 +229,31 @@ export default function SettingsTab({
             isUpdating={preview.isUpdating}
             onChange={preview.changeMarkers}
           />
-        </div>
+        </section>
       ) : null}
 
-      <div className="flex flex-col items-stretch gap-5 rounded-2xl border border-rose-100 bg-rose-50 p-5 sm:flex-row sm:items-center sm:justify-between sm:rounded-3xl sm:p-8">
+      <section
+        aria-labelledby={`${titleId}-danger`}
+        className="mt-10 flex flex-col items-stretch gap-4 rounded-2xl border border-correction-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+      >
         <div className="min-w-0 flex-1">
-          <h3 className="text-rose-800 font-bold text-lg">Khu vực nguy hiểm</h3>
-          <p className="text-rose-600/80 text-sm mt-1">Bài học sẽ được ẩn khỏi cấu trúc khóa học. Nội dung bên trong vẫn được giữ lại và không bị xóa vĩnh viễn.</p>
+          <h2 id={`${titleId}-danger`} className="text-base font-bold text-correction">
+            Khu vực nguy hiểm
+          </h2>
+          <p className="mt-1 text-sm text-slate-700">
+            Bài học sẽ được ẩn khỏi cấu trúc khóa học. Nội dung bên trong vẫn được giữ lại và không bị xóa vĩnh viễn.
+          </p>
         </div>
         <Button
           variant="destructive-quiet"
           size="lg"
           disabled={readOnly}
-          onClick={() => setIsDeleteDialogOpen(true)} 
-          aria-label="Xóa bài học này"
-          className="w-full shadow-sm sm:w-auto"
+          onClick={() => setIsDeleteDialogOpen(true)}
+          className="w-full border border-correction-line sm:w-auto"
         >
           <Trash2 aria-hidden="true" /> Xóa bài học này
         </Button>
-      </div>
+      </section>
 
       <PreviewQuotaResolutionDialog
         open={isDeleteDialogOpen}

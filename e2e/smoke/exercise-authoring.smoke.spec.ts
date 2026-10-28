@@ -6,11 +6,12 @@ import {
 } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
+import { expectTopicBuilder } from "../support/structure-ui";
 
 // Test plan:
 // - Mục tiêu: teacher là co_owner và tác giả topic draft tạo bài tập TOEIC Part 7 qua browser.
 // - Loại test: smoke E2E trên isolated local Supabase.
-// - Đối tượng: login, tab bài tập, createExercise và persistence qua RPC.
+// - Đối tượng: login, tab Bài tập, composer inline (chọn Part bằng thẻ), createExercise và persistence qua RPC.
 // - Bảo mật/phân quyền: service-role chỉ dùng trong Node để dựng/đọc fixture.
 // - Invariant: bài tập, nhóm, câu hỏi và đáp án đúng được lưu vào đúng topic/course.
 // - Ghi chú: không bao gồm Part 5; vấn đề đó được theo dõi riêng.
@@ -27,23 +28,20 @@ test("teacher creates and persists a TOEIC Part 7 exercise through the browser U
   await loginAsTeacher(page, fixture);
 
   await page.goto(getTopicBuilderPath(courseId, topicId, "exercises"));
-  await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
-  await page.getByRole("tab", { name: /TOEIC/ }).click();
+  await expectTopicBuilder(page);
+  await expect(page.getByRole("tab", { name: /^Bài tập/ })).toHaveAttribute("data-state", "active");
 
-  await page.getByRole("button", { name: "Add TOEIC exercise" }).click();
-  await page.getByLabel("Exercise title").fill(title);
-  await page
-    .getByLabel("Passage text group 1")
-    .fill("A short reading passage for the exercise authoring smoke test.");
-  await page
-    .getByLabel("Question content group 1 question 1")
-    .fill("Which option is correct?");
-  await page.getByLabel("Answer A").fill("Correct option");
-  await page.getByLabel("Answer B").fill("Distractor option");
+  await page.getByRole("button", { name: "Thêm bài tập" }).first().click();
+  await page.getByText("Part 7 · Reading Comprehension (Reading)").click();
+  await page.getByLabel(/^Tên bài tập/).fill(title);
+  await page.getByLabel("Đoạn văn").fill("A short reading passage for the exercise authoring smoke test.");
+  await page.getByLabel("Câu 1", { exact: true }).fill("Which option is correct?");
+  await page.getByLabel("Đáp án A của câu 1 nhóm 1").fill("Correct option");
+  await page.getByLabel("Đáp án B của câu 1 nhóm 1").fill("Distractor option");
 
-  await page.getByLabel("Save exercise").click();
+  await page.getByRole("button", { name: "Lưu bài tập" }).click();
 
-  await expect(page.getByText(title)).toBeVisible();
+  await expect(page.getByRole("button", { name: new RegExp(title) })).toBeVisible();
 
   const persisted = await assertExerciseAuthoringSmokePersisted(title);
   expect(persisted.exerciseId).toEqual(expect.any(String));

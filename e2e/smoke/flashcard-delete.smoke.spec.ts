@@ -7,6 +7,7 @@ import {
 import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
+import { expectTopicBuilder } from "../support/structure-ui";
 
 // Test plan:
 // - Mục tiêu: kiểm tra giáo viên có quyền xóa mềm một flashcard thật qua browser UI.
@@ -34,12 +35,12 @@ test("teacher soft-deletes a flashcard and it stays absent after reload", async 
   await loginAsTeacher(page, fixture);
 
   await page.goto(getTopicBuilderPath(courseId, topicId, "flashcards"));
-  await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
+  await expectTopicBuilder(page);
   await expect(page.getByText(word)).toBeVisible();
 
-  const card = page.locator(".group").filter({ hasText: word }).first();
-  await card.hover();
-  await card.getByRole("button", { name: "Xóa thẻ từ vựng" }).click();
+  // TFEAT4: chọn thẻ trong danh sách mở editor; nút xóa không phụ thuộc hover.
+  await page.getByRole("button", { name: new RegExp(word) }).click();
+  await page.getByRole("button", { name: "Xóa thẻ từ vựng" }).click();
 
   await page.getByRole("dialog").getByRole("button", { name: "Xóa vĩnh viễn" }).click();
   await expect(page.getByText("Đã xóa từ vựng thành công!")).toBeVisible();
@@ -47,7 +48,7 @@ test("teacher soft-deletes a flashcard and it stays absent after reload", async 
   await expect(page.getByText(word)).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
+  await expectTopicBuilder(page);
   await expect(page.getByText(word)).toHaveCount(0);
 
   const removedAt = await getFlashcardRemovedAt(cardId);

@@ -55,9 +55,9 @@ test("creates a topic into the exact Builder target with zero, one, or multiple 
       await expect(page).toHaveURL(getTopicBuilderPath(courseId, createdTopic.id), {
         timeout: 15_000,
       });
-      await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: chapter.createTitle })).toBeVisible();
 
-      await page.getByRole("link", { name: "Quay về structure workspace" }).click();
+      await page.getByRole("link", { name: "Cấu trúc khóa học" }).click();
       await expect(page).toHaveURL(getCourseStructureChapterPath(courseId, chapter.id), {
         timeout: 15_000,
       });

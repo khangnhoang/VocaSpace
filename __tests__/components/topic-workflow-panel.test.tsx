@@ -189,9 +189,10 @@ describe("TopicWorkflowPanel", () => {
   it("renders missing content as an informational readiness state", () => {
     render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
 
-    const card = screen.getByText("Flashcard hoạt động").closest("div.rounded-xl");
-    expect(card?.className).toContain("border-amber-200");
-    expect(card?.className).not.toContain("border-rose-200");
+    // Thiếu nội dung là trạng thái cần bổ sung (amber), không phải lỗi (đỏ).
+    const card = screen.getByText("Flashcard hoạt động").closest("li");
+    expect(card?.className).toContain("border-attention-line");
+    expect(card?.className).not.toContain("border-correction-line");
     // M18: câu lý do xuất hiện ở hai surface có chủ đích (câu vòng đời và
     // association của nút gửi duyệt), nên dùng `getAllByText` thay vì `getByText`.
     const reason = "Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.";
@@ -213,13 +214,13 @@ describe("TopicWorkflowPanel", () => {
     render(<Panel workflow={workflow} onRefresh={vi.fn()} />);
 
     expect(screen.getByText("Đã bị từ chối duyệt: 3 lần")).toBeTruthy();
-    const list = screen.getByRole("list");
+    const list = screen.getByRole("list", { name: "Lịch sử từ chối duyệt" });
     expect(within(list).getByText("Lần 3")).toBeTruthy();
     expect(within(list).getByText("Sai phiên âm của flashcard.")).toBeTruthy();
     expect(within(list).queryByText("Lần 1")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Xem tất cả 3 lần" }));
-    const expanded = screen.getByRole("list");
+    const expanded = screen.getByRole("list", { name: "Lịch sử từ chối duyệt" });
     expect(within(expanded).getByText("Lần 1")).toBeTruthy();
     expect(within(expanded).getByText("Lần 2")).toBeTruthy();
     expect(within(expanded).getByText("Lần 3")).toBeTruthy();

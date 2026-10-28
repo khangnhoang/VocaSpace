@@ -13,10 +13,10 @@ export default function BackButton({
   return (
     <Link
       href={getCourseStructureChapterPath(courseId, chapterId)}
-      className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 hover:text-slate-900"
-      aria-label="Quay về structure workspace"
+      className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-route transition-colors duration-[120ms] outline-none hover:bg-route-quiet focus-visible:ring-2 focus-visible:ring-route motion-reduce:transition-none sm:min-h-8"
     >
-      <ArrowLeft size={20} />
+      <ArrowLeft className="size-4" aria-hidden="true" />
+      Cấu trúc khóa học
     </Link>
   );
 }

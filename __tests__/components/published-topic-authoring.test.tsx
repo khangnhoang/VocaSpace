@@ -3,8 +3,8 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import ExerciseTab from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab";
-import FlashcardTab from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab";
+import ExerciseWorkbench from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseWorkbench";
+import FlashcardWorkbench from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardWorkbench";
 import SettingsTab from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab";
 
 const mocks = vi.hoisted(() => ({
@@ -66,7 +66,7 @@ vi.mock("sonner", () => ({ toast: mocks.toast }));
 // - Mục tiêu: trên bài học đã xuất bản (TFEAT1 AC5, G4) chỉ xóa nội dung, ẩn bài học và lưu câu hỏi đổi/bỏ đáp án
 //   mới hiện cảnh báo bằng dialog của app; mọi chỉnh sửa khác lưu thẳng; hủy thì không có request nào.
 // - Loại test: component interaction trong jsdom, Server Action được mock.
-// - Đối tượng: ExerciseTab, FlashcardTab, SettingsTab (MemoryCheckSection có file test riêng).
+// - Đối tượng: ExerciseWorkbench, FlashcardWorkbench, SettingsTab (MemoryCheckWorkbench có file test riêng).
 // - Case thành công:
 //   - lưu câu hỏi đổi đáp án đúng mở dialog, xác nhận mới gọi updateQuestion một lần;
 //   - lưu câu hỏi đang có hai đáp án đúng mà chỉ giữ một đáp án đúng cũng mở cảnh báo (hủy thì không gọi action);
@@ -108,7 +108,7 @@ const exerciseWithQuestion = {
   ],
 };
 
-describe("ExerciseTab on a published topic", () => {
+describe("ExerciseWorkbench on a published topic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(window, "confirm");
@@ -120,20 +120,28 @@ describe("ExerciseTab on a published topic", () => {
   });
 
   const renderTab = async (isPublished: boolean) => {
-    render(<ExerciseTab topicId={topicId} isPublished={isPublished} />);
-    await screen.findByText("He ___ to work.");
+    render(<ExerciseWorkbench topicId={topicId} isPublished={isPublished} />);
+    await screen.findByRole("button", { name: /Câu 1\. He ___ to work\./ });
   };
 
+  // Editor nằm inline trong pane phải; trả về vùng editor để truy vấn trong đó.
   const openQuestionEditor = async () => {
-    fireEvent.click(screen.getByRole("button", { name: "Sửa câu hỏi 1" }));
-    return screen.findByRole("dialog", { name: "Sửa Câu hỏi & Đáp án" });
+    fireEvent.click(screen.getByRole("button", { name: /Câu 1\. He ___ to work\./ }));
+    const heading = await screen.findByRole("heading", { name: "Câu 1" });
+    return heading.closest("div.flex.min-w-0.flex-col") as HTMLElement;
+  };
+
+  const openExerciseEditor = async () => {
+    fireEvent.click(screen.getByRole("button", { name: /^Part 5 bài 1/ }));
+    const heading = await screen.findByRole("heading", { name: "Part 5 bài 1" });
+    return heading.closest("div.flex.min-w-0.flex-col") as HTMLElement;
   };
 
   it("asks before saving a changed correct answer and calls the action once after confirm", async () => {
     await renderTab(true);
     const editor = await openQuestionEditor();
-    fireEvent.click(within(editor).getAllByRole("radio")[1]);
-    fireEvent.click(within(editor).getByRole("button", { name: "Lưu dữ liệu" }));
+    fireEvent.click(within(editor).getAllByRole("radio", { name: /là đáp án đúng/ })[1]);
+    fireEvent.click(within(editor).getByRole("button", { name: "Lưu" }));
 
     const warning = await screen.findByRole("dialog", { name: CORRECT_TITLE });
     expect(within(warning).getByText(/sẽ phải làm lại câu này/)).toBeTruthy();
@@ -153,16 +161,16 @@ describe("ExerciseTab on a published topic", () => {
   it("makes no request and keeps the editor open when the owner cancels the answer warning", async () => {
     await renderTab(true);
     const editor = await openQuestionEditor();
-    fireEvent.click(within(editor).getAllByRole("radio")[1]);
-    fireEvent.click(within(editor).getByRole("button", { name: "Lưu dữ liệu" }));
+    fireEvent.click(within(editor).getAllByRole("radio", { name: /là đáp án đúng/ })[1]);
+    fireEvent.click(within(editor).getByRole("button", { name: "Lưu" }));
 
     const warning = await screen.findByRole("dialog", { name: WARNING_TITLE });
     fireEvent.click(within(warning).getByRole("button", { name: "Hủy bỏ" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog", { name: WARNING_TITLE })).toBeNull());
     expect(mocks.updateQuestion).not.toHaveBeenCalled();
-    const stillOpen = screen.getByRole("dialog", { name: "Sửa Câu hỏi & Đáp án" });
-    expect((within(stillOpen).getAllByRole("radio")[1] as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("heading", { name: "Câu 1" })).toBeTruthy();
+    expect((within(editor).getAllByRole("radio", { name: /là đáp án đúng/ })[1] as HTMLInputElement).checked).toBe(true);
   });
 
   it("warns when a question with two saved correct options is saved with only one, and cancel makes no request", async () => {
@@ -187,9 +195,9 @@ describe("ExerciseTab on a published topic", () => {
     const editor = await openQuestionEditor();
     // Hai đáp án đúng đã lưu không sửa trực tiếp được qua nhóm radio (chỉ một nút hiện đã chọn), nên chọn C rồi chọn lại A
     // để còn đúng một mình A. Bản cũ chỉ so đáp án đúng đầu tiên (A) nên bỏ sót ca này.
-    fireEvent.click(within(editor).getAllByRole("radio")[2]);
-    fireEvent.click(within(editor).getAllByRole("radio")[0]);
-    fireEvent.click(within(editor).getByRole("button", { name: "Lưu dữ liệu" }));
+    fireEvent.click(within(editor).getAllByRole("radio", { name: /là đáp án đúng/ })[2]);
+    fireEvent.click(within(editor).getAllByRole("radio", { name: /là đáp án đúng/ })[0]);
+    fireEvent.click(within(editor).getByRole("button", { name: "Lưu" }));
 
     const warning = await screen.findByRole("dialog", { name: WARNING_TITLE });
     fireEvent.click(within(warning).getByRole("button", { name: "Hủy bỏ" }));
@@ -204,7 +212,7 @@ describe("ExerciseTab on a published topic", () => {
     fireEvent.change(within(editor).getByDisplayValue("He ___ to work."), {
       target: { value: "She ___ to work." },
     });
-    fireEvent.click(within(editor).getByRole("button", { name: "Lưu dữ liệu" }));
+    fireEvent.click(within(editor).getByRole("button", { name: "Lưu" }));
 
     await waitFor(() => expect(mocks.updateQuestion).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("dialog", { name: WARNING_TITLE })).toBeNull();
@@ -212,12 +220,11 @@ describe("ExerciseTab on a published topic", () => {
 
   it("renames an exercise at once with no warning", async () => {
     await renderTab(true);
-    fireEvent.click(screen.getByRole("button", { name: /Sửa thông tin chung/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Sửa thông tin chung" });
-    fireEvent.change(within(dialog).getByDisplayValue("Part 5 bài 1"), {
+    const editor = await openExerciseEditor();
+    fireEvent.change(within(editor).getByDisplayValue("Part 5 bài 1"), {
       target: { value: "Part 5 bài 1 đã đổi tên" },
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Lưu thay đổi" }));
+    fireEvent.click(within(editor).getByRole("button", { name: "Lưu" }));
 
     await waitFor(() =>
       expect(mocks.updateExerciseBasic).toHaveBeenCalledWith("ex-1", "Part 5 bài 1 đã đổi tên", "part5"),
@@ -227,11 +234,12 @@ describe("ExerciseTab on a published topic", () => {
 
   it("explains the learner impact inside the delete-exercise dialog and deletes on that single confirm", async () => {
     await renderTab(true);
-    fireEvent.click(screen.getByRole("button", { name: /Xóa bài/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Xác nhận xóa bài tập" });
+    const editor = await openExerciseEditor();
+    fireEvent.click(within(editor).getByRole("button", { name: "Xóa bài tập" }));
+    const dialog = await screen.findByRole("dialog", { name: "Xóa bài tập" });
     expect(within(dialog).getByRole("note").textContent).toContain("không còn thấy bài tập");
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Xóa bài" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Xóa bài tập" }));
 
     await waitFor(() => expect(mocks.deleteExercise).toHaveBeenCalledWith("ex-1"));
     expect(mocks.deleteExercise).toHaveBeenCalledTimes(1);
@@ -240,7 +248,8 @@ describe("ExerciseTab on a published topic", () => {
 
   it("explains the learner impact inside the delete-question dialog", async () => {
     await renderTab(true);
-    fireEvent.click(screen.getByRole("button", { name: "Xóa câu hỏi 1" }));
+    const editor = await openQuestionEditor();
+    fireEvent.click(within(editor).getByRole("button", { name: "Xóa câu hỏi" }));
     const dialog = await screen.findByRole("dialog", { name: "Xóa câu hỏi" });
     expect(within(dialog).getByRole("note").textContent).toContain("không còn thấy câu hỏi này");
 
@@ -251,19 +260,20 @@ describe("ExerciseTab on a published topic", () => {
   it("shows no published warning anywhere on a draft topic", async () => {
     await renderTab(false);
     const editor = await openQuestionEditor();
-    fireEvent.click(within(editor).getAllByRole("radio")[1]);
-    fireEvent.click(within(editor).getByRole("button", { name: "Lưu dữ liệu" }));
+    fireEvent.click(within(editor).getAllByRole("radio", { name: /là đáp án đúng/ })[1]);
+    fireEvent.click(within(editor).getByRole("button", { name: "Lưu" }));
     await waitFor(() => expect(mocks.updateQuestion).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("dialog", { name: WARNING_TITLE })).toBeNull();
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: /Xóa bài/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Xác nhận xóa bài tập" });
+    const exerciseEditor = await openExerciseEditor();
+    fireEvent.click(within(exerciseEditor).getByRole("button", { name: "Xóa bài tập" }));
+    const dialog = await screen.findByRole("dialog", { name: "Xóa bài tập" });
     expect(within(dialog).queryByRole("note")).toBeNull();
   });
 });
 
-describe("FlashcardTab on a published topic", () => {
+describe("FlashcardWorkbench on a published topic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(window, "confirm");
@@ -280,9 +290,10 @@ describe("FlashcardTab on a published topic", () => {
   });
 
   it("explains the learner impact inside the delete dialog and deletes on that single confirm", async () => {
-    render(<FlashcardTab topicId={topicId} isPublished />);
+    render(<FlashcardWorkbench topicId={topicId} isPublished />);
+    fireEvent.click(await screen.findByRole("button", { name: /progress/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Xóa thẻ từ vựng" }));
-    const dialog = await screen.findByRole("dialog", { name: "Xóa từ vựng" });
+    const dialog = await screen.findByRole("dialog", { name: "Xóa thẻ từ vựng" });
     expect(within(dialog).getByRole("note").textContent).toContain("không còn thấy thẻ này");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Xóa vĩnh viễn" }));
@@ -292,9 +303,10 @@ describe("FlashcardTab on a published topic", () => {
   });
 
   it("keeps the delete dialog free of the published note on a draft topic", async () => {
-    render(<FlashcardTab topicId={topicId} />);
+    render(<FlashcardWorkbench topicId={topicId} />);
+    fireEvent.click(await screen.findByRole("button", { name: /progress/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Xóa thẻ từ vựng" }));
-    const dialog = await screen.findByRole("dialog", { name: "Xóa từ vựng" });
+    const dialog = await screen.findByRole("dialog", { name: "Xóa thẻ từ vựng" });
 
     expect(within(dialog).queryByRole("note")).toBeNull();
   });

@@ -950,7 +950,7 @@ describe("course workspace route contract", () => {
     expect(html).toContain(
       `href="/teacher/courses/${courseId}/structure?chapter=${chapterId}"`,
     );
-    expect(html).toContain('aria-label="Quay về structure workspace"');
+    expect(html).toContain("Cấu trúc khóa học");
   });
 
   it("builds and consumes structure feedback for stale topic-builder targets", () => {
@@ -1291,14 +1291,14 @@ describe("course workspace route contract", () => {
     const flashcardTabSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardWorkbench.tsx",
       ),
       "utf8",
     );
     const exerciseTabSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseWorkbench.tsx",
       ),
       "utf8",
     );
@@ -1357,12 +1357,12 @@ describe("course workspace route contract", () => {
       'params.delete("topic_unavailable")',
     );
     expect(structureFeedbackSource).toContain("scroll: false");
-    expect(topicBuilderPageSource).toContain(
-      "BackButton courseId={resolvedParams.id}",
-    );
+    // TFEAT4: đường quay về chương nằm trong header vòng đời (TopicWorkflowPanel), tiêu đề là tên bài học.
     expect(topicBuilderPageSource).toContain("courseId={resolvedParams.id}");
-    expect(topicBuilderPageSource).toContain(
-      "BackButton courseId={resolvedParams.id} chapterId={parentChapterId}",
+    expect(topicBuilderPageSource).toContain("parentChapterId={parentChapterId}");
+    expect(topicBuilderPageSource).not.toContain("Topic Builder");
+    expect(topicWorkflowSource).toContain(
+      "BackButton courseId={workflow.courseId} chapterId={workflow.chapterId}",
     );
     expect(backButtonSource).toContain(
       "href={getCourseStructureChapterPath(courseId, chapterId)}",
@@ -1384,7 +1384,7 @@ describe("course workspace route contract", () => {
     expect(chapterNavigatorSource).toContain("issueChapterId");
     expect(chapterNavigatorSource).toContain("scrollIntoView");
     expect(topicBuilderTabsSource).toContain("value={activeTab}");
-    expect(topicBuilderTabsSource).toContain("onValueChange={handleTabChange}");
+    expect(topicBuilderTabsSource).toContain("void handleTabChange(value)");
     expect(topicBuilderTabsSource).toContain("initialSearch");
     expect(topicBuilderTabsSource).toContain("useSyncExternalStore");
     expect(topicBuilderTabsSource).not.toContain("Mở thẻ từ vựng");
@@ -1429,37 +1429,32 @@ describe("course workspace route contract", () => {
       "dashboardIssueContext ?? consumedDashboardIssueContext",
     );
     expect(topicBuilderTabsSource).toContain("setHasConsumedDashboardIssue(true);");
-    expect(topicBuilderTabsSource).toContain("flex-col");
-    expect(topicBuilderTabsSource).toContain("sm:flex-row");
-    expect(topicBuilderTabsSource).toContain("h-auto!");
-    expect(topicBuilderTabsSource).toContain("after:hidden");
+    // Tab grammar: icon + nhãn + vạch dưới, roving focus của Radix, kích hoạt bằng Enter/Space.
+    expect(topicBuilderTabsSource).toContain('activationMode="manual"');
     expect(topicBuilderTabsSource).toContain("min-h-11");
-    expect(topicBuilderTabsSource).not.toContain("sm:grid-cols-3");
     expect(topicBuilderTabsSource).not.toContain("defaultValue={");
-    expect(settingsTabSource).toContain("w-full rounded-2xl");
+    // G8 / ACTION-QUEUE-001: URL tab chỉ được ghi qua một chỗ, sau khi server action của trang đã xong.
+    expect(topicBuilderTabsSource).toContain("guard.whenActionsIdle()");
+    expect(topicBuilderTabsSource.match(/window\.history\.replaceState/g)).toHaveLength(1);
+    expect(topicBuilderTabsSource).toContain("guard.confirmLeave()");
+    expect(settingsTabSource).toContain("Khu vực nguy hiểm");
     expect(settingsTabSource).toContain("sm:flex-row");
     expect(settingsTabSource).toContain("sm:w-auto");
-    expect(flashcardTabSource).toContain(
-      "Tính năng soạn nội dung học phù hợp hơn trên màn hình lớn. Vui lòng dùng máy tính để thêm hoặc chỉnh sửa flashcard/bài tập.",
-    );
-    expect(flashcardTabSource).toContain("md:hidden");
-    expect(flashcardTabSource).toContain("hidden gap-3 md:flex");
-    expect(flashcardTabSource).toContain("group-hover:opacity-100 md:flex");
+    // AC9: soạn được trên mobile, thao tác không phụ thuộc hover.
+    for (const source of [flashcardTabSource, exerciseTabSource]) {
+      expect(source).not.toContain("Vui lòng dùng máy tính");
+      expect(source).not.toContain("group-hover:opacity-100");
+      expect(source).toContain("AuthoringWorkbench");
+    }
     expect(exerciseTabSource).toContain("resolveExerciseIssueGuidance");
     expect(exerciseTabSource).toContain("dashboardIssueContext");
     expect(exerciseTabSource).toContain("staleTargetRedirectHref");
     expect(exerciseTabSource).toContain("scrollIntoView");
-    expect(exerciseTabSource).toContain(
-      "Tính năng soạn nội dung học phù hợp hơn trên màn hình lớn. Vui lòng dùng máy tính để thêm hoặc chỉnh sửa flashcard/bài tập.",
-    );
-    expect(exerciseTabSource).toContain("md:hidden");
-    expect(exerciseTabSource).toContain("md:inline-flex");
-    expect(exerciseTabSource).toContain("hidden gap-2 md:flex");
     expect(topicBuilderTabsSource).toContain("workflow={workflow}");
     expect(topicBuilderTabsSource).toContain(
-      'readOnly={!workflow.canEdit || workflow.status === "pending"}',
+      'const readOnly = !workflow.canEdit || workflow.status === "pending";',
     );
-    expect(topicBuilderTabsSource).toContain('isPublished={workflow.status === "published"}');
+    expect(topicBuilderTabsSource).toContain('const isPublished = workflow.status === "published";');
     expect(topicWorkflowSource).toContain("activeFlashcardCount");
     expect(topicWorkflowSource).toContain("activeExerciseCount");
     expect(topicWorkflowSource).toContain("requestTopicReview");

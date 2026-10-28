@@ -359,7 +359,7 @@ async function createD2RecoveryDraft(
     url.pathname.startsWith(`/teacher/courses/${courseId}/topics/`),
     { timeout: 15_000 },
   );
-  await expect(page.getByRole("link", { name: "Quay về structure workspace" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Cấu trúc khóa học" })).toBeVisible();
 }
 
 async function readLearnerRows() {

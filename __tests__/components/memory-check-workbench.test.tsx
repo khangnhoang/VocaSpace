@@ -3,13 +3,13 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import MemoryCheckSection from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/MemoryCheckSection";
+import MemoryCheckWorkbench from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/MemoryCheckWorkbench";
 
 // Test plan:
-// - Mục tiêu: section memory check (D3 C2) cho teacher tạo bộ, thêm/sửa/xóa câu và nói rõ đây là bước tùy chọn.
+// - Mục tiêu: tab Memory check (D3 C2, TFEAT4 AC4) cho teacher tạo bộ, thêm/sửa/xóa câu inline và nói rõ đây là bước tùy chọn.
 // - Loại test: component + form interaction, Server Action được mock.
 // - Case thành công: thêm câu đầu tiên gửi đúng payload; sửa câu gửi option id cũ; xóa câu thường gọi deleteQuestion; xóa câu cuối gỡ cả bộ.
-// - Case thất bại: validation phía client và lỗi server giữ dialog cùng dữ liệu đã nhập.
+// - Case thất bại: validation phía client và lỗi server giữ editor cùng dữ liệu đã nhập.
 // - Phân quyền: readOnly (pending/không có quyền soạn) không hiện thao tác ghi.
 // - Bài học đã xuất bản (TFEAT1 AC5): xóa câu/gỡ memory check hiện cảnh báo ngay trong dialog xóa;
 //   sửa câu mà đổi đáp án đúng hoặc bỏ đáp án mở dialog cảnh báo trước khi gọi server, hủy thì không gọi
@@ -44,15 +44,15 @@ const question = (id: string, content: string) => ({
   ],
 });
 
-async function renderSection(props: Partial<React.ComponentProps<typeof MemoryCheckSection>> = {}) {
+async function renderSection(props: Partial<React.ComponentProps<typeof MemoryCheckWorkbench>> = {}) {
   const onMutationSuccess = vi.fn();
-  render(<MemoryCheckSection topicId="topic-1" onMutationSuccess={onMutationSuccess} {...props} />);
+  render(<MemoryCheckWorkbench topicId="topic-1" onMutationSuccess={onMutationSuccess} {...props} />);
   await waitFor(() => expect(mocks.getMemoryCheckByTopicId).toHaveBeenCalled());
-  await waitFor(() => expect(screen.queryByLabelText("Đang tải memory check")).toBeNull());
+  await waitFor(() => expect(screen.queryByText("Đang tải memory check…")).toBeNull());
   return { onMutationSuccess };
 }
 
-describe("MemoryCheckSection", () => {
+describe("MemoryCheckWorkbench", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getMemoryCheckByTopicId.mockResolvedValue({ data: null });
@@ -65,17 +65,17 @@ describe("MemoryCheckSection", () => {
   it("explains that the stage is optional when the topic has no memory check", async () => {
     await renderSection();
     expect(screen.getByText("Bài học chưa có memory check")).toBeTruthy();
-    expect(screen.getByText("Tùy chọn")).toBeTruthy();
+    expect(screen.getByText(/^Tùy chọn/)).toBeTruthy();
   });
 
   it("creates the first question with the entered options", async () => {
     const { onMutationSuccess } = await renderSection();
-    fireEvent.click(screen.getByRole("button", { name: /Thêm câu memory check/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Thêm câu" })[0]);
 
-    fireEvent.change(screen.getByLabelText("Nội dung câu hỏi"), { target: { value: "\"progress\" nghĩa là gì?" } });
+    fireEvent.change(screen.getByLabelText(/^Nội dung câu hỏi/), { target: { value: "\"progress\" nghĩa là gì?" } });
     fireEvent.change(screen.getByLabelText("Nội dung đáp án A"), { target: { value: "tiến độ" } });
     fireEvent.change(screen.getByLabelText("Nội dung đáp án B"), { target: { value: "tiền lương" } });
-    fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
     await waitFor(() => expect(mocks.addMemoryCheckQuestion).toHaveBeenCalledTimes(1));
     expect(mocks.addMemoryCheckQuestion).toHaveBeenCalledWith(
@@ -95,27 +95,27 @@ describe("MemoryCheckSection", () => {
 
   it("keeps the dialog and input when client validation fails", async () => {
     await renderSection();
-    fireEvent.click(screen.getByRole("button", { name: /Thêm câu memory check/ }));
-    fireEvent.change(screen.getByLabelText("Nội dung câu hỏi"), { target: { value: "Câu chưa đủ đáp án" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Thêm câu" })[0]);
+    fireEvent.change(screen.getByLabelText(/^Nội dung câu hỏi/), { target: { value: "Câu chưa đủ đáp án" } });
     fireEvent.change(screen.getByLabelText("Nội dung đáp án A"), { target: { value: "chỉ một" } });
-    fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
-    expect((await screen.findByRole("alert")).textContent).toBe("Phải có ít nhất 2 đáp án");
-    expect((screen.getByLabelText("Nội dung câu hỏi") as HTMLInputElement).value).toBe("Câu chưa đủ đáp án");
+    expect(await screen.findByText("Phải có ít nhất 2 đáp án")).toBeTruthy();
+    expect((screen.getByLabelText(/^Nội dung câu hỏi/) as HTMLInputElement).value).toBe("Câu chưa đủ đáp án");
     expect(mocks.addMemoryCheckQuestion).not.toHaveBeenCalled();
   });
 
   it("keeps the dialog and input when the server rejects the save", async () => {
     mocks.addMemoryCheckQuestion.mockResolvedValueOnce({ error: "Bài học đang chờ duyệt và tạm thời không nhận thay đổi." });
     const { onMutationSuccess } = await renderSection();
-    fireEvent.click(screen.getByRole("button", { name: /Thêm câu memory check/ }));
-    fireEvent.change(screen.getByLabelText("Nội dung câu hỏi"), { target: { value: "Câu giữ lại" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Thêm câu" })[0]);
+    fireEvent.change(screen.getByLabelText(/^Nội dung câu hỏi/), { target: { value: "Câu giữ lại" } });
     fireEvent.change(screen.getByLabelText("Nội dung đáp án A"), { target: { value: "A" } });
     fireEvent.change(screen.getByLabelText("Nội dung đáp án B"), { target: { value: "B" } });
-    fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
-    expect((await screen.findByRole("alert")).textContent).toBe("Bài học đang chờ duyệt và tạm thời không nhận thay đổi.");
-    expect((screen.getByLabelText("Nội dung câu hỏi") as HTMLInputElement).value).toBe("Câu giữ lại");
+    expect((await screen.findByRole("alert")).textContent).toContain("Bài học đang chờ duyệt và tạm thời không nhận thay đổi.");
+    expect((screen.getByLabelText(/^Nội dung câu hỏi/) as HTMLInputElement).value).toBe("Câu giữ lại");
     expect(onMutationSuccess).not.toHaveBeenCalled();
   });
 
@@ -123,9 +123,9 @@ describe("MemoryCheckSection", () => {
     mocks.getMemoryCheckByTopicId.mockResolvedValue({ data: { id: "memory-1", questions: [question("q1", "Câu 1")] } });
     await renderSection();
 
-    fireEvent.click(screen.getByRole("button", { name: "Sửa câu memory check 1" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Câu 1 ·/ }));
     fireEvent.click(screen.getByLabelText("Đáp án B là đáp án đúng"));
-    fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
     await waitFor(() => expect(mocks.updateQuestion).toHaveBeenCalledTimes(1));
     expect(mocks.updateQuestion).toHaveBeenCalledWith(
@@ -147,14 +147,16 @@ describe("MemoryCheckSection", () => {
     // The refetch after deleting q2 returns only q1.
     mocks.getMemoryCheckByTopicId.mockResolvedValue({ data: { id: "memory-1", questions: [question("q1", "Câu 1")] } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Xóa câu memory check 2" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Câu 2 ·/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Xóa câu hỏi" }));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Xóa câu hỏi" }));
     await waitFor(() => expect(mocks.deleteQuestion).toHaveBeenCalledWith("q2"));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(screen.queryByText("Câu 2")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Câu 2 ·/ })).toBeNull());
 
-    fireEvent.click(screen.getByRole("button", { name: "Xóa câu memory check 1" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Câu 1 ·/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Gỡ memory check" }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/gỡ memory check khỏi bài học/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Gỡ memory check" }));
@@ -168,9 +170,9 @@ describe("MemoryCheckSection", () => {
         data: { id: "memory-1", questions: [question("q1", "Câu 1"), question("q2", "Câu 2")] },
       });
       await renderSection({ isPublished: true });
-      fireEvent.click(screen.getByRole("button", { name: "Sửa câu memory check 1" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Câu 1 ·/ }));
       fireEvent.click(screen.getByLabelText("Đáp án B là đáp án đúng"));
-      fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
     };
 
     it("opens the warning before saving a changed correct answer and saves only after confirm", async () => {
@@ -199,8 +201,7 @@ describe("MemoryCheckSection", () => {
         expect(screen.queryByRole("dialog", { name: /^(Đổi đáp án đúng\?|Lưu thay đổi đáp án\?)$/ })).toBeNull(),
       );
       expect(mocks.updateQuestion).not.toHaveBeenCalled();
-      const editor = screen.getByRole("dialog", { name: "Sửa câu memory check" });
-      expect((within(editor).getByLabelText("Đáp án B là đáp án đúng") as HTMLInputElement).checked).toBe(true);
+      expect((screen.getByLabelText("Đáp án B là đáp án đúng") as HTMLInputElement).checked).toBe(true);
     });
 
     it("warns when an option is removed even if the correct answer stays", async () => {
@@ -221,9 +222,9 @@ describe("MemoryCheckSection", () => {
       });
       await renderSection({ isPublished: true });
 
-      fireEvent.click(screen.getByRole("button", { name: "Sửa câu memory check 1" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Câu 1 ·/ }));
       fireEvent.click(screen.getByRole("button", { name: "Bỏ đáp án C" }));
-      fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
       const warning = await screen.findByRole("dialog", { name: "Lưu thay đổi đáp án?" });
       expect(within(warning).getByText(/không còn hiện cho học viên/)).toBeTruthy();
@@ -234,17 +235,17 @@ describe("MemoryCheckSection", () => {
       mocks.getMemoryCheckByTopicId.mockResolvedValue({ data: { id: "memory-1", questions: [question("q1", "Câu 1")] } });
       await renderSection({ isPublished: true });
 
-      fireEvent.click(screen.getByRole("button", { name: "Sửa câu memory check 1" }));
-      fireEvent.change(screen.getByLabelText("Nội dung câu hỏi"), { target: { value: "Câu 1 đã sửa chữ" } });
-      fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Câu 1 ·/ }));
+      fireEvent.change(screen.getByLabelText(/^Nội dung câu hỏi/), { target: { value: "Câu 1 đã sửa chữ" } });
+      fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
       await waitFor(() => expect(mocks.updateQuestion).toHaveBeenCalledTimes(1));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
-      fireEvent.click(screen.getByRole("button", { name: /Thêm câu memory check/ }));
-      fireEvent.change(screen.getByLabelText("Nội dung câu hỏi"), { target: { value: "Câu mới" } });
+      fireEvent.click(screen.getAllByRole("button", { name: "Thêm câu" })[0]);
+      fireEvent.change(screen.getByLabelText(/^Nội dung câu hỏi/), { target: { value: "Câu mới" } });
       fireEvent.change(screen.getByLabelText("Nội dung đáp án A"), { target: { value: "A" } });
       fireEvent.change(screen.getByLabelText("Nội dung đáp án B"), { target: { value: "B" } });
-      fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
       await waitFor(() => expect(mocks.addMemoryCheckQuestion).toHaveBeenCalledTimes(1));
       expect(screen.queryByRole("dialog", { name: /^(Đổi đáp án đúng\?|Lưu thay đổi đáp án\?)$/ })).toBeNull();
     });
@@ -255,7 +256,8 @@ describe("MemoryCheckSection", () => {
       });
       await renderSection({ isPublished: true });
 
-      fireEvent.click(screen.getByRole("button", { name: "Xóa câu memory check 2" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Câu 2 ·/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Xóa câu hỏi" }));
       const dialog = screen.getByRole("dialog");
       expect(within(dialog).getByRole("note").textContent).toContain("học viên sẽ không còn thấy câu memory check này");
       expect(mocks.deleteQuestion).not.toHaveBeenCalled();
@@ -269,7 +271,8 @@ describe("MemoryCheckSection", () => {
       mocks.getMemoryCheckByTopicId.mockResolvedValue({ data: { id: "memory-1", questions: [question("q1", "Câu 1")] } });
       await renderSection({ isPublished: true });
 
-      fireEvent.click(screen.getByRole("button", { name: "Xóa câu memory check 1" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Câu 1 ·/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Gỡ memory check" }));
       const dialog = screen.getByRole("dialog");
       expect(within(dialog).getByRole("note").textContent).toContain("đi thẳng từ flashcard sang bài tập");
       fireEvent.click(within(dialog).getByRole("button", { name: "Gỡ memory check" }));
@@ -282,14 +285,15 @@ describe("MemoryCheckSection", () => {
     mocks.getMemoryCheckByTopicId.mockResolvedValue({ data: { id: "memory-1", questions: [question("q1", "Câu 1")] } });
     await renderSection({ isPublished: false });
 
-    fireEvent.click(screen.getByRole("button", { name: "Sửa câu memory check 1" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Câu 1 ·/ }));
     fireEvent.click(screen.getByLabelText("Đáp án B là đáp án đúng"));
-    fireEvent.click(screen.getByRole("button", { name: "Lưu câu hỏi" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
     await waitFor(() => expect(mocks.updateQuestion).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("dialog", { name: /^(Đổi đáp án đúng\?|Lưu thay đổi đáp án\?)$/ })).toBeNull();
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Xóa câu memory check 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gỡ memory check" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(screen.queryByRole("note")).toBeNull();
   });
 
@@ -298,8 +302,11 @@ describe("MemoryCheckSection", () => {
     await renderSection({ readOnly: true });
 
     expect(screen.getByText("Câu 1")).toBeTruthy();
-    expect((screen.getByRole("button", { name: /Thêm câu memory check/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByRole("button", { name: "Sửa câu memory check 1" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Xóa câu memory check 1" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Thêm câu" })).toBeNull();
+    // Người chỉ xem vẫn mở được câu để đọc, nhưng field bị khóa và không có nút ghi.
+    fireEvent.click(screen.getByRole("button", { name: /^Câu 1 ·/ }));
+    expect((screen.getByLabelText(/^Nội dung câu hỏi/) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Lưu" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Gỡ memory check" })).toBeNull();
   });
 });

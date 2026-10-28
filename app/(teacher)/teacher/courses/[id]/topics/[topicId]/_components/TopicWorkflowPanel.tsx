@@ -3,7 +3,18 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Clock3, Info, LockKeyhole, Send, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  FileEdit,
+  Info,
+  LockKeyhole,
+  Send,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -21,16 +32,25 @@ import { getCourseOverviewPath, getCourseStructurePath } from "@/lib/course-auth
 import TopicAuthorshipSection from "./TopicAuthorshipSection";
 import TopicReviewNotes from "./TopicReviewNotes";
 import PreviewQuotaResolutionDialog from "../../../_components/PreviewQuotaResolutionDialog";
+import BackButton from "./BackButton";
+import { useAuthoringGuard } from "./authoring-guard";
 
 interface TopicWorkflowPanelProps {
   workflow: TopicWorkflow;
   onRefresh: () => void;
 }
 
-const statusCopy: Record<TopicWorkflow["status"], { label: string; className: string }> = {
-  draft: { label: "Bản nháp", className: "bg-slate-100 text-slate-700" },
-  pending: { label: "Đang chờ duyệt", className: "bg-amber-100 text-amber-800" },
-  published: { label: "Đã xuất bản", className: "bg-emerald-100 text-emerald-800" },
+const statusCopy: Record<
+  TopicWorkflow["status"],
+  { label: string; className: string; Icon: typeof FileEdit }
+> = {
+  draft: { label: "Bản nháp", className: "border-slate-300 bg-slate-100 text-slate-800", Icon: FileEdit },
+  pending: {
+    label: "Đang chờ duyệt",
+    className: "border-attention-line bg-attention-quiet text-attention",
+    Icon: Clock3,
+  },
+  published: { label: "Đã xuất bản", className: "border-growth-line bg-growth-quiet text-growth", Icon: CheckCircle2 },
 };
 
 // Mẫu thời gian Owner đã chốt: `HH:mm · dd/MM/yyyy`, 24 giờ — không dùng mặc
@@ -123,8 +143,13 @@ function RejectionHistoryItem({
   );
 }
 
+function personLabel(identity: TopicWorkflow["responsibleAuthor"]) {
+  return identity.fullName?.trim() || identity.email || "Không rõ";
+}
+
 export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflowPanelProps) {
   const router = useRouter();
+  const guard = useAuthoringGuard();
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [reason, setReason] = useState("");
@@ -149,6 +174,12 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
   // trong lúc `canRequestReview === false`.
   const submitBlockedReason = getSubmitBlockedReason(workflow);
   const submitReasonCopy = submitBlockedReason ?? "Bài học đã sẵn sàng để gửi người duyệt kiểm tra.";
+
+  // AC6: hành động vòng đời chỉ chạy sau khi editor đang sửa đã lưu thành công hoặc bị bỏ thay đổi.
+  const runAfterLeave = async (action: () => void) => {
+    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return;
+    action();
+  };
 
   const handleRequestReview = () => {
     if (!workflow.canRequestReview) return;
@@ -229,99 +260,135 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
     return result;
   };
 
+  const actions = (
+    <div className="flex flex-wrap items-center gap-2">
+      {workflow.status === "draft" && workflow.canEdit ? (
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            onClick={() => void runAfterLeave(handleRequestReview)}
+            disabled={!workflow.canRequestReview || isPending}
+            aria-disabled={!workflow.canRequestReview || isPending}
+            aria-describedby={submitDescriptionId}
+            className="min-h-11 sm:min-h-9"
+          >
+            {isPending ? <Clock3 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
+            Gửi duyệt
+          </Button>
+          {/* M18: một `button` disabled không nhận pointer/focus event, nên
+              tooltip bọc quanh nó sẽ không bao giờ mở. Dùng affordance info
+              liền kề — một button thật, mở được bằng cả hover và keyboard
+              focus — để lý do quyền nằm ngay tại action thay vì chỉ ở câu
+              mô tả phía trên. */}
+          {submitBlockedReason ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Vì sao chưa gửi duyệt được"
+                  className="text-slate-600 hover:text-slate-900"
+                >
+                  <Info aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{submitBlockedReason}</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
+      ) : null}
+      {frozen && (workflow.canWithdrawReview || workflow.isCurrentUserContributor) ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void runAfterLeave(handleWithdrawReview)}
+          disabled={!workflow.canWithdrawReview || isPending}
+          aria-disabled={!workflow.canWithdrawReview || isPending}
+          aria-describedby={!workflow.canWithdrawReview ? withdrawDescriptionId : undefined}
+          className="min-h-11 sm:min-h-9"
+        >
+          <LockKeyhole aria-hidden="true" /> Quay về chỉnh sửa
+        </Button>
+      ) : null}
+      {reviewerActionAllowed ? (
+        <>
+          <Button
+            type="button"
+            onClick={() => void runAfterLeave(handleApprove)}
+            disabled={isPending}
+            className="min-h-11 sm:min-h-9"
+          >
+            <ShieldCheck aria-hidden="true" /> Duyệt
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void runAfterLeave(() => setIsRejectOpen(true))}
+            disabled={isPending}
+            className="min-h-11 text-correction sm:min-h-9"
+          >
+            Từ chối
+          </Button>
+        </>
+      ) : null}
+      {frozen && workflow.canDeleteTopic ? (
+        <Button
+          type="button"
+          variant="destructive-quiet"
+          onClick={() => void runAfterLeave(() => setIsDeleteDialogOpen(true))}
+          disabled={isPending}
+          className="min-h-11 sm:min-h-9"
+        >
+          <Trash2 aria-hidden="true" />{" "}
+          {workflow.canWithdrawReview ? "Hủy gửi duyệt và xóa bài học" : "Xóa bài học"}
+        </Button>
+      ) : null}
+    </div>
+  );
+
   return (
-    <section
-      className="mb-5 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+    <header
+      className="space-y-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:px-6 sm:py-5"
       aria-labelledby="topic-workflow-title"
     >
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-slate-600">
+        <BackButton courseId={workflow.courseId} chapterId={workflow.chapterId} />
+        <span aria-hidden="true">/</span>
+        <span>Soạn bài học</span>
+      </div>
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${status.className}`}>
+        <div className="min-w-0 space-y-2">
+          <h1
+            id="topic-workflow-title"
+            className="text-2xl leading-8 font-extrabold tracking-[-0.01em] text-slate-950 [overflow-wrap:anywhere] sm:text-[28px] sm:leading-9"
+          >
+            {workflow.title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-bold ${status.className}`}
+            >
+              <status.Icon className="size-3.5" aria-hidden="true" />
               {status.label}
             </span>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              {workflow.role === "owner" || workflow.role === "co_owner" ? "Có quyền duyệt theo vai trò" : workflow.canReview ? "Có quyền duyệt" : "Chỉ xem / soạn"}
+            <span className="text-slate-700">
+              Phụ trách:{" "}
+              <span className="font-semibold text-slate-900">{personLabel(workflow.responsibleAuthor)}</span>
+            </span>
+            <span className="text-slate-600">
+              ·{" "}
+              {workflow.role === "owner" || workflow.role === "co_owner"
+                ? "Có quyền duyệt theo vai trò"
+                : workflow.canReview
+                  ? "Có quyền duyệt"
+                  : "Chỉ xem / soạn"}
             </span>
           </div>
-          <h2 id="topic-workflow-title" className="mt-3 wrap-break-word text-xl font-bold text-slate-950">
-            {workflow.title}
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-slate-600">{getNextAction(workflow)}</p>
+          <p className="max-w-3xl text-sm leading-6 text-slate-700">{getNextAction(workflow)}</p>
         </div>
-
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
-          {workflow.status === "draft" && workflow.canEdit ? (
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                onClick={handleRequestReview}
-                disabled={!workflow.canRequestReview || isPending}
-                aria-disabled={!workflow.canRequestReview || isPending}
-                aria-describedby={submitDescriptionId}
-                className="min-h-10 bg-blue-600 text-white hover:bg-blue-700"
-              >
-                {isPending ? <Clock3 className="animate-spin" /> : <Send />}
-                Gửi duyệt
-              </Button>
-              {/* M18: một `button` disabled không nhận pointer/focus event, nên
-                  tooltip bọc quanh nó sẽ không bao giờ mở. Dùng affordance info
-                  liền kề — một button thật, mở được bằng cả hover và keyboard
-                  focus — để lý do quyền nằm ngay tại action thay vì chỉ ở câu
-                  mô tả phía trên. */}
-              {submitBlockedReason ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Vì sao chưa gửi duyệt được"
-                      className="text-slate-500 hover:text-slate-900"
-                    >
-                      <Info />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{submitBlockedReason}</TooltipContent>
-                </Tooltip>
-              ) : null}
-            </div>
-          ) : null}
-          {frozen && (workflow.canWithdrawReview || workflow.isCurrentUserContributor) ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleWithdrawReview}
-              disabled={!workflow.canWithdrawReview || isPending}
-              aria-disabled={!workflow.canWithdrawReview || isPending}
-              aria-describedby={!workflow.canWithdrawReview ? withdrawDescriptionId : undefined}
-              className="min-h-10 border-slate-200 text-slate-700"
-            >
-              Quay về chỉnh sửa 🔒
-            </Button>
-          ) : null}
-          {frozen && workflow.canDeleteTopic ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(true)}
-              disabled={isPending}
-              className="min-h-10 border-rose-200 text-rose-700 hover:bg-rose-50"
-            >
-              <Trash2 /> {workflow.canWithdrawReview ? "Hủy gửi duyệt và xóa bài học" : "Xóa bài học"}
-            </Button>
-          ) : null}
-          {reviewerActionAllowed ? (
-            <div className="flex gap-2">
-              <Button type="button" onClick={handleApprove} disabled={isPending} className="bg-emerald-600 text-white hover:bg-emerald-700">
-                <ShieldCheck /> Duyệt
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setIsRejectOpen(true)} disabled={isPending} className="border-rose-200 text-rose-700 hover:bg-rose-50">
-                Từ chối
-              </Button>
-            </div>
-          ) : null}
-        </div>
+        <div className="shrink-0">{actions}</div>
       </div>
 
       {/* D28/M18: a disabled button cannot take focus, so its `title` never
@@ -338,44 +405,48 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
         Chỉ người tạo hoặc người phụ trách có thể hủy yêu cầu duyệt.
       </span>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className={`rounded-xl border p-4 ${workflow.activeFlashcardCount > 0 ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-            {workflow.activeFlashcardCount > 0 ? <CheckCircle2 className="text-emerald-600" /> : <AlertTriangle className="text-amber-600" />}
-            Flashcard hoạt động
-          </div>
-          <p className="mt-2 text-2xl font-black text-slate-950">{workflow.activeFlashcardCount}</p>
-          <p className="mt-1 text-xs text-slate-600">Cần ít nhất 1 để gửi duyệt.</p>
-        </div>
-        <div className={`rounded-xl border p-4 ${workflow.activeExerciseCount > 0 ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-            {workflow.activeExerciseCount > 0 ? <CheckCircle2 className="text-emerald-600" /> : <AlertTriangle className="text-amber-600" />}
-            Bài tập hoạt động
-          </div>
-          <p className="mt-2 text-2xl font-black text-slate-950">{workflow.activeExerciseCount}</p>
-          <p className="mt-1 text-xs text-slate-600">Cần ít nhất 1 để gửi duyệt.</p>
-        </div>
-      </div>
-
-      <TopicAuthorshipSection workflow={workflow} onRefresh={onRefresh} />
+      <ul className="flex flex-wrap gap-2" aria-label="Điều kiện gửi duyệt">
+        {[
+          { label: "Flashcard hoạt động", count: workflow.activeFlashcardCount },
+          { label: "Bài tập hoạt động", count: workflow.activeExerciseCount },
+        ].map((item) => (
+          <li
+            key={item.label}
+            className={`inline-flex flex-wrap items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm ${
+              item.count > 0 ? "border-growth-line bg-growth-quiet" : "border-attention-line bg-attention-quiet"
+            }`}
+          >
+            {item.count > 0 ? (
+              <CheckCircle2 className="size-4 text-growth" aria-hidden="true" />
+            ) : (
+              <AlertTriangle className="size-4 text-attention" aria-hidden="true" />
+            )}
+            <span className="font-semibold text-slate-900">{item.label}</span>
+            <span className="font-bold tabular-nums text-slate-950">{item.count}</span>
+            <span className="hidden text-slate-700 sm:inline">· Cần ít nhất 1 để gửi duyệt.</span>
+          </li>
+        ))}
+      </ul>
 
       {frozen ? (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-          <LockKeyhole className="mt-0.5 shrink-0" />
-          <p>Yêu cầu đang chờ duyệt. Thao tác thêm, sửa và khôi phục nội dung đang bị khóa; thao tác xóa riêng sẽ hủy yêu cầu duyệt trước khi ẩn bài học.</p>
+        <div
+          className="flex items-start gap-3 rounded-xl border border-attention-line bg-attention-quiet px-4 py-3 text-sm text-slate-900"
+          role="status"
+        >
+          <LockKeyhole className="mt-0.5 size-4 shrink-0 text-attention" aria-hidden="true" />
+          <p>
+            Yêu cầu đang chờ duyệt. Thao tác thêm, sửa và khôi phục nội dung đang bị khóa; thao tác xóa riêng sẽ
+            hủy yêu cầu duyệt trước khi ẩn bài học.
+          </p>
         </div>
       ) : null}
 
       {workflow.status !== "published" && newestRejection ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          <p className="font-bold">{`Đã bị từ chối duyệt: ${rejectionHistory.length} lần`}</p>
-          <ul className="mt-2 space-y-2">
+        <div className="rounded-xl border border-correction-line bg-correction-quiet px-4 py-3 text-sm text-slate-900">
+          <p className="font-bold text-correction">{`Đã bị từ chối duyệt: ${rejectionHistory.length} lần`}</p>
+          <ul className="mt-2 space-y-2" aria-label="Lịch sử từ chối duyệt">
             {visibleHistory.map((entry) => (
-              <RejectionHistoryItem
-                key={entry.index}
-                entry={entry}
-                emphasis={entry.index === newestRejection.index}
-              />
+              <RejectionHistoryItem key={entry.index} entry={entry} emphasis={entry.index === newestRejection.index} />
             ))}
           </ul>
           {hasCollapsibleHistory ? (
@@ -392,16 +463,28 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
         </div>
       ) : null}
 
-      <TopicReviewNotes />
-
       {!workflow.hasDistinctEligibleReviewer && workflow.canEdit ? (
         <Link
           href={`${getCourseOverviewPath(workflow.courseId)}#collaborators`}
-          className="block rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800 hover:bg-blue-100"
+          className="block rounded-xl border border-route-line bg-route-quiet px-4 py-3 text-sm font-semibold text-route hover:bg-white"
         >
           Mở quản lý cộng tác viên để thêm hoặc cấp quyền duyệt bài học.
         </Link>
       ) : null}
+
+      <details className="group rounded-xl border border-slate-200 bg-slate-50/60 open:bg-white">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 text-sm font-semibold text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-route [&::-webkit-details-marker]:hidden">
+          Tác giả, cộng tác viên và ghi chú duyệt
+          <ChevronDown
+            className="size-4 text-slate-600 transition-transform duration-[220ms] group-open:rotate-180 motion-reduce:transition-none"
+            aria-hidden="true"
+          />
+        </summary>
+        <div className="space-y-4 px-4 pb-4">
+          <TopicAuthorshipSection workflow={workflow} onRefresh={onRefresh} />
+          <TopicReviewNotes />
+        </div>
+      </details>
 
       <PreviewQuotaResolutionDialog
         open={isDeleteDialogOpen}
@@ -434,11 +517,10 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
           />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsRejectOpen(false)} disabled={isPending}>Hủy</Button>
-            <Button type="button" onClick={handleReject} disabled={isPending || reason.trim().length < 10} className="bg-rose-600 text-white hover:bg-rose-700">{isPending ? "Đang lưu..." : "Xác nhận từ chối"}</Button>
+            <Button type="button" variant="destructive" onClick={handleReject} disabled={isPending || reason.trim().length < 10}>{isPending ? "Đang lưu..." : "Xác nhận từ chối"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-    </section>
+    </header>
   );
 }

@@ -8,6 +8,7 @@ import {
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsStudent, loginAsTeacher } from "../support/auth";
+import { expectTopicBuilder } from "../support/structure-ui";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/tfeat1/plan.md
 // Test plan:
@@ -63,24 +64,20 @@ test("teacher edits a card of a published topic in place and the learner sees it
 
   await loginAsTeacher(page, TEACHER);
   await page.goto(getTopicBuilderPath(topic.course_id, topic.id, "flashcards"));
-  await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
+  await expectTopicBuilder(page);
   await expect(page.getByText("Đã xuất bản").first()).toBeVisible();
 
-  const card = page.locator(".group").filter({ hasText: OLD_WORD }).first();
-  await expect(card).toBeVisible();
-  await card.hover();
-  await card.getByRole("button", { name: "Sửa thẻ từ vựng" }).click();
-
-  const dialog = page.getByRole("dialog", { name: "Sửa thẻ từ vựng" });
-  await dialog.getByRole("textbox").first().fill(NEW_WORD);
-  await dialog.getByRole("button", { name: "Xác nhận lưu" }).click();
+  // TFEAT4: sửa thẻ inline trong editor bên phải, không còn dialog sửa.
+  await page.getByRole("button", { name: new RegExp(OLD_WORD) }).first().click();
+  await page.getByRole("textbox", { name: "Từ vựng" }).fill(NEW_WORD);
+  await page.getByRole("button", { name: "Lưu", exact: true }).click();
 
   await expect(page.getByText("Cập nhật từ vựng thành công!")).toBeVisible();
   await expect(page.getByText(NEW_WORD, { exact: false }).first()).toBeVisible();
   expect(nativeDialogs).toEqual([]);
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
+  await expectTopicBuilder(page);
   await expect(page.getByText("Đã xuất bản").first()).toBeVisible();
   expect((await readTopic()).status).toBe("published");
 

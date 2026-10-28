@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Brain, ClipboardList, Settings } from "lucide-react";
-import ExerciseTab from "./ExerciseTab";
-import MemoryCheckSection from "./MemoryCheckSection";
-import FlashcardTab from "./FlashcardTab";
+import { BookOpen, Brain, ClipboardList, Eye, Settings } from "lucide-react";
+import ExerciseWorkbench from "./ExerciseWorkbench";
+import MemoryCheckWorkbench from "./MemoryCheckWorkbench";
+import FlashcardWorkbench from "./FlashcardWorkbench";
 import SettingsTab from "./SettingsTab";
 import {
   getCourseOverviewPath,
@@ -32,6 +32,7 @@ import {
 } from "@/lib/course-authoring/issue-success";
 import TopicWorkflowPanel from "./TopicWorkflowPanel";
 import type { TopicWorkflow } from "@/lib/schemas/topic-workflow";
+import { AuthoringGuardProvider, useAuthoringGuard } from "./authoring-guard";
 
 interface TopicBuilderTabsProps {
   courseId: string;
@@ -41,7 +42,22 @@ interface TopicBuilderTabsProps {
   workflow: TopicWorkflow;
 }
 
-export default function TopicBuilderTabs({
+const TAB_ITEMS: { value: TopicBuilderTab; label: string; Icon: typeof BookOpen }[] = [
+  { value: "flashcards", label: "Từ vựng", Icon: BookOpen },
+  { value: "memory-check", label: "Memory check", Icon: Brain },
+  { value: "exercises", label: "Bài tập", Icon: ClipboardList },
+  { value: "settings", label: "Cài đặt", Icon: Settings },
+];
+
+export default function TopicBuilderTabs(props: TopicBuilderTabsProps) {
+  return (
+    <AuthoringGuardProvider>
+      <TopicBuilderShell {...props} />
+    </AuthoringGuardProvider>
+  );
+}
+
+function TopicBuilderShell({
   courseId,
   topicId,
   parentChapterId,
@@ -51,6 +67,7 @@ export default function TopicBuilderTabs({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const guard = useAuthoringGuard();
   const [returnFeedback, setReturnFeedback] =
     useState<CourseAuthoringReturnFeedback | null>(null);
   const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
@@ -59,6 +76,7 @@ export default function TopicBuilderTabs({
     useState<TopicBuilderIssueContext | null>(null);
   const [manualActiveTab, setManualActiveTab] =
     useState<TopicBuilderTab | null>(null);
+  const latestUrlWriteRef = useRef<string | null>(null);
   // Dùng search ban đầu từ Server Component cho lần render đầu để tránh lệch hydration
   // khi URL có tham số dashboard nhưng client chưa đồng bộ search params.
   const search = useSyncExternalStore(
@@ -77,6 +95,10 @@ export default function TopicBuilderTabs({
       !hasConsumedDashboardIssue
       ? getTopicBuilderTab(issueDestinationState.context.tab ?? null)
       : getTopicBuilderTab(new URLSearchParams(search).get("tab"));
+  // Tab chỉ mount khi được mở lần đầu rồi giữ nguyên: đổi tab không tải lại danh sách (không
+  // phát server action mới) và không làm mất editor đang mở ở tab khác.
+  const [visitedTabs, setVisitedTabs] = useState<TopicBuilderTab[]>(() => [activeTab]);
+  const mountedTabs = visitedTabs.includes(activeTab) ? visitedTabs : [...visitedTabs, activeTab];
   const dashboardIssueContext =
     issueDestinationState.kind === "valid" ||
     issueDestinationState.kind === "invalid_tab"
@@ -127,6 +149,13 @@ export default function TopicBuilderTabs({
     courseId,
     parentChapterId,
   );
+  const readOnly = !workflow.canEdit || workflow.status === "pending";
+  const isPublished = workflow.status === "published";
+  const tabCounts: Partial<Record<TopicBuilderTab, number>> = {
+    flashcards: workflow.activeFlashcardCount,
+    "memory-check": workflow.activeMemoryCheckQuestionCount,
+    exercises: workflow.activeExerciseCount,
+  };
 
   useEffect(() => {
     if (issueDestinationState.kind === "invalid_context") {
@@ -147,10 +176,28 @@ export default function TopicBuilderTabs({
     }
   }, [issueDestinationState, router, staleTargetRedirectHref, topicId]);
 
-  const handleTabChange = (value: string) => {
-    if (TOPIC_BUILDER_TABS.includes(value as TopicBuilderTab)) {
-      selectTopicBuilderTab(value as TopicBuilderTab);
-    }
+  // ACTION-QUEUE-001 (G8): `history.replaceState` bị Next 16.2.6 phát thành restore và làm rơi
+  // server action đang chờ. Vì vậy URL chỉ được ghi khi trang không còn action nào chờ; nếu
+  // người dùng đổi tab tiếp trong lúc chờ thì chỉ lần ghi mới nhất được thực hiện.
+  const writeBuilderUrl = (nextHref: string) => {
+    latestUrlWriteRef.current = nextHref;
+    void guard.whenActionsIdle().then(() => {
+      if (latestUrlWriteRef.current !== nextHref) return;
+      latestUrlWriteRef.current = null;
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", nextHref);
+      } else {
+        router.replace(nextHref, { scroll: false });
+      }
+    });
+  };
+
+  const handleTabChange = async (value: string) => {
+    if (!TOPIC_BUILDER_TABS.includes(value as TopicBuilderTab)) return;
+    if (value === activeTab) return;
+    // Đổi tab khi editor còn thay đổi chưa lưu phải hỏi trước (AC6).
+    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return;
+    selectTopicBuilderTab(value as TopicBuilderTab);
   };
 
   const clearDashboardIssueUrl = () => {
@@ -171,13 +218,7 @@ export default function TopicBuilderTabs({
     const nextSearch = params.toString();
     const nextHref = nextSearch ? `${cleanPathname}?${nextSearch}` : cleanPathname;
 
-    // Truyền null để Next giữ history internals và đồng bộ search params;
-    // không phát thêm router.replace có thể ghi đè thao tác sau.
-    if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", nextHref);
-    } else {
-      router.replace(nextHref, { scroll: false });
-    }
+    writeBuilderUrl(nextHref);
   };
 
   const exitDashboardIssueMode = () => {
@@ -219,6 +260,7 @@ export default function TopicBuilderTabs({
 
   const selectTopicBuilderTab = (tab: TopicBuilderTab) => {
     setManualActiveTab(tab);
+    setVisitedTabs((current) => (current.includes(tab) ? current : [...current, tab]));
 
     if (shouldPreserveDashboardIssueForTab(tab)) {
       setConsumedDashboardIssueContext(topicBuilderIssueContext);
@@ -230,13 +272,7 @@ export default function TopicBuilderTabs({
           : window.location.search.replace(/^\?/, "");
       const params = new URLSearchParams(currentSearch);
       params.set("tab", tab);
-      const nextHref = `${currentPathname}?${params.toString()}`;
-
-      if (typeof window !== "undefined") {
-        window.history.replaceState(null, "", nextHref);
-      } else {
-        router.replace(nextHref, { scroll: false });
-      }
+      writeBuilderUrl(`${currentPathname}?${params.toString()}`);
       return;
     }
 
@@ -263,15 +299,11 @@ export default function TopicBuilderTabs({
       setHasConsumedDashboardIssue(true);
       setConsumedDashboardIssueContext(null);
     }
-    if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", nextHref);
-    } else {
-      router.replace(nextHref, { scroll: false });
-    }
+    writeBuilderUrl(nextHref);
   };
 
   return (
-    <>
+    <div className="space-y-5">
       <TopicWorkflowPanel workflow={workflow} onRefresh={() => router.refresh()} />
       {topGuidance ? (
         <DashboardIssueNotice
@@ -294,81 +326,103 @@ export default function TopicBuilderTabs({
 
       <Tabs
         value={activeTab}
-        onValueChange={handleTabChange}
-        className="w-full gap-5"
+        onValueChange={(value) => void handleTabChange(value)}
+        activationMode="manual"
+        className="w-full gap-4"
       >
-        <TabsList className="flex! h-auto! w-full! flex-col items-stretch gap-2 rounded-lg border bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:gap-1">
-          <TabsTrigger
-            value="flashcards"
-            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+        {/* Tab grammar của Product Language: icon + nhãn, tab đang mở có màu Route Blue và vạch
+            dưới; hẹp quá thì cuộn ngang (ẩn thanh cuộn), không xuống dòng. */}
+        <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+          <TabsList
+            variant="line"
+            aria-label="Nội dung bài học"
+            className="flex! h-auto! w-full! min-w-max justify-start gap-1 rounded-none border-b border-slate-200 p-0"
           >
-            <BookOpen size={18} /> Từ vựng
-          </TabsTrigger>
-          <TabsTrigger
-            value="memory-check"
-            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
-          >
-            <Brain size={18} /> Memory check
-          </TabsTrigger>
-          <TabsTrigger
-            value="exercises"
-            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
-          >
-            <ClipboardList size={18} /> Bài tập TOEIC
-          </TabsTrigger>
-          <TabsTrigger
-            value="settings"
-            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
-          >
-            <Settings size={18} /> Cài đặt bài học
-          </TabsTrigger>
-        </TabsList>
+            {TAB_ITEMS.map(({ value, label, Icon }) => {
+              const count = tabCounts[value];
+              return (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="h-auto! min-h-11 flex-none gap-2 rounded-t-lg rounded-b-none border-0 px-3 py-2.5 text-sm font-semibold text-slate-600 transition-colors duration-[120ms] after:bottom-0! after:h-[3px]! after:rounded-t-[3px] after:bg-route! hover:bg-route-quiet hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-0 data-active:font-bold data-active:text-route motion-reduce:transition-none sm:px-4"
+                >
+                  <Icon className="size-[18px]" aria-hidden="true" />
+                  {label}
+                  {count !== undefined ? (
+                    <span className="rounded-md bg-slate-100 px-1.5 text-xs font-bold tabular-nums text-slate-700">
+                      <span className="sr-only">: </span>
+                      {count}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
 
-        <TabsContent value="flashcards" className="min-w-0">
-          <FlashcardTab
-            topicId={topicId}
-            readOnly={!workflow.canEdit || workflow.status === "pending"}
-            isPublished={workflow.status === "published"}
-            onAuthoringSuccess={showReturnFeedbackForSuccess}
-            onMutationSuccess={() => router.refresh()}
-          />
+        {!workflow.canEdit ? (
+          <p className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700">
+            <Eye className="size-4 shrink-0 text-slate-600" aria-hidden="true" />
+            Bạn có quyền xem nhưng không có quyền soạn nội dung bài học này.
+          </p>
+        ) : null}
+
+        <TabsContent value="flashcards" forceMount className="min-w-0 data-[state=inactive]:hidden">
+          {mountedTabs.includes("flashcards") ? (
+            <FlashcardWorkbench
+              topicId={topicId}
+              isActive={activeTab === "flashcards"}
+              readOnly={readOnly}
+              isPublished={isPublished}
+              onAuthoringSuccess={showReturnFeedbackForSuccess}
+              onMutationSuccess={() => router.refresh()}
+            />
+          ) : null}
         </TabsContent>
 
-        <TabsContent value="memory-check" className="min-w-0">
-          <MemoryCheckSection
-            topicId={topicId}
-            readOnly={!workflow.canEdit || workflow.status === "pending"}
-            isPublished={workflow.status === "published"}
-            onMutationSuccess={() => router.refresh()}
-          />
+        <TabsContent value="memory-check" forceMount className="min-w-0 data-[state=inactive]:hidden">
+          {mountedTabs.includes("memory-check") ? (
+            <MemoryCheckWorkbench
+              topicId={topicId}
+              isActive={activeTab === "memory-check"}
+              readOnly={readOnly}
+              isPublished={isPublished}
+              onMutationSuccess={() => router.refresh()}
+            />
+          ) : null}
         </TabsContent>
 
-        <TabsContent value="exercises" className="min-w-0">
-          <ExerciseTab
-            topicId={topicId}
-            readOnly={!workflow.canEdit || workflow.status === "pending"}
-            isPublished={workflow.status === "published"}
-            dashboardIssueContext={exerciseIssueContext}
-            onDismissDashboardIssue={exitDashboardIssueMode}
-            staleTargetRedirectHref={staleTargetRedirectHref}
-            onAuthoringSuccess={showReturnFeedbackForSuccess}
-            onMutationSuccess={() => router.refresh()}
-          />
+        <TabsContent value="exercises" forceMount className="min-w-0 data-[state=inactive]:hidden">
+          {mountedTabs.includes("exercises") ? (
+            <ExerciseWorkbench
+              topicId={topicId}
+              isActive={activeTab === "exercises"}
+              readOnly={readOnly}
+              isPublished={isPublished}
+              dashboardIssueContext={exerciseIssueContext}
+              onDismissDashboardIssue={exitDashboardIssueMode}
+              staleTargetRedirectHref={staleTargetRedirectHref}
+              onAuthoringSuccess={showReturnFeedbackForSuccess}
+              onMutationSuccess={() => router.refresh()}
+            />
+          ) : null}
         </TabsContent>
 
-        <TabsContent value="settings" className="min-w-0">
-          <SettingsTab
-            topicId={topicId}
-            courseId={courseId}
-            topicStatus={workflow.status}
-            canManagePreviewMarkers={workflow.role !== "previewer"}
-            readOnly={!workflow.canEdit || workflow.status === "pending"}
-            isPublished={workflow.status === "published"}
-            onSaved={() => router.refresh()}
-          />
+        <TabsContent value="settings" forceMount className="min-w-0 data-[state=inactive]:hidden">
+          {mountedTabs.includes("settings") ? (
+            <SettingsTab
+              topicId={topicId}
+              courseId={courseId}
+              topicStatus={workflow.status}
+              canManagePreviewMarkers={workflow.role !== "previewer"}
+              readOnly={readOnly}
+              isPublished={isPublished}
+              onSaved={() => router.refresh()}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
-    </>
+    </div>
   );
 }
 
