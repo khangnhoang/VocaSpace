@@ -87,6 +87,8 @@ describe("public catalog and homepage course discovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedUseRouter.mockReturnValue({
+      // Next 16.3 thêm `bfcacheId` bắt buộc vào AppRouterInstance.
+      bfcacheId: "test",
       back: vi.fn(),
       forward: vi.fn(),
       push: vi.fn(),
