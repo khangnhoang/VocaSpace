@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -33,7 +32,7 @@ import TopicAuthorshipSection from "./TopicAuthorshipSection";
 import TopicReviewNotes from "./TopicReviewNotes";
 import PreviewQuotaResolutionDialog from "../../../_components/PreviewQuotaResolutionDialog";
 import BackButton from "./BackButton";
-import { useAuthoringGuard } from "./authoring-guard";
+import { useAuthoringGuard, useAuthoringNavigate } from "./authoring-guard";
 
 interface TopicWorkflowPanelProps {
   workflow: TopicWorkflow;
@@ -148,8 +147,8 @@ function personLabel(identity: TopicWorkflow["responsibleAuthor"]) {
 }
 
 export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflowPanelProps) {
-  const router = useRouter();
   const guard = useAuthoringGuard();
+  const navigate = useAuthoringNavigate();
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [reason, setReason] = useState("");
@@ -256,7 +255,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
     // M27: `router.refresh()` sẽ render lại chính route topic vừa bị xóa và
     // ném TOPIC_NOT_FOUND. Điều hướng về Structure là nơi duy nhất còn dữ
     // liệu đúng; `deleteTopic` đã revalidate course overview + structure.
-    router.push(getCourseStructurePath(workflow.courseId));
+    void navigate(getCourseStructurePath(workflow.courseId));
     return result;
   };
 

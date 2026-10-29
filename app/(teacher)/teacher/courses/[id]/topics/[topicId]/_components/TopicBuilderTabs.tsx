@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, Brain, ClipboardList, Eye, Settings } from "lucide-react";
 import ExerciseWorkbench from "./ExerciseWorkbench";
@@ -64,10 +64,10 @@ function TopicBuilderShell({
   initialSearch,
   workflow,
 }: TopicBuilderTabsProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const guard = useAuthoringGuard();
+  const navigate = guard.navigate;
   const [returnFeedback, setReturnFeedback] =
     useState<CourseAuthoringReturnFeedback | null>(null);
   const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
@@ -161,7 +161,7 @@ function TopicBuilderShell({
     if (issueDestinationState.kind === "invalid_context") {
       // URL hỏng hoặc target không đúng loại không nên ở lại topic builder,
       // vì màn này không thể biết mục nào cần đánh dấu.
-      router.replace(staleTargetRedirectHref, { scroll: false });
+      void navigate(staleTargetRedirectHref, "replace");
       return;
     }
 
@@ -171,10 +171,10 @@ function TopicBuilderShell({
       issueDestinationState.context.issue === "topic_has_no_learning_content" &&
       issueDestinationState.context.target !== topicId
     ) {
-      router.replace(staleTargetRedirectHref, { scroll: false });
+      void navigate(staleTargetRedirectHref, "replace");
       return;
     }
-  }, [issueDestinationState, router, staleTargetRedirectHref, topicId]);
+  }, [issueDestinationState, navigate, staleTargetRedirectHref, topicId]);
 
   // ACTION-QUEUE-001 (G8): URL được ghi qua hàng thao tác router nối tiếp của guard (không chồng lên
   // server action hay refresh); đổi tab liên tiếp trong lúc chờ chỉ ghi lần mới nhất.

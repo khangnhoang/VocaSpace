@@ -1,6 +1,5 @@
 "use client";
 import React, { useId, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, Loader2, Save, Trash2 } from "lucide-react";
@@ -17,7 +16,12 @@ import {
   useCoursePreviewAllocation,
 } from "../../../_components/course-preview-controls";
 import PreviewQuotaResolutionDialog from "../../../_components/PreviewQuotaResolutionDialog";
-import { useRegisterAuthoringEditor, useSingleFlightSave } from "./authoring-guard";
+import {
+  useAuthoringGuard,
+  useAuthoringNavigate,
+  useRegisterAuthoringEditor,
+  useSingleFlightSave,
+} from "./authoring-guard";
 
 interface SettingsTabProps {
   topicId: string;
@@ -51,7 +55,8 @@ export default function SettingsTab({
   // State quản lý Modal Xóa
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const preview = useCoursePreviewAllocation(courseId, canManagePreviewMarkers);
-  const router = useRouter();
+  const guard = useAuthoringGuard();
+  const navigate = useAuthoringNavigate();
 
   useEffect(() => {
     const loadData = async () => {
@@ -116,7 +121,7 @@ export default function SettingsTab({
       if (res.error) return res;
       deleted = true;
       toast.success(res.message);
-      router.replace(getCourseStructurePath(courseId));
+      void navigate(getCourseStructurePath(courseId), "replace");
       return res;
     } finally {
       if (!deleted) setIsDeleting(false);
@@ -248,7 +253,11 @@ export default function SettingsTab({
           variant="destructive-quiet"
           size="lg"
           disabled={readOnly}
-          onClick={() => setIsDeleteDialogOpen(true)}
+          onClick={async () => {
+            // AC6: tên bài học chưa lưu phải được lưu hoặc bỏ trước khi mở bước xóa.
+            if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return;
+            setIsDeleteDialogOpen(true);
+          }}
           className="w-full border border-correction-line sm:w-auto"
         >
           <Trash2 aria-hidden="true" /> Xóa bài học này

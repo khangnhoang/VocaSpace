@@ -45,7 +45,7 @@ export function FlashcardPreview({ values }: { values: FlashcardPreviewValues })
           >
             <p
               className={`max-w-full text-3xl leading-tight font-semibold tracking-tight [overflow-wrap:anywhere] ${
-                word ? "text-slate-900" : "text-slate-400"
+                word ? "text-slate-900" : "text-slate-500"
               }`}
             >
               {word || "Từ vựng"}
@@ -69,7 +69,7 @@ export function FlashcardPreview({ values }: { values: FlashcardPreviewValues })
           >
             <p
               className={`text-xl font-bold [overflow-wrap:anywhere] ${
-                translation ? "text-recall" : "text-slate-400"
+                translation ? "text-recall" : "text-slate-500"
               }`}
             >
               {translation || "Nghĩa của từ"}
@@ -137,7 +137,7 @@ export function QuestionPreview({
     <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-[0_1px_2px_rgb(15_23_42/6%)]">
       <p
         className={`text-base leading-7 font-semibold [overflow-wrap:anywhere] ${
-          content.trim() ? "text-slate-900" : "text-slate-400"
+          content.trim() ? "text-slate-900" : "text-slate-500"
         }`}
       >
         {numberLabel ? <span className="mr-1.5 text-recall">{numberLabel}</span> : null}

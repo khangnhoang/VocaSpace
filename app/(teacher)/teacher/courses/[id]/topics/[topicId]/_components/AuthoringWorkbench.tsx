@@ -59,7 +59,8 @@ interface AuthoringWorkbenchProps {
   // Tab bị ẩn vẫn giữ editor (không mất dữ liệu) nhưng không được mở sheet modal che tab đang xem.
   isActive?: boolean;
   editorTitle: string;
-  onRequestClose: () => void;
+  // Trả `false` khi người soạn chọn ở lại (editor vẫn mở).
+  onRequestClose: () => Promise<boolean> | void;
 }
 
 export function PreviewPane({ children }: { children: ReactNode }) {
@@ -91,7 +92,13 @@ export default function AuthoringWorkbench({
   editorTitle,
   onRequestClose,
 }: AuthoringWorkbenchProps) {
-  const isDesktop = useIsDesktopWorkbench();
+  const liveDesktop = useIsDesktopWorkbench();
+  // Editor nằm ở pane (rộng) hoặc sheet (hẹp); đổi chỗ là remount và mất bản nháp đang gõ. Vì vậy
+  // khi editor đang mở, bố cục giữ nguyên dù cửa sổ vượt mốc `lg` (zoom, xoay máy, kéo cửa sổ) và
+  // chỉ đổi khi editor đóng.
+  const [lockedDesktop, setLockedDesktop] = useState(liveDesktop);
+  if (!isEditorOpen && lockedDesktop !== liveDesktop) setLockedDesktop(liveDesktop);
+  const isDesktop = isEditorOpen ? lockedDesktop : liveDesktop;
   const listRef = useRef<HTMLDivElement | null>(null);
   const [previewSlot, setPreviewSlot] = useState<HTMLElement | null>(null);
   const previewContent = usePreviewSlot ? <div ref={setPreviewSlot} data-preview-slot className="space-y-3" /> : preview;
@@ -99,8 +106,10 @@ export default function AuthoringWorkbench({
   const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Escape" || event.defaultPrevented) return;
     event.preventDefault();
-    onRequestClose();
-    listRef.current?.focus();
+    void Promise.resolve(onRequestClose()).then((closed) => {
+      // Chỉ chuyển focus khi editor thật sự đóng; "Tiếp tục sửa" giữ focus ở field đang sửa.
+      if (closed !== false) listRef.current?.focus();
+    });
   };
 
   return (
@@ -117,7 +126,7 @@ export default function AuthoringWorkbench({
       </div>
 
       {isDesktop ? (
-        <div className="hidden min-w-0 lg:block" onKeyDown={handleEditorKeyDown}>
+        <div className="min-w-0" onKeyDown={handleEditorKeyDown}>
           {isEditorOpen ? (
             <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] xl:items-start">
               <div className="min-w-0 rounded-2xl border border-slate-200 bg-white motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-2 motion-safe:duration-200">

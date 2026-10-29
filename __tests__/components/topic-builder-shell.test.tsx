@@ -276,6 +276,82 @@ describe("TopicBuilderTabs shell", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("asks before switching to another card in the same tab and keeps the draft on Tiếp tục sửa", async () => {
+    mocks.getCardsByTopicId.mockResolvedValue({
+      data: [card, { ...card, id: "card-2", front_content: { word: "invoice" }, back_content: { translation: "hóa đơn" } }],
+    });
+    renderShell("tab=flashcards");
+    await openCardAndEdit();
+
+    fireEvent.click(screen.getByRole("button", { name: /invoice/ }));
+    const prompt = await screen.findByRole("dialog", { name: "Lưu thay đổi trước khi rời đi?" });
+    fireEvent.click(within(prompt).getByRole("button", { name: "Tiếp tục sửa" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect((screen.getByRole("textbox", { name: "Từ vựng" }) as HTMLInputElement).value).toBe("negotiate (đang sửa)");
+  });
+
+  it("asks before leaving through an in-page link and navigates only after the choice", async () => {
+    renderShell("tab=flashcards");
+    await openCardAndEdit();
+
+    fireEvent.click(screen.getByRole("link", { name: "Cấu trúc khóa học" }));
+    const prompt = await screen.findByRole("dialog", { name: "Lưu thay đổi trước khi rời đi?" });
+    expect(mocks.router.push).not.toHaveBeenCalled();
+    fireEvent.click(within(prompt).getByRole("button", { name: "Bỏ thay đổi" }));
+
+    await waitFor(() =>
+      expect(mocks.router.push).toHaveBeenCalledWith(
+        `/teacher/courses/${courseId}/structure?chapter=${workflow.chapterId}`,
+      ),
+    );
+    expect(mocks.updateCard).not.toHaveBeenCalled();
+  });
+
+  it("asks on Esc in the editor and keeps focus in the field when the author keeps editing", async () => {
+    renderShell("tab=flashcards");
+    await openCardAndEdit();
+    const word = screen.getByRole("textbox", { name: "Từ vựng" });
+    word.focus();
+
+    fireEvent.keyDown(word, { key: "Escape" });
+    const prompt = await screen.findByRole("dialog", { name: "Lưu thay đổi trước khi rời đi?" });
+    fireEvent.click(within(prompt).getByRole("button", { name: "Tiếp tục sửa" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("heading", { name: "negotiate" })).toBeTruthy();
+    expect(document.activeElement).not.toBe(screen.getByRole("region", { name: "Danh sách thẻ từ vựng" }));
+  });
+
+  it("keeps an unsaved exercise draft when the window crosses the lg breakpoint", async () => {
+    let matches = true;
+    const listeners = new Set<() => void>();
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      get matches() {
+        return matches;
+      },
+      media: query,
+      addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+    })) as unknown as typeof window.matchMedia;
+    try {
+      renderShell("tab=exercises");
+      fireEvent.click((await screen.findAllByRole("button", { name: "Thêm bài tập" }))[0]);
+      fireEvent.click(screen.getByRole("button", { name: /^Part 5 ·/ }));
+      fireEvent.change(screen.getByLabelText(/^Tên bài tập/), { target: { value: "Bài đang soạn dở" } });
+
+      act(() => {
+        matches = false;
+        listeners.forEach((listener) => listener());
+      });
+
+      expect((screen.getByLabelText(/^Tên bài tập/) as HTMLInputElement).value).toBe("Bài đang soạn dở");
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
   it("writes ?tab= only after the pending server action settles (ACTION-QUEUE-001)", async () => {
     let settle: (value: Response) => void = () => undefined;
     const baseFetch = vi.fn(() => new Promise<Response>((resolve) => (settle = resolve)));

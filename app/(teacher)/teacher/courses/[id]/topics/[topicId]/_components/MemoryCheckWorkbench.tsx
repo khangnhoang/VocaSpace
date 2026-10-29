@@ -151,9 +151,10 @@ export default function MemoryCheckWorkbench({
   };
 
   const requestSelection = async (next: Selection | null) => {
-    if (selection?.mode === "edit" && next?.mode === "edit" && selection.questionId === next.questionId) return;
-    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return;
+    if (selection?.mode === "edit" && next?.mode === "edit" && selection.questionId === next.questionId) return true;
+    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return false;
     openSelection(next);
+    return true;
   };
 
   const save = async (after: "stay" | "next"): Promise<boolean> => {
@@ -408,7 +409,7 @@ export default function MemoryCheckWorkbench({
         isActive={isActive}
         isEditorOpen={selection !== null}
         editorTitle={editorTitle}
-        onRequestClose={() => void requestSelection(null)}
+        onRequestClose={() => requestSelection(null)}
         preview={
           selection ? (
             <QuestionPreview

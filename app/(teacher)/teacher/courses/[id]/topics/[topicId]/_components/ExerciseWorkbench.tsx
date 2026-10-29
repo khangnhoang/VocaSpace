@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { ClipboardList, FileText, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ import {
   resolveNode,
   type ExerciseNode,
 } from "./exercise-outline";
-import { useAuthoringGuard } from "./authoring-guard";
+import { useAuthoringGuard, useAuthoringNavigate } from "./authoring-guard";
 
 interface ExerciseWorkbenchProps {
   topicId: string;
@@ -135,7 +134,7 @@ export default function ExerciseWorkbench({
   onAuthoringSuccess,
   onMutationSuccess,
 }: ExerciseWorkbenchProps) {
-  const router = useRouter();
+  const navigate = useAuthoringNavigate();
   const guard = useAuthoringGuard();
   const [exercises, setExercises] = useState<FullExercise[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,9 +192,9 @@ export default function ExerciseWorkbench({
     if (dashboardIssueGuidance?.tone === "warning" && staleTargetRedirectHref) {
       // Chỉ sau khi đã tải bài tập mới biết target còn tồn tại hay không. Target cũ thì quay
       // về Structure để giáo viên không sửa nhầm bài tập khác.
-      router.replace(staleTargetRedirectHref, { scroll: false });
+      void navigate(staleTargetRedirectHref, "replace");
     }
-  }, [dashboardIssueGuidance?.tone, router, staleTargetRedirectHref]);
+  }, [dashboardIssueGuidance?.tone, navigate, staleTargetRedirectHref]);
 
   const selectedKey = selection && selection.kind !== "compose" ? nodeKey(selection) : null;
   useEffect(() => {
@@ -205,11 +204,12 @@ export default function ExerciseWorkbench({
 
   const requestSelection = async (next: Selection | null) => {
     if (next && selection && next.kind !== "compose" && selection.kind !== "compose") {
-      if (nodeKey(next) === nodeKey(selection)) return;
+      if (nodeKey(next) === nodeKey(selection)) return true;
     }
-    if (next?.kind === "compose" && selection?.kind === "compose") return;
-    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return;
+    if (next?.kind === "compose" && selection?.kind === "compose") return true;
+    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return false;
     setSelection(next);
+    return true;
   };
 
   const afterMutation = () => {
@@ -477,7 +477,7 @@ export default function ExerciseWorkbench({
         isActive={isActive}
         isEditorOpen={editor !== null}
         editorTitle={editorTitle}
-        onRequestClose={() => void requestSelection(null)}
+        onRequestClose={() => requestSelection(null)}
         emptyEditor={
           <EmptyEditorPanel
             icon={<ClipboardList aria-hidden="true" />}

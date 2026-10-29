@@ -41,7 +41,7 @@ function renderComposer() {
 }
 
 function choosePart(name: RegExp) {
-  fireEvent.click(screen.getByRole("radio", { name }));
+  fireEvent.click(screen.getByRole("button", { name }));
 }
 
 describe("ExerciseComposer", () => {
@@ -52,7 +52,9 @@ describe("ExerciseComposer", () => {
 
   it("asks for a TOEIC Part first, stating which context each Part needs, with no bulk import", () => {
     renderComposer();
-    expect(screen.getAllByRole("radio")).toHaveLength(7);
+    // Mỗi Part là một nút (không phải radio) để phím mũi tên không chọn nhầm Part.
+    expect(screen.getAllByRole("button", { name: /^Part \d ·/ })).toHaveLength(7);
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
     expect(screen.getByText("Mỗi nhóm cần 1 hình ảnh và 1 audio.")).toBeTruthy();
     expect(screen.queryByText(/hàng loạt/i)).toBeNull();
     expect(screen.queryByRole("button", { name: "Lưu bài tập" })).toBeNull();
@@ -158,5 +160,17 @@ describe("ExerciseComposer", () => {
       ).toBe(""),
     );
     expect(imageInput()!.value).toBe("https://example.com/group-one.png");
+  });
+
+  it("keeps the started draft unsaved-aware after Đổi loại bài and moves focus back to the Part list", async () => {
+    renderComposer();
+    choosePart(/Part 5/);
+    fireEvent.change(screen.getByLabelText(/^Tên bài tập/), { target: { value: "Đã gõ" } });
+    fireEvent.click(screen.getByRole("button", { name: "Đổi loại bài" }));
+
+    const firstPart = await screen.findByRole("button", { name: /^Part 1 ·/ });
+    await waitFor(() => expect(document.activeElement).toBe(firstPart));
+    // Tiêu đề vẫn còn trong form nên khung editor vẫn báo chưa lưu.
+    expect(screen.getByText("Chưa lưu")).toBeTruthy();
   });
 });

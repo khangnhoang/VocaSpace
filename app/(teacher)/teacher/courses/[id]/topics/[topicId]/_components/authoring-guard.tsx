@@ -9,7 +9,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   useTransition,
   type ReactNode,
 } from "react";
@@ -49,6 +48,8 @@ interface AuthoringGuardValue {
   confirmLeave: () => Promise<boolean>;
   hasDirtyEditor: () => boolean;
   refresh: () => void;
+  // Điều hướng khỏi trang (sau khi xóa, target dashboard đã cũ) cũng phải xếp hàng sau refresh.
+  navigate: (href: string, mode?: "push" | "replace") => Promise<void>;
   // Ghi URL bằng restore của Next; `isCurrent` cho phép bỏ một lần ghi đã bị lần sau thay thế.
   replaceUrl: (href: string, isCurrent?: () => boolean) => Promise<void>;
 }
@@ -67,10 +68,8 @@ let refreshPending = false;
 let fetchPatchOwners = 0;
 let originalFetch: typeof fetch | null = null;
 const idleListeners = new Set<() => void>();
-const pendingSubscribers = new Set<() => void>();
 
 function notifyPendingChange() {
-  pendingSubscribers.forEach((listener) => listener());
   if (pendingActionCount !== 0) return;
   const listeners = [...idleListeners];
   idleListeners.clear();
@@ -80,7 +79,6 @@ function notifyPendingChange() {
 function isRouterIdle() {
   return pendingActionCount === 0 && !refreshPending;
 }
-
 
 function isServerActionRequest(init?: RequestInit) {
   const headers = init?.headers;
@@ -117,16 +115,27 @@ function uninstallServerActionTracker() {
 
 // Promise của server action resolve trước khi Next đưa mục đó ra khỏi hàng đợi router (reducer còn
 // áp dữ liệu revalidate sau đó), nên luôn nhường một macrotask rồi kiểm tra lại trước khi báo rảnh.
+// Một action treo không được khóa vĩnh viễn việc ghi URL và điều hướng: quá hạn thì chạy tiếp.
+const ROUTER_IDLE_TIMEOUT_MS = 10_000;
+
 function whenIdle(isIdle: () => boolean) {
   return new Promise<void>((resolve) => {
+    const timeout = setTimeout(() => {
+      idleListeners.delete(check);
+      resolve();
+    }, ROUTER_IDLE_TIMEOUT_MS);
     const check = () => {
       if (!isIdle()) {
         idleListeners.add(check);
         return;
       }
       setTimeout(() => {
-        if (isIdle()) resolve();
-        else idleListeners.add(check);
+        if (!isIdle()) {
+          idleListeners.add(check);
+          return;
+        }
+        clearTimeout(timeout);
+        resolve();
       }, 0);
     };
     check();
@@ -135,17 +144,6 @@ function whenIdle(isIdle: () => boolean) {
 
 function whenRouterIdle() {
   return whenIdle(isRouterIdle);
-}
-
-export function useHasPendingServerAction() {
-  return useSyncExternalStore(
-    (listener) => {
-      pendingSubscribers.add(listener);
-      return () => pendingSubscribers.delete(listener);
-    },
-    () => pendingActionCount > 0,
-    () => false,
-  );
 }
 
 function isPlainLeftClick(event: MouseEvent) {
@@ -252,6 +250,13 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(() => {
     void enqueueRouterOp(() => router.refresh());
   }, [enqueueRouterOp, router]);
+  const navigate = useCallback(
+    (href: string, mode: "push" | "replace" = "push") =>
+      enqueueRouterOp(() =>
+        mode === "replace" ? router.replace(href) : router.push(href),
+      ),
+    [enqueueRouterOp, router],
+  );
   const replaceUrl = useCallback(
     (href: string, isCurrent?: () => boolean) =>
       enqueueRouterOp(() => window.history.replaceState(null, "", href), isCurrent),
@@ -316,9 +321,10 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
       confirmLeave,
       hasDirtyEditor: () => Boolean(findDirtyEditor()),
       refresh,
+      navigate,
       replaceUrl,
     }),
-    [confirmLeave, findDirtyEditor, refresh, register, replaceUrl],
+    [confirmLeave, findDirtyEditor, navigate, refresh, register, replaceUrl],
   );
 
   return (
@@ -380,6 +386,7 @@ export function useAuthoringGuard() {
       confirmLeave: () => Promise.resolve(true),
       hasDirtyEditor: () => false,
       refresh: () => undefined,
+      navigate: () => Promise.resolve(),
       replaceUrl: (href: string) => {
         window.history.replaceState(null, "", href);
         return Promise.resolve();
@@ -387,6 +394,21 @@ export function useAuthoringGuard() {
     } satisfies AuthoringGuardValue;
   }
   return value;
+}
+
+// Điều hướng khỏi trang; trong topic builder xếp hàng sau các thao tác router đang chờ.
+export function useAuthoringNavigate() {
+  const value = useContext(AuthoringGuardContext);
+  const router = useRouter();
+  const fallback = useCallback(
+    (href: string, mode: "push" | "replace" = "push") => {
+      if (mode === "replace") router.replace(href);
+      else router.push(href);
+      return Promise.resolve();
+    },
+    [router],
+  );
+  return value ? value.navigate : fallback;
 }
 
 // Refresh dữ liệu server của trang; trong topic builder đi qua guard để biết khi nào refresh xong.

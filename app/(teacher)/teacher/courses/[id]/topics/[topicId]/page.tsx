@@ -77,28 +77,28 @@ export default async function TopicBuilderPage({
     // mọi hành động vòng đời đi qua cùng guard thay đổi chưa lưu với editor.
     <div className="min-h-full bg-slate-50">
       <div className="mx-auto w-full max-w-[90rem] px-4 py-5 sm:px-6 lg:py-6">
-          <TopicReviewNotesProvider
+        <TopicReviewNotesProvider
+          topicId={resolvedParams.topicId}
+          notes={notesPayload?.notes ?? null}
+          readError={"error" in reviewNotes ? reviewNotes.error : null}
+          currentUserId={notesPayload?.currentUserId ?? ""}
+          canRead={
+            notesPayload !== null &&
+            (workflow.data.canReview ||
+              workflow.data.isCurrentUserResponsible ||
+              workflow.data.isCurrentUserContributor ||
+              workflow.data.originalCreator.userId === notesPayload.currentUserId)
+          }
+          canReview={workflow.data.canReview}
+        >
+          <TopicBuilderTabs
+            courseId={resolvedParams.id}
             topicId={resolvedParams.topicId}
-            notes={notesPayload?.notes ?? null}
-            readError={"error" in reviewNotes ? reviewNotes.error : null}
-            currentUserId={notesPayload?.currentUserId ?? ""}
-            canRead={
-              notesPayload !== null &&
-              (workflow.data.canReview ||
-                workflow.data.isCurrentUserResponsible ||
-                workflow.data.isCurrentUserContributor ||
-                workflow.data.originalCreator.userId === notesPayload.currentUserId)
-            }
-            canReview={workflow.data.canReview}
-          >
-            <TopicBuilderTabs
-              courseId={resolvedParams.id}
-              topicId={resolvedParams.topicId}
-              parentChapterId={parentChapterId}
-              initialSearch={initialSearch}
-              workflow={workflow.data}
-            />
-          </TopicReviewNotesProvider>
+            parentChapterId={parentChapterId}
+            initialSearch={initialSearch}
+            workflow={workflow.data}
+          />
+        </TopicReviewNotesProvider>
       </div>
     </div>
   );

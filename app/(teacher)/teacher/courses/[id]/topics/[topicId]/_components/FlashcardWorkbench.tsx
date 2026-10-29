@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BookType, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -87,6 +87,20 @@ const FIELDS: {
   { name: "hint", label: "Mẹo ghi nhớ" },
 ];
 
+// Lấy bản đã lưu làm mốc nhưng giữ những gì người soạn gõ thêm trong lúc chờ server.
+function resetKeepingNewInput(
+  form: UseFormReturn<CardFormValues>,
+  saved: CardFormValues,
+  sent: CardFormValues,
+) {
+  const current = form.getValues();
+  form.reset(saved);
+  for (const field of FIELDS) {
+    const value = current[field.name] ?? "";
+    if (value !== (sent[field.name] ?? "")) form.setValue(field.name, value, { shouldDirty: true });
+  }
+}
+
 export default function FlashcardWorkbench({
   topicId,
   isActive = true,
@@ -109,6 +123,7 @@ export default function FlashcardWorkbench({
   const [deleting, setDeleting] = useState<Card | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const selectNewestAfterLoadRef = useRef(false);
+  const sentNewCardRef = useRef<CardFormValues | null>(null);
   const saveFlight = useSingleFlightSave();
 
   const form = useForm<CardFormValues>({
@@ -117,6 +132,9 @@ export default function FlashcardWorkbench({
   });
   const previewValues = useWatch({ control: form.control }) as CardFormValues;
   const isDirty = form.formState.isDirty;
+  // Sau `Lưu` thẻ mới, editor vẫn ở chế độ "thêm" tới khi danh sách tải lại; khóa lưu trong lúc đó
+  // để Ctrl+S hay bấm Lưu lần nữa không tạo thẻ trùng.
+  const [isAwaitingNewest, setIsAwaitingNewest] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -125,6 +143,8 @@ export default function FlashcardWorkbench({
       if (!isMounted) return;
       if (res.error) {
         setLoadError(res.error);
+        selectNewestAfterLoadRef.current = false;
+        setIsAwaitingNewest(false);
       } else {
         const nextCards = res.data ?? [];
         setLoadError(null);
@@ -138,7 +158,9 @@ export default function FlashcardWorkbench({
             null,
           );
           setSelection(newest ? { mode: "edit", cardId: newest.id } : null);
-          form.reset(newest ? toFormValues(newest) : EMPTY_VALUES);
+          const sent = sentNewCardRef.current ?? EMPTY_VALUES;
+          resetKeepingNewInput(form, newest ? toFormValues(newest) : EMPTY_VALUES, sent);
+          setIsAwaitingNewest(false);
         }
       }
       setIsLoading(false);
@@ -165,6 +187,8 @@ export default function FlashcardWorkbench({
   );
 
   const openSelection = (next: Selection | null) => {
+    selectNewestAfterLoadRef.current = false;
+    setIsAwaitingNewest(false);
     setSaveError(null);
     setSavedSignal(0);
     setSelection(next);
@@ -178,13 +202,14 @@ export default function FlashcardWorkbench({
   };
 
   const requestSelection = async (next: Selection | null) => {
-    if (selection?.mode === "edit" && next?.mode === "edit" && selection.cardId === next.cardId) return;
-    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return;
+    if (selection?.mode === "edit" && next?.mode === "edit" && selection.cardId === next.cardId) return true;
+    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return false;
     openSelection(next);
+    return true;
   };
 
   const saveCard = async (after: "stay" | "next"): Promise<boolean> => {
-    if (readOnly || !selection) return false;
+    if (readOnly || !selection || isAwaitingNewest) return false;
     const valid = await form.trigger();
     if (!valid) {
       const firstInvalid = FIELDS.find((field) => form.getFieldState(field.name).error);
@@ -216,12 +241,14 @@ export default function FlashcardWorkbench({
     if (after === "next") {
       openSelection({ mode: "new" });
     } else if (selection.mode === "edit") {
-      form.reset(values);
+      resetKeepingNewInput(form, values, values);
       setSavedSignal((signal) => signal + 1);
     } else {
       // Form sạch ngay khi server xác nhận; thẻ vừa tạo được chọn lại sau khi danh sách tải xong.
-      form.reset(values);
+      resetKeepingNewInput(form, values, values);
+      sentNewCardRef.current = values;
       selectNewestAfterLoadRef.current = true;
+      setIsAwaitingNewest(true);
       setSavedSignal((signal) => signal + 1);
     }
     return true;
@@ -381,7 +408,7 @@ export default function FlashcardWorkbench({
       eyebrow={selection.mode === "edit" ? "Sửa thẻ từ vựng" : "Thêm thẻ từ vựng"}
       title={editorTitle}
       isDirty={isDirty}
-      isSaving={isSaving}
+      isSaving={isSaving || isAwaitingNewest}
       savedSignal={savedSignal}
       readOnly={readOnly}
       error={saveError}
@@ -445,7 +472,7 @@ export default function FlashcardWorkbench({
         isActive={isActive}
         isEditorOpen={selection !== null}
         editorTitle={editorTitle}
-        onRequestClose={() => void requestSelection(null)}
+        onRequestClose={() => requestSelection(null)}
         preview={selection ? <FlashcardPreview values={previewValues} /> : null}
         emptyEditor={
           <EmptyEditorPanel

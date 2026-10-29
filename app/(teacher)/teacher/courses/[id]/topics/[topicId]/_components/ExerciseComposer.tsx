@@ -153,6 +153,10 @@ export default function ExerciseComposer({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadedMedia, setUploadedMedia] = useState<UploadedQuestionGroupMedia[]>([]);
   const titleRef = useRef<HTMLInputElement | null>(null);
+  const partPickerRef = useRef<HTMLDivElement | null>(null);
+  // Đã bắt đầu soạn (đã chọn Part ít nhất một lần): nội dung và tệp tải lên vẫn còn sau "Đổi loại bài",
+  // nên rời composer lúc đó vẫn phải hỏi.
+  const [hasStarted, setHasStarted] = useState(false);
   const saveFlight = useSingleFlightSave();
 
   const exerciseFormResolver: Resolver<ExerciseFormValues> = async (values, context, options) => {
@@ -313,6 +317,7 @@ export default function ExerciseComposer({
     if (!handledByDashboardFeedback) toast.success(res.message);
     setUploadedMedia([]);
     form.reset(COMPOSER_DEFAULTS);
+    setHasStarted(false);
     onCreated();
     return true;
   };
@@ -342,16 +347,17 @@ export default function ExerciseComposer({
   const discard = () => {
     void cleanupUploadedMedia(uploadedMedia);
     form.reset(COMPOSER_DEFAULTS);
+    setHasStarted(false);
     setSaveError(null);
   };
 
   // RHF báo dirty ngay khi useFieldArray khởi tạo nhánh câu hỏi, nên composer chỉ được coi là có
-  // thay đổi khi đã chọn Part: mọi field nội dung chỉ hiện sau bước đó.
+  // thay đổi khi đã bắt đầu soạn: mọi field nội dung chỉ hiện sau khi chọn Part.
   useRegisterAuthoringEditor(
     readOnly
       ? null
       : {
-          isDirty: () => Boolean(form.getValues("part_type")),
+          isDirty: () => hasStarted,
           save: () => saveFlight.run(submit),
           pendingSave: saveFlight.pending,
           discard,
@@ -361,7 +367,13 @@ export default function ExerciseComposer({
 
   const choosePart = (value: string) => {
     form.setValue("part_type", value, { shouldDirty: true, shouldValidate: false });
+    setHasStarted(true);
     requestAnimationFrame(() => titleRef.current?.focus());
+  };
+
+  const changePart = () => {
+    form.setValue("part_type", "", { shouldDirty: true });
+    requestAnimationFrame(() => partPickerRef.current?.querySelector("button")?.focus());
   };
 
   const titleField = form.register("title");
@@ -373,7 +385,7 @@ export default function ExerciseComposer({
     <EditorFrame
       eyebrow="Thêm bài tập TOEIC"
       title={partType ? TOEIC_PART_LABELS[partType]?.title ?? "Bài tập mới" : "Chọn loại bài"}
-      isDirty={Boolean(partType)}
+      isDirty={hasStarted}
       isSaving={isPending}
       readOnly={readOnly}
       error={saveError}
@@ -388,22 +400,18 @@ export default function ExerciseComposer({
             <p className="mb-3 text-sm text-slate-600">
               Không đổi được loại bài sau khi lưu. Mỗi loại cần ngữ liệu khác nhau.
             </p>
-            <div className="grid gap-2 sm:grid-cols-2">
+            {/* Mỗi Part là một nút: chọn là chuyển bước, nên không dùng radio (phím mũi tên sẽ chọn luôn). */}
+            <div ref={partPickerRef} className="grid gap-2 sm:grid-cols-2">
               {TOEIC_PART_TYPES.map((part) => (
-                <label
+                <button
                   key={part}
-                  className="flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl border border-slate-200 bg-white px-4 py-3 transition-colors duration-[120ms] hover:border-route-line hover:bg-route-quiet has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-route motion-reduce:transition-none"
+                  type="button"
+                  onClick={() => choosePart(part)}
+                  className="flex min-h-11 cursor-pointer flex-col items-start gap-0.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left outline-none transition-colors duration-[120ms] hover:border-route-line hover:bg-route-quiet focus-visible:ring-2 focus-visible:ring-route motion-reduce:transition-none"
                 >
-                  <input
-                    type="radio"
-                    name={`${id}-part`}
-                    value={part}
-                    className="sr-only"
-                    onChange={() => choosePart(part)}
-                  />
                   <span className="text-sm font-bold text-slate-900">{TOEIC_PART_LABELS[part].title}</span>
                   <span className="text-sm text-slate-600">{TOEIC_PART_LABELS[part].needs}</span>
-                </label>
+                </button>
               ))}
             </div>
           </fieldset>
@@ -419,7 +427,7 @@ export default function ExerciseComposer({
                 variant="ghost"
                 size="sm"
                 className="text-route"
-                onClick={() => form.setValue("part_type", "", { shouldDirty: true })}
+                onClick={changePart}
               >
                 Đổi loại bài
               </Button>
