@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import { createContext, useContext, useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { MessageSquarePlus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuthoringRefresh } from "./authoring-guard";
 import {
   createReviewNote,
   removeReviewNote,
@@ -84,7 +84,7 @@ function targetLabel(note: TopicReviewNote) {
 
 export default function TopicReviewNotes() {
   const value = useContext(TopicReviewNotesContext);
-  const router = useRouter();
+  const refresh = useAuthoringRefresh();
   const [body, setBody] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState("");
@@ -109,7 +109,7 @@ export default function TopicReviewNotes() {
       }
       toast.success("Đã gửi ghi chú.");
       setBody("");
-      router.refresh();
+      refresh();
     });
   };
 
@@ -125,7 +125,7 @@ export default function TopicReviewNotes() {
       toast.success("Đã cập nhật ghi chú.");
       setEditingId(null);
       setEditingBody("");
-      router.refresh();
+      refresh();
     });
   };
 
@@ -139,7 +139,7 @@ export default function TopicReviewNotes() {
       }
       toast.success("Đã xóa ghi chú.");
       setRemovingId(null);
-      router.refresh();
+      refresh();
     });
   };
 

@@ -176,21 +176,14 @@ function TopicBuilderShell({
     }
   }, [issueDestinationState, router, staleTargetRedirectHref, topicId]);
 
-  // ACTION-QUEUE-001 (G8): `history.replaceState` bị Next 16.2.6 phát thành restore và làm rơi
-  // server action đang chờ. Vì vậy URL chỉ được ghi khi trang không còn action nào chờ; nếu
-  // người dùng đổi tab tiếp trong lúc chờ thì chỉ lần ghi mới nhất được thực hiện.
+  // ACTION-QUEUE-001 (G8): URL được ghi qua hàng thao tác router nối tiếp của guard (không chồng lên
+  // server action hay refresh); đổi tab liên tiếp trong lúc chờ chỉ ghi lần mới nhất.
   const writeBuilderUrl = (nextHref: string) => {
     latestUrlWriteRef.current = nextHref;
-    void guard.whenActionsIdle().then(() => {
-      if (latestUrlWriteRef.current !== nextHref) return;
-      latestUrlWriteRef.current = null;
-      if (typeof window !== "undefined") {
-        window.history.replaceState(null, "", nextHref);
-      } else {
-        router.replace(nextHref, { scroll: false });
-      }
-    });
+    return guard.replaceUrl(nextHref, () => latestUrlWriteRef.current === nextHref);
   };
+
+  const refreshPage = guard.refresh;
 
   const handleTabChange = async (value: string) => {
     if (!TOPIC_BUILDER_TABS.includes(value as TopicBuilderTab)) return;
@@ -239,7 +232,7 @@ function TopicBuilderShell({
       // Readiness và lifecycle nằm trong Server Component DTO; các tab con chỉ
       // refresh danh sách nội dung cục bộ, nên cần revalidate parent state sau
       // mọi mutation thành công kể cả khi không có dashboard issue context.
-      router.refresh();
+      refreshPage();
       return false;
     }
 
@@ -248,7 +241,7 @@ function TopicBuilderShell({
     setReturnFeedback(feedback);
     setHasConsumedDashboardIssue(true);
     clearDashboardIssueUrl();
-    router.refresh();
+    refreshPage();
     return true;
   };
 
@@ -304,7 +297,7 @@ function TopicBuilderShell({
 
   return (
     <div className="space-y-5">
-      <TopicWorkflowPanel workflow={workflow} onRefresh={() => router.refresh()} />
+      <TopicWorkflowPanel workflow={workflow} onRefresh={refreshPage} />
       {topGuidance ? (
         <DashboardIssueNotice
           guidance={topGuidance}
@@ -375,7 +368,7 @@ function TopicBuilderShell({
               readOnly={readOnly}
               isPublished={isPublished}
               onAuthoringSuccess={showReturnFeedbackForSuccess}
-              onMutationSuccess={() => router.refresh()}
+              onMutationSuccess={refreshPage}
             />
           ) : null}
         </TabsContent>
@@ -387,7 +380,7 @@ function TopicBuilderShell({
               isActive={activeTab === "memory-check"}
               readOnly={readOnly}
               isPublished={isPublished}
-              onMutationSuccess={() => router.refresh()}
+              onMutationSuccess={refreshPage}
             />
           ) : null}
         </TabsContent>
@@ -403,7 +396,7 @@ function TopicBuilderShell({
               onDismissDashboardIssue={exitDashboardIssueMode}
               staleTargetRedirectHref={staleTargetRedirectHref}
               onAuthoringSuccess={showReturnFeedbackForSuccess}
-              onMutationSuccess={() => router.refresh()}
+              onMutationSuccess={refreshPage}
             />
           ) : null}
         </TabsContent>
@@ -417,7 +410,7 @@ function TopicBuilderShell({
               canManagePreviewMarkers={workflow.role !== "previewer"}
               readOnly={readOnly}
               isPublished={isPublished}
-              onSaved={() => router.refresh()}
+              onSaved={refreshPage}
             />
           ) : null}
         </TabsContent>

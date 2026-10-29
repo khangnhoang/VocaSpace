@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  useTransition,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -47,16 +48,22 @@ interface AuthoringGuardValue {
   register: (id: string, handle: AuthoringEditorHandle) => () => void;
   confirmLeave: () => Promise<boolean>;
   hasDirtyEditor: () => boolean;
-  whenActionsIdle: () => Promise<void>;
+  refresh: () => void;
+  // Ghi URL bằng restore của Next; `isCurrent` cho phép bỏ một lần ghi đã bị lần sau thay thế.
+  replaceUrl: (href: string, isCurrent?: () => boolean) => Promise<void>;
 }
 
 const AuthoringGuardContext = createContext<AuthoringGuardValue | null>(null);
 
-// ACTION-QUEUE-001 (G8): Next 16.2.6 bỏ mất server action đang chờ nếu có navigate/restore
-// (kể cả `history.replaceState`) được phát ra cùng lúc. Server action của Next luôn đi qua
-// `fetch` với header `Next-Action`, nên đếm các request đó là cách duy nhất biết chắc trang
-// đang có action chờ, kể cả action của component dùng chung mà route này không sở hữu.
+// ACTION-QUEUE-001 (G8): hai thao tác router chạy chồng nhau thì một bên bị mất. Đã quan sát trên
+// production build: navigate/restore khi server action còn chờ làm mất action (Next 16.2.6); refresh
+// đang chờ commit đè lên điều hướng hoặc lần ghi URL đến sau; refresh phát ra ngay sau một restore
+// làm Next tải lại cả trang. Vì vậy mọi thao tác router của trang (refresh, ghi URL, điều hướng bằng
+// link) xếp vào một hàng nối tiếp: mỗi thao tác chạy trong transition và chỉ bắt đầu khi thao tác
+// trước đã commit xong và không còn server action nào chờ. Server action luôn đi qua `fetch` với
+// header `Next-Action`, nên đếm các request đó để biết cả action của component dùng chung.
 let pendingActionCount = 0;
+let refreshPending = false;
 let fetchPatchOwners = 0;
 let originalFetch: typeof fetch | null = null;
 const idleListeners = new Set<() => void>();
@@ -69,6 +76,11 @@ function notifyPendingChange() {
   idleListeners.clear();
   listeners.forEach((listener) => listener());
 }
+
+function isRouterIdle() {
+  return pendingActionCount === 0 && !refreshPending;
+}
+
 
 function isServerActionRequest(init?: RequestInit) {
   const headers = init?.headers;
@@ -103,9 +115,26 @@ function uninstallServerActionTracker() {
   originalFetch = null;
 }
 
-export function whenServerActionsIdle() {
-  if (pendingActionCount === 0) return Promise.resolve();
-  return new Promise<void>((resolve) => idleListeners.add(resolve));
+// Promise của server action resolve trước khi Next đưa mục đó ra khỏi hàng đợi router (reducer còn
+// áp dữ liệu revalidate sau đó), nên luôn nhường một macrotask rồi kiểm tra lại trước khi báo rảnh.
+function whenIdle(isIdle: () => boolean) {
+  return new Promise<void>((resolve) => {
+    const check = () => {
+      if (!isIdle()) {
+        idleListeners.add(check);
+        return;
+      }
+      setTimeout(() => {
+        if (isIdle()) resolve();
+        else idleListeners.add(check);
+      }, 0);
+    };
+    check();
+  });
+}
+
+function whenRouterIdle() {
+  return whenIdle(isRouterIdle);
 }
 
 export function useHasPendingServerAction() {
@@ -137,6 +166,8 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
   const pendingRef = useRef<PendingLeave | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [isRouterBusy, startRouterTransition] = useTransition();
+  const routerOpsRef = useRef<Promise<void>>(Promise.resolve());
 
   const findDirtyEditor = useCallback(() => {
     for (const editor of editorsRef.current.values()) {
@@ -202,10 +233,36 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
     [settle],
   );
 
+  // Transition chỉ hết pending khi kết quả thao tác router đã commit, tức mục đó đã rời hàng đợi.
+  useEffect(() => {
+    refreshPending = isRouterBusy;
+    notifyPendingChange();
+  }, [isRouterBusy]);
+
+  const enqueueRouterOp = useCallback((run: () => void, isCurrent?: () => boolean) => {
+    const op = routerOpsRef.current.then(whenRouterIdle).then(() => {
+      if (isCurrent && !isCurrent()) return;
+      refreshPending = true;
+      notifyPendingChange();
+      startRouterTransition(run);
+    });
+    routerOpsRef.current = op.catch(() => undefined);
+    return op;
+  }, []);
+  const refresh = useCallback(() => {
+    void enqueueRouterOp(() => router.refresh());
+  }, [enqueueRouterOp, router]);
+  const replaceUrl = useCallback(
+    (href: string, isCurrent?: () => boolean) =>
+      enqueueRouterOp(() => window.history.replaceState(null, "", href), isCurrent),
+    [enqueueRouterOp],
+  );
+
   useEffect(() => {
     installServerActionTracker();
     return () => {
       uninstallServerActionTracker();
+      refreshPending = false;
       pendingRef.current?.resolve(false);
       pendingRef.current = null;
     };
@@ -238,7 +295,7 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
       if (samePage) return;
 
       const isDirty = Boolean(findDirtyEditor());
-      if (!isDirty && pendingActionCount === 0) return;
+      if (!isDirty && isRouterIdle()) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -246,22 +303,22 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
       void (async () => {
         const proceed = await confirmLeave();
         if (!proceed) return;
-        await whenServerActionsIdle();
-        router.push(href);
+        await enqueueRouterOp(() => router.push(href));
       })();
     };
     document.addEventListener("click", handleClick, true);
     return () => document.removeEventListener("click", handleClick, true);
-  }, [confirmLeave, findDirtyEditor, router]);
+  }, [confirmLeave, enqueueRouterOp, findDirtyEditor, router]);
 
   const value = useMemo<AuthoringGuardValue>(
     () => ({
       register,
       confirmLeave,
       hasDirtyEditor: () => Boolean(findDirtyEditor()),
-      whenActionsIdle: whenServerActionsIdle,
+      refresh,
+      replaceUrl,
     }),
-    [confirmLeave, findDirtyEditor, register],
+    [confirmLeave, findDirtyEditor, refresh, register, replaceUrl],
   );
 
   return (
@@ -322,10 +379,21 @@ export function useAuthoringGuard() {
       register: () => () => undefined,
       confirmLeave: () => Promise.resolve(true),
       hasDirtyEditor: () => false,
-      whenActionsIdle: whenServerActionsIdle,
+      refresh: () => undefined,
+      replaceUrl: (href: string) => {
+        window.history.replaceState(null, "", href);
+        return Promise.resolve();
+      },
     } satisfies AuthoringGuardValue;
   }
   return value;
+}
+
+// Refresh dữ liệu server của trang; trong topic builder đi qua guard để biết khi nào refresh xong.
+export function useAuthoringRefresh() {
+  const value = useContext(AuthoringGuardContext);
+  const router = useRouter();
+  return value ? value.refresh : () => router.refresh();
 }
 
 // Editor gọi hook này với handle mới mỗi render; registry chỉ đọc qua ref nên luôn thấy giá trị mới nhất.

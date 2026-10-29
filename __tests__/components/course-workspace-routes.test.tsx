@@ -1434,8 +1434,9 @@ describe("course workspace route contract", () => {
     expect(topicBuilderTabsSource).toContain("min-h-11");
     expect(topicBuilderTabsSource).not.toContain("defaultValue={");
     // G8 / ACTION-QUEUE-001: URL tab chỉ được ghi qua một chỗ, sau khi server action của trang đã xong.
-    expect(topicBuilderTabsSource).toContain("guard.whenActionsIdle()");
-    expect(topicBuilderTabsSource.match(/window\.history\.replaceState/g)).toHaveLength(1);
+    expect(topicBuilderTabsSource).toContain("guard.replaceUrl(nextHref");
+    expect(topicBuilderTabsSource).not.toContain("history.replaceState");
+    expect(topicBuilderTabsSource).not.toContain("router.refresh()");
     expect(topicBuilderTabsSource).toContain("guard.confirmLeave()");
     expect(settingsTabSource).toContain("Khu vực nguy hiểm");
     expect(settingsTabSource).toContain("sm:flex-row");

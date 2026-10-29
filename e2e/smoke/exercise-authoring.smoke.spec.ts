@@ -36,8 +36,8 @@ test("teacher creates and persists a TOEIC Part 7 exercise through the browser U
   await page.getByLabel(/^Tên bài tập/).fill(title);
   await page.getByLabel("Đoạn văn").fill("A short reading passage for the exercise authoring smoke test.");
   await page.getByLabel("Câu 1", { exact: true }).fill("Which option is correct?");
-  await page.getByLabel("Đáp án A của câu 1 nhóm 1").fill("Correct option");
-  await page.getByLabel("Đáp án B của câu 1 nhóm 1").fill("Distractor option");
+  await page.getByRole("textbox", { name: "Đáp án A của câu 1 nhóm 1", exact: true }).fill("Correct option");
+  await page.getByRole("textbox", { name: "Đáp án B của câu 1 nhóm 1", exact: true }).fill("Distractor option");
 
   await page.getByRole("button", { name: "Lưu bài tập" }).click();
 
