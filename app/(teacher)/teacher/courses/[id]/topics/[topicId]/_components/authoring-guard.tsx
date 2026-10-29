@@ -238,12 +238,15 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
   }, [isRouterBusy]);
 
   const enqueueRouterOp = useCallback((run: () => void, isCurrent?: () => boolean) => {
-    const op = routerOpsRef.current.then(whenRouterIdle).then(() => {
-      if (isCurrent && !isCurrent()) return;
-      refreshPending = true;
-      notifyPendingChange();
-      startRouterTransition(run);
-    });
+    // Lần ghi đã bị lần sau thay thế thì bỏ ngay, không phải chờ hàng đợi rảnh.
+    const op = routerOpsRef.current
+      .then(() => (isCurrent && !isCurrent() ? undefined : whenRouterIdle()))
+      .then(() => {
+        if (isCurrent && !isCurrent()) return;
+        refreshPending = true;
+        notifyPendingChange();
+        startRouterTransition(run);
+      });
     routerOpsRef.current = op.catch(() => undefined);
     return op;
   }, []);

@@ -139,7 +139,11 @@ export default function FlashcardWorkbench({
   useEffect(() => {
     let isMounted = true;
     const load = async () => {
-      const res = await getCardsByTopicId(topicId);
+      // Lỗi mạng (action ném lỗi) được xử lý như lỗi tải để editor không kẹt ở trạng thái đang lưu.
+      const res = await getCardsByTopicId(topicId).catch(() => ({
+        error: "Không tải được danh sách thẻ. Vui lòng thử lại.",
+        data: undefined,
+      }));
       if (!isMounted) return;
       if (res.error) {
         setLoadError(res.error);

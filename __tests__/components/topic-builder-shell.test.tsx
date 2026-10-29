@@ -89,6 +89,8 @@ vi.mock("@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/Topic
 //   request `fetch` có header `Next-Action` như Next gửi.
 // - Case thành công: Bỏ thay đổi rồi đổi tab; Lưu thành công rồi mới gửi duyệt; ghi URL sau khi action xong.
 // - Case thất bại: Tiếp tục sửa giữ tab và dữ liệu; lưu thất bại thì không gửi duyệt và vẫn giữ dữ liệu.
+// - Guard còn chặn: đổi sang thẻ khác trong cùng tab, rời trang qua link trong trang (chỉ điều hướng sau lựa chọn),
+//   Esc trong editor (Tiếp tục sửa giữ focus ở field), và bản nháp bài tập không mất khi cửa sổ vượt mốc `lg`.
 // - Ngoài phạm vi: bản production build và Next router thật (smoke `topic-builder-tabs` chịu trách nhiệm).
 
 const topicId = "11111111-1111-4111-8111-111111111111";
@@ -320,7 +322,7 @@ describe("TopicBuilderTabs shell", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("heading", { name: "negotiate" })).toBeTruthy();
-    expect(document.activeElement).not.toBe(screen.getByRole("region", { name: "Danh sách thẻ từ vựng" }));
+    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Từ vựng" }));
   });
 
   it("keeps an unsaved exercise draft when the window crosses the lg breakpoint", async () => {
