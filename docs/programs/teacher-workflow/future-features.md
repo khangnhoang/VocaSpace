@@ -23,7 +23,7 @@ Owner direction outside current scope, recorded 2026-10-11 during LF3 QA. Discus
 
 ## TFEAT-004: Topic builder UI/UX redesign
 
-- Status: Planned (2026-10-28) as [TFEAT4](../student-user-flow-route/implementation-plans/tfeat4/plan.md); Owner approved r3 on 2026-10-28, implementation not started.
+- Status: In progress (2026-10-28) as [TFEAT4](../student-user-flow-route/implementation-plans/tfeat4/plan.md); Owner approved r3 on 2026-10-28 and implementation is committed locally on `feat/topic-builder-redesign`; independent review, Owner review of the running screen, PR and merge are pending.
 - Direction: redesign the topic builder screens; the Owner finds the current layout hard to use and unattractive. In particular, the memory check and the exercises share one tab and should be separated.
 - Also in scope: edit dialogs (for example "Sửa Câu hỏi & Đáp án") close when the author clicks or tabs outside mid-edit and drop the typed changes without asking; add an unsaved-changes prompt (save / discard / keep editing).
 - Source: Owner QA of TFEAT1, 2026-10-18.
