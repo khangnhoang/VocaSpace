@@ -31,70 +31,66 @@ export function FlashcardPreview({ values }: { values: FlashcardPreviewValues })
 
   return (
     <div className="space-y-3">
-      <div className="[perspective:1100px]">
+      {/* Thẻ phẳng, không dùng lớp 3D: khi còn dùng preserve-3d, ở zoom 200% thẻ từng bị một dải nền che mất chữ
+          (chưa tái hiện được trên Chromium headless). Hai mặt nằm cùng một ô lưới để chiều cao không đổi. */}
+      <div className="grid min-h-56">
         <div
-          className={`grid min-h-56 [transform-style:preserve-3d] transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none motion-reduce:[transform:none] ${
-            showBack ? "[transform:rotateY(180deg)]" : ""
+          aria-hidden={showBack}
+          className={`col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center gap-2 rounded-3xl border border-slate-300 bg-white px-5 py-6 text-center shadow-[0_8px_24px_rgb(15_23_42/8%)] transition-[opacity,scale,visibility] duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:scale-x-100 motion-reduce:duration-100 ${
+            showBack ? "invisible scale-x-0 opacity-0" : ""
           }`}
         >
-          <div
-            aria-hidden={showBack}
-            className={`col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center gap-2 rounded-3xl border border-slate-300 bg-white px-5 py-6 text-center shadow-[0_8px_24px_rgb(15_23_42/8%)] [backface-visibility:hidden] motion-reduce:transition-opacity motion-reduce:duration-100 ${
-              showBack ? "motion-reduce:opacity-0" : ""
+          <p
+            className={`max-w-full text-3xl leading-tight font-semibold tracking-tight [overflow-wrap:anywhere] ${
+              word ? "text-slate-900" : "text-slate-500"
             }`}
           >
-            <p
-              className={`max-w-full text-3xl leading-tight font-semibold tracking-tight [overflow-wrap:anywhere] ${
-                word ? "text-slate-900" : "text-slate-500"
-              }`}
-            >
-              {word || "Từ vựng"}
+            {word || "Từ vựng"}
+          </p>
+          {values.pos?.trim() || values.phonetic?.trim() ? (
+            <p className="flex max-w-full flex-wrap items-center justify-center gap-2 text-sm font-medium text-slate-600">
+              {values.pos?.trim() ? (
+                <span className="font-bold text-recall">({values.pos.trim()})</span>
+              ) : null}
+              {values.phonetic?.trim() ? (
+                <span className="[overflow-wrap:anywhere]">{values.phonetic.trim()}</span>
+              ) : null}
             </p>
-            {values.pos?.trim() || values.phonetic?.trim() ? (
-              <p className="flex max-w-full flex-wrap items-center justify-center gap-2 text-sm font-medium text-slate-600">
-                {values.pos?.trim() ? (
-                  <span className="font-bold text-recall">({values.pos.trim()})</span>
-                ) : null}
-                {values.phonetic?.trim() ? (
-                  <span className="[overflow-wrap:anywhere]">{values.phonetic.trim()}</span>
-                ) : null}
-              </p>
-            ) : null}
-          </div>
-          <div
-            aria-hidden={!showBack}
-            className={`col-start-1 row-start-1 flex min-w-0 flex-col justify-center gap-2 rounded-3xl border border-slate-300 bg-[linear-gradient(140deg,#fff,#ecfeff)] px-5 py-6 shadow-[0_8px_24px_rgb(15_23_42/8%)] [backface-visibility:hidden] [transform:rotateY(180deg)] motion-reduce:[transform:none] motion-reduce:transition-opacity motion-reduce:duration-100 ${
-              showBack ? "" : "motion-reduce:opacity-0"
+          ) : null}
+        </div>
+        <div
+          aria-hidden={!showBack}
+          className={`col-start-1 row-start-1 flex min-w-0 flex-col justify-center gap-2 rounded-3xl border border-slate-300 bg-[linear-gradient(140deg,#fff,#ecfeff)] px-5 py-6 shadow-[0_8px_24px_rgb(15_23_42/8%)] transition-[opacity,scale,visibility] duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:scale-x-100 motion-reduce:duration-100 ${
+            showBack ? "" : "invisible scale-x-0 opacity-0"
+          }`}
+        >
+          <p
+            className={`text-xl font-bold [overflow-wrap:anywhere] ${
+              translation ? "text-recall" : "text-slate-500"
             }`}
           >
-            <p
-              className={`text-xl font-bold [overflow-wrap:anywhere] ${
-                translation ? "text-recall" : "text-slate-500"
-              }`}
-            >
-              {translation || "Nghĩa của từ"}
+            {translation || "Nghĩa của từ"}
+          </p>
+          {values.example?.trim() ? (
+            <p className="text-sm font-medium text-slate-800 italic [overflow-wrap:anywhere]">
+              &quot;{values.example.trim()}&quot;
             </p>
-            {values.example?.trim() ? (
-              <p className="text-sm font-medium text-slate-800 italic [overflow-wrap:anywhere]">
-                &quot;{values.example.trim()}&quot;
-              </p>
-            ) : null}
-            {values.exampleTranslation?.trim() ? (
-              <p className="text-sm text-slate-600 [overflow-wrap:anywhere]">
-                {values.exampleTranslation.trim()}
-              </p>
-            ) : null}
-            {values.explanation?.trim() ? (
-              <p className="border-t border-slate-200 pt-2 text-sm text-slate-700 [overflow-wrap:anywhere]">
-                {values.explanation.trim()}
-              </p>
-            ) : null}
-            {values.hint?.trim() ? (
-              <p className="rounded-lg border border-attention-line bg-attention-quiet px-3 py-1.5 text-sm font-medium text-slate-900 [overflow-wrap:anywhere]">
-                {values.hint.trim()}
-              </p>
-            ) : null}
-          </div>
+          ) : null}
+          {values.exampleTranslation?.trim() ? (
+            <p className="text-sm text-slate-600 [overflow-wrap:anywhere]">
+              {values.exampleTranslation.trim()}
+            </p>
+          ) : null}
+          {values.explanation?.trim() ? (
+            <p className="border-t border-slate-200 pt-2 text-sm text-slate-700 [overflow-wrap:anywhere]">
+              {values.explanation.trim()}
+            </p>
+          ) : null}
+          {values.hint?.trim() ? (
+            <p className="rounded-lg border border-attention-line bg-attention-quiet px-3 py-1.5 text-sm font-medium text-slate-900 [overflow-wrap:anywhere]">
+              {values.hint.trim()}
+            </p>
+          ) : null}
         </div>
       </div>
       <Button

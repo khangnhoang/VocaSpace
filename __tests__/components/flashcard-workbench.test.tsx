@@ -88,6 +88,23 @@ describe("FlashcardWorkbench", () => {
     expect(preview.textContent).toContain("đàm phán");
   });
 
+  // Khi còn dùng lớp 3D, ở zoom 200% thẻ từng bị một dải nền che mất chữ. jsdom không vẽ được lỗi đó nên
+  // test này chỉ giữ cách sửa: hai mặt phẳng, mặt đang ẩn thật sự bị ẩn.
+  it("keeps the preview card flat and hides the face that is not showing", async () => {
+    await renderWorkbench();
+    fireEvent.click(screen.getByRole("button", { name: /negotiate/ }));
+    const preview = screen.getByRole("region", { name: "Bản xem trước cho học viên" });
+    expect(preview.innerHTML).not.toMatch(/preserve-3d|perspective|rotateY|backface/);
+
+    const front = screen.getByText("negotiate", { selector: "[aria-hidden] > p" }).parentElement!;
+    expect(front.getAttribute("aria-hidden")).toBe("false");
+    expect(front.className).not.toContain("invisible");
+
+    fireEvent.click(screen.getByRole("button", { name: "Lật thẻ xem mặt sau" }));
+    expect(front.getAttribute("aria-hidden")).toBe("true");
+    expect(front.className).toContain("invisible");
+  });
+
   it("saves an edit with Ctrl+S and keeps the saved card id", async () => {
     await renderWorkbench();
     fireEvent.click(screen.getByRole("button", { name: /negotiate/ }));
