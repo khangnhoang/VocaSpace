@@ -4,7 +4,6 @@ export const TOPIC_BUILDER_TABS = [
   "flashcards",
   "memory-check",
   "exercises",
-  "settings",
 ] as const;
 
 export type TopicBuilderTab = (typeof TOPIC_BUILDER_TABS)[number];

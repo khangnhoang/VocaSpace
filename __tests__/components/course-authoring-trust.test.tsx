@@ -191,7 +191,7 @@ describe("course authoring trust UI", () => {
     const files = [
       "app/(teacher)/teacher/courses/_components/DeleteCourseModal.tsx",
       "app/(teacher)/teacher/courses/[id]/_components/DeleteChapterModal.tsx",
-      "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
+      "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx",
     ];
     const copySource = files
       .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
@@ -201,9 +201,9 @@ describe("course authoring trust UI", () => {
     expect(copySource).toContain("Đưa vào thùng rác");
     expect(copySource).toContain("Ẩn chương");
     expect(copySource).toContain(
-      'description="Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."',
+      '"Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."',
     );
-    expect(copySource).toContain('confirmText="Xóa bài học"');
+    expect(copySource).toContain('"Xóa bài học"');
     expect(copySource).not.toContain("Xóa vĩnh viễn");
   });
 
@@ -225,7 +225,7 @@ describe("course authoring trust UI", () => {
     const files = [
       "app/(teacher)/teacher/courses/_components/DeleteCourseModal.tsx",
       "app/(teacher)/teacher/courses/[id]/_components/DeleteChapterModal.tsx",
-      "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
+      "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx",
     ];
     const copySource = files
       .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
@@ -253,17 +253,14 @@ describe("course authoring trust UI", () => {
     );
   });
 
-  it("opens the topic trash affordance in the settings tab", () => {
+  it("sends an old settings link to the default tab now that the tab is gone", () => {
     const courseId = "11111111-1111-4111-8111-111111111111";
     const topicId = "55555555-5555-4555-8555-555555555555";
 
     expect(getTopicBuilderPath(courseId, topicId)).toBe(
       `/teacher/courses/${courseId}/topics/${topicId}`,
     );
-    expect(getTopicBuilderPath(courseId, topicId, "settings")).toBe(
-      `/teacher/courses/${courseId}/topics/${topicId}?tab=settings`,
-    );
-    expect(getTopicBuilderTab("settings")).toBe("settings");
+    expect(getTopicBuilderTab("settings")).toBe("exercises");
     expect(getTopicBuilderTab("unknown")).toBe("exercises");
   });
 

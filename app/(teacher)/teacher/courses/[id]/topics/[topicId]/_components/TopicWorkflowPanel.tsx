@@ -25,9 +25,11 @@ import {
 } from "@/app/actions/topic-review";
 import { deleteTopic, withdrawReviewToDraft } from "@/app/actions/topic";
 import { getTopicDeletePreviewProjection } from "@/app/actions/course-preview";
+import { PUBLISHED_DELETE_IMPACT } from "@/lib/course-authoring/published-edit-impact";
 import type { TopicRejectionEntry, TopicWorkflow } from "@/lib/schemas/topic-workflow";
 import { getCourseOverviewPath, getCourseStructurePath, type TopicBuilderTab } from "@/lib/course-authoring/routes";
 import TopicTeamAndNotes from "./TopicTeamAndNotes";
+import TopicTitleEditor from "./TopicTitleEditor";
 import PreviewQuotaResolutionDialog from "../../../_components/PreviewQuotaResolutionDialog";
 import BackButton from "./BackButton";
 import { useAuthoringGuard, useAuthoringNavigate } from "./authoring-guard";
@@ -269,8 +271,11 @@ export default function TopicWorkflowPanel({ workflow, onRefresh, activeTab, onO
   const handleDeleteTopic = async (unmarkTopicIds: string[]) => {
     if (!workflow.canDeleteTopic) return { error: "Bạn không có quyền ẩn bài học này." };
     const fromPending = frozen;
+    const isPublished = workflow.status === "published";
     const result = await deleteTopic({
       topicId: workflow.topicId,
+      // Hộp thoại xóa chính là bước xác nhận (có cảnh báo ảnh hưởng học viên), nên gửi cờ xác nhận mà server yêu cầu.
+      confirmPublished: isPublished,
       unmarkTopicIds,
     });
     if (result.error) return result;
@@ -282,7 +287,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh, activeTab, onO
     // M27: `router.refresh()` sẽ render lại chính route topic vừa bị xóa và
     // ném TOPIC_NOT_FOUND. Điều hướng về Structure là nơi duy nhất còn dữ
     // liệu đúng; `deleteTopic` đã revalidate course overview + structure.
-    void navigate(getCourseStructurePath(workflow.courseId));
+    void navigate(getCourseStructurePath(workflow.courseId), "replace");
     return result;
   };
 
@@ -359,7 +364,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh, activeTab, onO
           </Button>
         </>
       ) : null}
-      {frozen && workflow.canDeleteTopic ? (
+      {workflow.canDeleteTopic ? (
         <Button
           type="button"
           variant="destructive-quiet"
@@ -368,7 +373,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh, activeTab, onO
           className="min-h-11 sm:min-h-9"
         >
           <Trash2 aria-hidden="true" />{" "}
-          {workflow.canWithdrawReview ? "Hủy gửi duyệt và xóa bài học" : "Xóa bài học"}
+          {frozen && workflow.canWithdrawReview ? "Hủy gửi duyệt và xóa bài học" : "Xóa bài học"}
         </Button>
       ) : null}
     </div>
@@ -387,12 +392,13 @@ export default function TopicWorkflowPanel({ workflow, onRefresh, activeTab, onO
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 space-y-2 lg:flex-1">
-          <h1
+          <TopicTitleEditor
             id="topic-workflow-title"
-            className="text-2xl leading-8 font-extrabold tracking-[-0.01em] text-slate-950 [overflow-wrap:anywhere] sm:text-[28px] sm:leading-9"
-          >
-            {workflow.title}
-          </h1>
+            topicId={workflow.topicId}
+            title={workflow.title}
+            canEdit={workflow.canEdit && !frozen}
+            onSaved={onRefresh}
+          />
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span
               className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-bold ${status.className}`}
@@ -514,6 +520,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh, activeTab, onO
         description={frozen
           ? "Bài học đang chờ duyệt. Tiếp tục sẽ hủy yêu cầu duyệt và ẩn bài học; nội dung vẫn có thể khôi phục."
           : "Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động. Nội dung bên trong được giữ lại và có thể khôi phục."}
+        publishedImpact={workflow.status === "published" ? PUBLISHED_DELETE_IMPACT.topic : undefined}
         confirmText={frozen && workflow.canWithdrawReview ? "Hủy gửi duyệt và xóa bài học" : "Xóa bài học"}
         loadingText="Đang cập nhật bài học…"
         getProjection={getTopicDeletePreviewProjection}

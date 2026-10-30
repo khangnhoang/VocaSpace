@@ -56,12 +56,12 @@ test("fast tab switches while a save is in flight never strand a tab or drop the
   const release = await holdServerActions(page, 1_500);
   await addFlashcard(page, fixture.E2E_FLASHCARD_WORD, fixture.E2E_FLASHCARD_TRANSLATION);
   // Đổi tab liên tiếp trong lúc createCard còn chờ.
-  for (const name of [/^Memory check/, /^Bài tập/, /^Cài đặt/]) {
+  for (const name of [/^Bài tập/, /^Memory check/]) {
     await page.getByRole("tab", { name }).click();
   }
-  await expect(page.getByRole("tab", { name: /^Cài đặt/ })).toHaveAttribute("data-state", "active");
-  await expect(page.getByLabel("Tên bài học")).toHaveValue(fixture.E2E_TOPIC_TITLE, { timeout: 15_000 });
-  await expect(page).toHaveURL(/tab=settings/, { timeout: 15_000 });
+  await expect(page.getByRole("tab", { name: /^Memory check/ })).toHaveAttribute("data-state", "active");
+  await expect(page.getByText("Bài học chưa có memory check")).toBeVisible({ timeout: 15_000 });
+  await expect(page).toHaveURL(/tab=memory-check/, { timeout: 15_000 });
   await release();
 
   await expect.poll(() => getActiveFixtureFlashcardCount(), { timeout: 15_000 }).toBe(1);

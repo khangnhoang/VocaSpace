@@ -25,7 +25,7 @@ import {
   Pencil,
   PieChart,
   Plus,
-  Settings,
+  BookOpen,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -1007,9 +1007,9 @@ function TopicRow({
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem asChild className={topicMenuItemClass}>
-                  <Link href={getTopicBuilderPath(courseId, topic.id, "settings")}>
-                    <Settings aria-hidden="true" />
-                    Cài đặt
+                  <Link href={getTopicBuilderPath(courseId, topic.id)}>
+                    <BookOpen aria-hidden="true" />
+                    Mở bài học
                   </Link>
                 </DropdownMenuItem>
                 {showPreviewAction ? (

@@ -26,6 +26,8 @@ vi.mock("sonner", () => ({ toast: mocks.toast }));
 // - Mục tiêu: tab Từ vựng dạng workbench (TFEAT4 AC3, AC6, AC7): danh sách tìm được, editor inline cùng field và
 //   validation như cũ, `Lưu & thêm tiếp`, Ctrl/Cmd+S, preview cập nhật theo từng ký tự, lỗi lưu giữ nguyên dữ liệu.
 // - Loại test: component interaction trong jsdom, Server Action được mock (jsdom không có matchMedia nên chạy bố cục rộng).
+// - Mục Nâng cao: giải thích, ví dụ, dịch ví dụ, mẹo ghi nhớ thu gọn mặc định; mở ra mới thấy; nội dung trong đó vẫn được lưu
+//   và số mục đã điền hiện trên nút để không bỏ sót dữ liệu đang bị thu gọn.
 // - Case thành công: thêm thẻ rồi `Lưu & thêm tiếp` để editor trống và focus ô từ vựng; sửa thẻ gọi updateCard với ID cũ;
 //   Ctrl+S lưu; tìm kiếm bỏ dấu tiếng Việt.
 // - Case thất bại: thiếu từ vựng/nghĩa không gọi action và báo cạnh field; server từ chối thì giữ dữ liệu và hiện lỗi + thử lại.
@@ -127,6 +129,36 @@ describe("FlashcardWorkbench", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
     await waitFor(() => expect(mocks.updateCard).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps the advanced fields collapsed until asked and still saves what is in them", async () => {
+    await renderWorkbench();
+    fireEvent.click(screen.getByRole("button", { name: /negotiate/ }));
+
+    const toggle = screen.getByRole("button", { name: /^Nâng cao/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.textContent).toContain("Đã điền 1/4 mục");
+    const panel = document.getElementById(toggle.getAttribute("aria-controls")!)!;
+    expect(panel.hidden).toBe(true);
+    for (const label of ["Từ vựng", "Loại từ", "Phiên âm", "Nghĩa"]) {
+      expect(screen.getByRole("textbox", { name: new RegExp(`^${label}`) })).toBeTruthy();
+    }
+    expect(screen.queryByRole("textbox", { name: /^Giải thích/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /^Mẹo ghi nhớ/ })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(panel.hidden).toBe(false);
+    fireEvent.change(screen.getByRole("textbox", { name: /^Mẹo ghi nhớ/ }), { target: { value: "ne-go-ti-ate" } });
+    await waitFor(() => expect(toggle.textContent).toContain("Đã điền 2/4 mục"));
+
+    // Thu gọn lại không làm mất chữ đang gõ.
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
+    await waitFor(() => expect(mocks.updateCard).toHaveBeenCalledWith(
+      "card-1",
+      expect.objectContaining({ hint: "ne-go-ti-ate", example: "We negotiate prices." }),
+    ));
   });
 
   it("filters the card list without Vietnamese diacritics", async () => {

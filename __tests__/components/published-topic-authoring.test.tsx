@@ -5,7 +5,6 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ExerciseWorkbench from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseWorkbench";
 import FlashcardWorkbench from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardWorkbench";
-import SettingsTab from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab";
 
 const mocks = vi.hoisted(() => ({
   router: { replace: vi.fn(), refresh: vi.fn() },
@@ -19,12 +18,6 @@ const mocks = vi.hoisted(() => ({
   createExercise: vi.fn(),
   getCardsByTopicId: vi.fn(),
   deleteCard: vi.fn(),
-  getTopicById: vi.fn(),
-  updateTopic: vi.fn(),
-  deleteTopic: vi.fn(),
-  getTopicDeletePreviewProjection: vi.fn(),
-  getCoursePreviewAllocation: vi.fn(),
-  setCourseTopicPreviewMarkers: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
@@ -48,31 +41,18 @@ vi.mock("@/app/actions/card", () => ({
   updateCard: vi.fn(),
 }));
 
-vi.mock("@/app/actions/topic", () => ({
-  getTopicById: mocks.getTopicById,
-  updateTopic: mocks.updateTopic,
-  deleteTopic: mocks.deleteTopic,
-}));
-
-vi.mock("@/app/actions/course-preview", () => ({
-  getTopicDeletePreviewProjection: mocks.getTopicDeletePreviewProjection,
-  getCoursePreviewAllocation: mocks.getCoursePreviewAllocation,
-  setCourseTopicPreviewMarkers: mocks.setCourseTopicPreviewMarkers,
-}));
-
 vi.mock("sonner", () => ({ toast: mocks.toast }));
 
 // Test plan:
 // - Mục tiêu: trên bài học đã xuất bản (TFEAT1 AC5, G4) chỉ xóa nội dung, ẩn bài học và lưu câu hỏi đổi/bỏ đáp án
 //   mới hiện cảnh báo bằng dialog của app; mọi chỉnh sửa khác lưu thẳng; hủy thì không có request nào.
 // - Loại test: component interaction trong jsdom, Server Action được mock.
-// - Đối tượng: ExerciseWorkbench, FlashcardWorkbench, SettingsTab (MemoryCheckWorkbench có file test riêng).
+// - Đối tượng: ExerciseWorkbench, FlashcardWorkbench (MemoryCheckWorkbench và ẩn bài học có file test riêng).
 // - Case thành công:
 //   - lưu câu hỏi đổi đáp án đúng mở dialog, xác nhận mới gọi updateQuestion một lần;
 //   - lưu câu hỏi đang có hai đáp án đúng mà chỉ giữ một đáp án đúng cũng mở cảnh báo (hủy thì không gọi action);
-//   - lưu câu hỏi chỉ sửa chữ, đổi tên bài tập và đổi tên bài học gọi action ngay, không dialog;
+//   - lưu câu hỏi chỉ sửa chữ, đổi tên bài tập gọi action ngay, không dialog;
 //   - dialog xóa bài tập/câu hỏi/thẻ có ghi chú ảnh hưởng học viên và chỉ một bước xác nhận;
-//   - ẩn bài học đã xuất bản hiện ghi chú ảnh hưởng và gửi cờ xác nhận mà server yêu cầu cho d1_delete_topic.
 // - Case thất bại/hủy: hủy cảnh báo đáp án không gọi updateQuestion, giữ nguyên dữ liệu đang sửa.
 // - Bảo mật/phân quyền: không dùng window.confirm; bài học nháp không bao giờ hiện cảnh báo đã xuất bản.
 // - Invariant cần giữ: action nội dung không còn nhận cờ confirmPublished (server bỏ qua), riêng xóa bài học vẫn gửi.
@@ -80,7 +60,6 @@ vi.mock("sonner", () => ({ toast: mocks.toast }));
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 const topicId = "22222222-2222-4222-8222-222222222222";
-const courseId = "11111111-1111-4111-8111-111111111111";
 const CORRECT_TITLE = "Đổi đáp án đúng?";
 // Cả hai tiêu đề cảnh báo đáp án; dùng cho các case khẳng định "không có cảnh báo" hoặc hủy.
 const WARNING_TITLE = /^(Đổi đáp án đúng\?|Lưu thay đổi đáp án\?)$/;
@@ -309,85 +288,5 @@ describe("FlashcardWorkbench on a published topic", () => {
     const dialog = await screen.findByRole("dialog", { name: "Xóa thẻ từ vựng" });
 
     expect(within(dialog).queryByRole("note")).toBeNull();
-  });
-});
-
-describe("SettingsTab on a published topic", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.spyOn(window, "confirm");
-    mocks.getTopicById.mockResolvedValue({ data: { title: "Bài học đã xuất bản", status: "published" } });
-    mocks.getCoursePreviewAllocation.mockResolvedValue({ data: null });
-    mocks.updateTopic.mockResolvedValue({ success: true, message: "Đã cập nhật bài học." });
-    mocks.deleteTopic.mockResolvedValue({ success: true, message: "Đã ẩn bài học khỏi khóa học." });
-    mocks.getTopicDeletePreviewProjection.mockResolvedValue({
-      data: {
-        courseId,
-        topicId,
-        currentAllocation: {
-          courseId,
-          activeTopicCount: 1,
-          markedTopicCount: 0,
-          cap: 1,
-          remaining: 1,
-          excess: 0,
-          isSuspended: false,
-          causeVerified: null,
-          cause: null,
-          markedTopics: [],
-        },
-        projectedActiveTopicCount: 0,
-        projectedMarkedTopicCount: 0,
-        projectedCap: 0,
-        requiredUnmarkCount: 0,
-        targetIsPreview: false,
-        canManageMarkers: false,
-        outsideMarkedTopics: [],
-      },
-    });
-  });
-
-  const renderSettings = () =>
-    render(
-      <SettingsTab
-        topicId={topicId}
-        courseId={courseId}
-        topicStatus="published"
-        canManagePreviewMarkers={false}
-        isPublished
-      />,
-    );
-
-  it("renames the topic at once without a confirmation or a demotion flag", async () => {
-    renderSettings();
-    fireEvent.change(await screen.findByDisplayValue("Bài học đã xuất bản"), {
-      target: { value: "Bài học đổi tên" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Lưu cài đặt" }));
-
-    await waitFor(() =>
-      expect(mocks.updateTopic).toHaveBeenCalledWith({ topicId, title: "Bài học đổi tên" }),
-    );
-    expect(window.confirm).not.toHaveBeenCalled();
-  });
-
-  it("shows the learner impact in the hide dialog and sends the confirmation flag the server still requires", async () => {
-    renderSettings();
-    await screen.findByDisplayValue("Bài học đã xuất bản");
-    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học này" }));
-    await waitFor(() => expect(mocks.getTopicDeletePreviewProjection).toHaveBeenCalledWith(topicId));
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByRole("note").textContent).toContain("không còn thấy bài học này");
-
-    fireEvent.click(within(dialog).getByRole("button", { name: "Xóa bài học" }));
-
-    await waitFor(() =>
-      expect(mocks.deleteTopic).toHaveBeenCalledWith({
-        topicId,
-        confirmPublished: true,
-        unmarkTopicIds: [],
-      }),
-    );
-    expect(window.confirm).not.toHaveBeenCalled();
   });
 });

@@ -57,7 +57,7 @@ vi.mock("next/navigation", () => ({
 // Test plan:
 // - Mục tiêu: kiểm tra route contract, Structure chapter roles và vị trí các affordance quản lý Preview.
 // - Loại test: component static render và source contract trong hạ tầng Vitest hiện có.
-// - Đối tượng: CourseList, CourseOverview, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, CourseStructureWorkspace/ChapterNavigator/ChapterWorkbench (source contract), SettingsTab và PreviewQuotaResolutionDialog. Hành vi render/tương tác của Structure workspace nằm ở `course-structure-workspace.test.tsx`.
+// - Đối tượng: CourseList, CourseOverview, /teacher/courses/[id], /teacher/courses/[id]/structure, /teacher/courses/[id]/topics, shared course-authoring route helpers, CourseStructureRouteFeedback, CourseStructureWorkspace/ChapterNavigator/ChapterWorkbench (source contract), TopicWorkflowPanel và PreviewQuotaResolutionDialog. Hành vi render/tương tác của Structure workspace nằm ở `course-structure-workspace.test.tsx`.
 // - Case thành công: overview render dữ liệu từ readiness contract; tên khóa học và CTA mở cùng course overview; reorder chương/bài học đi qua Server Action rồi tải lại, không reorder cục bộ; restore chapter được phép; Preview projection, quota resolution và action có accessible name.
 // - Case thất bại: overview route không còn query course list/stats cũ; presentation không tự build authoring URL; issue không bị nhóm hoặc sắp xếp lại; /teacher/courses/[id]/topics không còn blank; topic builder direct URL bị chặn khi context không active; stale target không được đánh dấu như target hợp lệ.
 // - Bảo mật/phân quyền: đây là presentation/source-contract test; warning Preview chỉ được gắn cho role quản lý; quyền DB/RPC/Data API được kiểm tra bằng Supabase integration.
@@ -582,9 +582,6 @@ describe("course workspace route contract", () => {
     expect(getTopicBuilderPath(readiness.course.id, topicId)).toBe(
       `/teacher/courses/${readiness.course.id}/topics/${topicId}`,
     );
-    expect(getTopicBuilderPath(readiness.course.id, topicId, "settings")).toBe(
-      `/teacher/courses/${readiness.course.id}/topics/${topicId}?tab=settings`,
-    );
     expect(getTopicBuilderPath(readiness.course.id, topicId, "exercises")).toBe(
       `/teacher/courses/${readiness.course.id}/topics/${topicId}?tab=exercises`,
     );
@@ -598,9 +595,8 @@ describe("course workspace route contract", () => {
       "flashcards",
       "memory-check",
       "exercises",
-      "settings",
     ]);
-    expect(getTopicBuilderTab("settings")).toBe("settings");
+    expect(getTopicBuilderTab("settings")).toBe("exercises");
     expect(getTopicBuilderTab("memory-check")).toBe("memory-check");
     expect(getTopicBuilderTab("unknown")).toBe("exercises");
   });
@@ -703,10 +699,10 @@ describe("course workspace route contract", () => {
     );
     const [cleanPathname, cleanSearch = ""] = cleanedPath.split("?");
     const params = new URLSearchParams(cleanSearch);
-    params.set("tab", "settings");
+    params.set("tab", "memory-check");
 
     expect(`${cleanPathname}?${params.toString()}`).toBe(
-      `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?tab=settings`,
+      `/teacher/courses/${courseId}/topics/22222222-2222-4222-8222-222222222222?tab=memory-check`,
     );
     expect(
       parseCourseAuthoringIssueDestination(params.toString()),
@@ -1246,13 +1242,6 @@ describe("course workspace route contract", () => {
       ),
       "utf8",
     );
-    const settingsTabSource = readFileSync(
-      join(
-        process.cwd(),
-        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
-      ),
-      "utf8",
-    );
     const previewResolutionSource = readFileSync(
       join(
         process.cwd(),
@@ -1367,9 +1356,9 @@ describe("course workspace route contract", () => {
     expect(backButtonSource).toContain(
       "href={getCourseStructureChapterPath(courseId, chapterId)}",
     );
-    expect(settingsTabSource).toContain("confirmPublished: isPublished");
-    expect(settingsTabSource).toContain("unmarkTopicIds,");
-    expect(settingsTabSource).toContain("getTopicDeletePreviewProjection");
+    expect(topicWorkflowSource).toContain("confirmPublished: isPublished");
+    expect(topicWorkflowSource).toContain("unmarkTopicIds,");
+    expect(topicWorkflowSource).toContain("getTopicDeletePreviewProjection");
     expect(previewResolutionSource).toContain("requiredUnmarkCount");
     expect(previewResolutionSource).toContain("outsideMarkedTopics.map");
     expect(structureWorkspaceSource).toContain(
@@ -1438,9 +1427,6 @@ describe("course workspace route contract", () => {
     expect(topicBuilderTabsSource).not.toContain("history.replaceState");
     expect(topicBuilderTabsSource).not.toContain("router.refresh()");
     expect(topicBuilderTabsSource).toContain("guard.confirmLeave()");
-    expect(settingsTabSource).toContain("Khu vực nguy hiểm");
-    expect(settingsTabSource).toContain("sm:flex-row");
-    expect(settingsTabSource).toContain("sm:w-auto");
     // AC9: soạn được trên mobile, thao tác không phụ thuộc hover.
     for (const source of [flashcardTabSource, exerciseTabSource]) {
       expect(source).not.toContain("Vui lòng dùng máy tính");
@@ -1482,10 +1468,10 @@ describe("course workspace route contract", () => {
       ),
       "utf8",
     );
-    const settingsTabSource = readFileSync(
+    const topicWorkflowPanelSource = readFileSync(
       join(
         process.cwd(),
-        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/SettingsTab.tsx",
+        "app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel.tsx",
       ),
       "utf8",
     );
@@ -1511,14 +1497,14 @@ describe("course workspace route contract", () => {
     expect(chapterWorkbenchSource).toContain(
       "Nhập tên bài học trong chương này.",
     );
-    expect(settingsTabSource).toContain(
+    expect(topicWorkflowPanelSource).toContain(
       "Bài học sẽ được ẩn khỏi cấu trúc đang hoạt động",
     );
     expect(previewResolutionSource).toContain(
       "Nội dung sẽ được ẩn khỏi cấu trúc đang hoạt động và có thể được khôi phục",
     );
-    expect(settingsTabSource).not.toContain("soft-delete");
-    expect(settingsTabSource).not.toContain(
+    expect(topicWorkflowPanelSource).not.toContain("soft-delete");
+    expect(topicWorkflowPanelSource).not.toContain(
       "đưa toàn bộ nội dung vào trạng thái thùng rác",
     );
   });

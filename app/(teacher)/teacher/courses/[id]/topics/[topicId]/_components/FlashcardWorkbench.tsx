@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BookType, Loader2, Plus, Search } from "lucide-react";
+import { BookType, ChevronDown, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,16 +76,19 @@ const FIELDS: {
   required?: boolean;
   multiline?: boolean;
   placeholder?: string;
+  advanced?: boolean;
 }[] = [
   { name: "word", label: "Từ vựng", required: true, placeholder: "VD: negotiate" },
   { name: "pos", label: "Loại từ", placeholder: "VD: v, n, adj" },
   { name: "phonetic", label: "Phiên âm", placeholder: "VD: /nɪˈɡoʊʃieɪt/" },
   { name: "translation", label: "Nghĩa", required: true, placeholder: "VD: đàm phán" },
-  { name: "explanation", label: "Giải thích", multiline: true },
-  { name: "example", label: "Câu ví dụ", multiline: true },
-  { name: "exampleTranslation", label: "Dịch câu ví dụ", multiline: true },
-  { name: "hint", label: "Mẹo ghi nhớ" },
+  { name: "explanation", label: "Giải thích", multiline: true, advanced: true },
+  { name: "example", label: "Câu ví dụ", multiline: true, advanced: true },
+  { name: "exampleTranslation", label: "Dịch câu ví dụ", multiline: true, advanced: true },
+  { name: "hint", label: "Mẹo ghi nhớ", advanced: true },
 ];
+
+const ADVANCED_FIELDS = FIELDS.filter((field) => field.advanced);
 
 // Lấy bản đã lưu làm mốc nhưng giữ những gì người soạn gõ thêm trong lúc chờ server.
 function resetKeepingNewInput(
@@ -122,6 +125,7 @@ export default function FlashcardWorkbench({
   const [savedSignal, setSavedSignal] = useState(0);
   const [deleting, setDeleting] = useState<Card | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const selectNewestAfterLoadRef = useRef(false);
   const sentNewCardRef = useRef<CardFormValues | null>(null);
   const saveFlight = useSingleFlightSave();
@@ -294,6 +298,40 @@ export default function FlashcardWorkbench({
     onMutationSuccess?.();
   };
 
+  const renderField = (field: (typeof FIELDS)[number]) => {
+    const id = `${fieldPrefix}-${field.name}`;
+    const errorId = `${id}-error`;
+    const error = form.formState.errors[field.name]?.message;
+    const Control = field.multiline ? Textarea : Input;
+    return (
+      <div key={field.name} className={field.multiline ? "sm:col-span-2" : undefined}>
+        <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-slate-800">
+          {field.label}
+          {field.required ? (
+            <span className="text-correction" aria-hidden="true">
+              {" "}*
+            </span>
+          ) : (
+            <span className="font-normal text-slate-600"> (tùy chọn)</span>
+          )}
+        </label>
+        <Control
+          id={id}
+          disabled={readOnly}
+          placeholder={field.placeholder}
+          aria-required={field.required || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          className={field.multiline ? "min-h-20 resize-y" : "h-11"}
+          {...form.register(field.name)}
+        />
+        <FieldError id={errorId} message={error} />
+      </div>
+    );
+  };
+
+  const filledAdvancedCount = ADVANCED_FIELDS.filter((field) => previewValues[field.name]?.trim()).length;
+
   const editorTitle =
     selection?.mode === "edit"
       ? selectedCard?.front_content.word || "Thẻ từ vựng"
@@ -429,37 +467,33 @@ export default function FlashcardWorkbench({
           void saveFlight.run(() => saveCard("stay"));
         }}
       >
-        {FIELDS.map((field) => {
-          const id = `${fieldPrefix}-${field.name}`;
-          const errorId = `${id}-error`;
-          const error = form.formState.errors[field.name]?.message;
-          const Control = field.multiline ? Textarea : Input;
-          return (
-            <div key={field.name} className={field.multiline ? "sm:col-span-2" : undefined}>
-              <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-slate-800">
-                {field.label}
-                {field.required ? (
-                  <span className="text-correction" aria-hidden="true">
-                    {" "}*
-                  </span>
-                ) : (
-                  <span className="font-normal text-slate-600"> (tùy chọn)</span>
-                )}
-              </label>
-              <Control
-                id={id}
-                disabled={readOnly}
-                placeholder={field.placeholder}
-                aria-required={field.required || undefined}
-                aria-invalid={error ? true : undefined}
-                aria-describedby={error ? errorId : undefined}
-                className={field.multiline ? "min-h-20 resize-y" : "h-11"}
-                {...form.register(field.name)}
-              />
-              <FieldError id={errorId} message={error} />
-            </div>
-          );
-        })}
+        {FIELDS.filter((field) => !field.advanced).map(renderField)}
+        <div className="sm:col-span-2">
+          <button
+            type="button"
+            aria-expanded={isAdvancedOpen}
+            aria-controls={`${fieldPrefix}-advanced`}
+            onClick={() => setIsAdvancedOpen((open) => !open)}
+            className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm font-semibold text-slate-800 outline-none transition-colors duration-[120ms] hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-route motion-reduce:transition-none"
+          >
+            <span className="min-w-0">
+              Nâng cao
+              <span className="ml-2 font-normal text-slate-600">
+                {filledAdvancedCount > 0
+                  ? `Đã điền ${filledAdvancedCount}/${ADVANCED_FIELDS.length} mục`
+                  : "Giải thích, ví dụ, mẹo ghi nhớ"}
+              </span>
+            </span>
+            <ChevronDown
+              className={`size-4 shrink-0 text-slate-600 transition-transform duration-[220ms] motion-reduce:transition-none ${isAdvancedOpen ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            />
+          </button>
+          {/* Luôn giữ trong DOM khi thu gọn để react-hook-form không mất giá trị đã nhập. */}
+          <div id={`${fieldPrefix}-advanced`} hidden={!isAdvancedOpen} className="mt-4 grid gap-4 sm:grid-cols-2">
+            {ADVANCED_FIELDS.map(renderField)}
+          </div>
+        </div>
         <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true">
           Lưu
         </button>

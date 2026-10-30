@@ -2,11 +2,10 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Brain, ClipboardList, Eye, Settings } from "lucide-react";
+import { BookOpen, Brain, ClipboardList, Eye } from "lucide-react";
 import ExerciseWorkbench from "./ExerciseWorkbench";
 import MemoryCheckWorkbench from "./MemoryCheckWorkbench";
 import FlashcardWorkbench from "./FlashcardWorkbench";
-import SettingsTab from "./SettingsTab";
 import {
   getCourseOverviewPath,
   getTopicBuilderTab,
@@ -46,7 +45,6 @@ const TAB_ITEMS: { value: TopicBuilderTab; label: string; Icon: typeof BookOpen 
   { value: "flashcards", label: "Từ vựng", Icon: BookOpen },
   { value: "memory-check", label: "Memory check", Icon: Brain },
   { value: "exercises", label: "Bài tập", Icon: ClipboardList },
-  { value: "settings", label: "Cài đặt", Icon: Settings },
 ];
 
 export default function TopicBuilderTabs(props: TopicBuilderTabsProps) {
@@ -402,20 +400,6 @@ function TopicBuilderShell({
               staleTargetRedirectHref={staleTargetRedirectHref}
               onAuthoringSuccess={showReturnFeedbackForSuccess}
               onMutationSuccess={refreshPage}
-            />
-          ) : null}
-        </TabsContent>
-
-        <TabsContent value="settings" forceMount className="min-w-0 data-[state=inactive]:hidden">
-          {mountedTabs.includes("settings") ? (
-            <SettingsTab
-              topicId={topicId}
-              courseId={courseId}
-              topicStatus={workflow.status}
-              canManagePreviewMarkers={workflow.role !== "previewer"}
-              readOnly={readOnly}
-              isPublished={isPublished}
-              onSaved={refreshPage}
             />
           ) : null}
         </TabsContent>

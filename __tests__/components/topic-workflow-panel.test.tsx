@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   deleteTopic: vi.fn(),
   getTopicDeletePreviewProjection: vi.fn(),
   requestTopicReview: vi.fn(),
-  notesSummary: { isVisible: true, count: 2 as number | null, hasReadError: false },
+  notesSummary: { count: 2 as number | null, hasReadError: false },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -35,6 +35,7 @@ vi.mock("@/app/actions/topic-review", () => ({
 
 vi.mock("@/app/actions/topic", () => ({
   deleteTopic: mocks.deleteTopic,
+  updateTopic: vi.fn(),
   withdrawReviewToDraft: vi.fn(),
 }));
 
@@ -117,7 +118,7 @@ function Panel(props: Omit<Parameters<typeof TopicWorkflowPanel>[0], "activeTab"
 }) {
   return (
     <TooltipProvider>
-      <TopicWorkflowPanel activeTab="settings" onOpenTab={vi.fn()} {...props} />
+      <TopicWorkflowPanel activeTab="memory-check" onOpenTab={vi.fn()} {...props} />
     </TooltipProvider>
   );
 }
@@ -141,7 +142,8 @@ const deletableWorkflow = {
 // - Đối tượng: TopicWorkflowPanel.
 // - Case thành công:
 //   - thiếu nội dung hiện khung vàng nêu đúng phần thiếu, có nút mở tab cần bổ sung; đủ thì không hiện gì;
-//   - nhóm tác giả và ghi chú nằm trong side sheet, mở từ hai nút ở header, đóng thì trả focus về nút đã bấm;
+//   - nhóm tác giả và ghi chú nằm trong một side sheet mở từ nút ở header, đóng thì trả focus về nút đó; số ghi chú hiện trên nút;
+//   - nút xóa bài học ở header cho mọi trạng thái; bài đã xuất bản có cảnh báo ảnh hưởng học viên và gửi cờ xác nhận;
 //   - khối lịch sử hiện mục gần nhất mặc định, mở đủ `Lần 1..N` khi bấm "Xem tất cả N lần";
 //   - thời gian ra đúng dạng `HH:mm · dd/MM/yyyy` 24 giờ, không có hậu tố 12 giờ;
 //   - `reviewer = null` hiện chuỗi thay thế thay vì khoảng trắng;
@@ -164,7 +166,7 @@ const deletableWorkflow = {
 describe("TopicWorkflowPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.notesSummary = { isVisible: true, count: 2, hasReadError: false };
+    mocks.notesSummary = { count: 2, hasReadError: false };
     mocks.deleteTopic.mockResolvedValue({ success: true, message: "Đã xóa bài học khỏi khóa học." });
     mocks.getTopicDeletePreviewProjection.mockResolvedValue({
       data: {
@@ -261,30 +263,34 @@ describe("TopicWorkflowPanel", () => {
     expect(screen.queryByText(/Còn thiếu/)).toBeNull();
   });
 
-  it("opens the team and notes sheet from either header button and returns focus on close", async () => {
+  it("opens the team and notes sheet from the header button and returns focus on close", async () => {
     render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
     expect(screen.queryByText("Nội dung nhóm tác giả")).toBeNull();
+    // Ghi chú không còn nút riêng.
+    expect(screen.queryByRole("button", { name: /^Ghi chú/ })).toBeNull();
 
-    const notesButton = screen.getByRole("button", { name: /^Ghi chú\s*:\s*2$/ });
-    fireEvent.click(notesButton);
+    const button = screen.getByRole("button", { name: /^Nhóm tác giả\s*,\s*1 người/ });
+    button.focus();
+    fireEvent.click(button);
     const sheet = await screen.findByRole("dialog", { name: "Nhóm tác giả và ghi chú" });
     expect(within(sheet).getByText("Nội dung nhóm tác giả")).toBeTruthy();
-    const notes = within(sheet).getByText("Nội dung ghi chú");
-    await waitFor(() => expect(document.activeElement).toBe(notes.parentElement));
+    expect(within(sheet).getByText("Nội dung ghi chú")).toBeTruthy();
 
     fireEvent.click(within(sheet).getByRole("button", { name: "Đóng" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(notesButton));
-
-    fireEvent.click(screen.getByRole("button", { name: /^Nhóm tác giả\s*,\s*1 người$/ }));
-    const reopened = await screen.findByRole("dialog");
-    const team = within(reopened).getByText("Nội dung nhóm tác giả");
-    await waitFor(() => expect(document.activeElement).toBe(team.parentElement));
+    await waitFor(() => expect(document.activeElement).toBe(button));
   });
 
-  it("signals a pending responsibility update and unreadable notes on the buttons", () => {
-    mocks.notesSummary = { isVisible: true, count: null, hasReadError: true };
-    render(
+  it("carries the note count, a pending responsibility update and unreadable notes on that button", () => {
+    const { rerender } = render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Nhóm tác giả.*2\s*ghi chú/ })).toBeTruthy();
+
+    mocks.notesSummary = { count: 0, hasReadError: false };
+    rerender(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /ghi chú/ })).toBeNull();
+
+    mocks.notesSummary = { count: null, hasReadError: true };
+    rerender(
       <Panel
         workflow={{
           ...baseWorkflow,
@@ -300,17 +306,38 @@ describe("TopicWorkflowPanel", () => {
         onRefresh={vi.fn()}
       />,
     );
-
-    expect(screen.getByRole("button", { name: /Nhóm tác giả.*có cập nhật cần xử lý/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ghi chú.*chưa tải được/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /có cập nhật cần xử lý.*chưa tải được ghi chú/ })).toBeTruthy();
   });
 
-  it("hides the notes button from someone who cannot read notes", () => {
-    mocks.notesSummary = { isVisible: false, count: null, hasReadError: false };
+  it("deletes a draft topic from the header and replaces the route with Structure", async () => {
     render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
 
-    expect(screen.queryByRole("button", { name: /Ghi chú/ })).toBeNull();
-    expect(screen.getByRole("button", { name: /Nhóm tác giả/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("note")).toBeNull();
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Xóa bài học" }));
+
+    await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
+      topicId: baseWorkflow.topicId,
+      confirmPublished: false,
+      unmarkTopicIds: [],
+    }));
+    await waitFor(() => expect(mocks.router.replace).toHaveBeenCalledWith(getCourseStructurePath(baseWorkflow.courseId)));
+  });
+
+  it("warns about learners and sends the confirmation flag when deleting a published topic", async () => {
+    render(<Panel workflow={{ ...baseWorkflow, status: "published" as const }} onRefresh={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học" }));
+    const dialog = await screen.findByRole("dialog");
+    expect((await within(dialog).findByRole("note")).textContent).toContain("không còn thấy bài học này");
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Xóa bài học" }));
+
+    await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
+      topicId: baseWorkflow.topicId,
+      confirmPublished: true,
+      unmarkTopicIds: [],
+    }));
   });
 
   it("renders the topic-scoped rejection history with the latest item open by default", () => {
@@ -600,9 +627,10 @@ describe("TopicWorkflowPanel", () => {
 
     await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
       topicId: baseWorkflow.topicId,
+      confirmPublished: false,
       unmarkTopicIds: [],
     }));
-    await waitFor(() => expect(mocks.router.push).toHaveBeenCalledWith(
+    await waitFor(() => expect(mocks.router.replace).toHaveBeenCalledWith(
       getCourseStructurePath(baseWorkflow.courseId),
     ));
     expect(mocks.router.refresh).not.toHaveBeenCalled();
@@ -619,7 +647,7 @@ describe("TopicWorkflowPanel", () => {
 
     await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalled());
     expect((await screen.findByRole("alert")).textContent).toContain("Không thể xóa bài học.");
-    expect(mocks.router.push).not.toHaveBeenCalled();
+    expect(mocks.router.replace).not.toHaveBeenCalled();
     expect(mocks.router.refresh).not.toHaveBeenCalled();
   });
 

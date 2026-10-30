@@ -11,7 +11,6 @@ import {
   CoursePreviewAllocationCard,
   CoursePreviewOverviewNotice,
   PreviewSuspensionNotice,
-  TopicPreviewMarkerToggle,
 } from "@/app/(teacher)/teacher/courses/[id]/_components/course-preview-controls";
 import PreviewQuotaResolutionDialog from "@/app/(teacher)/teacher/courses/[id]/_components/PreviewQuotaResolutionDialog";
 
@@ -117,50 +116,6 @@ describe("course preview controls", () => {
     expect(actionMocks.getCoursePreviewAllocation).toHaveBeenCalledWith(courseId);
     expect(screen.getByRole("link", { name: "Điều chỉnh bài học xem thử" }).getAttribute("href"))
       .toBe("/teacher/courses/11111111-1111-4111-8111-111111111111/structure");
-  });
-
-  it("keeps the quota-full marker discoverable but blocks an additional selection", () => {
-    const onChange = vi.fn();
-    const onShowAllocation = vi.fn();
-    render(
-      <TopicPreviewMarkerToggle
-        topicId={"44444444-4444-4444-8444-444444444444"}
-        title="Bài học mới"
-        status="pending"
-        allocation={suspendedAllocation()}
-        canManage
-        isUpdating={false}
-        onChange={onChange}
-        onShowAllocation={onShowAllocation}
-      />,
-    );
-
-    expect(screen.getByRole("checkbox", { name: "Đánh dấu xem thử: Bài học mới" }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByText("Bài học chưa xuất bản vẫn tính vào giới hạn nhưng chưa mở công khai.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Xem danh sách đã chọn" }));
-    expect(onShowAllocation).toHaveBeenCalledOnce();
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it("keeps an existing pending marker removable because preview status is not a content edit", () => {
-    const onChange = vi.fn().mockResolvedValue({ success: true });
-    const allocation = suspendedAllocation();
-    render(
-      <TopicPreviewMarkerToggle
-        topicId={topicIds[0]}
-        title="Bài học 1"
-        status="pending"
-        allocation={allocation}
-        canManage
-        isUpdating={false}
-        onChange={onChange}
-      />,
-    );
-
-    const checkbox = screen.getByRole("checkbox", { name: "Bỏ nhãn xem thử: Bài học 1" });
-    expect((checkbox as HTMLInputElement).disabled).toBe(false);
-    fireEvent.click(checkbox);
-    expect(onChange).toHaveBeenCalledWith({ unmarkTopicIds: [topicIds[0]] });
   });
 
   it("shows moderation cause only to managers and applies selected marker removals as one batch", async () => {

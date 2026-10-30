@@ -63,11 +63,10 @@ export function TopicReviewNotesProvider({
   );
 }
 
-// Nút mở ghi chú ở header cần biết có hiện được không và có bao nhiêu ghi chú, kể cả khi sheet đang đóng.
+// Nút mở sheet ở header cần biết có bao nhiêu ghi chú, kể cả khi sheet đang đóng.
 export function useTopicReviewNotesSummary() {
   const value = useContext(TopicReviewNotesContext);
   return {
-    isVisible: Boolean(value && (value.canRead || value.readError)),
     count: value?.notes?.length ?? null,
     hasReadError: Boolean(value?.readError),
   };

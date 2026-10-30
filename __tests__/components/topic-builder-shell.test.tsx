@@ -79,7 +79,7 @@ vi.mock("@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/Topic
 vi.mock("@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes", () => ({
   default: () => null,
   TopicReviewNotesProvider: ({ children }: { children: React.ReactNode }) => children,
-  useTopicReviewNotesSummary: () => ({ isVisible: false, count: null, hasReadError: false }),
+  useTopicReviewNotesSummary: () => ({ count: null, hasReadError: false }),
 }));
 
 // Test plan:
@@ -187,7 +187,7 @@ describe("TopicBuilderTabs shell", () => {
       `/teacher/courses/${courseId}/structure?chapter=${workflow.chapterId}`,
     );
     const names = screen.getAllByRole("tab").map((item) => item.textContent?.replace(/[:\d\s]+$/, ""));
-    expect(names).toEqual(["Từ vựng", "Memory check", "Bài tập", "Cài đặt"]);
+    expect(names).toEqual(["Từ vựng", "Memory check", "Bài tập"]);
     expect(tab(/^Bài tập/).getAttribute("aria-selected")).toBe("true");
     await waitFor(() => expect(mocks.getExercisesByTopicId).toHaveBeenCalled());
     // Tab chưa mở thì chưa tải dữ liệu (không phát server action thừa).
@@ -368,8 +368,8 @@ describe("TopicBuilderTabs shell", () => {
       act(() => {
         pending = window.fetch("/teacher", { method: "POST", headers: { "Next-Action": "abc" } });
       });
-      fireEvent.mouseDown(tab(/^Cài đặt/));
-      expect(tab(/^Cài đặt/).getAttribute("aria-selected")).toBe("true");
+      fireEvent.mouseDown(tab(/^Memory check/));
+      expect(tab(/^Memory check/).getAttribute("aria-selected")).toBe("true");
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(replaceStateSpy).not.toHaveBeenCalled();
 
@@ -378,7 +378,7 @@ describe("TopicBuilderTabs shell", () => {
         await pending;
       });
       await waitFor(() =>
-        expect(replaceStateSpy).toHaveBeenCalledWith(null, "", expect.stringMatching(/\?tab=settings$/)),
+        expect(replaceStateSpy).toHaveBeenCalledWith(null, "", expect.stringMatching(/\?tab=memory-check$/)),
       );
     } finally {
       window.fetch = originalFetch;
