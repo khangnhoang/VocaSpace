@@ -79,6 +79,7 @@ vi.mock("@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/Topic
 vi.mock("@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes", () => ({
   default: () => null,
   TopicReviewNotesProvider: ({ children }: { children: React.ReactNode }) => children,
+  useTopicReviewNotesSummary: () => ({ isVisible: false, count: null, hasReadError: false }),
 }));
 
 // Test plan:

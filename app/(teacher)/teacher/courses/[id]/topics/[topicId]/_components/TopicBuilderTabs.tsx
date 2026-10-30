@@ -297,7 +297,12 @@ function TopicBuilderShell({
 
   return (
     <div className="space-y-5">
-      <TopicWorkflowPanel workflow={workflow} onRefresh={refreshPage} />
+      <TopicWorkflowPanel
+        workflow={workflow}
+        onRefresh={refreshPage}
+        activeTab={activeTab}
+        onOpenTab={(tab) => void handleTabChange(tab)}
+      />
       {topGuidance ? (
         <DashboardIssueNotice
           guidance={topGuidance}

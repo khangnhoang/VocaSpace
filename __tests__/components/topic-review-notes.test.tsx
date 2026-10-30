@@ -46,9 +46,10 @@ vi.mock("sonner", () => ({
 //     `canRead=false` + `readError` mà `page.tsx` tạo ra khi đọc lỗi — đây là
 //     regression guard cho việc state `error` từng không thể tới được.
 // - Bảo mật/phân quyền: nút Sửa/Xóa chỉ hiện với note của chính mình; xoá là xoá mềm có xác nhận nêu hậu quả.
-// - Ổn định/resilience: body 2000 ký tự vẫn render; tombstone không hiện body.
+// - Ổn định/resilience: body 2000 ký tự vẫn render; tombstone không hiện body; chữ đang gõ còn nguyên
+//   khi đóng rồi mở lại side sheet (mục ghi chú unmount, provider vẫn sống).
 // - Invariant cần giữ: ghi chú không mang verdict — component không hiển thị trạng thái duyệt nào.
-// - Kết quả verify gần nhất: passed (12 test) bằng `npx vitest run __tests__/components/topic-review-notes.test.tsx`.
+// - Kết quả verify gần nhất: passed (13 test) bằng `npx vitest run __tests__/components/topic-review-notes.test.tsx`.
 
 const topicId = "11111111-1111-4111-8111-111111111111";
 const currentUserId = "22222222-2222-4222-8222-222222222222";
@@ -100,6 +101,28 @@ describe("TopicReviewNotes", () => {
     mocks.createReviewNote.mockResolvedValue({ success: true });
     mocks.updateReviewNote.mockResolvedValue({ success: true });
     mocks.removeReviewNote.mockResolvedValue({ success: true });
+  });
+
+  it("keeps the typed note when the sheet closes and opens again", () => {
+    const provider = (open: boolean) => (
+      <TopicReviewNotesProvider
+        topicId={topicId}
+        notes={[]}
+        readError={null}
+        currentUserId={currentUserId}
+        canRead
+        canReview
+      >
+        {open ? <TopicReviewNotes /> : null}
+      </TopicReviewNotesProvider>
+    );
+    const { rerender } = render(provider(true));
+    fireEvent.change(screen.getByLabelText("Nội dung ghi chú"), { target: { value: "Xem lại câu 3" } });
+
+    rerender(provider(false));
+    expect(screen.queryByLabelText("Nội dung ghi chú")).toBeNull();
+    rerender(provider(true));
+    expect((screen.getByLabelText("Nội dung ghi chú") as HTMLTextAreaElement).value).toBe("Xem lại câu 3");
   });
 
   it("does not render for a user who cannot read notes", () => {

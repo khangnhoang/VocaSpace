@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   FileEdit,
   Info,
@@ -27,9 +26,8 @@ import {
 import { deleteTopic, withdrawReviewToDraft } from "@/app/actions/topic";
 import { getTopicDeletePreviewProjection } from "@/app/actions/course-preview";
 import type { TopicRejectionEntry, TopicWorkflow } from "@/lib/schemas/topic-workflow";
-import { getCourseOverviewPath, getCourseStructurePath } from "@/lib/course-authoring/routes";
-import TopicAuthorshipSection from "./TopicAuthorshipSection";
-import TopicReviewNotes from "./TopicReviewNotes";
+import { getCourseOverviewPath, getCourseStructurePath, type TopicBuilderTab } from "@/lib/course-authoring/routes";
+import TopicTeamAndNotes from "./TopicTeamAndNotes";
 import PreviewQuotaResolutionDialog from "../../../_components/PreviewQuotaResolutionDialog";
 import BackButton from "./BackButton";
 import { useAuthoringGuard, useAuthoringNavigate } from "./authoring-guard";
@@ -37,6 +35,8 @@ import { useAuthoringGuard, useAuthoringNavigate } from "./authoring-guard";
 interface TopicWorkflowPanelProps {
   workflow: TopicWorkflow;
   onRefresh: () => void;
+  activeTab: TopicBuilderTab;
+  onOpenTab: (tab: TopicBuilderTab) => void;
 }
 
 const statusCopy: Record<
@@ -69,6 +69,8 @@ function formatReviewMoment(iso: string) {
   return `${time} · ${day}`;
 }
 
+const MEMORY_CHECK_GAP = "Mỗi câu memory check cần ít nhất 2 đáp án và 1 đáp án đúng trước khi gửi duyệt.";
+
 // D22/M18: lý do chặn gửi duyệt là MỘT nguồn duy nhất, dùng chung cho câu mô tả
 // vòng đời phía trên và cho affordance ngay tại action. Trả về `null` khi action
 // thật sự khả dụng, để không bao giờ hiện lý do quyền lúc nút đang bật.
@@ -84,12 +86,33 @@ function getSubmitBlockedReason(workflow: TopicWorkflow) {
   if (workflow.isCurrentUserContributor) {
     return "Chỉ người tạo hoặc người phụ trách có thể gửi bài học để duyệt.";
   }
-  if (!workflow.isMemoryCheckReady) return "Mỗi câu memory check cần ít nhất 2 đáp án và 1 đáp án đúng trước khi gửi duyệt.";
+  if (!workflow.isMemoryCheckReady) return MEMORY_CHECK_GAP;
   if (!workflow.isReady) return "Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.";
   if (!workflow.hasDistinctEligibleReviewer) return "Chưa có người duyệt phù hợp khác. Hãy thêm hoặc cấp quyền duyệt bài học cho một cộng tác viên.";
   // Chỉ tới đây khi DTO lệch với chính các điều kiện của `canRequestReview`; giữ
   // câu trung tính thay vì khẳng định bài học đã sẵn sàng gửi duyệt.
   return "Chưa thể gửi bài học để duyệt ở trạng thái hiện tại.";
+}
+
+// Chỉ người đang soạn bản nháp mới cần biết còn thiếu gì; đủ rồi thì không hiện gì cả.
+function getContentGaps(workflow: TopicWorkflow) {
+  if (workflow.status !== "draft" || !workflow.canEdit) return null;
+  const missing: string[] = [];
+  const tabs: { tab: TopicBuilderTab; label: string }[] = [];
+  if (workflow.activeFlashcardCount === 0) {
+    missing.push("1 flashcard");
+    tabs.push({ tab: "flashcards", label: "Mở tab Từ vựng" });
+  }
+  if (workflow.activeExerciseCount === 0) {
+    missing.push("1 bài tập");
+    tabs.push({ tab: "exercises", label: "Mở tab Bài tập" });
+  }
+  const messages = missing.length > 0 ? [`Còn thiếu ${missing.join(" và ")} để gửi duyệt.`] : [];
+  if (!workflow.isMemoryCheckReady) {
+    messages.push(MEMORY_CHECK_GAP);
+    tabs.push({ tab: "memory-check", label: "Mở tab Memory check" });
+  }
+  return messages.length > 0 ? { messages, tabs } : null;
 }
 
 function getNextAction(workflow: TopicWorkflow) {
@@ -107,7 +130,9 @@ function getNextAction(workflow: TopicWorkflow) {
       : "Bạn đang xem phiên bản đã xuất bản của bài học.";
   }
 
-  return getSubmitBlockedReason(workflow) ?? "Bài học đã sẵn sàng để gửi người duyệt kiểm tra.";
+  // Đủ điều kiện thì nút Gửi duyệt đã tự nói; thiếu nội dung thì khung cảnh báo nói, không lặp lại ở đây.
+  if (workflow.canEdit && !workflow.isCurrentUserContributor && getContentGaps(workflow)) return null;
+  return getSubmitBlockedReason(workflow);
 }
 
 function rejectionReviewerLabel(entry: TopicRejectionEntry) {
@@ -146,7 +171,7 @@ function personLabel(identity: TopicWorkflow["responsibleAuthor"]) {
   return identity.fullName?.trim() || identity.email || "Không rõ";
 }
 
-export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflowPanelProps) {
+export default function TopicWorkflowPanel({ workflow, onRefresh, activeTab, onOpenTab }: TopicWorkflowPanelProps) {
   const guard = useAuthoringGuard();
   const navigate = useAuthoringNavigate();
   const [isRejectOpen, setIsRejectOpen] = useState(false);
@@ -173,6 +198,8 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
   // trong lúc `canRequestReview === false`.
   const submitBlockedReason = getSubmitBlockedReason(workflow);
   const submitReasonCopy = submitBlockedReason ?? "Bài học đã sẵn sàng để gửi người duyệt kiểm tra.";
+  const nextAction = getNextAction(workflow);
+  const contentGaps = getContentGaps(workflow);
 
   // AC6: hành động vòng đời chỉ chạy sau khi editor đang sửa đã lưu thành công hoặc bị bỏ thay đổi.
   const runAfterLeave = async (action: () => void) => {
@@ -260,7 +287,8 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
   };
 
   const actions = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+      <TopicTeamAndNotes workflow={workflow} onRefresh={onRefresh} />
       {workflow.status === "draft" && workflow.canEdit ? (
         <div className="flex items-center gap-1">
           <Button
@@ -358,7 +386,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0 space-y-2 lg:flex-1">
           <h1
             id="topic-workflow-title"
             className="text-2xl leading-8 font-extrabold tracking-[-0.01em] text-slate-950 [overflow-wrap:anywhere] sm:text-[28px] sm:leading-9"
@@ -385,9 +413,9 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
                   : "Chỉ xem / soạn"}
             </span>
           </div>
-          <p className="max-w-3xl text-sm leading-6 text-slate-700">{getNextAction(workflow)}</p>
+          {nextAction ? <p className="max-w-3xl text-sm leading-6 text-slate-700">{nextAction}</p> : null}
         </div>
-        <div className="shrink-0">{actions}</div>
+        <div className="min-w-0 lg:max-w-[60%]">{actions}</div>
       </div>
 
       {/* D28/M18: a disabled button cannot take focus, so its `title` never
@@ -404,28 +432,34 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
         Chỉ người tạo hoặc người phụ trách có thể hủy yêu cầu duyệt.
       </span>
 
-      <ul className="flex flex-wrap gap-2" aria-label="Điều kiện gửi duyệt">
-        {[
-          { label: "Flashcard hoạt động", count: workflow.activeFlashcardCount },
-          { label: "Bài tập hoạt động", count: workflow.activeExerciseCount },
-        ].map((item) => (
-          <li
-            key={item.label}
-            className={`inline-flex flex-wrap items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm ${
-              item.count > 0 ? "border-growth-line bg-growth-quiet" : "border-attention-line bg-attention-quiet"
-            }`}
-          >
-            {item.count > 0 ? (
-              <CheckCircle2 className="size-4 text-growth" aria-hidden="true" />
-            ) : (
-              <AlertTriangle className="size-4 text-attention" aria-hidden="true" />
-            )}
-            <span className="font-semibold text-slate-900">{item.label}</span>
-            <span className="font-bold tabular-nums text-slate-950">{item.count}</span>
-            <span className="hidden text-slate-700 sm:inline">· Cần ít nhất 1 để gửi duyệt.</span>
-          </li>
-        ))}
-      </ul>
+      {contentGaps ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-attention-line bg-attention-quiet px-4 py-2.5 text-sm leading-6 text-slate-900">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <AlertTriangle className="mt-1 size-4 shrink-0 text-attention" aria-hidden="true" />
+            <div className="min-w-0">
+              {contentGaps.messages.map((message) => (
+                <p key={message}>{message}</p>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {contentGaps.tabs
+              .filter(({ tab }) => tab !== activeTab)
+              .map(({ tab, label }) => (
+                <Button
+                  key={tab}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 bg-white sm:min-h-8"
+                  onClick={() => onOpenTab(tab)}
+                >
+                  {label}
+                </Button>
+              ))}
+          </div>
+        </div>
+      ) : null}
 
       {frozen ? (
         <div
@@ -470,20 +504,6 @@ export default function TopicWorkflowPanel({ workflow, onRefresh }: TopicWorkflo
           Mở quản lý cộng tác viên để thêm hoặc cấp quyền duyệt bài học.
         </Link>
       ) : null}
-
-      <details className="group rounded-xl border border-slate-200 bg-slate-50/60 open:bg-white">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 text-sm font-semibold text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-route [&::-webkit-details-marker]:hidden">
-          Tác giả, cộng tác viên và ghi chú duyệt
-          <ChevronDown
-            className="size-4 text-slate-600 transition-transform duration-[220ms] group-open:rotate-180 motion-reduce:transition-none"
-            aria-hidden="true"
-          />
-        </summary>
-        <div className="space-y-4 px-4 pb-4">
-          <TopicAuthorshipSection workflow={workflow} onRefresh={onRefresh} />
-          <TopicReviewNotes />
-        </div>
-      </details>
 
       <PreviewQuotaResolutionDialog
         open={isDeleteDialogOpen}
