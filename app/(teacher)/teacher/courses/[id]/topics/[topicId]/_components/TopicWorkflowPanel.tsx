@@ -137,6 +137,14 @@ function getNextAction(workflow: TopicWorkflow) {
   return getSubmitBlockedReason(workflow);
 }
 
+function getReviewAccessLabel(workflow: TopicWorkflow) {
+  if (workflow.canReview) {
+    return workflow.role === "owner" || workflow.role === "co_owner" ? "Có quyền duyệt theo vai trò" : "Có quyền duyệt";
+  }
+  // Nhóm tác giả không được duyệt bài của chính mình, kể cả khi là chủ sở hữu hay đồng sở hữu khóa học.
+  return workflow.canEdit ? "Tác giả bài này, không tự duyệt được" : "Chỉ xem";
+}
+
 function rejectionReviewerLabel(entry: TopicRejectionEntry) {
   if (!entry.reviewer) return "không còn trong hệ thống";
   return entry.reviewer.fullName?.trim() || entry.reviewer.email || "không còn trong hệ thống";
@@ -412,11 +420,7 @@ export default function TopicWorkflowPanel({ workflow, onRefresh, activeTab, onO
             </span>
             <span className="text-slate-600">
               ·{" "}
-              {workflow.role === "owner" || workflow.role === "co_owner"
-                ? "Có quyền duyệt theo vai trò"
-                : workflow.canReview
-                  ? "Có quyền duyệt"
-                  : "Chỉ xem / soạn"}
+              {getReviewAccessLabel(workflow)}
             </span>
           </div>
           {nextAction ? <p className="max-w-3xl text-sm leading-6 text-slate-700">{nextAction}</p> : null}

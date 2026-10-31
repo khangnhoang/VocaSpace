@@ -143,6 +143,7 @@ const deletableWorkflow = {
 // - Case thành công:
 //   - thiếu nội dung hiện khung vàng nêu đúng phần thiếu, có nút mở tab cần bổ sung; đủ thì không hiện gì;
 //   - nhóm tác giả và ghi chú nằm trong một side sheet mở từ nút ở header, đóng thì trả focus về nút đó; số ghi chú hiện trên nút;
+//   - dòng quyền duyệt khớp `canReview` của đúng bài này: đồng sở hữu là tác giả bài không được ghi là có quyền duyệt;
 //   - nút xóa bài học ở header cho mọi trạng thái; bài đã xuất bản có cảnh báo ảnh hưởng học viên và gửi cờ xác nhận;
 //   - khối lịch sử hiện mục gần nhất mặc định, mở đủ `Lần 1..N` khi bấm "Xem tất cả N lần";
 //   - thời gian ra đúng dạng `HH:mm · dd/MM/yyyy` 24 giờ, không có hậu tố 12 giờ;
@@ -261,6 +262,20 @@ describe("TopicWorkflowPanel", () => {
 
     rerender(<Panel workflow={{ ...deletableWorkflow }} onRefresh={vi.fn()} />);
     expect(screen.queryByText(/Còn thiếu/)).toBeNull();
+  });
+
+  it.each([
+    { role: "owner", canReview: true, canEdit: false, label: "Có quyền duyệt theo vai trò" },
+    { role: "co_owner", canReview: true, canEdit: true, label: "Có quyền duyệt theo vai trò" },
+    { role: "editor", canReview: true, canEdit: false, label: "Có quyền duyệt" },
+    { role: "co_owner", canReview: false, canEdit: true, label: "Tác giả bài này, không tự duyệt được" },
+    { role: "editor", canReview: false, canEdit: true, label: "Tác giả bài này, không tự duyệt được" },
+    { role: "editor", canReview: false, canEdit: false, label: "Chỉ xem" },
+    { role: "previewer", canReview: false, canEdit: false, label: "Chỉ xem" },
+  ] as const)("labels $role with canReview=$canReview and canEdit=$canEdit as $label", ({ label, ...access }) => {
+    const { container } = render(<Panel workflow={{ ...baseWorkflow, ...access }} onRefresh={vi.fn()} />);
+
+    expect(container.querySelector("header")?.textContent).toContain(`· ${label}`);
   });
 
   it("opens the team and notes sheet from the header button and returns focus on close", async () => {
