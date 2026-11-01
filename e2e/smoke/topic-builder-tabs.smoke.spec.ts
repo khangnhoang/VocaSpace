@@ -13,7 +13,8 @@ import { expectTopicBuilder } from "../support/structure-ui";
 // Test plan:
 // - Mục tiêu: ACTION-QUEUE-001 / TFEAT4 AC12 trên production build: đổi tab nhanh trong lúc một server action còn
 //   chờ không làm tab treo hay mất lần lưu; deep link dashboard giữ tab và lời nhắc tới khi lưu xong; sau khi lưu,
-//   `Quay lại tổng quan` thật sự chuyển sang Overview.
+//   `Quay lại tổng quan` thật sự chuyển sang Overview. Ba tab vừa màn điện thoại từ 360px; ở 320px tab đang mở
+//   vẫn nằm trong vùng nhìn thấy.
 // - Loại test: smoke E2E, chạy trên CI (không skip). Server action được giữ lại bằng `page.route` trên request có
 //   header `next-action` để mô phỏng mạng chậm; request vẫn tới server thật.
 // - Đối tượng: TopicBuilderTabs (ghi `?tab=` sau khi action xong), FlashcardWorkbench (createCard), DashboardReturnFeedback.
@@ -41,6 +42,28 @@ async function addFlashcard(page: Page, word: string, translation: string) {
   await page.getByRole("textbox", { name: "Nghĩa" }).fill(translation);
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
 }
+
+test("all three tabs fit a phone and the open tab stays in view on the narrowest screen", async ({ page }) => {
+  const fixture = await prepareDashboardReturnFreshnessFixture();
+  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
+  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  const tabs = page.getByRole("tablist", { name: "Nội dung bài học" }).getByRole("tab");
+  const rightEdges = () => tabs.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().right));
+
+  await loginAsTeacher(page, fixture);
+  await page.setViewportSize({ width: 360, height: 700 });
+  await page.goto(getTopicBuilderPath(courseId, topicId, "flashcards"));
+  await expectTopicBuilder(page);
+  for (const edge of await rightEdges()) expect(edge).toBeLessThanOrEqual(360);
+
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.getByRole("tab", { name: /^Bài tập/ }).click();
+  await expect(page.getByRole("tab", { name: /^Bài tập/ })).toHaveAttribute("data-state", "active");
+  await expect
+    .poll(async () => page.getByRole("tab", { name: /^Bài tập/ }).evaluate((item) => item.getBoundingClientRect().right))
+    .toBeLessThanOrEqual(320);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+});
 
 test("fast tab switches while a save is in flight never strand a tab or drop the save", async ({ page }) => {
   const consoleGuard = watchBrowserConsole(page);

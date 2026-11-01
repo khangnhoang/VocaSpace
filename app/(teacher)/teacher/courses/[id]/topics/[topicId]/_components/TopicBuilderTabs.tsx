@@ -75,6 +75,7 @@ function TopicBuilderShell({
   const [manualActiveTab, setManualActiveTab] =
     useState<TopicBuilderTab | null>(null);
   const latestUrlWriteRef = useRef<string | null>(null);
+  const tabScrollerRef = useRef<HTMLDivElement>(null);
   // Dùng search ban đầu từ Server Component cho lần render đầu để tránh lệch hydration
   // khi URL có tham số dashboard nhưng client chưa đồng bộ search params.
   const search = useSyncExternalStore(
@@ -173,6 +174,17 @@ function TopicBuilderShell({
       return;
     }
   }, [issueDestinationState, navigate, staleTargetRedirectHref, topicId]);
+
+  // Màn quá hẹp phải cuộn ngang thì tab đang mở luôn nằm trong vùng nhìn thấy. Chỉ đổi scrollLeft của
+  // thanh tab, không dùng scrollIntoView vì nó có thể kéo cả trang theo chiều dọc.
+  useEffect(() => {
+    const scroller = tabScrollerRef.current;
+    const active = scroller?.querySelector('[role="tab"][data-state="active"]');
+    if (!scroller || !active) return;
+    const tabBox = active.getBoundingClientRect();
+    const scrollerBox = scroller.getBoundingClientRect();
+    scroller.scrollLeft += tabBox.left - scrollerBox.left - (scrollerBox.width - tabBox.width) / 2;
+  }, [activeTab]);
 
   // ACTION-QUEUE-001 (G8): URL được ghi qua hàng thao tác router nối tiếp của guard (không chồng lên
   // server action hay refresh); đổi tab liên tiếp trong lúc chờ chỉ ghi lần mới nhất.
@@ -327,12 +339,16 @@ function TopicBuilderShell({
         className="w-full gap-4"
       >
         {/* Tab grammar của Product Language: icon + nhãn, tab đang mở có màu Route Blue và vạch
-            dưới; hẹp quá thì cuộn ngang (ẩn thanh cuộn), không xuống dòng. */}
-        <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+            dưới. Trên điện thoại thu khoảng đệm để cả ba tab vừa từ 360px; hẹp hơn nữa mới cuộn ngang
+            (ẩn thanh cuộn), không xuống dòng. */}
+        <div
+          ref={tabScrollerRef}
+          className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+        >
           <TabsList
             variant="line"
             aria-label="Nội dung bài học"
-            className="flex! h-auto! w-full! min-w-max justify-start gap-1 rounded-none border-b border-slate-200 p-0"
+            className="flex! h-auto! w-full! min-w-max justify-start gap-0 rounded-none border-b border-slate-200 p-0 sm:gap-1"
           >
             {TAB_ITEMS.map(({ value, label, Icon }) => {
               const count = tabCounts[value];
@@ -340,12 +356,12 @@ function TopicBuilderShell({
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className="h-auto! min-h-11 flex-none gap-2 rounded-t-lg rounded-b-none border-0 px-3 py-2.5 text-sm font-semibold text-slate-600 transition-colors duration-[120ms] after:bottom-0! after:h-[3px]! after:rounded-t-[3px] after:bg-route! hover:bg-route-quiet hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-0 data-active:font-bold data-active:text-route motion-reduce:transition-none sm:px-4"
+                  className="h-auto! min-h-11 flex-auto gap-1 rounded-t-lg rounded-b-none border-0 px-1 py-2.5 text-sm font-semibold text-slate-600 transition-colors duration-[120ms] after:bottom-0! after:h-[3px]! after:rounded-t-[3px] after:bg-route! hover:bg-route-quiet hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset focus-visible:ring-offset-0 data-active:font-bold data-active:text-route motion-reduce:transition-none sm:flex-none sm:gap-2 sm:px-4"
                 >
-                  <Icon className="size-[18px]" aria-hidden="true" />
+                  <Icon className="size-4 sm:size-[18px]" aria-hidden="true" />
                   {label}
                   {count !== undefined ? (
-                    <span className="rounded-md bg-slate-100 px-1.5 text-xs font-bold tabular-nums text-slate-700">
+                    <span className="text-xs font-bold tabular-nums text-slate-700 sm:rounded-md sm:bg-slate-100 sm:px-1.5">
                       <span className="sr-only">: </span>
                       {count}
                     </span>
