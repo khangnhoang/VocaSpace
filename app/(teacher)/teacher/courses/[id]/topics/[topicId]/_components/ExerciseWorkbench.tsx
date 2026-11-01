@@ -93,7 +93,7 @@ function OutlineItem({
       id={domId}
       aria-current={isSelected ? "true" : undefined}
       onClick={onSelect}
-      className={`relative flex min-h-11 w-full min-w-0 flex-col items-start gap-0.5 py-2 pr-4 text-left outline-none transition-colors narrow-tall:scroll-mt-44 duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${indent} ${
+      className={`relative flex min-h-11 w-full min-w-0 flex-col items-start gap-0.5 py-2 pr-4 text-left outline-none transition-colors narrow-tall:scroll-mt-48 duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${indent} ${
         isSelected ? "bg-route-quiet" : "hover:bg-slate-50"
       }`}
     >
@@ -420,7 +420,7 @@ export default function ExerciseWorkbench({
                       aria-controls={childrenId}
                       aria-label={`${isOpen ? "Thu gọn" : "Mở"} nội dung bài tập ${exercise.title}`}
                       onClick={() => setExpandedById((current) => ({ ...current, [exercise.id]: !isOpen }))}
-                      className="flex w-11 shrink-0 items-center justify-center text-slate-600 outline-none transition-colors duration-[120ms] hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none"
+                      className="flex w-11 shrink-0 items-center justify-center text-slate-600 outline-none transition-colors narrow-tall:scroll-mt-48 duration-[120ms] hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none"
                     >
                       <ChevronDown
                         className={`size-4 transition-transform duration-[220ms] motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}

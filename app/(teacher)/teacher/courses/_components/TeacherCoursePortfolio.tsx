@@ -89,8 +89,7 @@ export default function TeacherCoursePortfolio({ result }: { result: TeacherCour
     : Date.parse(b.membership_created_at) - Date.parse(a.membership_created_at) || a.id.localeCompare(b.id, "en"));
   const visibleCourses = dense ? courses : courses.filter((course) => course.id !== continuation?.course?.id);
 
-  // html đã giữ scrollbar-gutter; bù lại phần margin mà scroll lock của Radix cộng lần hai.
-  return <div className="min-h-screen w-[calc(100%+var(--removed-body-scroll-bar-size,0px))] bg-slate-50 px-4 py-6 font-sans text-slate-900 sm:px-8 sm:py-9 lg:px-12">
+  return <div className="min-h-screen bg-slate-50 px-4 py-6 font-sans text-slate-900 sm:px-8 sm:py-9 lg:px-12">
     <div className="mx-auto max-w-310">
       <header className="mb-8 flex flex-col justify-between gap-6 border-b border-slate-200 pb-6 lg:flex-row lg:items-end">
         <div><Button asChild variant="link" className="mb-4 h-9 px-0 coarse-input:h-11"><Link href="/"><ArrowLeft aria-hidden="true" />Trang chủ</Link></Button><h1 ref={heading} tabIndex={-1} className="text-3xl font-extrabold leading-10 tracking-tight outline-none sm:text-[32px]">Khóa học của tôi</h1><p className="mt-2 text-sm leading-6 text-slate-600">Tiếp tục xây dựng, cộng tác và hoàn thiện bài học của bạn.</p></div>

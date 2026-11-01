@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateTopic } from "@/app/actions/topic";
 import { topicSchema } from "@/lib/schemas/topic";
@@ -18,8 +19,9 @@ interface TopicTitleEditorProps {
 
 const TITLE_TEXT = "text-2xl leading-8 font-extrabold tracking-[-0.01em] text-slate-950 sm:text-[28px] sm:leading-9";
 
-// Bấm vào tên để sửa ngay tại chỗ: Enter hoặc rời ô nhập thì lưu, Esc thì bỏ. Tên chưa lưu được
-// (sai độ dài, server từ chối) giữ nguyên trong ô nhập và báo lỗi ngay bên dưới.
+// Bấm vào tên để sửa ngay tại chỗ: Enter hoặc `Lưu tên` mới lưu (Decision 46.4: lưu rõ ràng, không tự
+// lưu), Esc hoặc `Hủy` thì bỏ. Rời ô nhập khi đã gõ thì giữ nguyên để guard hỏi lúc rời tab hay rời trang.
+// Tên chưa lưu được (sai độ dài, server từ chối) giữ nguyên trong ô nhập và báo lỗi ngay bên dưới.
 export default function TopicTitleEditor({ id, topicId, title, canEdit, onSaved }: TopicTitleEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(title);
@@ -29,7 +31,7 @@ export default function TopicTitleEditor({ id, topicId, title, canEdit, onSaved 
   const [saved, setSaved] = useState<{ from: string; to: string } | null>(null);
   const shownTitle = saved?.from === title ? saved.to : title;
   const triggerRef = useRef<HTMLButtonElement>(null);
-  // Bỏ ô nhập khỏi DOM cũng có thể phát blur; ref này chặn blur đó lưu lại lần nữa.
+  // Guard đọc cờ dirty ngay sau khi lưu hoặc bỏ, trước lần render tới, nên cần giá trị đồng bộ.
   const editingRef = useRef(false);
   const saveFlight = useSingleFlightSave();
   const errorId = `${id}-error`;
@@ -84,36 +86,61 @@ export default function TopicTitleEditor({ id, topicId, title, canEdit, onSaved 
   if (canEdit && isEditing) {
     return (
       <div className="min-w-0">
-        <h1 id={id} className="flex items-center gap-2">
-          <Input
-            autoFocus
-            value={value}
-            readOnly={isSaving}
-            aria-label="Tên bài học"
-            aria-busy={isSaving || undefined}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? errorId : undefined}
-            onFocus={(event) => event.currentTarget.select()}
-            onChange={(event) => {
-              setValue(event.target.value);
-              setError(null);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                void saveFlight.run(() => save(true));
-              } else if (event.key === "Escape" && !isSaving) {
-                event.preventDefault();
-                stop(true);
-              }
-            }}
-            onBlur={() => {
-              if (editingRef.current) void saveFlight.run(() => save(false));
-            }}
-            className={`-mx-2 h-auto min-w-0 flex-1 px-2 py-0.5 md:text-[28px] ${TITLE_TEXT}`}
-          />
-          {isSaving ? <Loader2 className="size-5 shrink-0 animate-spin text-route" aria-hidden="true" /> : null}
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 id={id} className="min-w-0 flex-[1_1_16rem]">
+            <Input
+              autoFocus
+              value={value}
+              readOnly={isSaving}
+              aria-label="Tên bài học"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => {
+                setValue(event.target.value);
+                setError(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void saveFlight.run(() => save(true));
+                } else if (event.key === "Escape" && !isSaving) {
+                  event.preventDefault();
+                  stop(true);
+                }
+              }}
+              onBlur={() => {
+                // Chưa gõ gì thì không có gì để giữ, trả về tiêu đề thường.
+                if (!isSaving && value.trim() === shownTitle) stop(false);
+              }}
+              className={`-mx-2 h-auto w-[calc(100%+1rem)] px-2 py-0.5 md:text-[28px] ${TITLE_TEXT}`}
+            />
+          </h1>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isSaving}
+              aria-busy={isSaving || undefined}
+              onClick={() => void saveFlight.run(() => save(true))}
+              className="min-h-11 sm:min-h-8"
+            >
+              {isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
+              {isSaving ? "Đang lưu…" : "Lưu tên"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isSaving}
+              onClick={() => stop(true)}
+              className="min-h-11 sm:min-h-8"
+            >
+              Hủy
+            </Button>
+          </div>
+        </div>
         {error ? (
           <p id={errorId} role="alert" className="mt-1 text-sm font-medium text-correction">
             {error}

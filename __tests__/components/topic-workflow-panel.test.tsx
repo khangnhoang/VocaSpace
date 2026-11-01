@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TopicWorkflowPanel from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthoringGuardProvider } from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/authoring-guard";
 import { getCourseStructurePath, type TopicBuilderTab } from "@/lib/course-authoring/routes";
 
 // Radix Tooltip đo kích thước qua ResizeObserver, mà jsdom không có API này.
@@ -322,6 +323,27 @@ describe("TopicWorkflowPanel", () => {
       />,
     );
     expect(screen.getByRole("button", { name: /có cập nhật cần xử lý.*chưa tải được ghi chú/ })).toBeTruthy();
+  });
+
+  // AC6: nút xóa chuyển lên header thì vẫn phải hỏi trước khi bỏ tên bài học đang gõ dở.
+  it("asks about a half-typed title before opening the header delete dialog", async () => {
+    render(
+      <AuthoringGuardProvider>
+        <Panel workflow={baseWorkflow} onRefresh={vi.fn()} />
+      </AuthoringGuardProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: baseWorkflow.title }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Tên bài học" }), { target: { value: "Tên đang gõ" } });
+    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học" }));
+
+    const prompt = await screen.findByRole("dialog", { name: "Lưu thay đổi trước khi rời đi?" });
+    expect(prompt.textContent).toContain("Tên bài học có thay đổi chưa lưu.");
+    expect(mocks.getTopicDeletePreviewProjection).not.toHaveBeenCalled();
+
+    fireEvent.click(within(prompt).getByRole("button", { name: "Tiếp tục sửa" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect((screen.getByRole("textbox", { name: "Tên bài học" }) as HTMLInputElement).value).toBe("Tên đang gõ");
   });
 
   it("deletes a draft topic from the header and replaces the route with Structure", async () => {

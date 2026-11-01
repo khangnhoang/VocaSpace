@@ -243,9 +243,11 @@ body {
 
 /* Radix khóa cuộn khi mở dialog/sheet và thêm margin-right bằng bề rộng thanh cuộn. `scrollbar-gutter` ở trên
    đã giữ chỗ đó rồi, nên bù thêm sẽ làm cả trang co lại rồi giãn ra khi mở và đóng. Tăng specificity vì
-   rule của thư viện được chèn vào sau file này. */
-html body[data-scroll-locked] {
-  margin-right: 0 !important;
+   rule của thư viện được chèn vào sau file này. Trình duyệt chưa hỗ trợ `scrollbar-gutter` thì vẫn cần phần bù. */
+@supports (scrollbar-gutter: stable) {
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
 }
 
 

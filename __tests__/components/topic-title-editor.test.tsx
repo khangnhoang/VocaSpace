@@ -19,10 +19,10 @@ vi.mock("sonner", () => ({ toast: mocks.toast }));
 // Test plan:
 // - Mục tiêu: sửa tên bài học ngay trên tiêu đề, thay cho ô tên ở tab Cài đặt đã bỏ.
 // - Loại test: component interaction trong jsdom, Server Action được mock.
-// - Case thành công: Enter và rời ô nhập đều lưu đúng một lần, tên mới hiện ngay, báo cho trang refresh;
-//   bài học đã xuất bản dùng cùng luồng, không có bước xác nhận.
+// - Case thành công: Enter và `Lưu tên` lưu đúng một lần, tên mới hiện ngay, báo cho trang refresh.
+// - Không tự lưu: rời ô nhập khi đã gõ thì không gọi action và giữ nguyên chữ; chưa gõ gì thì về tiêu đề thường.
 // - Case thất bại: tên quá ngắn không gọi action và báo ngay dưới ô nhập; server từ chối thì giữ chữ đang gõ.
-// - Hủy: Esc bỏ thay đổi, không gọi action, không lưu lại khi ô nhập biến mất; không đổi gì thì không gọi action.
+// - Hủy: Esc và `Hủy` bỏ thay đổi, không gọi action; không đổi gì thì không gọi action.
 // - Phân quyền: không có quyền sửa thì tên là chữ thường, không có nút.
 // - Guard (AC6): tên đang gõ dở tính là thay đổi chưa lưu; bỏ thay đổi trả về tên cũ.
 
@@ -61,14 +61,37 @@ describe("TopicTitleEditor", () => {
     expect(mocks.toast.success).toHaveBeenCalledWith("Đã cập nhật bài học.");
   });
 
-  it("saves once when the field loses focus", async () => {
+  it("saves once from the Lưu tên button", async () => {
     const { onSaved } = renderEditor();
+    fireEvent.change(startEditing(), { target: { value: "Bài học đổi tên" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lưu tên" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(mocks.updateTopic).toHaveBeenCalledTimes(1);
+  });
+
+  it("never saves on blur: a typed name stays in the field and an untouched one closes", () => {
+    renderEditor();
     const input = startEditing();
     fireEvent.change(input, { target: { value: "Bài học đổi tên" } });
     fireEvent.blur(input);
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
-    expect(mocks.updateTopic).toHaveBeenCalledTimes(1);
+    expect(mocks.updateTopic).not.toHaveBeenCalled();
+    expect((screen.getByRole("textbox", { name: "Tên bài học" }) as HTMLInputElement).value).toBe("Bài học đổi tên");
+
+    fireEvent.change(input, { target: { value: title } });
+    fireEvent.blur(input);
+    expect(screen.queryByRole("textbox", { name: "Tên bài học" })).toBeNull();
+    expect(mocks.updateTopic).not.toHaveBeenCalled();
+  });
+
+  it("discards from the Hủy button without saving", async () => {
+    renderEditor();
+    fireEvent.change(startEditing(), { target: { value: "Tên bỏ đi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
+
+    expect(await screen.findByRole("button", { name: title })).toBeTruthy();
+    expect(mocks.updateTopic).not.toHaveBeenCalled();
   });
 
   it("does not call the server when the name did not change", async () => {

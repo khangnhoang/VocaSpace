@@ -403,7 +403,7 @@ export default function FlashcardWorkbench({
                     type="button"
                     aria-current={isSelected ? "true" : undefined}
                     onClick={() => void requestSelection({ mode: "edit", cardId: card.id })}
-                    className={`relative flex min-h-14 w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left outline-none narrow-tall:scroll-mt-44 transition-colors duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${
+                    className={`relative flex min-h-14 w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left outline-none narrow-tall:scroll-mt-48 transition-colors duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${
                       isSelected ? "bg-route-quiet" : "hover:bg-slate-50"
                     }`}
                   >

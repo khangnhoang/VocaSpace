@@ -4,12 +4,14 @@ import {
   prepareDashboardReturnFreshnessFixture,
 } from "../../scripts/e2e/dashboard-return-freshness-fixture.mjs";
 import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { portfolioFixture, preparePortfolioFixture } from "../../scripts/e2e/teacher-course-portfolio-fixture.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 import { expectTopicBuilder } from "../support/structure-ui";
 
 // Test plan:
-// - Mục tiêu: mở side sheet nhóm tác giả không làm nội dung trang co lại hay nhảy ngang khi trang có thanh cuộn.
+// - Mục tiêu: mở side sheet nhóm tác giả, và hộp thoại ở trang danh sách khóa học, không làm nội dung trang co giãn
+//   hay nhảy ngang khi trang có thanh cuộn.
 // - Loại test: smoke E2E trên trình duyệt thật. Playwright mặc định ẩn thanh cuộn nên lỗi này không lộ ra;
 //   file này bật lại thanh cuộn và dùng cửa sổ thấp để trang chắc chắn phải cuộn.
 // - Đối tượng: khóa cuộn của Radix (`body[data-scroll-locked]`) cùng `scrollbar-gutter: stable` trong globals.css.
@@ -51,4 +53,28 @@ test("opening the author group sheet does not shift the page", async ({ page }) 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(await headerBox(page)).toEqual(before);
+});
+
+test("opening a dialog on the course portfolio does not shift the page", async ({ page }) => {
+  await preparePortfolioFixture();
+  await loginAsTeacher(page, { E2E_TEACHER_EMAIL: portfolioFixture.teacherEmail, E2E_TEACHER_PASSWORD: portfolioFixture.teacherPassword });
+  await page.goto("/teacher/courses");
+  // Không định vị theo role: hộp thoại mở thì phần còn lại của trang bị ẩn khỏi cây trợ năng.
+  const header = page.locator("header", { has: page.locator("h1", { hasText: "Khóa học của tôi" }) });
+  await expect(header).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight > innerHeight && document.documentElement.clientWidth < innerWidth),
+  ).toBe(true);
+  // Cuộn tới nút trước khi đo, để lần bấm không làm trang cuộn và lẫn vào phép so sánh.
+  const trash = page.getByRole("button", { name: "Đưa vào thùng rác", exact: true });
+  await trash.scrollIntoViewIfNeeded();
+  const before = await header.boundingBox();
+
+  await trash.click();
+  await expect(page.getByRole("dialog", { name: "Đưa khóa học vào thùng rác?" })).toBeVisible();
+  expect(await header.boundingBox()).toEqual(before);
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await header.boundingBox()).toEqual(before);
 });

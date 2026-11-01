@@ -167,9 +167,9 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
   const [isRouterBusy, startRouterTransition] = useTransition();
   const routerOpsRef = useRef<Promise<void>>(Promise.resolve());
 
-  const findDirtyEditor = useCallback(() => {
+  const findDirtyEditor = useCallback((settled?: Set<AuthoringEditorHandle>) => {
     for (const editor of editorsRef.current.values()) {
-      if (editor.isDirty()) return editor;
+      if (!settled?.has(editor) && editor.isDirty()) return editor;
     }
     return null;
   }, []);
@@ -182,18 +182,27 @@ export function AuthoringGuardProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const confirmLeave = useCallback(async () => {
-    const editor = findDirtyEditor();
-    if (!editor) return true;
-    const inFlight = editor.pendingSave?.();
-    // Lưu thành công nghĩa là dữ liệu đã ở server; chỉ hỏi khi lần lưu đó thất bại.
-    if (inFlight && (await inFlight)) return true;
-    pendingRef.current?.resolve(false);
-    return new Promise<boolean>((resolve) => {
-      const next = { editor, resolve };
-      pendingRef.current = next;
-      setSaveFailed(false);
-      setPending(next);
-    });
+    // Tên bài học và editor nội dung có thể cùng dở, nên xử lý lần lượt tới khi hết. `settled` giữ các
+    // editor đã lưu hoặc đã bỏ trong lượt này: cờ dirty của chúng chỉ đổi sau lần render tới, nếu không
+    // bỏ qua thì sẽ hỏi lại đúng editor vừa xử lý.
+    const settled = new Set<AuthoringEditorHandle>();
+    for (let editor = findDirtyEditor(settled); editor; editor = findDirtyEditor(settled)) {
+      const inFlight = editor.pendingSave?.();
+      // Lưu thành công nghĩa là dữ liệu đã ở server; chỉ hỏi khi lần lưu đó thất bại.
+      if (!(inFlight && (await inFlight))) {
+        pendingRef.current?.resolve(false);
+        const current = editor;
+        const proceed = await new Promise<boolean>((resolve) => {
+          const next = { editor: current, resolve };
+          pendingRef.current = next;
+          setSaveFailed(false);
+          setPending(next);
+        });
+        if (!proceed) return false;
+      }
+      settled.add(editor);
+    }
+    return true;
   }, [findDirtyEditor]);
 
   const settle = useCallback((proceed: boolean) => {

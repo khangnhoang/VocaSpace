@@ -165,7 +165,6 @@ export function CoursePreviewAllocationCard({
   canManage,
   onChange,
   onRefresh,
-  showTopicListAction = true,
   compact = false,
 }: {
   allocation: CoursePreviewAllocation | null;
@@ -175,7 +174,6 @@ export function CoursePreviewAllocationCard({
   canManage: boolean;
   onChange: (change: PreviewMarkerChange) => Promise<unknown>;
   onRefresh?: () => Promise<void> | void;
-  showTopicListAction?: boolean;
   /** Thanh quota một dòng cho trang Structure; danh sách bỏ nhãn vẫn mở rộng bên dưới. */
   compact?: boolean;
 }) {
@@ -321,7 +319,7 @@ export function CoursePreviewAllocationCard({
       {!compact && allocation?.markedTopics.length === 0 ? (
         <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
           <p>Chưa chọn bài học xem thử</p>
-          {canManage && showTopicListAction ? (
+          {canManage ? (
             <Button
               type="button"
               variant="link"
