@@ -343,7 +343,7 @@ function TopicBuilderShell({
             (ẩn thanh cuộn), không xuống dòng. */}
         <div
           ref={tabScrollerRef}
-          className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+          className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] narrow-tall:sticky narrow-tall:top-0 narrow-tall:z-20 narrow-tall:bg-slate-50 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
         >
           <TabsList
             variant="line"

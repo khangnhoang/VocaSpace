@@ -10,8 +10,9 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft, Eye, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -61,6 +62,45 @@ interface AuthoringWorkbenchProps {
   editorTitle: string;
   // Trả `false` khi người soạn chọn ở lại (editor vẫn mở).
   onRequestClose: () => Promise<boolean> | void;
+}
+
+// Đầu danh sách (tiêu đề, nút thêm, ô tìm) dính ngay dưới thanh tab, để danh sách dài vẫn thêm và tìm được.
+export const LIST_HEADER_CLASS = "rounded-t-2xl bg-white narrow-tall:sticky narrow-tall:top-[calc(2.75rem+1px)] narrow-tall:z-10";
+
+export function ListSearchField({
+  id,
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="border-b border-slate-200 px-4 py-3">
+      <label htmlFor={id} className="sr-only">
+        {label}
+      </label>
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500"
+          aria-hidden="true"
+        />
+        <Input
+          id={id}
+          type="search"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="h-10 pl-9"
+        />
+      </div>
+    </div>
+  );
 }
 
 export function PreviewPane({ children }: { children: ReactNode }) {

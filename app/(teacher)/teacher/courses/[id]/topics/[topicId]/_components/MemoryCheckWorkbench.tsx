@@ -37,11 +37,12 @@ import {
   PublishedImpactNotice,
   usePublishedEditWarning,
 } from "@/app/(teacher)/teacher/courses/[id]/_components/PublishedEditWarning";
-import AuthoringWorkbench from "./AuthoringWorkbench";
+import AuthoringWorkbench, { LIST_HEADER_CLASS, ListSearchField } from "./AuthoringWorkbench";
 import EditorFrame, { EmptyEditorPanel, FieldError } from "./EditorFrame";
 import { QuestionPreview } from "./LearnerPreview";
 import { OptionListEditor, buildEmptyOptions, getOptionProblem, type DraftOption } from "./authoring-options";
 import { useAuthoringGuard, useRegisterAuthoringEditor, useSingleFlightSave } from "./authoring-guard";
+import { matchesSearch } from "./authoring-search";
 
 interface MemoryCheckWorkbenchProps {
   topicId: string;
@@ -96,6 +97,7 @@ export default function MemoryCheckWorkbench({
   const [savedSignal, setSavedSignal] = useState(0);
   const [deleting, setDeleting] = useState<FullExerciseQuestion | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [query, setQuery] = useState("");
   const contentRef = useRef<HTMLInputElement | null>(null);
   const saveFlight = useSingleFlightSave();
   const draftRef = useRef(draft);
@@ -264,24 +266,38 @@ export default function MemoryCheckWorkbench({
   const editorTitle =
     selection?.mode === "edit" ? `Câu ${selectedIndex + 1}` : "Câu memory check mới";
 
+  const matchesQuery = (question: FullExerciseQuestion) =>
+    matchesSearch(query, [question.content, ...question.options.map((option) => option.content)]);
+
   const list = (
     <div className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">Câu memory check</h2>
-          <p className="text-xs font-medium text-slate-600">
-            {isLoading ? "Đang tải…" : questions.length === 0 ? "Tùy chọn · chưa có câu nào" : `Tùy chọn · ${questions.length} câu`}
-          </p>
+      <div className={LIST_HEADER_CLASS}>
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Câu memory check</h2>
+            <p className="text-xs font-medium text-slate-600">
+              {isLoading ? "Đang tải…" : questions.length === 0 ? "Tùy chọn · chưa có câu nào" : `Tùy chọn · ${questions.length} câu`}
+            </p>
+          </div>
+          {!readOnly ? (
+            <Button
+              type="button"
+              onClick={() => void requestSelection({ mode: "new" })}
+              disabled={isLoading || !!loadError}
+              className="min-h-11 lg:min-h-9"
+            >
+              <Plus aria-hidden="true" /> Thêm câu
+            </Button>
+          ) : null}
         </div>
-        {!readOnly ? (
-          <Button
-            type="button"
-            onClick={() => void requestSelection({ mode: "new" })}
-            disabled={isLoading || !!loadError}
-            className="min-h-11 lg:min-h-9"
-          >
-            <Plus aria-hidden="true" /> Thêm câu
-          </Button>
+        {questions.length > 0 ? (
+          <ListSearchField
+            id={`${idPrefix}-search`}
+            label="Tìm câu memory check"
+            placeholder="Tìm theo câu hỏi hoặc đáp án"
+            value={query}
+            onChange={setQuery}
+          />
         ) : null}
       </div>
       <p className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-sm leading-6 text-slate-600">
@@ -307,9 +323,13 @@ export default function MemoryCheckWorkbench({
             {readOnly ? "" : " Thêm câu đầu tiên nếu muốn kiểm tra ghi nhớ trước."}
           </p>
         </div>
+      ) : !questions.some(matchesQuery) ? (
+        <p className="px-4 py-8 text-center text-sm text-slate-600">Không có câu nào khớp “{query.trim()}”.</p>
       ) : (
-        <ol className="divide-y divide-slate-100">
+        <ol className="divide-y divide-slate-100 lg:max-h-[calc(100vh-18rem)] lg:overflow-y-auto">
           {questions.map((question, index) => {
+            // Lọc tại đây để giữ số thứ tự thật của câu trong bộ câu hỏi.
+            if (!matchesQuery(question)) return null;
             const isSelected = selection?.mode === "edit" && selection.questionId === question.id;
             const problem = getOptionProblem(question.options);
             return (
@@ -318,7 +338,7 @@ export default function MemoryCheckWorkbench({
                   type="button"
                   aria-current={isSelected ? "true" : undefined}
                   onClick={() => void requestSelection({ mode: "edit", questionId: question.id })}
-                  className={`relative flex min-h-14 w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left outline-none transition-colors duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${
+                  className={`relative flex min-h-14 w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left outline-none narrow-tall:scroll-mt-44 transition-colors duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${
                     isSelected ? "bg-route-quiet" : "hover:bg-slate-50"
                   }`}
                 >

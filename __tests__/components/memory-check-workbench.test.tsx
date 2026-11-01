@@ -119,6 +119,27 @@ describe("MemoryCheckWorkbench", () => {
     expect(onMutationSuccess).not.toHaveBeenCalled();
   });
 
+  it("searches questions and options while keeping each question's real number", async () => {
+    mocks.getMemoryCheckByTopicId.mockResolvedValue({
+      data: {
+        id: "memory-1",
+        questions: [question("q1", "Progress nghĩa là gì?"), { ...question("q2", "Budget nghĩa là gì?"), options: [{ id: "o", content: "ngân sách", is_correct: true, label: "A" }] }],
+      },
+    });
+    await renderSection();
+    const box = screen.getByRole("searchbox", { name: "Tìm câu memory check" });
+
+    fireEvent.change(box, { target: { value: "ngan sach" } });
+    expect(screen.getByRole("button", { name: /^Câu 2 ·/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Câu 1 ·/ })).toBeNull();
+
+    fireEvent.change(box, { target: { value: "không có" } });
+    expect(screen.getByText("Không có câu nào khớp “không có”.")).toBeTruthy();
+
+    fireEvent.change(box, { target: { value: "" } });
+    expect(screen.getByRole("button", { name: /^Câu 1 ·/ })).toBeTruthy();
+  });
+
   it("edits an existing question, keeping option ids and moving the correct answer", async () => {
     mocks.getMemoryCheckByTopicId.mockResolvedValue({ data: { id: "memory-1", questions: [question("q1", "Câu 1")] } });
     await renderSection();

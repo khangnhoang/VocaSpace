@@ -100,6 +100,8 @@ describe("ExerciseWorkbench on a published topic", () => {
 
   const renderTab = async (isPublished: boolean) => {
     render(<ExerciseWorkbench topicId={topicId} isPublished={isPublished} />);
+    // Bài tập thu gọn mặc định; mở ra để các case chọn được câu hỏi bên trong.
+    fireEvent.click(await screen.findByRole("button", { name: "Mở nội dung bài tập Part 5 bài 1" }));
     await screen.findByRole("button", { name: /Câu 1\. He ___ to work\./ });
   };
 

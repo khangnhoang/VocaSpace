@@ -41,7 +41,7 @@ test("teacher creates and persists a TOEIC Part 7 exercise through the browser U
 
   await page.getByRole("button", { name: "Lưu bài tập" }).click();
 
-  await expect(page.getByRole("button", { name: new RegExp(title) })).toBeVisible();
+  await expect(page.getByRole("button", { name: new RegExp(`^${title}`) })).toBeVisible();
 
   const persisted = await assertExerciseAuthoringSmokePersisted(title);
   expect(persisted.exerciseId).toEqual(expect.any(String));

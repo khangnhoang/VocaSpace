@@ -19,6 +19,13 @@
   }
 }
 
+/* Dưới mốc `lg` và đủ cao để phần tử dính không che gần hết màn (điện thoại nằm ngang, zoom 200% thì không dính). */
+@custom-variant narrow-tall {
+  @media (max-width: 1023.98px) and (min-height: 600px) {
+    @slot;
+  }
+}
+
 /* 1. THANH CUỘN MẶC ĐỊNH CHO (CLIENT) - TÔNG SÁNG / BLUE */
 ::-webkit-scrollbar {
   width: 10px;

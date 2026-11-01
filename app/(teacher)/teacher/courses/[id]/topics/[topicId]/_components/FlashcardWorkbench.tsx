@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BookType, ChevronDown, Loader2, Plus, Search } from "lucide-react";
+import { BookType, ChevronDown, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,7 @@ import { cardSchema, type CardFormValues } from "@/lib/schemas/card";
 import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-success";
 import { PUBLISHED_DELETE_IMPACT } from "@/lib/course-authoring/published-edit-impact";
 import { PublishedImpactNotice } from "@/app/(teacher)/teacher/courses/[id]/_components/PublishedEditWarning";
-import AuthoringWorkbench from "./AuthoringWorkbench";
+import AuthoringWorkbench, { LIST_HEADER_CLASS, ListSearchField } from "./AuthoringWorkbench";
 import EditorFrame, { EmptyEditorPanel, FieldError } from "./EditorFrame";
 import { FlashcardPreview } from "./LearnerPreview";
 import { useAuthoringGuard, useRegisterAuthoringEditor, useSingleFlightSave } from "./authoring-guard";
@@ -339,45 +339,35 @@ export default function FlashcardWorkbench({
 
   const list = (
     <div className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">Thẻ từ vựng</h2>
-          <p className="text-xs font-medium text-slate-600">
-            {isLoading ? "Đang tải…" : `${cards.length} thẻ`}
-          </p>
+      <div className={LIST_HEADER_CLASS}>
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Thẻ từ vựng</h2>
+            <p className="text-xs font-medium text-slate-600">
+              {isLoading ? "Đang tải…" : `${cards.length} thẻ`}
+            </p>
+          </div>
+          {!readOnly ? (
+            <Button
+              type="button"
+              onClick={() => void requestSelection({ mode: "new" })}
+              disabled={isLoading || !!loadError}
+              className="min-h-11 lg:min-h-9"
+            >
+              <Plus aria-hidden="true" /> Thêm thẻ
+            </Button>
+          ) : null}
         </div>
-        {!readOnly ? (
-          <Button
-            type="button"
-            onClick={() => void requestSelection({ mode: "new" })}
-            disabled={isLoading || !!loadError}
-            className="min-h-11 lg:min-h-9"
-          >
-            <Plus aria-hidden="true" /> Thêm thẻ
-          </Button>
+        {cards.length > 0 ? (
+          <ListSearchField
+            id={`${fieldPrefix}-search`}
+            label="Tìm thẻ từ vựng"
+            placeholder="Tìm theo từ hoặc nghĩa"
+            value={query}
+            onChange={setQuery}
+          />
         ) : null}
       </div>
-      {cards.length > 0 ? (
-        <div className="border-b border-slate-200 px-4 py-3">
-          <label htmlFor={`${fieldPrefix}-search`} className="sr-only">
-            Tìm thẻ từ vựng
-          </label>
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500"
-              aria-hidden="true"
-            />
-            <Input
-              id={`${fieldPrefix}-search`}
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Tìm theo từ hoặc nghĩa"
-              className="h-10 pl-9"
-            />
-          </div>
-        </div>
-      ) : null}
       <div className="min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-600" role="status">
@@ -413,7 +403,7 @@ export default function FlashcardWorkbench({
                     type="button"
                     aria-current={isSelected ? "true" : undefined}
                     onClick={() => void requestSelection({ mode: "edit", cardId: card.id })}
-                    className={`relative flex min-h-14 w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left outline-none transition-colors duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${
+                    className={`relative flex min-h-14 w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left outline-none narrow-tall:scroll-mt-44 transition-colors duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${
                       isSelected ? "bg-route-quiet" : "hover:bg-slate-50"
                     }`}
                   >

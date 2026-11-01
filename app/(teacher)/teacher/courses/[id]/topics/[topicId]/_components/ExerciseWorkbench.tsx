@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ClipboardList, FileText, Loader2, Plus } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, ClipboardList, FileText, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,16 +20,17 @@ import type { CourseAuthoringSuccessEvent } from "@/lib/course-authoring/issue-s
 import { resolveExerciseIssueGuidance, type DashboardIssueGuidance } from "@/lib/course-authoring/issue-guidance";
 import { PUBLISHED_DELETE_IMPACT } from "@/lib/course-authoring/published-edit-impact";
 import { PublishedImpactNotice } from "@/app/(teacher)/teacher/courses/[id]/_components/PublishedEditWarning";
-import AuthoringWorkbench from "./AuthoringWorkbench";
+import AuthoringWorkbench, { LIST_HEADER_CLASS, ListSearchField } from "./AuthoringWorkbench";
 import { EmptyEditorPanel } from "./EditorFrame";
 import ExerciseComposer from "./ExerciseComposer";
 import { ExerciseBasicEditor, GroupEditor, QuestionEditor } from "./ExerciseNodeEditors";
 import {
-  TOEIC_PART_LABELS,
+  countNestedProblems,
+  filterExerciseOutline,
   getExerciseProblem,
+  getExerciseSummary,
   getGroupProblem,
   getQuestionProblem,
-  getStandaloneQuestions,
   nodeKey,
   resolveNode,
   type ExerciseNode,
@@ -92,7 +93,7 @@ function OutlineItem({
       id={domId}
       aria-current={isSelected ? "true" : undefined}
       onClick={onSelect}
-      className={`relative flex min-h-11 w-full flex-col items-start gap-0.5 py-2 pr-4 text-left outline-none transition-colors duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${indent} ${
+      className={`relative flex min-h-11 w-full min-w-0 flex-col items-start gap-0.5 py-2 pr-4 text-left outline-none transition-colors narrow-tall:scroll-mt-44 duration-[120ms] focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none ${indent} ${
         isSelected ? "bg-route-quiet" : "hover:bg-slate-50"
       }`}
     >
@@ -144,6 +145,10 @@ export default function ExerciseWorkbench({
   const [deletingExercise, setDeletingExercise] = useState<FullExercise | null>(null);
   const [deletingQuestion, setDeletingQuestion] = useState<FullExerciseQuestion | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [query, setQuery] = useState("");
+  // Chỉ lưu lựa chọn người soạn đã bấm; chưa bấm thì bài đang sửa hoặc được dashboard trỏ tới tự mở.
+  const [expandedById, setExpandedById] = useState<Record<string, boolean>>({});
+  const fieldPrefix = useId();
   const issueContextRef = useRef(dashboardIssueContext);
   const autoSelectedRef = useRef(false);
   useEffect(() => {
@@ -320,25 +325,41 @@ export default function ExerciseWorkbench({
   }
 
   const isSelected = (node: ExerciseNode) => selectedKey === nodeKey(node);
+  const isSearching = query.trim().length > 0;
+  const selectedExerciseId = selection && selection.kind !== "compose" ? selection.exerciseId : null;
+  const visibleOutlines = exercises
+    .map((exercise) => ({ exercise, outline: filterExerciseOutline(exercise, query) }))
+    .filter(({ outline }) => outline.isVisible);
 
   const list = (
     <div className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">Bài tập TOEIC</h2>
-          <p className="text-xs font-medium text-slate-600">
-            {isLoading ? "Đang tải…" : `${exercises.length} bài tập`}
-          </p>
+      <div className={LIST_HEADER_CLASS}>
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Bài tập TOEIC</h2>
+            <p className="text-xs font-medium text-slate-600">
+              {isLoading ? "Đang tải…" : `${exercises.length} bài tập`}
+            </p>
+          </div>
+          {!readOnly ? (
+            <Button
+              type="button"
+              onClick={() => void requestSelection({ kind: "compose" })}
+              disabled={isLoading || !!loadError}
+              className="min-h-11 lg:min-h-9"
+            >
+              <Plus aria-hidden="true" /> Thêm bài tập
+            </Button>
+          ) : null}
         </div>
-        {!readOnly ? (
-          <Button
-            type="button"
-            onClick={() => void requestSelection({ kind: "compose" })}
-            disabled={isLoading || !!loadError}
-            className="min-h-11 lg:min-h-9"
-          >
-            <Plus aria-hidden="true" /> Thêm bài tập
-          </Button>
+        {exercises.length > 0 ? (
+          <ListSearchField
+            id={`${fieldPrefix}-search`}
+            label="Tìm bài tập"
+            placeholder="Tìm theo tên hoặc nội dung"
+            value={query}
+            onChange={setQuery}
+          />
         ) : null}
       </div>
       {isLoading ? (
@@ -360,96 +381,131 @@ export default function ExerciseWorkbench({
             {readOnly ? "Bài học này chưa có bài tập." : "Bấm “Thêm bài tập” để tạo bài đầu tiên."}
           </p>
         </div>
+      ) : visibleOutlines.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-slate-600">Không có bài tập nào khớp “{query.trim()}”.</p>
       ) : (
         <ul className="divide-y divide-slate-100 lg:max-h-[calc(100vh-18rem)] lg:overflow-y-auto" aria-label="Cấu trúc bài tập">
-          {exercises.map((exercise) => {
+          {visibleOutlines.map(({ exercise, outline }) => {
             const exerciseNode: ExerciseNode = { kind: "exercise", exerciseId: exercise.id };
-            const standalone = getStandaloneQuestions(exercise);
+            const isOpen =
+              isSearching ||
+              (expandedById[exercise.id] ?? (selectedExerciseId === exercise.id || targetNode?.exerciseId === exercise.id));
+            const childrenId = `${fieldPrefix}-children-${exercise.id}`;
+            const nestedProblems = countNestedProblems(exercise);
             return (
               <li key={exercise.id} className="py-1">
-                <OutlineItem
-                  level={0}
-                  domId={`outline-${nodeKey(exerciseNode)}`}
-                  label={exercise.title}
-                  detail={TOEIC_PART_LABELS[exercise.part_type]?.short ?? exercise.part_type}
-                  problem={getExerciseProblem(exercise)}
-                  isSelected={isSelected(exerciseNode)}
-                  isTarget={targetKey === nodeKey(exerciseNode)}
-                  onSelect={() => void requestSelection(exerciseNode)}
-                />
-                {(exercise.groups ?? []).length > 0 ? (
-                  <ul>
-                    {exercise.groups.map((group, gIndex) => {
-                      const groupNode: ExerciseNode = { kind: "group", exerciseId: exercise.id, groupId: group.id };
-                      const contextParts = [
-                        group.passage_text?.trim() ? "đoạn văn" : null,
-                        group.audio_url?.trim() ? "audio" : null,
-                        group.image_url?.trim() ? "hình ảnh" : null,
-                      ].filter(Boolean);
-                      return (
-                        <li key={group.id}>
-                          <OutlineItem
-                            level={1}
-                            domId={`outline-${nodeKey(groupNode)}`}
-                            label={`Nhóm ${gIndex + 1}`}
-                            detail={contextParts.length > 0 ? `Ngữ liệu: ${contextParts.join(", ")}` : "Chưa có ngữ liệu"}
-                            problem={getGroupProblem(exercise, group)}
-                            isSelected={isSelected(groupNode)}
-                            isTarget={targetKey === nodeKey(groupNode)}
-                            onSelect={() => void requestSelection(groupNode)}
-                          />
-                          <ul>
-                            {(group.questions ?? []).map((question, qIndex) => {
-                              const questionNode: ExerciseNode = {
-                                kind: "question",
-                                exerciseId: exercise.id,
-                                groupId: group.id,
-                                questionId: question.id,
-                              };
-                              return (
-                                <li key={question.id}>
-                                  <OutlineItem
-                                    level={2}
-                                    domId={`outline-${nodeKey(questionNode)}`}
-                                    label={`Câu ${qIndex + 1}. ${question.content || "(chưa có nội dung)"}`}
-                                    problem={getQuestionProblem(question)}
-                                    isSelected={isSelected(questionNode)}
-                                    isTarget={targetKey === nodeKey(questionNode)}
-                                    onSelect={() => void requestSelection(questionNode)}
-                                  />
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-                {standalone.length > 0 ? (
-                  <ul>
-                    {standalone.map((question, qIndex) => {
-                      const questionNode: ExerciseNode = {
-                        kind: "question",
-                        exerciseId: exercise.id,
-                        groupId: null,
-                        questionId: question.id,
-                      };
-                      return (
-                        <li key={question.id}>
-                          <OutlineItem
-                            level={1}
-                            domId={`outline-${nodeKey(questionNode)}`}
-                            label={`Câu ${qIndex + 1}. ${question.content || "(chưa có nội dung)"}`}
-                            problem={getQuestionProblem(question)}
-                            isSelected={isSelected(questionNode)}
-                            isTarget={targetKey === nodeKey(questionNode)}
-                            onSelect={() => void requestSelection(questionNode)}
-                          />
-                        </li>
-                      );
-                    })}
-                  </ul>
+                <div className={`flex items-stretch ${isSelected(exerciseNode) ? "bg-route-quiet" : ""}`}>
+                  <OutlineItem
+                    level={0}
+                    domId={`outline-${nodeKey(exerciseNode)}`}
+                    label={exercise.title}
+                    detail={getExerciseSummary(exercise)}
+                    problem={
+                      getExerciseProblem(exercise) ??
+                      (!isOpen && nestedProblems > 0 ? `Có ${nestedProblems} mục cần sửa` : null)
+                    }
+                    isSelected={isSelected(exerciseNode)}
+                    isTarget={targetKey === nodeKey(exerciseNode)}
+                    onSelect={() => {
+                      void requestSelection(exerciseNode).then((selected) => {
+                        if (selected) setExpandedById((current) => ({ ...current, [exercise.id]: true }));
+                      });
+                    }}
+                  />
+                  {/* Đang tìm thì mọi bài khớp đều mở sẵn, nút thu gọn không còn tác dụng nên ẩn đi. */}
+                  {!isSearching ? (
+                    <button
+                      type="button"
+                      aria-expanded={isOpen}
+                      aria-controls={childrenId}
+                      aria-label={`${isOpen ? "Thu gọn" : "Mở"} nội dung bài tập ${exercise.title}`}
+                      onClick={() => setExpandedById((current) => ({ ...current, [exercise.id]: !isOpen }))}
+                      className="flex w-11 shrink-0 items-center justify-center text-slate-600 outline-none transition-colors duration-[120ms] hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset motion-reduce:transition-none"
+                    >
+                      <ChevronDown
+                        className={`size-4 transition-transform duration-[220ms] motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ) : null}
+                </div>
+                {isOpen ? (
+                  <div id={childrenId}>
+                    {outline.groups.length > 0 ? (
+                      <ul>
+                        {outline.groups.map(({ group, index: gIndex, questions }) => {
+                          const groupNode: ExerciseNode = { kind: "group", exerciseId: exercise.id, groupId: group.id };
+                          const contextParts = [
+                            group.passage_text?.trim() ? "đoạn văn" : null,
+                            group.audio_url?.trim() ? "audio" : null,
+                            group.image_url?.trim() ? "hình ảnh" : null,
+                          ].filter(Boolean);
+                          return (
+                            <li key={group.id}>
+                              <OutlineItem
+                                level={1}
+                                domId={`outline-${nodeKey(groupNode)}`}
+                                label={`Nhóm ${gIndex + 1}`}
+                                detail={contextParts.length > 0 ? `Ngữ liệu: ${contextParts.join(", ")}` : "Chưa có ngữ liệu"}
+                                problem={getGroupProblem(exercise, group)}
+                                isSelected={isSelected(groupNode)}
+                                isTarget={targetKey === nodeKey(groupNode)}
+                                onSelect={() => void requestSelection(groupNode)}
+                              />
+                              <ul>
+                                {questions.map(({ item: question, index: qIndex }) => {
+                                  const questionNode: ExerciseNode = {
+                                    kind: "question",
+                                    exerciseId: exercise.id,
+                                    groupId: group.id,
+                                    questionId: question.id,
+                                  };
+                                  return (
+                                    <li key={question.id}>
+                                      <OutlineItem
+                                        level={2}
+                                        domId={`outline-${nodeKey(questionNode)}`}
+                                        label={`Câu ${qIndex + 1}. ${question.content || "(chưa có nội dung)"}`}
+                                        problem={getQuestionProblem(question)}
+                                        isSelected={isSelected(questionNode)}
+                                        isTarget={targetKey === nodeKey(questionNode)}
+                                        onSelect={() => void requestSelection(questionNode)}
+                                      />
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                    {outline.standalone.length > 0 ? (
+                      <ul>
+                        {outline.standalone.map(({ item: question, index: qIndex }) => {
+                          const questionNode: ExerciseNode = {
+                            kind: "question",
+                            exerciseId: exercise.id,
+                            groupId: null,
+                            questionId: question.id,
+                          };
+                          return (
+                            <li key={question.id}>
+                              <OutlineItem
+                                level={1}
+                                domId={`outline-${nodeKey(questionNode)}`}
+                                label={`Câu ${qIndex + 1}. ${question.content || "(chưa có nội dung)"}`}
+                                problem={getQuestionProblem(question)}
+                                isSelected={isSelected(questionNode)}
+                                isTarget={targetKey === nodeKey(questionNode)}
+                                onSelect={() => void requestSelection(questionNode)}
+                              />
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                  </div>
                 ) : null}
               </li>
             );

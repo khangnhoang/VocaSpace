@@ -6,6 +6,7 @@ import {
   type FullExerciseQuestion,
 } from "@/lib/schemas/exercise";
 import { getOptionProblem } from "./authoring-options";
+import { matchesSearch } from "./authoring-search";
 
 export const TOEIC_PART_LABELS: Record<string, { short: string; title: string; needs: string }> = {
   part1: {
@@ -69,6 +70,50 @@ export function getGroupProblem(exercise: FullExercise, group: FullExerciseGroup
 export function getQuestionProblem(question: FullExerciseQuestion) {
   if (!question.content?.trim()) return "Thiếu nội dung câu hỏi";
   return getOptionProblem(question.options ?? []);
+}
+
+export function getPartLabel(exercise: FullExercise) {
+  return TOEIC_PART_LABELS[exercise.part_type]?.short ?? exercise.part_type;
+}
+
+// Dòng tóm tắt khi bài tập đang thu gọn, ví dụ "Part 7 · 1 nhóm · 2 câu".
+export function getExerciseSummary(exercise: FullExercise) {
+  const groups = exercise.groups ?? [];
+  const questionCount =
+    getStandaloneQuestions(exercise).length +
+    groups.reduce((total, group) => total + (group.questions?.length ?? 0), 0);
+  return [getPartLabel(exercise), groups.length > 0 ? `${groups.length} nhóm` : null, `${questionCount} câu`]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// Thu gọn không được giấu vấn đề của nhóm và câu bên trong, nên đếm để hiện ngay trên dòng bài tập.
+export function countNestedProblems(exercise: FullExercise) {
+  const groups = exercise.groups ?? [];
+  const questions = [...getStandaloneQuestions(exercise), ...groups.flatMap((group) => group.questions ?? [])];
+  return (
+    groups.filter((group) => getGroupProblem(exercise, group)).length +
+    questions.filter((question) => getQuestionProblem(question)).length
+  );
+}
+
+// Tên bài tập khớp thì hiện cả bài; nhóm khớp ngữ liệu thì hiện cả nhóm; còn lại chỉ giữ câu khớp.
+// Luôn trả kèm vị trí gốc để "Nhóm 2", "Câu 3" không đổi số khi đang lọc. `query` rỗng là hiện tất cả.
+export function filterExerciseOutline(exercise: FullExercise, query: string) {
+  const showExercise = matchesSearch(query, [exercise.title, getPartLabel(exercise)]);
+  const withIndex = <T,>(items: T[]) => items.map((item, index) => ({ item, index }));
+  const keepQuestions = (questions: FullExerciseQuestion[], showAll: boolean) =>
+    withIndex(questions).filter(({ item }) => showAll || matchesSearch(query, [item.content]));
+
+  const groups = withIndex(exercise.groups ?? [])
+    .map(({ item: group, index }) => {
+      const showGroup = showExercise || matchesSearch(query, [group.passage_text]);
+      return { group, index, showGroup, questions: keepQuestions(group.questions ?? [], showGroup) };
+    })
+    .filter(({ showGroup, questions }) => showGroup || questions.length > 0);
+  const standalone = keepQuestions(getStandaloneQuestions(exercise), showExercise);
+
+  return { isVisible: showExercise || groups.length > 0 || standalone.length > 0, groups, standalone };
 }
 
 export type ExerciseNode =

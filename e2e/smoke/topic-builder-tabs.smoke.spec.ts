@@ -14,7 +14,7 @@ import { expectTopicBuilder } from "../support/structure-ui";
 // - Mục tiêu: ACTION-QUEUE-001 / TFEAT4 AC12 trên production build: đổi tab nhanh trong lúc một server action còn
 //   chờ không làm tab treo hay mất lần lưu; deep link dashboard giữ tab và lời nhắc tới khi lưu xong; sau khi lưu,
 //   `Quay lại tổng quan` thật sự chuyển sang Overview. Ba tab vừa màn điện thoại từ 360px; ở 320px tab đang mở
-//   vẫn nằm trong vùng nhìn thấy.
+//   vẫn nằm trong vùng nhìn thấy. Thanh tab và nút thêm dính khi cuộn trên điện thoại dọc, không dính trên màn thấp.
 // - Loại test: smoke E2E, chạy trên CI (không skip). Server action được giữ lại bằng `page.route` trên request có
 //   header `next-action` để mô phỏng mạng chậm; request vẫn tới server thật.
 // - Đối tượng: TopicBuilderTabs (ghi `?tab=` sau khi action xong), FlashcardWorkbench (createCard), DashboardReturnFeedback.
@@ -63,6 +63,35 @@ test("all three tabs fit a phone and the open tab stays in view on the narrowest
     .poll(async () => page.getByRole("tab", { name: /^Bài tập/ }).evaluate((item) => item.getBoundingClientRect().right))
     .toBeLessThanOrEqual(320);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+test("tabs and the add button stay in reach while a phone scrolls, but not on a short landscape screen", async ({ page }) => {
+  const fixture = await prepareDashboardReturnFreshnessFixture();
+  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
+  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  const tablist = page.getByRole("tablist", { name: "Nội dung bài học" });
+  const addCard = page.getByRole("button", { name: "Thêm thẻ" }).first();
+  // Fixture không có đủ thẻ, nên kéo dài chính khung danh sách (phần tử dính chỉ dính trong khung cha của nó).
+  const scrollIntoLongList = async () => {
+    await page.getByRole("region", { name: "Danh sách thẻ từ vựng" }).locator("> div").evaluate((card) => {
+      (card as HTMLElement).style.minHeight = "3000px";
+    });
+    await page.evaluate(() => window.scrollTo(0, 1500));
+  };
+
+  await loginAsTeacher(page, fixture);
+  await page.setViewportSize({ width: 375, height: 700 });
+  await page.goto(getTopicBuilderPath(courseId, topicId, "flashcards"));
+  await expectTopicBuilder(page);
+  await expect(page.getByText("Chưa có thẻ từ vựng nào")).toBeVisible();
+
+  await scrollIntoLongList();
+  await expect.poll(async () => (await tablist.boundingBox())?.y).toBe(0);
+  await expect(addCard).toBeInViewport({ ratio: 1 });
+
+  await page.setViewportSize({ width: 700, height: 360 });
+  await scrollIntoLongList();
+  await expect.poll(async () => (await tablist.boundingBox())?.y ?? 0).toBeLessThan(0);
 });
 
 test("fast tab switches while a save is in flight never strand a tab or drop the save", async ({ page }) => {
