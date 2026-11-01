@@ -128,6 +128,7 @@ export default function FlashcardWorkbench({
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const selectNewestAfterLoadRef = useRef(false);
   const sentNewCardRef = useRef<CardFormValues | null>(null);
+  const focusWordAfterRenderRef = useRef(false);
   const saveFlight = useSingleFlightSave();
 
   const form = useForm<CardFormValues>({
@@ -206,8 +207,16 @@ export default function FlashcardWorkbench({
     } else {
       form.reset(EMPTY_VALUES);
     }
-    if (next && !readOnly) requestAnimationFrame(() => form.setFocus("word"));
+    focusWordAfterRenderRef.current = Boolean(next) && !readOnly;
   };
+
+  // `form.reset` xóa tham chiếu tới các ô nhập cho tới lần render sau, nên chỉ đặt focus sau khi đã commit;
+  // frame kế tiếp chờ sheet trên màn hẹp mở xong.
+  useEffect(() => {
+    if (!focusWordAfterRenderRef.current) return;
+    focusWordAfterRenderRef.current = false;
+    requestAnimationFrame(() => form.setFocus("word"));
+  });
 
   const requestSelection = async (next: Selection | null) => {
     if (selection?.mode === "edit" && next?.mode === "edit" && selection.cardId === next.cardId) return true;

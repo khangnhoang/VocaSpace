@@ -76,6 +76,28 @@ describe("FlashcardWorkbench", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText(/^Từ vựng/)));
   });
 
+  // `form.reset` xóa tham chiếu tới ô nhập cho tới lần render sau, nên focus đặt trước lần render đó sẽ mất.
+  // Ép frame chạy ngay để lộ đúng thứ tự mà máy CI chậm gặp phải.
+  it("still focuses the word field when the next frame runs before React renders", async () => {
+    const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
+    try {
+      await renderWorkbench();
+      fireEvent.click(screen.getAllByRole("button", { name: "Thêm thẻ" })[0]);
+      fireEvent.change(screen.getByLabelText(/^Từ vựng/), { target: { value: "deadline" } });
+      fireEvent.change(screen.getByLabelText(/^Nghĩa/), { target: { value: "hạn chót" } });
+      (document.activeElement as HTMLElement | null)?.blur();
+      fireEvent.click(screen.getByRole("button", { name: "Lưu & thêm tiếp" }));
+
+      await waitFor(() => expect(mocks.createCard).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText(/^Từ vựng/)));
+    } finally {
+      frame.mockRestore();
+    }
+  });
+
   it("updates the learner preview on every keystroke", async () => {
     await renderWorkbench();
     fireEvent.click(screen.getByRole("button", { name: /negotiate/ }));
