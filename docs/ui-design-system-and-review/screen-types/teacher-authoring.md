@@ -242,7 +242,7 @@ This pattern proves that a 24-chapter fixture can remain bounded without an infi
 The topic builder is a continuous content workbench:
 
 - show course/chapter/topic path, topic lifecycle, responsible author, and read-only reason before content;
-- use the accepted icon-plus-label tab grammar for `Từ vựng`, `Bài tập`, and `Cài đặt`;
+- use the accepted icon-plus-label tab grammar for `Từ vựng`, `Memory check`, and `Bài tập` (TFEAT4 Decision 46; Owner 2026-10-30 removed `Cài đặt`: the topic name is edited on the title and topic delete sits with the lifecycle actions);
 - place one clear local add action in the active tab;
 - preserve exercise → group → question hierarchy through indentation, labels, and dividers rather than nested elevated cards;
 - edit one content object without losing topic or parent context;
