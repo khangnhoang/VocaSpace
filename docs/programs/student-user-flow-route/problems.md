@@ -40,6 +40,14 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: in a payment unit, guard both updates on `status = 'creating'`, check the affected row count, and release the discount only when this checkout's own transition succeeded. Low impact: it needs a PayOS call that takes more than 15 minutes.
 - Exit condition: the checkout transitions are status-guarded with a test for the late-completion case, or the Owner accepts the risk and closes the entry.
 
+### AUTHORING-GUARD-001: text typed during a save can be lost when the author moves on at once
+
+- Status: Accepted (2026-11-01, found by the TFEAT4 independent re-review; not blocking).
+- Problem: `confirmLeave` in the topic builder guard treats an editor as handled when its in-flight save succeeds, even if the author typed more after pressing save. The newer text is dropped without a prompt.
+- Evidence: reproduced by the reviewer in a throwaway test: click `Lưu` on a card, keep typing, click another card; `updateCard` receives the older value and no prompt appears. The behavior predates the 2026-11-01 multi-editor loop. It needs typing and clicking within the save's latency.
+- Direction: after an in-flight save succeeds, let a render pass and re-check that editor's dirty state instead of treating it as handled, with its own test.
+- Exit condition: typing during an in-flight save always leads to a prompt or a save of the newer text.
+
 ## Resolved
 
 One line each. Details stay in Git (`git show eb36618:docs/refactors/student-user-flow-route/problems.md`) and in the cited PR.

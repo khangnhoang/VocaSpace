@@ -85,6 +85,17 @@ describe("TopicTitleEditor", () => {
     expect(mocks.updateTopic).not.toHaveBeenCalled();
   });
 
+  it("stays open when focus moves from an untouched field to its own buttons", () => {
+    renderEditor();
+    const input = startEditing();
+    const save = screen.getByRole("button", { name: "Lưu tên" });
+
+    fireEvent.blur(input, { relatedTarget: save });
+
+    expect(screen.getByRole("button", { name: "Lưu tên" })).toBe(save);
+    expect(screen.getByRole("textbox", { name: "Tên bài học" })).toBe(input);
+  });
+
   it("discards from the Hủy button without saving", async () => {
     renderEditor();
     fireEvent.change(startEditing(), { target: { value: "Tên bỏ đi" } });

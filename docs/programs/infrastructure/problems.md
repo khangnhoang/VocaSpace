@@ -26,6 +26,14 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Exit condition: the spec passes under `next dev`, for example after a Next upgrade, or the smoke suite runs only against the production build.
 - Origin: student-user-flow-route:E2E-DEV-001; [original delivery contract](../student-user-flow-route/plan.md).
 
+### TEST-FLAKE-001: the portfolio delete test can fail under a full parallel unit run
+
+- Status: Accepted (2026-11-01, recorded during TFEAT4; not investigated).
+- Problem: `keeps delete confirmation on error and refreshes after a co…` in `__tests__/components/teacher-course-portfolio.test.tsx` fails intermittently in a local `npm run test:run`.
+- Evidence: failed once on 2026-11-01 in a full run; the file then passed 3/3 alone and the next full run passed 2148/2148. CI uses `test:ci` (`--no-file-parallelism`). The cause is not established.
+- Direction: find the timing dependency if it recurs, or if it appears on CI.
+- Exit condition: the test passes reliably under a full parallel run.
+
 ## Resolved
 
 One line each.

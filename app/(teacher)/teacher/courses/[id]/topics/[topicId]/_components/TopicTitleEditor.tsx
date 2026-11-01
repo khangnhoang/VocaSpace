@@ -31,6 +31,7 @@ export default function TopicTitleEditor({ id, topicId, title, canEdit, onSaved 
   const [saved, setSaved] = useState<{ from: string; to: string } | null>(null);
   const shownTitle = saved?.from === title ? saved.to : title;
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
   // Guard đọc cờ dirty ngay sau khi lưu hoặc bỏ, trước lần render tới, nên cần giá trị đồng bộ.
   const editingRef = useRef(false);
   const saveFlight = useSingleFlightSave();
@@ -109,14 +110,16 @@ export default function TopicTitleEditor({ id, topicId, title, canEdit, onSaved 
                   stop(true);
                 }
               }}
-              onBlur={() => {
+              onBlur={(event) => {
+                // Tab sang hai nút của chính ô này thì giữ nguyên, nếu đóng thì nút biến mất và focus bị rơi.
+                if (actionsRef.current?.contains(event.relatedTarget)) return;
                 // Chưa gõ gì thì không có gì để giữ, trả về tiêu đề thường.
                 if (!isSaving && value.trim() === shownTitle) stop(false);
               }}
               className={`-mx-2 h-auto w-[calc(100%+1rem)] px-2 py-0.5 md:text-[28px] ${TITLE_TEXT}`}
             />
           </h1>
-          <div className="flex shrink-0 items-center gap-2">
+          <div ref={actionsRef} className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
               variant="outline"
