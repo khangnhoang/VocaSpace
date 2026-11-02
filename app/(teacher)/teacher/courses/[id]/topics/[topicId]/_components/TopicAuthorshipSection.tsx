@@ -183,7 +183,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
   const inCurrentGroup = workflow.canEdit;
 
   return (
-    <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5" aria-labelledby="topic-authorship-title">
+    <section className="space-y-4" aria-labelledby="topic-authorship-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -219,7 +219,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
         </p>
       ) : null}
 
-      <div className={workflow.originalCreator.userId === workflow.responsibleAuthor.userId ? "grid gap-3" : "grid gap-3 lg:grid-cols-2"}>
+      <div className="grid gap-3">
         {workflow.originalCreator.userId === workflow.responsibleAuthor.userId ? (
           <IdentityCard label="Người tạo và phụ trách hiện tại" identity={workflow.responsibleAuthor} tone="blue" />
         ) : (
@@ -233,7 +233,7 @@ export default function TopicAuthorshipSection({ workflow, onRefresh }: TopicAut
       {workflow.contributors.length > 0 ? (
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Người đóng góp hiện tại</p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2">
             {workflow.contributors.map((contributor) => (
               <div key={contributor.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">

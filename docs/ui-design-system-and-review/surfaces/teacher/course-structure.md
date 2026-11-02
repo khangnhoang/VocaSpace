@@ -45,7 +45,7 @@ The page never replays Overview. Any direct entry lands with a chapter selected 
 | Order | Drag handle, order number, `Lên` / `Xuống` |
 | Topic | Title (wraps) and a `Xem thử` badge for preview topics |
 | Status | `Bản nháp`, `Chờ duyệt`, `Đã xuất bản` as text with icon |
-| Actions | `Mở bài học` and a `Thao tác khác` menu (`Đổi tên`, `Cài đặt`, preview marking, `Xóa bài học` last in Correction Red) |
+| Actions | `Mở bài học` and a `Thao tác khác` menu (`Đổi tên`, `Mở bài học`, preview marking, `Xóa bài học` last in Correction Red) |
 
 An empty chapter shows an Inset well, `Chương này chưa có bài học`, and `Thêm bài học`.
 

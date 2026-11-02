@@ -8,6 +8,7 @@ import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-f
 import { getCourseOverviewPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
+import { expectTopicBuilder } from "../support/structure-ui";
 
 // Test plan:
 // - Mục tiêu: kiểm tra giáo viên quay lại overview bằng nút PR6 và thấy readiness mới từ database.
@@ -17,10 +18,7 @@ import { watchBrowserConsole } from "../support/console";
 // - Bảo mật/phân quyền: service-role chỉ dựng/đọc fixture trong Node; browser dùng tài khoản giáo viên.
 // - Ổn định/resilience: reload overview sau khi quay lại không làm lỗi cũ xuất hiện lại.
 // - Invariant cần giữ: issue biến mất nhờ active flashcard trong database, không nhờ client tự ẩn issue.
-// - Kết quả verify: scenario passed trong lượt focused bốn spec E2E-001 bằng `npm run test:e2e`.
-
-// Owner 2026-10-24: bỏ qua trên CI vì lỗi hàng đợi action của Next 16.2.6 làm nút "Quay lại tổng quan" đôi khi không chuyển trang; vẫn chạy ở máy local.
-test.skip(!!process.env.CI, "ACTION-QUEUE-001: lỗi hàng đợi action của Next 16.2.6, thay bằng test mới khi làm lại topic builder (TFEAT-004)");
+// - TFEAT4: chạy lại trên CI; thẻ mới được thêm bằng editor inline thay cho dialog.
 
 test.afterEach(async () => {
   await cleanupDashboardReturnFreshnessFixture();
@@ -57,27 +55,25 @@ test("teacher returns to overview and sees the resolved topic content issue disa
   await issueAction.click();
   await page.waitForURL(/\/topics\//, { timeout: 15_000 });
 
-  await expect(page.getByRole("heading", { name: "Topic Builder" })).toBeVisible();
+  await expectTopicBuilder(page);
   await expect(page.getByRole("status").filter({ hasText: /ch.*a c.* n.*i dung h.*c t.*p/i })).toBeVisible();
   await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Thoát chế độ sửa" }),
   ).toBeVisible();
-  await expect(page.getByRole("tab", { name: /B.*i t.*p TOEIC/i })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Bài tập/ })).toHaveAttribute(
     "data-state",
     "active",
   );
 
-  await page.getByRole("tab", { name: /T.*v.*ng/i }).click();
+  await page.getByRole("tab", { name: /^Từ vựng/ }).click();
   await expect(page).toHaveURL(/from=dashboard/);
   await expect(page).toHaveURL(/tab=flashcards/);
   await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
-  await page.getByRole("button", { name: /Th.*m th.*m.*i/i }).click();
-
-  const flashcardDialog = page.getByRole("dialog").last();
-  await flashcardDialog.getByRole("textbox").nth(0).fill(word);
-  await flashcardDialog.getByRole("textbox").nth(3).fill(translation);
-  await flashcardDialog.getByRole("button", { name: /X.*c nh.*n l.*u/i }).click();
+  await page.getByRole("button", { name: "Thêm thẻ" }).first().click();
+  await page.getByRole("textbox", { name: "Từ vựng" }).fill(word);
+  await page.getByRole("textbox", { name: "Nghĩa" }).fill(translation);
+  await page.getByRole("button", { name: "Lưu", exact: true }).click();
 
   await expect(page.getByRole("status").filter({ hasText: /n.*i dung h.*c t.*p/i })).toBeVisible();
   await expect(page).not.toHaveURL(/from=dashboard/);

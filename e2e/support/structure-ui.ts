@@ -27,7 +27,7 @@ export async function createStructureTopic(page: Page, chapterTitle: string, tit
     timeout: 15_000,
   });
   // URL đổi trước khi router hoàn tất push; Back quá sớm có thể bỏ qua entry structure.
-  await expect(page.getByRole("heading", { name: "Topic Builder", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
   await page.goBack();
   await expect(workbenchTopicList(page, chapterTitle).getByText(title, { exact: true })).toBeVisible();
 }
@@ -65,4 +65,9 @@ export async function dragStructureTopic(
     await page.mouse.move(startX, startY + ((endY - startY) * step) / steps);
   }
   await page.mouse.up();
+}
+
+// Topic builder TFEAT4: tiêu đề là tên bài học; thanh tab "Nội dung bài học" xác nhận shell đã render.
+export async function expectTopicBuilder(page: Page) {
+  await expect(page.getByRole("tablist", { name: "Nội dung bài học" })).toBeVisible();
 }

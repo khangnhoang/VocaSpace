@@ -4,7 +4,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TopicWorkflowPanel from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicWorkflowPanel";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { getCourseStructurePath } from "@/lib/course-authoring/routes";
+import { AuthoringGuardProvider } from "@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/authoring-guard";
+import { getCourseStructurePath, type TopicBuilderTab } from "@/lib/course-authoring/routes";
 
 // Radix Tooltip đo kích thước qua ResizeObserver, mà jsdom không có API này.
 // Stub tối thiểu để component chạy được; đây không phải hành vi đang được test.
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   deleteTopic: vi.fn(),
   getTopicDeletePreviewProjection: vi.fn(),
   requestTopicReview: vi.fn(),
+  notesSummary: { count: 2 as number | null, hasReadError: false },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -34,6 +36,7 @@ vi.mock("@/app/actions/topic-review", () => ({
 
 vi.mock("@/app/actions/topic", () => ({
   deleteTopic: mocks.deleteTopic,
+  updateTopic: vi.fn(),
   withdrawReviewToDraft: vi.fn(),
 }));
 
@@ -46,12 +49,13 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicAuthorshipSection", () => ({
-  default: () => null,
+  default: () => <p>Nội dung nhóm tác giả</p>,
 }));
 
 vi.mock("@/app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/TopicReviewNotes", () => ({
-  default: () => null,
+  default: () => <p>Nội dung ghi chú</p>,
   TopicReviewNotesProvider: ({ children }: { children: React.ReactNode }) => children,
+  useTopicReviewNotesSummary: () => mocks.notesSummary,
 }));
 
 const baseWorkflow = {
@@ -109,10 +113,13 @@ function rejectionEntry(index: number, reason: string, reviewerFullName: string 
 
 // `TooltipProvider` là ambient shell ở `app/layout.tsx`, không nằm trong panel.
 // Harness này dựng lại đúng môi trường runtime đó cho các case có tooltip.
-function Panel(props: Parameters<typeof TopicWorkflowPanel>[0]) {
+function Panel(props: Omit<Parameters<typeof TopicWorkflowPanel>[0], "activeTab" | "onOpenTab"> & {
+  activeTab?: TopicBuilderTab;
+  onOpenTab?: (tab: TopicBuilderTab) => void;
+}) {
   return (
     <TooltipProvider>
-      <TopicWorkflowPanel {...props} />
+      <TopicWorkflowPanel activeTab="memory-check" onOpenTab={vi.fn()} {...props} />
     </TooltipProvider>
   );
 }
@@ -135,7 +142,10 @@ const deletableWorkflow = {
 // - Loại test: component interaction trong jsdom.
 // - Đối tượng: TopicWorkflowPanel.
 // - Case thành công:
-//   - readiness 0/0 dùng cảnh báo thông tin, không phải lỗi nghiêm trọng;
+//   - thiếu nội dung hiện khung vàng nêu đúng phần thiếu, có nút mở tab cần bổ sung; đủ thì không hiện gì;
+//   - nhóm tác giả và ghi chú nằm trong một side sheet mở từ nút ở header, đóng thì trả focus về nút đó; số ghi chú hiện trên nút;
+//   - dòng quyền duyệt khớp `canReview` của đúng bài này: đồng sở hữu là tác giả bài không được ghi là có quyền duyệt;
+//   - nút xóa bài học ở header cho mọi trạng thái; bài đã xuất bản có cảnh báo ảnh hưởng học viên và gửi cờ xác nhận;
 //   - khối lịch sử hiện mục gần nhất mặc định, mở đủ `Lần 1..N` khi bấm "Xem tất cả N lần";
 //   - thời gian ra đúng dạng `HH:mm · dd/MM/yyyy` 24 giờ, không có hậu tố 12 giờ;
 //   - `reviewer = null` hiện chuỗi thay thế thay vì khoảng trắng;
@@ -158,6 +168,7 @@ const deletableWorkflow = {
 describe("TopicWorkflowPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.notesSummary = { count: 2, hasReadError: false };
     mocks.deleteTopic.mockResolvedValue({ success: true, message: "Đã xóa bài học khỏi khóa học." });
     mocks.getTopicDeletePreviewProjection.mockResolvedValue({
       data: {
@@ -186,18 +197,184 @@ describe("TopicWorkflowPanel", () => {
     });
   });
 
-  it("renders missing content as an informational readiness state", () => {
-    render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
+  it("names only what is missing and opens the tab that needs it", () => {
+    const onOpenTab = vi.fn();
+    render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} onOpenTab={onOpenTab} />);
 
-    const card = screen.getByText("Flashcard hoạt động").closest("div.rounded-xl");
-    expect(card?.className).toContain("border-amber-200");
-    expect(card?.className).not.toContain("border-rose-200");
-    // M18: câu lý do xuất hiện ở hai surface có chủ đích (câu vòng đời và
-    // association của nút gửi duyệt), nên dùng `getAllByText` thay vì `getByText`.
+    // Thiếu nội dung là trạng thái cần bổ sung (amber), không phải lỗi (đỏ).
+    const notice = screen.getByText("Còn thiếu 1 flashcard và 1 bài tập để gửi duyệt.");
+    expect(notice.closest("div.rounded-xl")?.className).toContain("border-attention-line");
+    expect(notice.closest("div.rounded-xl")?.className).not.toContain("border-correction-line");
+    // Câu lý do chỉ còn ở association của nút gửi duyệt, không lặp lại cạnh khung cảnh báo.
     const reason = "Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.";
-    expect(screen.getAllByText(reason).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(reason)).toHaveLength(1);
     const submit = screen.getByRole("button", { name: "Gửi duyệt" });
     expect(document.getElementById(submit.getAttribute("aria-describedby")!)?.textContent).toBe(reason);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mở tab Từ vựng" }));
+    expect(onOpenTab).toHaveBeenCalledWith("flashcards");
+    fireEvent.click(screen.getByRole("button", { name: "Mở tab Bài tập" }));
+    expect(onOpenTab).toHaveBeenCalledWith("exercises");
+  });
+
+  it("names just the missing part and offers no button for the tab already open", () => {
+    render(
+      <Panel
+        workflow={{ ...baseWorkflow, activeFlashcardCount: 3 }}
+        onRefresh={vi.fn()}
+        activeTab="exercises"
+      />,
+    );
+
+    expect(screen.getByText("Còn thiếu 1 bài tập để gửi duyệt.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mở tab Bài tập" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Mở tab Từ vựng" })).toBeNull();
+  });
+
+  it("shows no readiness notice or sentence once the topic has everything", () => {
+    const ready = "Bài học đã sẵn sàng để gửi người duyệt kiểm tra.";
+    render(
+      <Panel
+        workflow={{
+          ...baseWorkflow,
+          canRequestReview: true,
+          isReady: true,
+          activeFlashcardCount: 3,
+          activeExerciseCount: 2,
+          hasDistinctEligibleReviewer: true,
+        }}
+        onRefresh={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Còn thiếu/)).toBeNull();
+    expect(screen.queryByText("Flashcard hoạt động")).toBeNull();
+    expect(screen.queryByText("Bài tập hoạt động")).toBeNull();
+    // Chỉ còn câu ẩn cho trình đọc màn hình của nút Gửi duyệt.
+    expect(screen.getByText(ready).className).toContain("sr-only");
+  });
+
+  it("keeps the missing-content notice away from people who cannot act on it", () => {
+    const { rerender } = render(<Panel workflow={{ ...baseWorkflow, canEdit: false }} onRefresh={vi.fn()} />);
+    expect(screen.queryByText(/Còn thiếu/)).toBeNull();
+
+    rerender(<Panel workflow={{ ...baseWorkflow, status: "published" as const }} onRefresh={vi.fn()} />);
+    expect(screen.queryByText(/Còn thiếu/)).toBeNull();
+
+    rerender(<Panel workflow={{ ...deletableWorkflow }} onRefresh={vi.fn()} />);
+    expect(screen.queryByText(/Còn thiếu/)).toBeNull();
+  });
+
+  it.each([
+    { role: "owner", canReview: true, canEdit: false, label: "Có quyền duyệt theo vai trò" },
+    { role: "co_owner", canReview: true, canEdit: true, label: "Có quyền duyệt theo vai trò" },
+    { role: "editor", canReview: true, canEdit: false, label: "Có quyền duyệt" },
+    { role: "co_owner", canReview: false, canEdit: true, label: "Tác giả bài này, không tự duyệt được" },
+    { role: "editor", canReview: false, canEdit: true, label: "Tác giả bài này, không tự duyệt được" },
+    { role: "editor", canReview: false, canEdit: false, label: "Chỉ xem" },
+    { role: "previewer", canReview: false, canEdit: false, label: "Chỉ xem" },
+  ] as const)("labels $role with canReview=$canReview and canEdit=$canEdit as $label", ({ label, ...access }) => {
+    const { container } = render(<Panel workflow={{ ...baseWorkflow, ...access }} onRefresh={vi.fn()} />);
+
+    expect(container.querySelector("header")?.textContent).toContain(`· ${label}`);
+  });
+
+  it("opens the team and notes sheet from the header button and returns focus on close", async () => {
+    render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
+    expect(screen.queryByText("Nội dung nhóm tác giả")).toBeNull();
+    // Ghi chú không còn nút riêng.
+    expect(screen.queryByRole("button", { name: /^Ghi chú/ })).toBeNull();
+
+    const button = screen.getByRole("button", { name: /^Nhóm tác giả\s*,\s*1 người/ });
+    button.focus();
+    fireEvent.click(button);
+    const sheet = await screen.findByRole("dialog", { name: "Nhóm tác giả và ghi chú" });
+    expect(within(sheet).getByText("Nội dung nhóm tác giả")).toBeTruthy();
+    expect(within(sheet).getByText("Nội dung ghi chú")).toBeTruthy();
+
+    fireEvent.click(within(sheet).getByRole("button", { name: "Đóng" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(button));
+  });
+
+  it("carries the note count, a pending responsibility update and unreadable notes on that button", () => {
+    const { rerender } = render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Nhóm tác giả.*2\s*ghi chú/ })).toBeTruthy();
+
+    mocks.notesSummary = { count: 0, hasReadError: false };
+    rerender(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /ghi chú/ })).toBeNull();
+
+    mocks.notesSummary = { count: null, hasReadError: true };
+    rerender(
+      <Panel
+        workflow={{
+          ...baseWorkflow,
+          latestAuthorshipFeedback: {
+            id: "77777777-7777-4777-8777-777777777777",
+            actorUserId: null,
+            previousResponsibleUserId: null,
+            newResponsibleUserId: null,
+            feedbackType: "responsibility_transfer" as const,
+            createdAt: "2026-09-17T06:00:00.000Z",
+          },
+        }}
+        onRefresh={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /có cập nhật cần xử lý.*chưa tải được ghi chú/ })).toBeTruthy();
+  });
+
+  // AC6: nút xóa chuyển lên header thì vẫn phải hỏi trước khi bỏ tên bài học đang gõ dở.
+  it("asks about a half-typed title before opening the header delete dialog", async () => {
+    render(
+      <AuthoringGuardProvider>
+        <Panel workflow={baseWorkflow} onRefresh={vi.fn()} />
+      </AuthoringGuardProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: baseWorkflow.title }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Tên bài học" }), { target: { value: "Tên đang gõ" } });
+    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học" }));
+
+    const prompt = await screen.findByRole("dialog", { name: "Lưu thay đổi trước khi rời đi?" });
+    expect(prompt.textContent).toContain("Tên bài học có thay đổi chưa lưu.");
+    expect(mocks.getTopicDeletePreviewProjection).not.toHaveBeenCalled();
+
+    fireEvent.click(within(prompt).getByRole("button", { name: "Tiếp tục sửa" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect((screen.getByRole("textbox", { name: "Tên bài học" }) as HTMLInputElement).value).toBe("Tên đang gõ");
+  });
+
+  it("deletes a draft topic from the header and replaces the route with Structure", async () => {
+    render(<Panel workflow={baseWorkflow} onRefresh={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("note")).toBeNull();
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Xóa bài học" }));
+
+    await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
+      topicId: baseWorkflow.topicId,
+      confirmPublished: false,
+      unmarkTopicIds: [],
+    }));
+    await waitFor(() => expect(mocks.router.replace).toHaveBeenCalledWith(getCourseStructurePath(baseWorkflow.courseId)));
+  });
+
+  it("warns about learners and sends the confirmation flag when deleting a published topic", async () => {
+    render(<Panel workflow={{ ...baseWorkflow, status: "published" as const }} onRefresh={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Xóa bài học" }));
+    const dialog = await screen.findByRole("dialog");
+    expect((await within(dialog).findByRole("note")).textContent).toContain("không còn thấy bài học này");
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Xóa bài học" }));
+
+    await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
+      topicId: baseWorkflow.topicId,
+      confirmPublished: true,
+      unmarkTopicIds: [],
+    }));
   });
 
   it("renders the topic-scoped rejection history with the latest item open by default", () => {
@@ -213,13 +390,13 @@ describe("TopicWorkflowPanel", () => {
     render(<Panel workflow={workflow} onRefresh={vi.fn()} />);
 
     expect(screen.getByText("Đã bị từ chối duyệt: 3 lần")).toBeTruthy();
-    const list = screen.getByRole("list");
+    const list = screen.getByRole("list", { name: "Lịch sử từ chối duyệt" });
     expect(within(list).getByText("Lần 3")).toBeTruthy();
     expect(within(list).getByText("Sai phiên âm của flashcard.")).toBeTruthy();
     expect(within(list).queryByText("Lần 1")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Xem tất cả 3 lần" }));
-    const expanded = screen.getByRole("list");
+    const expanded = screen.getByRole("list", { name: "Lịch sử từ chối duyệt" });
     expect(within(expanded).getByText("Lần 1")).toBeTruthy();
     expect(within(expanded).getByText("Lần 2")).toBeTruthy();
     expect(within(expanded).getByText("Lần 3")).toBeTruthy();
@@ -422,8 +599,8 @@ describe("TopicWorkflowPanel", () => {
       />,
     );
 
-    // The sentence legitimately appears twice: the lifecycle paragraph and the
-    // action-side `sr-only` span share one copy source.
+    // The missing-content notice replaces the lifecycle sentence, so the content
+    // reason stays only in the action-side `sr-only` span.
     expect(screen.getAllByText("Bổ sung đủ ít nhất một flashcard và một bài tập để gửi duyệt.").length).toBeGreaterThan(0);
     expect(screen.queryByText("Chỉ người tạo hoặc người phụ trách có thể gửi bài học để duyệt.")).toBeNull();
     expect(screen.queryAllByText("Chỉ người tạo hoặc người phụ trách có thể gửi bài học để duyệt.")).toEqual([]);
@@ -487,9 +664,10 @@ describe("TopicWorkflowPanel", () => {
 
     await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalledWith({
       topicId: baseWorkflow.topicId,
+      confirmPublished: false,
       unmarkTopicIds: [],
     }));
-    await waitFor(() => expect(mocks.router.push).toHaveBeenCalledWith(
+    await waitFor(() => expect(mocks.router.replace).toHaveBeenCalledWith(
       getCourseStructurePath(baseWorkflow.courseId),
     ));
     expect(mocks.router.refresh).not.toHaveBeenCalled();
@@ -506,7 +684,7 @@ describe("TopicWorkflowPanel", () => {
 
     await waitFor(() => expect(mocks.deleteTopic).toHaveBeenCalled());
     expect((await screen.findByRole("alert")).textContent).toContain("Không thể xóa bài học.");
-    expect(mocks.router.push).not.toHaveBeenCalled();
+    expect(mocks.router.replace).not.toHaveBeenCalled();
     expect(mocks.router.refresh).not.toHaveBeenCalled();
   });
 

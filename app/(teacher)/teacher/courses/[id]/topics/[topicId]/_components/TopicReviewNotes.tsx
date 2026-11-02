@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import { createContext, useContext, useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { MessageSquarePlus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuthoringRefresh } from "./authoring-guard";
 import {
   createReviewNote,
   removeReviewNote,
@@ -24,7 +24,16 @@ interface TopicReviewNotesValue {
   canReview: boolean;
 }
 
-const TopicReviewNotesContext = createContext<TopicReviewNotesValue | null>(null);
+interface TopicReviewNotesDrafts {
+  body: string;
+  setBody: (body: string) => void;
+  editingId: string | null;
+  setEditingId: (id: string | null) => void;
+  editingBody: string;
+  setEditingBody: (body: string) => void;
+}
+
+const TopicReviewNotesContext = createContext<(TopicReviewNotesValue & TopicReviewNotesDrafts) | null>(null);
 
 interface TopicReviewNotesProviderProps extends TopicReviewNotesValue {
   children: ReactNode;
@@ -34,17 +43,33 @@ interface TopicReviewNotesProviderProps extends TopicReviewNotesValue {
  * `TopicBuilderTabs` là component duy nhất render `TopicWorkflowPanel`, nhưng nó
  * là component dùng chung nên không nhận thêm prop riêng cho ghi chú. Vì vậy dữ
  * liệu ghi chú đã đọc ở server component `page.tsx` được truyền xuống panel qua
- * context thay vì prop trung gian, và panel vẫn render `TopicReviewNotes` không đổi.
+ * context thay vì prop trung gian. Ghi chú nằm trong side sheet, mà sheet bỏ nội
+ * dung khi đóng, nên chữ đang gõ cũng giữ ở đây để lỡ đóng sheet không bị mất.
  */
 export function TopicReviewNotesProvider({
   children,
   ...value
 }: TopicReviewNotesProviderProps) {
+  const [body, setBody] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingBody, setEditingBody] = useState("");
+
   return (
-    <TopicReviewNotesContext.Provider value={value}>
+    <TopicReviewNotesContext.Provider
+      value={{ ...value, body, setBody, editingId, setEditingId, editingBody, setEditingBody }}
+    >
       {children}
     </TopicReviewNotesContext.Provider>
   );
+}
+
+// Nút mở sheet ở header cần biết có bao nhiêu ghi chú, kể cả khi sheet đang đóng.
+export function useTopicReviewNotesSummary() {
+  const value = useContext(TopicReviewNotesContext);
+  return {
+    count: value?.notes?.length ?? null,
+    hasReadError: Boolean(value?.readError),
+  };
 }
 
 function formatRelativeTime(iso: string) {
@@ -84,10 +109,7 @@ function targetLabel(note: TopicReviewNote) {
 
 export default function TopicReviewNotes() {
   const value = useContext(TopicReviewNotesContext);
-  const router = useRouter();
-  const [body, setBody] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingBody, setEditingBody] = useState("");
+  const refresh = useAuthoringRefresh();
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -96,7 +118,7 @@ export default function TopicReviewNotes() {
   // mất im lặng và người đọc tưởng bài học chưa có ghi chú nào.
   if (!value || (!value.canRead && !value.readError)) return null;
 
-  const { topicId, notes, readError, currentUserId, canReview } = value;
+  const { topicId, notes, readError, currentUserId, canReview, body, setBody, editingId, setEditingId, editingBody, setEditingBody } = value;
 
   const submitNote = () => {
     const trimmed = body.trim();
@@ -109,7 +131,7 @@ export default function TopicReviewNotes() {
       }
       toast.success("Đã gửi ghi chú.");
       setBody("");
-      router.refresh();
+      refresh();
     });
   };
 
@@ -125,7 +147,7 @@ export default function TopicReviewNotes() {
       toast.success("Đã cập nhật ghi chú.");
       setEditingId(null);
       setEditingBody("");
-      router.refresh();
+      refresh();
     });
   };
 
@@ -139,15 +161,12 @@ export default function TopicReviewNotes() {
       }
       toast.success("Đã xóa ghi chú.");
       setRemovingId(null);
-      router.refresh();
+      refresh();
     });
   };
 
   return (
-    <section
-      className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3"
-      aria-labelledby="topic-review-notes-title"
-    >
+    <section aria-labelledby="topic-review-notes-title">
       <div className="flex items-center gap-2">
         <MessageSquarePlus className="size-4 text-slate-600" />
         <h3 id="topic-review-notes-title" className="text-sm font-bold text-slate-900">

@@ -249,6 +249,8 @@ describe("public course detail routes and presentation", () => {
     vi.clearAllMocks();
     mockedUseState.mockImplementation(React.useState);
     mockedUseRouter.mockReturnValue({
+      // Next 16.3 thêm `bfcacheId` bắt buộc vào AppRouterInstance.
+      bfcacheId: "test",
       back: backRoute,
       forward: forwardRoute,
       push: pushRoute,

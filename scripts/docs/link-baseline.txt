@@ -2,3 +2,17 @@
 # One entry per line: <source file> -> <link target as written>. Lines starting with # are comments.
 # Do not add entries for new links; fix the link instead. Remove an entry when its link is fixed
 # (the check prints entries that are no longer broken).
+
+# TFEAT4 (2026-10-28) replaced FlashcardTab.tsx and ExerciseTab.tsx; this frozen legacy D1 plan keeps its original line citations (see Git history).
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L605
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L606-L616
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L617-L651
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L631-L650
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L653-L787
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L711-L784
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/ExerciseTab.tsx#L790-L862
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L148
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L149-L189
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L153-L166
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L167
+docs/programs/student-user-flow-route/implementation-plans/d1/correction-plan-deepseek-v3.md -> ../../../../../app/(teacher)/teacher/courses/[id]/topics/[topicId]/_components/FlashcardTab.tsx#L167-L188

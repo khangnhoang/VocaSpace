@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, Loader2, MapPin, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, MapPin, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   getCoursePreviewAllocation,
@@ -165,7 +165,6 @@ export function CoursePreviewAllocationCard({
   canManage,
   onChange,
   onRefresh,
-  showTopicListAction = true,
   compact = false,
 }: {
   allocation: CoursePreviewAllocation | null;
@@ -175,7 +174,6 @@ export function CoursePreviewAllocationCard({
   canManage: boolean;
   onChange: (change: PreviewMarkerChange) => Promise<unknown>;
   onRefresh?: () => Promise<void> | void;
-  showTopicListAction?: boolean;
   /** Thanh quota một dòng cho trang Structure; danh sách bỏ nhãn vẫn mở rộng bên dưới. */
   compact?: boolean;
 }) {
@@ -321,7 +319,7 @@ export function CoursePreviewAllocationCard({
       {!compact && allocation?.markedTopics.length === 0 ? (
         <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
           <p>Chưa chọn bài học xem thử</p>
-          {canManage && showTopicListAction ? (
+          {canManage ? (
             <Button
               type="button"
               variant="link"
@@ -470,133 +468,6 @@ export function CoursePreviewAllocationCard({
       {isUpdating ? <span className="sr-only" role="status">Đang cập nhật phân bổ bài học xem thử.</span> : null}
       {!allocation && !isLoading && !error ? <p className="mt-2 text-sm text-slate-500">Chưa có dữ liệu phân bổ.</p> : null}
     </section>
-  );
-}
-
-export function TopicPreviewMarkerToggle({
-  topicId,
-  title,
-  status,
-  allocation,
-  canManage,
-  isUpdating,
-  error,
-  onChange,
-  onShowAllocation,
-}: {
-  topicId: string;
-  title: string;
-  status: CoursePreviewAllocation["markedTopics"][number]["status"];
-  allocation: CoursePreviewAllocation | null;
-  canManage: boolean;
-  isUpdating: boolean;
-  error?: string | null;
-  onChange: (change: PreviewMarkerChange) => Promise<unknown>;
-  onShowAllocation?: () => void;
-}) {
-  if (!allocation || !canManage) return null;
-  const isMarked = allocation.markedTopics.some((topic) => topic.id === topicId);
-  const isUnavailable = status !== "published";
-  const blockedByQuota = !isMarked && allocation.remaining === 0;
-  const descriptionId = `preview-marker-description-${topicId}`;
-  const inputId = `preview-marker-toggle-${topicId}`;
-
-  return (
-    <div className="mt-3 rounded-xl border border-slate-200/90 bg-slate-50/60 p-3.5 transition-colors">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Hidden accessible input for accessibility & Vitest role checks */}
-        <input
-          id={inputId}
-          type="checkbox"
-          checked={isMarked}
-          disabled={isUpdating || blockedByQuota}
-          onChange={(event) =>
-            void onChange(
-              event.target.checked
-                ? { markTopicIds: [topicId] }
-                : { unmarkTopicIds: [topicId] },
-            )
-          }
-          aria-label={`${isMarked ? "Bỏ nhãn" : "Đánh dấu"} xem thử: ${title}`}
-          aria-describedby={descriptionId}
-          className="peer sr-only"
-        />
-
-        <div className="flex items-center gap-2">
-          {isMarked ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-              <Check className="size-3 stroke-[2.5]" aria-hidden="true" />
-              Đang mở xem thử
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/80">
-              Chưa mở xem thử
-            </span>
-          )}
-        </div>
-
-        <div>
-          {isMarked ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isUpdating}
-              onClick={() => void onChange({ unmarkTopicIds: [topicId] })}
-              className="h-8 px-3 text-xs font-semibold text-rose-600 border-rose-200 bg-rose-50/40 hover:bg-rose-100/70 hover:text-rose-700 hover:border-rose-300 transition-all cursor-pointer"
-            >
-              {isUpdating ? (
-                <Loader2 className="mr-1.5 size-3 animate-spin" aria-hidden="true" />
-              ) : (
-                <X className="mr-1.5 size-3 stroke-[2.5]" aria-hidden="true" />
-              )}
-              Hủy xem thử
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isUpdating || blockedByQuota}
-              onClick={() => void onChange({ markTopicIds: [topicId] })}
-              className="h-8 px-3 text-xs font-semibold text-blue-600 border-blue-200 bg-blue-50/50 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-300 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isUpdating ? (
-                <Loader2 className="mr-1.5 size-3 animate-spin" aria-hidden="true" />
-              ) : (
-                <Sparkles className="mr-1.5 size-3 text-blue-500" aria-hidden="true" />
-              )}
-              Chọn làm bài học xem thử
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1 text-xs text-slate-500 border-t border-slate-200/60 pt-2">
-        <p id={descriptionId} className="leading-relaxed">
-          {isUnavailable
-            ? "Bài học chưa xuất bản vẫn tính vào giới hạn nhưng chưa mở công khai."
-            : blockedByQuota
-              ? `Đã dùng ${allocation.markedTopicCount}/${allocation.cap} lượt. Cần hủy bớt trước khi chọn thêm.`
-              : `Đã chọn: ${allocation.markedTopicCount}/${allocation.cap} bài học · Còn ${allocation.remaining} lượt`}
-        </p>
-        {blockedByQuota && onShowAllocation ? (
-          <Button
-            type="button"
-            variant="link"
-            className="h-auto p-0 text-xs font-semibold text-blue-600 hover:text-blue-700"
-            onClick={onShowAllocation}
-          >
-            Xem danh sách đã chọn
-          </Button>
-        ) : null}
-      </div>
-      {error ? (
-        <p role="alert" className="mt-1.5 text-xs font-medium text-rose-700">
-          {error}
-        </p>
-      ) : null}
-    </div>
   );
 }
 

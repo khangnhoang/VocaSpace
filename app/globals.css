@@ -19,6 +19,13 @@
   }
 }
 
+/* Dưới mốc `lg` và đủ cao để phần tử dính không che gần hết màn (điện thoại nằm ngang, zoom 200% thì không dính). */
+@custom-variant narrow-tall {
+  @media (max-width: 1023.98px) and (min-height: 600px) {
+    @slot;
+  }
+}
+
 /* 1. THANH CUỘN MẶC ĐỊNH CHO (CLIENT) - TÔNG SÁNG / BLUE */
 ::-webkit-scrollbar {
   width: 10px;
@@ -232,6 +239,15 @@
 html,
 body {
   scrollbar-gutter: stable;
+}
+
+/* Radix khóa cuộn khi mở dialog/sheet và thêm margin-right bằng bề rộng thanh cuộn. `scrollbar-gutter` ở trên
+   đã giữ chỗ đó rồi, nên bù thêm sẽ làm cả trang co lại rồi giãn ra khi mở và đóng. Tăng specificity vì
+   rule của thư viện được chèn vào sau file này. Trình duyệt chưa hỗ trợ `scrollbar-gutter` thì vẫn cần phần bù. */
+@supports (scrollbar-gutter: stable) {
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
 }
 
 

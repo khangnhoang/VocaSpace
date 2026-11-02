@@ -1,7 +1,6 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
 import {
-  createBulkCardsActionSchema,
   createCardActionSchema,
   deleteCardSchema,
   updateCardActionSchema,
@@ -16,10 +15,6 @@ const CARD_UPDATE_UNAVAILABLE_MESSAGE =
   "Không thể cập nhật thẻ này. Thẻ có thể đã bị xóa hoặc bạn không có quyền chỉnh sửa.";
 const CARD_UPDATE_FAILED_MESSAGE =
   "Không thể cập nhật thẻ từ vựng. Vui lòng tải lại trang và thử lại.";
-const CARD_BULK_CREATE_UNAVAILABLE_MESSAGE =
-  "Không thể thêm đầy đủ danh sách thẻ từ vựng. Bài học có thể không tồn tại hoặc bạn không có quyền chỉnh sửa.";
-const CARD_BULK_CREATE_FAILED_MESSAGE =
-  "Không thể thêm hàng loạt thẻ từ vựng. Vui lòng tải lại trang và thử lại.";
 const CARD_DELETE_UNAVAILABLE_MESSAGE =
   "Không thể xóa thẻ này. Thẻ có thể đã bị xóa hoặc bạn không có quyền chỉnh sửa.";
 const CARD_DELETE_FAILED_MESSAGE =
@@ -196,69 +191,4 @@ export async function deleteCard(cardId: string) {
   }
 
   return { success: true, message: "Đã xóa từ vựng thành công!" };
-}
-
-// Thêm hàng loạt thẻ (Bulk Insert)
-export async function createBulkCards(
-  topicId: string,
-  cardsData: CardFormValues[],
-) {
-  const parsed = createBulkCardsActionSchema.safeParse({
-    topicId,
-    cardsData,
-  });
-  if (!parsed.success) {
-    return {
-      error: `Dữ liệu lỗi: ${
-        parsed.error.issues[0]?.message ?? "Thông tin thẻ từ vựng không hợp lệ."
-      }`,
-    };
-  }
-
-  const supabase = await createClient();
-  
-  // 1. Self-Audit: Kiểm tra quyền
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Vui lòng đăng nhập để thực hiện!" };
-
-  const input = parsed.data;
-
-  try {
-    const cardsToInsert = input.cardsData.map((card) => {
-      return {
-        front_content: {
-          word: card.word,
-          pos: card.pos || "",
-          phonetic: card.phonetic || "",
-        },
-        back_content: {
-          translation: card.translation,
-          explanation: card.explanation || "",
-          example: card.example || "",
-          exampleTranslation: card.exampleTranslation || "",
-          hint: card.hint || "",
-        }
-      };
-    });
-
-    const { data, error } = await supabase.rpc("d1_bulk_create_cards", {
-      p_topic_id: input.topicId,
-      p_cards: cardsToInsert,
-    });
-
-    if (error) {
-      console.error("[CARD BULK CREATE ERROR]:", error);
-      return {
-        error: mapCardRpcError(error.message, CARD_BULK_CREATE_FAILED_MESSAGE),
-      };
-    }
-
-    if (!data || typeof data !== "object") {
-      return { error: CARD_BULK_CREATE_UNAVAILABLE_MESSAGE };
-    }
-    
-    return { success: true, message: `Đã thêm thành công ${cardsToInsert.length} từ vựng!` };
-  } catch {
-    return { error: "Lỗi hệ thống khi thêm hàng loạt thẻ." };
-  }
 }

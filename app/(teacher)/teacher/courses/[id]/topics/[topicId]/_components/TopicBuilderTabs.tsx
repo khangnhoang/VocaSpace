@@ -1,12 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, ClipboardList, Settings } from "lucide-react";
-import ExerciseTab from "./ExerciseTab";
-import MemoryCheckSection from "./MemoryCheckSection";
-import FlashcardTab from "./FlashcardTab";
-import SettingsTab from "./SettingsTab";
+import { BookOpen, Brain, ClipboardList, Eye } from "lucide-react";
+import ExerciseWorkbench from "./ExerciseWorkbench";
+import MemoryCheckWorkbench from "./MemoryCheckWorkbench";
+import FlashcardWorkbench from "./FlashcardWorkbench";
 import {
   getCourseOverviewPath,
   getTopicBuilderTab,
@@ -32,6 +31,7 @@ import {
 } from "@/lib/course-authoring/issue-success";
 import TopicWorkflowPanel from "./TopicWorkflowPanel";
 import type { TopicWorkflow } from "@/lib/schemas/topic-workflow";
+import { AuthoringGuardProvider, useAuthoringGuard } from "./authoring-guard";
 
 interface TopicBuilderTabsProps {
   courseId: string;
@@ -41,16 +41,31 @@ interface TopicBuilderTabsProps {
   workflow: TopicWorkflow;
 }
 
-export default function TopicBuilderTabs({
+const TAB_ITEMS: { value: TopicBuilderTab; label: string; Icon: typeof BookOpen }[] = [
+  { value: "flashcards", label: "Từ vựng", Icon: BookOpen },
+  { value: "memory-check", label: "Memory check", Icon: Brain },
+  { value: "exercises", label: "Bài tập", Icon: ClipboardList },
+];
+
+export default function TopicBuilderTabs(props: TopicBuilderTabsProps) {
+  return (
+    <AuthoringGuardProvider>
+      <TopicBuilderShell {...props} />
+    </AuthoringGuardProvider>
+  );
+}
+
+function TopicBuilderShell({
   courseId,
   topicId,
   parentChapterId,
   initialSearch,
   workflow,
 }: TopicBuilderTabsProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const guard = useAuthoringGuard();
+  const navigate = guard.navigate;
   const [returnFeedback, setReturnFeedback] =
     useState<CourseAuthoringReturnFeedback | null>(null);
   const [hasConsumedDashboardIssue, setHasConsumedDashboardIssue] =
@@ -59,6 +74,8 @@ export default function TopicBuilderTabs({
     useState<TopicBuilderIssueContext | null>(null);
   const [manualActiveTab, setManualActiveTab] =
     useState<TopicBuilderTab | null>(null);
+  const latestUrlWriteRef = useRef<string | null>(null);
+  const tabScrollerRef = useRef<HTMLDivElement>(null);
   // Dùng search ban đầu từ Server Component cho lần render đầu để tránh lệch hydration
   // khi URL có tham số dashboard nhưng client chưa đồng bộ search params.
   const search = useSyncExternalStore(
@@ -77,6 +94,10 @@ export default function TopicBuilderTabs({
       !hasConsumedDashboardIssue
       ? getTopicBuilderTab(issueDestinationState.context.tab ?? null)
       : getTopicBuilderTab(new URLSearchParams(search).get("tab"));
+  // Tab chỉ mount khi được mở lần đầu rồi giữ nguyên: đổi tab không tải lại danh sách (không
+  // phát server action mới) và không làm mất editor đang mở ở tab khác.
+  const [visitedTabs, setVisitedTabs] = useState<TopicBuilderTab[]>(() => [activeTab]);
+  const mountedTabs = visitedTabs.includes(activeTab) ? visitedTabs : [...visitedTabs, activeTab];
   const dashboardIssueContext =
     issueDestinationState.kind === "valid" ||
     issueDestinationState.kind === "invalid_tab"
@@ -127,12 +148,19 @@ export default function TopicBuilderTabs({
     courseId,
     parentChapterId,
   );
+  const readOnly = !workflow.canEdit || workflow.status === "pending";
+  const isPublished = workflow.status === "published";
+  const tabCounts: Partial<Record<TopicBuilderTab, number>> = {
+    flashcards: workflow.activeFlashcardCount,
+    "memory-check": workflow.activeMemoryCheckQuestionCount,
+    exercises: workflow.activeExerciseCount,
+  };
 
   useEffect(() => {
     if (issueDestinationState.kind === "invalid_context") {
       // URL hỏng hoặc target không đúng loại không nên ở lại topic builder,
       // vì màn này không thể biết mục nào cần đánh dấu.
-      router.replace(staleTargetRedirectHref, { scroll: false });
+      void navigate(staleTargetRedirectHref, "replace");
       return;
     }
 
@@ -142,15 +170,37 @@ export default function TopicBuilderTabs({
       issueDestinationState.context.issue === "topic_has_no_learning_content" &&
       issueDestinationState.context.target !== topicId
     ) {
-      router.replace(staleTargetRedirectHref, { scroll: false });
+      void navigate(staleTargetRedirectHref, "replace");
       return;
     }
-  }, [issueDestinationState, router, staleTargetRedirectHref, topicId]);
+  }, [issueDestinationState, navigate, staleTargetRedirectHref, topicId]);
 
-  const handleTabChange = (value: string) => {
-    if (TOPIC_BUILDER_TABS.includes(value as TopicBuilderTab)) {
-      selectTopicBuilderTab(value as TopicBuilderTab);
-    }
+  // Màn quá hẹp phải cuộn ngang thì tab đang mở luôn nằm trong vùng nhìn thấy. Chỉ đổi scrollLeft của
+  // thanh tab, không dùng scrollIntoView vì nó có thể kéo cả trang theo chiều dọc.
+  useEffect(() => {
+    const scroller = tabScrollerRef.current;
+    const active = scroller?.querySelector('[role="tab"][data-state="active"]');
+    if (!scroller || !active) return;
+    const tabBox = active.getBoundingClientRect();
+    const scrollerBox = scroller.getBoundingClientRect();
+    scroller.scrollLeft += tabBox.left - scrollerBox.left - (scrollerBox.width - tabBox.width) / 2;
+  }, [activeTab]);
+
+  // ACTION-QUEUE-001 (G8): URL được ghi qua hàng thao tác router nối tiếp của guard (không chồng lên
+  // server action hay refresh); đổi tab liên tiếp trong lúc chờ chỉ ghi lần mới nhất.
+  const writeBuilderUrl = (nextHref: string) => {
+    latestUrlWriteRef.current = nextHref;
+    return guard.replaceUrl(nextHref, () => latestUrlWriteRef.current === nextHref);
+  };
+
+  const refreshPage = guard.refresh;
+
+  const handleTabChange = async (value: string) => {
+    if (!TOPIC_BUILDER_TABS.includes(value as TopicBuilderTab)) return;
+    if (value === activeTab) return;
+    // Đổi tab khi editor còn thay đổi chưa lưu phải hỏi trước (AC6).
+    if (guard.hasDirtyEditor() && !(await guard.confirmLeave())) return;
+    selectTopicBuilderTab(value as TopicBuilderTab);
   };
 
   const clearDashboardIssueUrl = () => {
@@ -171,13 +221,7 @@ export default function TopicBuilderTabs({
     const nextSearch = params.toString();
     const nextHref = nextSearch ? `${cleanPathname}?${nextSearch}` : cleanPathname;
 
-    // Truyền null để Next giữ history internals và đồng bộ search params;
-    // không phát thêm router.replace có thể ghi đè thao tác sau.
-    if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", nextHref);
-    } else {
-      router.replace(nextHref, { scroll: false });
-    }
+    writeBuilderUrl(nextHref);
   };
 
   const exitDashboardIssueMode = () => {
@@ -198,7 +242,7 @@ export default function TopicBuilderTabs({
       // Readiness và lifecycle nằm trong Server Component DTO; các tab con chỉ
       // refresh danh sách nội dung cục bộ, nên cần revalidate parent state sau
       // mọi mutation thành công kể cả khi không có dashboard issue context.
-      router.refresh();
+      refreshPage();
       return false;
     }
 
@@ -207,7 +251,7 @@ export default function TopicBuilderTabs({
     setReturnFeedback(feedback);
     setHasConsumedDashboardIssue(true);
     clearDashboardIssueUrl();
-    router.refresh();
+    refreshPage();
     return true;
   };
 
@@ -219,6 +263,7 @@ export default function TopicBuilderTabs({
 
   const selectTopicBuilderTab = (tab: TopicBuilderTab) => {
     setManualActiveTab(tab);
+    setVisitedTabs((current) => (current.includes(tab) ? current : [...current, tab]));
 
     if (shouldPreserveDashboardIssueForTab(tab)) {
       setConsumedDashboardIssueContext(topicBuilderIssueContext);
@@ -230,13 +275,7 @@ export default function TopicBuilderTabs({
           : window.location.search.replace(/^\?/, "");
       const params = new URLSearchParams(currentSearch);
       params.set("tab", tab);
-      const nextHref = `${currentPathname}?${params.toString()}`;
-
-      if (typeof window !== "undefined") {
-        window.history.replaceState(null, "", nextHref);
-      } else {
-        router.replace(nextHref, { scroll: false });
-      }
+      writeBuilderUrl(`${currentPathname}?${params.toString()}`);
       return;
     }
 
@@ -263,16 +302,17 @@ export default function TopicBuilderTabs({
       setHasConsumedDashboardIssue(true);
       setConsumedDashboardIssueContext(null);
     }
-    if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", nextHref);
-    } else {
-      router.replace(nextHref, { scroll: false });
-    }
+    writeBuilderUrl(nextHref);
   };
 
   return (
-    <>
-      <TopicWorkflowPanel workflow={workflow} onRefresh={() => router.refresh()} />
+    <div className="space-y-5">
+      <TopicWorkflowPanel
+        workflow={workflow}
+        onRefresh={refreshPage}
+        activeTab={activeTab}
+        onOpenTab={(tab) => void handleTabChange(tab)}
+      />
       {topGuidance ? (
         <DashboardIssueNotice
           guidance={topGuidance}
@@ -294,73 +334,93 @@ export default function TopicBuilderTabs({
 
       <Tabs
         value={activeTab}
-        onValueChange={handleTabChange}
-        className="w-full gap-5"
+        onValueChange={(value) => void handleTabChange(value)}
+        activationMode="manual"
+        className="w-full gap-4"
       >
-        <TabsList className="flex! h-auto! w-full! flex-col items-stretch gap-2 rounded-lg border bg-white p-2 shadow-sm sm:flex-row sm:items-center sm:gap-1">
-          <TabsTrigger
-            value="flashcards"
-            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
+        {/* Tab grammar của Product Language: icon + nhãn, tab đang mở có màu Route Blue và vạch
+            dưới. Trên điện thoại thu khoảng đệm để cả ba tab vừa từ 360px; hẹp hơn nữa mới cuộn ngang
+            (ẩn thanh cuộn), không xuống dòng. */}
+        <div
+          ref={tabScrollerRef}
+          className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] narrow-tall:sticky narrow-tall:top-0 narrow-tall:z-20 narrow-tall:bg-slate-50 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+        >
+          <TabsList
+            variant="line"
+            aria-label="Nội dung bài học"
+            className="flex! h-auto! w-full! min-w-max justify-start gap-0 rounded-none border-b border-slate-200 p-0 sm:gap-1"
           >
-            <BookOpen size={18} /> Từ vựng
-          </TabsTrigger>
-          <TabsTrigger
-            value="exercises"
-            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
-          >
-            <ClipboardList size={18} /> Bài tập TOEIC
-          </TabsTrigger>
-          <TabsTrigger
-            value="settings"
-            className="h-auto! min-h-11 w-full whitespace-normal rounded-md px-3 py-3 text-center text-sm font-bold after:hidden data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 sm:min-h-12 sm:px-6 sm:py-3"
-          >
-            <Settings size={18} /> Cài đặt bài học
-          </TabsTrigger>
-        </TabsList>
+            {TAB_ITEMS.map(({ value, label, Icon }) => {
+              const count = tabCounts[value];
+              return (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="h-auto! min-h-11 flex-auto gap-1 rounded-t-lg rounded-b-none border-0 px-1 py-2.5 text-sm font-semibold text-slate-600 transition-colors duration-[120ms] after:bottom-0! after:h-[3px]! after:rounded-t-[3px] after:bg-route! hover:bg-route-quiet hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-inset focus-visible:ring-offset-0 data-active:font-bold data-active:text-route motion-reduce:transition-none sm:flex-none sm:gap-2 sm:px-4"
+                >
+                  <Icon className="size-4 sm:size-[18px]" aria-hidden="true" />
+                  {label}
+                  {count !== undefined ? (
+                    <span className="text-xs font-bold tabular-nums text-slate-700 sm:rounded-md sm:bg-slate-100 sm:px-1.5">
+                      <span className="sr-only">: </span>
+                      {count}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
 
-        <TabsContent value="flashcards" className="min-w-0">
-          <FlashcardTab
-            topicId={topicId}
-            readOnly={!workflow.canEdit || workflow.status === "pending"}
-            isPublished={workflow.status === "published"}
-            onAuthoringSuccess={showReturnFeedbackForSuccess}
-            onMutationSuccess={() => router.refresh()}
-          />
+        {!workflow.canEdit ? (
+          <p className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700">
+            <Eye className="size-4 shrink-0 text-slate-600" aria-hidden="true" />
+            Bạn có quyền xem nhưng không có quyền soạn nội dung bài học này.
+          </p>
+        ) : null}
+
+        <TabsContent value="flashcards" forceMount className="min-w-0 data-[state=inactive]:hidden">
+          {mountedTabs.includes("flashcards") ? (
+            <FlashcardWorkbench
+              topicId={topicId}
+              isActive={activeTab === "flashcards"}
+              readOnly={readOnly}
+              isPublished={isPublished}
+              onAuthoringSuccess={showReturnFeedbackForSuccess}
+              onMutationSuccess={refreshPage}
+            />
+          ) : null}
         </TabsContent>
 
-        <TabsContent value="exercises" className="min-w-0 space-y-8">
-          {/* D3: memory check đứng trước bài tập đúng như thứ tự learner gặp. */}
-          <MemoryCheckSection
-            topicId={topicId}
-            readOnly={!workflow.canEdit || workflow.status === "pending"}
-            isPublished={workflow.status === "published"}
-            onMutationSuccess={() => router.refresh()}
-          />
-          <ExerciseTab
-            topicId={topicId}
-            readOnly={!workflow.canEdit || workflow.status === "pending"}
-            isPublished={workflow.status === "published"}
-            dashboardIssueContext={exerciseIssueContext}
-            onDismissDashboardIssue={exitDashboardIssueMode}
-            staleTargetRedirectHref={staleTargetRedirectHref}
-            onAuthoringSuccess={showReturnFeedbackForSuccess}
-            onMutationSuccess={() => router.refresh()}
-          />
+        <TabsContent value="memory-check" forceMount className="min-w-0 data-[state=inactive]:hidden">
+          {mountedTabs.includes("memory-check") ? (
+            <MemoryCheckWorkbench
+              topicId={topicId}
+              isActive={activeTab === "memory-check"}
+              readOnly={readOnly}
+              isPublished={isPublished}
+              onMutationSuccess={refreshPage}
+            />
+          ) : null}
         </TabsContent>
 
-        <TabsContent value="settings" className="min-w-0">
-          <SettingsTab
-            topicId={topicId}
-            courseId={courseId}
-            topicStatus={workflow.status}
-            canManagePreviewMarkers={workflow.role !== "previewer"}
-            readOnly={!workflow.canEdit || workflow.status === "pending"}
-            isPublished={workflow.status === "published"}
-            onSaved={() => router.refresh()}
-          />
+        <TabsContent value="exercises" forceMount className="min-w-0 data-[state=inactive]:hidden">
+          {mountedTabs.includes("exercises") ? (
+            <ExerciseWorkbench
+              topicId={topicId}
+              isActive={activeTab === "exercises"}
+              readOnly={readOnly}
+              isPublished={isPublished}
+              dashboardIssueContext={exerciseIssueContext}
+              onDismissDashboardIssue={exitDashboardIssueMode}
+              staleTargetRedirectHref={staleTargetRedirectHref}
+              onAuthoringSuccess={showReturnFeedbackForSuccess}
+              onMutationSuccess={refreshPage}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
-    </>
+    </div>
   );
 }
 

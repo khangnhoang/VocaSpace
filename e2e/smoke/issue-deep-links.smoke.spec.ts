@@ -22,9 +22,7 @@ import {
 // - Case: chapter đã sửa, topic thiếu nội dung, Settings save/refresh, target hỏng và Back/Forward.
 // - Dùng fixture teacher/course local thật; giữ assertion về URL/UI và console hydration.
 // - Verify: xem State D6 trong progress.md; không dùng networkidle; chỉ giữ ERR_ABORTED đã biết của redirect.
-
-// Owner 2026-10-24: bỏ qua trên CI vì lỗi hàng đợi action của Next 16.2.6 làm tab Cài đặt treo ngẫu nhiên; vẫn chạy ở máy local.
-test.skip(!!process.env.CI, "ACTION-QUEUE-001: lỗi hàng đợi action của Next 16.2.6, thay bằng test mới khi làm lại topic builder (TFEAT-004)");
+// - TFEAT4: chạy lại trên CI vì topic builder chỉ ghi `?tab=` khi không còn server action chờ (ACTION-QUEUE-001).
 
 test("dashboard issue links survive stale target redirects without hydration errors", async ({
   page,
@@ -78,7 +76,7 @@ test("dashboard issue links survive stale target redirects without hydration err
   await expect(
     page.getByRole("button", { name: "Mở bài tập TOEIC" }),
   ).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /Bài tập TOEIC/i })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Bài tập/ })).toHaveAttribute(
     "data-state",
     "active",
   );
@@ -91,50 +89,52 @@ test("dashboard issue links survive stale target redirects without hydration err
     page.getByText("Tab trong đường dẫn không còn hợp lệ"),
   ).toHaveCount(0);
   await expect(
-    page.locator('[role="tab"][data-state="active"]').filter({ hasText: "TOEIC" }),
+    page.locator('[role="tab"][data-state="active"]').filter({ hasText: "Bài tập" }),
   ).toBeVisible();
 
   await page.goto(validIssueUrl);
-  await page.getByRole("tab", { name: /T.*v.*ng/i }).click();
+  await page.getByRole("tab", { name: /^Từ vựng/ }).click();
   await expect(page).toHaveURL(/from=dashboard/);
   await expect(page).toHaveURL(/issue=topic_has_no_learning_content/);
   await expect(page).toHaveURL(/tab=flashcards/);
   await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
-  await expect(page.getByRole("tab", { name: /T.*v.*ng/i })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Từ vựng/ })).toHaveAttribute(
     "data-state",
     "active",
   );
 
-  await page.getByRole("tab", { name: /B.*i t.*p TOEIC/i }).click();
+  await page.getByRole("tab", { name: /^Bài tập/ }).click();
   await expect(page).toHaveURL(/from=dashboard/);
   await expect(page).toHaveURL(/issue=topic_has_no_learning_content/);
   await expect(page).toHaveURL(/tab=exercises/);
   await expect(page.getByText("Đang sửa vấn đề từ dashboard")).toBeVisible();
 
-  await page.getByRole("tab", { name: /C.*i.*t b.*i h.*c/i }).click();
+  await page.getByRole("tab", { name: /^Memory check/ }).click();
   await expect(page).not.toHaveURL(/from=dashboard/);
   await expect(page).not.toHaveURL(/issue=topic_has_no_learning_content/);
   await expect(page.getByText("Tab trong đường dẫn không còn hợp lệ")).toHaveCount(
     0,
   );
-  await expect(page.getByRole("tab", { name: /C.*i.*t b.*i h.*c/i })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Memory check/ })).toHaveAttribute(
     "data-state",
     "active",
   );
-  await expect(page).toHaveURL(/tab=settings/);
-  const settingsUrl = page.url();
+  await expect(page).toHaveURL(/tab=memory-check/);
+  const tabUrl = page.url();
 
   // Request refresh phải dùng query hiện tại của router, không khôi phục deep link đã thoát.
   const refreshRequest = page.waitForRequest((request) =>
     request.method() === "GET" && request.headers()["rsc"] === "1" &&
-    new URL(request.url()).pathname === new URL(settingsUrl).pathname,
+    new URL(request.url()).pathname === new URL(tabUrl).pathname,
   );
-  await page.getByRole("button", { name: "Lưu cài đặt", exact: true }).click();
+  await page.getByRole("button", { name: topicTitle }).click();
+  await page.getByRole("textbox", { name: "Tên bài học" }).fill(`${topicTitle} (đã đổi tên)`);
+  await page.keyboard.press("Enter");
   const refreshUrl = new URL((await refreshRequest).url());
-  expect(refreshUrl.searchParams.get("tab")).toBe("settings");
+  expect(refreshUrl.searchParams.get("tab")).toBe("memory-check");
   expect(refreshUrl.searchParams.has("from")).toBe(false);
   expect(refreshUrl.searchParams.has("issue")).toBe(false);
-  await expect(page).toHaveURL(settingsUrl);
+  await expect(page).toHaveURL(tabUrl);
 
   await page.goto(malformedTargetUrl);
   await expect(page).toHaveURL(new RegExp(getCourseStructurePath(courseId)));
@@ -149,8 +149,8 @@ test("dashboard issue links survive stale target redirects without hydration err
   const structureUrl = page.url();
 
   await navigateHistory(page, "back");
-  await expect(page).toHaveURL(settingsUrl);
-  await expect(page.getByRole("tab", { name: /C.*i.*t b.*i h.*c/i })).toHaveAttribute("data-state", "active");
+  await expect(page).toHaveURL(tabUrl);
+  await expect(page.getByRole("tab", { name: /^Memory check/ })).toHaveAttribute("data-state", "active");
   await navigateHistory(page, "forward");
   await expect(page).toHaveURL(structureUrl);
   await expect(page.getByRole("button", { name: "Thêm chương", exact: true })).toBeEnabled({ timeout: 30_000 });

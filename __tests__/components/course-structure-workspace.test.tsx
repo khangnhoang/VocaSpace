@@ -345,7 +345,7 @@ describe("ChapterWorkbench topic capabilities", () => {
     expect(screen.queryByRole("button", { name: 'Di chuyển bài học "Draft 0" lên' })).toBeNull();
 
     const menu = await openTopicMenu("Draft 0");
-    expect(within(menu).getByRole("menuitem", { name: "Cài đặt" })).toBeTruthy();
+    expect(within(menu).getByRole("menuitem", { name: "Mở bài học" })).toBeTruthy();
     expect(within(menu).queryByRole("menuitem", { name: /Đổi tên/ })).toBeNull();
     expect(within(menu).queryByRole("menuitem", { name: /Xóa bài học/ })).toBeNull();
   });

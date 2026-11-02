@@ -6,7 +6,6 @@ import {
   getCourseStructureIssueUnavailablePath,
   parseCourseAuthoringIssueDestination,
 } from "@/lib/course-authoring/issue-context";
-import BackButton from "./_components/BackButton";
 import TopicBuilderTabs from "./_components/TopicBuilderTabs";
 import { TopicReviewNotesProvider } from "./_components/TopicReviewNotes";
 
@@ -74,41 +73,32 @@ export default async function TopicBuilderPage({
   const notesPayload = "error" in reviewNotes ? null : reviewNotes.data;
 
   return (
-    <div className="flex flex-col h-full bg-slate-50/50">
-      <div className="bg-white border-b px-6 py-4 flex items-center gap-4">
-        <BackButton courseId={resolvedParams.id} chapterId={parentChapterId} />
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Topic Builder</h1>
-          <p className="text-xs text-slate-500 font-medium">
-            Quản lý nội dung bài học
-          </p>
-        </div>
-      </div>
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="max-w-6xl mx-auto">
-          <TopicReviewNotesProvider
+    // Header (tên bài học, vòng đời, đường quay về chương) nằm trong TopicWorkflowPanel để
+    // mọi hành động vòng đời đi qua cùng guard thay đổi chưa lưu với editor.
+    <div className="min-h-full bg-slate-50">
+      <div className="mx-auto w-full max-w-[90rem] px-4 py-5 sm:px-6 lg:py-6">
+        <TopicReviewNotesProvider
+          topicId={resolvedParams.topicId}
+          notes={notesPayload?.notes ?? null}
+          readError={"error" in reviewNotes ? reviewNotes.error : null}
+          currentUserId={notesPayload?.currentUserId ?? ""}
+          canRead={
+            notesPayload !== null &&
+            (workflow.data.canReview ||
+              workflow.data.isCurrentUserResponsible ||
+              workflow.data.isCurrentUserContributor ||
+              workflow.data.originalCreator.userId === notesPayload.currentUserId)
+          }
+          canReview={workflow.data.canReview}
+        >
+          <TopicBuilderTabs
+            courseId={resolvedParams.id}
             topicId={resolvedParams.topicId}
-            notes={notesPayload?.notes ?? null}
-            readError={"error" in reviewNotes ? reviewNotes.error : null}
-            currentUserId={notesPayload?.currentUserId ?? ""}
-            canRead={
-              notesPayload !== null &&
-              (workflow.data.canReview ||
-                workflow.data.isCurrentUserResponsible ||
-                workflow.data.isCurrentUserContributor ||
-                workflow.data.originalCreator.userId === notesPayload.currentUserId)
-            }
-            canReview={workflow.data.canReview}
-          >
-            <TopicBuilderTabs
-              courseId={resolvedParams.id}
-              topicId={resolvedParams.topicId}
-              parentChapterId={parentChapterId}
-              initialSearch={initialSearch}
-              workflow={workflow.data}
-            />
-          </TopicReviewNotesProvider>
-        </div>
+            parentChapterId={parentChapterId}
+            initialSearch={initialSearch}
+            workflow={workflow.data}
+          />
+        </TopicReviewNotesProvider>
       </div>
     </div>
   );
