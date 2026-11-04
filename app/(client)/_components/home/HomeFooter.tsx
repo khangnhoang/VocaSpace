@@ -18,7 +18,7 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
   return (
     <Link
       href={href}
-      className="group relative inline-flex items-center text-slate-300 transition-colors duration-[120ms] ease-[cubic-bezier(0.2,0,0,1)] hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 motion-reduce:transition-none"
+      className="group relative inline-flex min-h-6 items-center text-slate-300 transition-colors duration-[120ms] ease-[cubic-bezier(0.2,0,0,1)] hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 motion-reduce:transition-none"
     >
       <ChevronRight
         aria-hidden="true"

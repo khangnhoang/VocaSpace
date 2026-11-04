@@ -113,9 +113,11 @@ const RATING_OUTCOMES = [
   { mark: 3, when: "sau khoảng 1 tuần" },
 ] as const;
 
-// Màn mở đầu: thẻ đầu tiên tự lật một lần sau khi hero hiện xong rồi úp lại, để khách thấy cơ chế mà chưa cần bấm.
-// Chỉ chạy một lần, bỏ qua khi người dùng giảm chuyển động hoặc đã tương tác với khung thử.
-export const INTRO_FLIP_START_MS = 900;
+// Màn mở đầu: thẻ đầu tiên tự lật một lần rồi úp lại, để khách thấy cơ chế mà chưa cần bấm. Chỉ bắt đầu khi phần lớn thẻ
+// đã nằm trong màn hình (trên mobile thẻ thường ở dưới mép lúc tải trang), chạy một lần, và bỏ qua khi người dùng giảm
+// chuyển động hoặc đã tương tác với khung thử.
+export const INTRO_VISIBLE_RATIO = 0.6;
+export const INTRO_FLIP_DELAY_MS = 600;
 export const INTRO_FLIP_HOLD_MS = 1100;
 const CARD_SWAP_MS = 220;
 
@@ -157,6 +159,7 @@ export default function HeroPractice() {
   const pendingFocus = useRef<FocusTarget | null>(null);
   const introCancelled = useRef(false);
   const panelRef = useRef<HTMLElement>(null);
+  const cardAreaRef = useRef<HTMLDivElement>(null);
   const revealRef = useRef<HTMLButtonElement>(null);
   const firstRatingRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -172,13 +175,35 @@ export default function HeroPractice() {
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
-    const timers = [
-      window.setTimeout(() => {
-        if (!introCancelled.current) setIntroFlip(true);
-      }, INTRO_FLIP_START_MS),
-      window.setTimeout(() => setIntroFlip(false), INTRO_FLIP_START_MS + INTRO_FLIP_HOLD_MS),
-    ];
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
+    const timers: number[] = [];
+    const play = () => {
+      timers.push(
+        window.setTimeout(() => {
+          if (introCancelled.current) return;
+          setIntroFlip(true);
+          timers.push(window.setTimeout(() => setIntroFlip(false), INTRO_FLIP_HOLD_MS));
+        }, INTRO_FLIP_DELAY_MS),
+      );
+    };
+
+    const cardArea = cardAreaRef.current;
+    let observer: IntersectionObserver | null = null;
+    if (cardArea && typeof IntersectionObserver !== "undefined") {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry?.isIntersecting) return;
+          observer?.disconnect();
+          play();
+        },
+        { threshold: INTRO_VISIBLE_RATIO },
+      );
+      observer.observe(cardArea);
+    }
+
+    return () => {
+      observer?.disconnect();
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
   }, []);
 
   // Nút cần focus chỉ tồn tại sau khi React commit phase mới, nên focus trong effect thay vì ngay trong handler.
@@ -271,36 +296,44 @@ export default function HeroPractice() {
             />
           </div>
 
-          <div className="relative [perspective:1200px]">
+          {/* Cắt phần trượt ngang để thẻ ra/vào không làm trang tràn ngang trên mobile. */}
+          <div ref={cardAreaRef} className="relative overflow-x-clip">
             <div
               key={`${deckId}-${cardIndex}`}
               className={cn(
-                "grid min-h-48 [transform-style:preserve-3d] transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none motion-reduce:[transform:none]",
-                isRevealed && "[transform:rotateY(180deg)]",
+                "[perspective:1200px]",
                 // Thẻ mới trượt vào từ phải cùng lúc thẻ cũ trượt ra trái, nên không phải chờ animation mới bấm tiếp được.
+                // Hiệu ứng trượt nằm ở lớp bọc này để không ghi đè transform lật thẻ của lớp bên trong.
                 swapCount > 0 && "animate-in fade-in slide-in-from-right-6 duration-[220ms] motion-reduce:animate-none",
               )}
             >
               <div
-                aria-hidden={isRevealed || undefined}
-                inert={isRevealed}
                 className={cn(
-                  "col-start-1 row-start-1 flex flex-col items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 p-5 text-center [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
-                  isRevealed && "motion-reduce:invisible",
+                  "grid min-h-48 [transform-style:preserve-3d] transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none motion-reduce:[transform:none]",
+                  isRevealed && "[transform:rotateY(180deg)]",
                 )}
               >
-                <p className="text-[32px] font-extrabold leading-10 tracking-[-0.015em] text-slate-900">{card.word}</p>
-                <p className="mt-1 text-sm text-slate-500">{card.phonetic}</p>
-              </div>
-              <div
-                aria-hidden={!isRevealed || undefined}
-                inert={!isRevealed}
-                className={cn(
-                  "col-start-1 row-start-1 [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] motion-reduce:[transform:none]",
-                  !isRevealed && "motion-reduce:invisible",
-                )}
-              >
-                <CardBack card={card} />
+                <div
+                  aria-hidden={isRevealed || undefined}
+                  inert={isRevealed}
+                  className={cn(
+                    "col-start-1 row-start-1 flex flex-col items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 p-5 text-center [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
+                    isRevealed && "motion-reduce:invisible",
+                  )}
+                >
+                  <p className="text-[32px] font-extrabold leading-10 tracking-[-0.015em] text-slate-900">{card.word}</p>
+                  <p className="mt-1 text-sm text-slate-500">{card.phonetic}</p>
+                </div>
+                <div
+                  aria-hidden={!isRevealed || undefined}
+                  inert={!isRevealed}
+                  className={cn(
+                    "col-start-1 row-start-1 [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] motion-reduce:[transform:none]",
+                    !isRevealed && "motion-reduce:invisible",
+                  )}
+                >
+                  <CardBack card={card} />
+                </div>
               </div>
             </div>
             {outgoing && (

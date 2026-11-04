@@ -2,9 +2,13 @@
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicCourseCatalogResult } from "@/app/actions/public-course";
-import HeroPractice, { INTRO_FLIP_HOLD_MS, INTRO_FLIP_START_MS } from "@/app/(client)/_components/home/HeroPractice";
+import HeroPractice, {
+  INTRO_FLIP_DELAY_MS,
+  INTRO_FLIP_HOLD_MS,
+  INTRO_VISIBLE_RATIO,
+} from "@/app/(client)/_components/home/HeroPractice";
 import HomeFooter from "@/app/(client)/_components/home/HomeFooter";
 import HomeHero from "@/app/(client)/_components/home/HomeHero";
 import HomeTeacherSection from "@/app/(client)/_components/home/HomeTeacherSection";
@@ -41,7 +45,7 @@ vi.mock("@/app/(client)/_components/home/HeroFreeCourseFact", async (importOrigi
 // - Phân quyền / resilience: nút soạn khóa học chỉ với profiles.role = 'teacher'; khách không gọi bảng profiles.
 // - Invariant và cleanup: nhãn đánh giá lấy từ FLASHCARD_RATINGS; nội dung trang chủ phát hành để trống; RTL cleanup sau mỗi test.
 // - Khoảng trống đã biết: hiệu ứng CSS (trượt, mờ, đường ray chạy), bố cục responsive và confetti thật được kiểm bằng trình duyệt;
-//   suite này chỉ kiểm thời điểm tự lật và việc bỏ qua khi giảm chuyển động.
+//   suite này chỉ kiểm điều kiện tự lật (thẻ đã vào màn hình) và việc bỏ qua khi tương tác trước hoặc giảm chuyển động.
 
 // Mặt thẻ đang úp vẫn nằm trong DOM với aria-hidden; chỉ tìm chữ ở mặt người dùng đang thấy.
 const VISIBLE_ONLY = "[aria-hidden='true'] *, script, style";
@@ -183,18 +187,42 @@ describe("hero practice decks and completion", () => {
 describe("hero practice intro flip", () => {
   // Mặt trước đứng trước mặt sau trong DOM, nên chữ "commute" đầu tiên thuộc mặt trước.
   const frontFace = () => screen.getAllByText("commute")[0].parentElement!;
+  // jsdom không có IntersectionObserver; bản giả này cho test tự quyết lúc nào thẻ vào màn hình.
+  let observers: { callback: IntersectionObserverCallback; options?: IntersectionObserverInit }[] = [];
+  const showCard = () =>
+    act(() =>
+      observers.forEach(({ callback }) =>
+        callback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver),
+      ),
+    );
+
+  beforeEach(() => {
+    observers = [];
+    window.IntersectionObserver = class {
+      constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        observers.push({ callback, options });
+      }
+      observe() {}
+      disconnect() {}
+    } as unknown as typeof IntersectionObserver;
+  });
 
   afterEach(() => {
     vi.useRealTimers();
     Reflect.deleteProperty(window, "matchMedia");
+    Reflect.deleteProperty(window, "IntersectionObserver");
   });
 
-  it("flips the first card once after the hero settles, then turns it back", () => {
+  it("waits until most of the card is on screen, flips once, then turns it back", () => {
     vi.useFakeTimers();
     render(<HeroPractice />);
 
+    expect(observers[0]?.options?.threshold).toBe(INTRO_VISIBLE_RATIO);
+    act(() => vi.advanceTimersByTime(5000));
     expect(frontFace().getAttribute("aria-hidden")).toBeNull();
-    act(() => vi.advanceTimersByTime(INTRO_FLIP_START_MS));
+
+    showCard();
+    act(() => vi.advanceTimersByTime(INTRO_FLIP_DELAY_MS));
     expect(frontFace().getAttribute("aria-hidden")).toBe("true");
     act(() => vi.advanceTimersByTime(INTRO_FLIP_HOLD_MS));
     expect(frontFace().getAttribute("aria-hidden")).toBeNull();
@@ -204,14 +232,17 @@ describe("hero practice intro flip", () => {
   it("skips the intro when the visitor interacts first or prefers reduced motion", () => {
     vi.useFakeTimers();
     const { unmount } = render(<HeroPractice />);
+    showCard();
     fireEvent.pointerDown(screen.getByRole("button", { name: "Lật thẻ" }));
-    act(() => vi.advanceTimersByTime(INTRO_FLIP_START_MS));
+    act(() => vi.advanceTimersByTime(INTRO_FLIP_DELAY_MS));
     expect(frontFace().getAttribute("aria-hidden")).toBeNull();
     unmount();
 
+    observers = [];
     window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as unknown as typeof window.matchMedia;
     render(<HeroPractice />);
-    act(() => vi.advanceTimersByTime(INTRO_FLIP_START_MS));
+    expect(observers).toHaveLength(0);
+    act(() => vi.advanceTimersByTime(INTRO_FLIP_DELAY_MS));
     expect(frontFace().getAttribute("aria-hidden")).toBeNull();
   });
 });
