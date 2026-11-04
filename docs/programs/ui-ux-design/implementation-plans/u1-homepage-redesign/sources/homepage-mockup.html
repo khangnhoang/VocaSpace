@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VocaSpace — Trang chủ đề xuất</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --canvas: #F8FAFC; --surface: #FFFFFF; --subtle: #F1F5F9;
+    --border: #CBD5E1; --border-muted: #E2E8F0;
+    --ink: #0F172A; --text-2: #475569; --text-3: #64748B;
+    --route: #2563EB; --route-quiet: #EFF6FF; --route-line: #93C5FD;
+    --action: #2B6CED; --action-hover: #1F5AD6;
+    --recall: #0E7490; --recall-quiet: #ECFEFF; --recall-line: #A5F3FC;
+    --growth: #15803D; --growth-quiet: #F0FDF4; --growth-line: #86EFAC;
+    --attention: #A16207; --attention-quiet: #FFFBEB; --attention-line: #FCD34D;
+    --e1: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --e2: 0 8px 24px rgba(15, 23, 42, 0.10);
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+    --font: "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-utility: "Geist", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 22px; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  :focus-visible { outline: 2px solid var(--route); outline-offset: 3px; }
+  .icon { width: 16px; height: 16px; flex: none; }
+
+  /* Buttons — Button contract: 8px radius, 44px tall for primary touch actions */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 8px; border: 1px solid transparent; font-size: 14px; line-height: 20px; font-weight: 600; cursor: pointer; transition: background-color 120ms var(--ease), border-color 120ms var(--ease), color 120ms var(--ease); }
+  .btn-primary { background: var(--action); color: #fff; }
+  .btn-primary:hover { background: var(--action-hover); }
+  .btn-outline { background: var(--surface); border-color: var(--border); color: var(--ink); }
+  .btn-outline:hover { border-color: var(--route-line); background: var(--route-quiet); }
+  .btn-text { color: var(--route); padding: 0 4px; }
+  .btn-text:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .eyebrow { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--recall); margin: 0; }
+  .h2 { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.01em; margin: 8px 0 0; }
+  .lead { font-size: 16px; line-height: 26px; color: var(--text-2); margin: 0; }
+
+  /* Header — proposal for a separate PR */
+  header { background: var(--surface); border-bottom: 1px solid var(--border-muted); position: sticky; top: 0; z-index: 10; }
+  .nav { display: flex; align-items: center; gap: 32px; height: 64px; }
+  .nav img { height: 28px; width: auto; display: block; }
+  .nav-links { display: flex; gap: 4px; flex: 1; }
+  .nav-links a { padding: 8px 12px; border-radius: 8px; font-weight: 600; color: var(--text-2); transition: background-color 120ms var(--ease); }
+  .nav-links a:hover { background: var(--subtle); color: var(--ink); }
+  .nav-links a[aria-current="page"] { color: var(--route); }
+  .nav-actions { display: flex; gap: 8px; align-items: center; }
+  .nav-actions .btn { min-height: 40px; padding: 0 16px; }
+
+  /* Hero */
+  .hero { padding: 64px 0 64px; }
+  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+  .hero h1 { font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: -0.02em; margin: 16px 0 16px; max-width: 13em; }
+  .hero h1 em { font-style: normal; color: var(--route); }
+  .hero .lead { max-width: 34em; }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-top: 32px; }
+  .hero-facts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 32px 0 0; padding: 0; list-style: none; color: var(--text-2); }
+  .hero-facts li { display: flex; align-items: center; gap: 8px; }
+  .hero-facts .icon { color: var(--growth); }
+
+  /* Practice panel — the signature */
+  .practice { background: var(--surface); border: 1px solid var(--border-muted); border-radius: 24px; box-shadow: var(--e2); padding: 24px; }
+  .practice-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .practice-head .meta { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-3); }
+  .deck-bar { height: 6px; border-radius: 9999px; background: var(--subtle); margin: 12px 0 20px; overflow: hidden; }
+  .deck-bar span { display: block; height: 100%; background: var(--recall); border-radius: 9999px; transition: width 220ms var(--ease); }
+  .flip { perspective: 1200px; }
+  .card { position: relative; min-height: 196px; transform-style: preserve-3d; transition: transform 240ms var(--ease); }
+  .card.is-revealed { transform: rotateY(180deg); }
+  .face { position: absolute; inset: 0; backface-visibility: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--canvas); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+  .face.back { transform: rotateY(180deg); background: var(--surface); }
+  .word { font-size: 32px; line-height: 40px; font-weight: 800; letter-spacing: -0.015em; }
+  .phon { color: var(--text-3); margin-top: 4px; }
+  .mean { font-size: 18px; line-height: 26px; font-weight: 700; }
+  .ex { color: var(--text-2); margin-top: 8px; max-width: 30em; }
+  .ex b { color: var(--ink); }
+  .practice-actions { margin-top: 16px; min-height: 44px; }
+  .practice-actions .btn { width: 100%; }
+  .ratings { display: none; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .is-rating .ratings { display: grid; }
+  .is-rating .reveal-btn, .is-rated .reveal-btn { display: none; }
+  .next-btn { display: none; }
+  .is-rated .next-btn { display: inline-flex; }
+  .rate { min-height: 44px; border-radius: 8px; border: 1px solid; background: #fff; font-weight: 600; cursor: pointer; transition: background-color 120ms var(--ease), border-color 120ms var(--ease); }
+  .rate-again { border-color: var(--attention-line); background: var(--attention-quiet); color: var(--attention); }
+  .rate-hard { border-color: var(--attention-line); color: var(--attention); }
+  .rate-hard:hover, .rate-again:hover { border-color: var(--attention); background: var(--attention-quiet); }
+  .rate-good { border-color: var(--recall-line); color: var(--recall); }
+  .rate-easy { border-color: var(--recall-line); background: var(--recall-quiet); color: var(--recall); }
+  .rate-good:hover, .rate-easy:hover { border-color: var(--recall); background: var(--recall-quiet); }
+
+  /* Progression rail */
+  .rail-block { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-muted); }
+  .rail-label { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; line-height: 16px; color: var(--text-3); font-family: var(--font-utility); font-weight: 500; }
+  .rail { display: flex; align-items: center; margin: 12px 4px 8px; }
+  .rail .node { width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border); flex: none; transition: background-color 220ms var(--ease), border-color 220ms var(--ease); }
+  .rail .seg { flex: 1; height: 2px; background: var(--border); transition: background-color 220ms var(--ease); }
+  .rail .node.done { background: var(--recall); border-color: var(--recall); }
+  .rail .seg.done { background: var(--recall); }
+  .rail .node.current { background: var(--route); border-color: var(--route); box-shadow: 0 0 0 3px var(--route-quiet); }
+  .rail-ticks { display: flex; justify-content: space-between; font-size: 12px; line-height: 16px; color: var(--text-3); }
+  .rail-ticks span.on { color: var(--route); font-weight: 700; }
+  .schedule { margin: 12px 0 0; min-height: 22px; color: var(--text-2); }
+  .schedule strong { color: var(--route); }
+
+  /* How it works */
+  .section { padding: 64px 0; }
+  .section-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 32px; }
+  .section-head .lead { margin-top: 8px; max-width: 40em; font-size: 14px; line-height: 22px; }
+  .how { border-top: 1px solid var(--border-muted); border-bottom: 1px solid var(--border-muted); background: var(--surface); }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); position: relative; }
+  .steps::before { content: ""; position: absolute; top: 5px; z-index: 0; left: 6px; right: 33%; height: 2px; background: linear-gradient(90deg, var(--recall) 0 50%, var(--route-line) 50% 100%); }
+  .step { position: relative; padding-right: 32px; }
+  .step .node { display: block; position: relative; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--recall); background: var(--recall); }
+  .step:nth-child(3) .node { background: var(--route); border-color: var(--route); box-shadow: 0 0 0 3px var(--route-quiet); }
+  .step h3 { font-size: 18px; line-height: 26px; font-weight: 700; margin: 20px 0 8px; }
+  .step p { margin: 0; color: var(--text-2); max-width: 28em; }
+  .step .chip-row { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .chip { font-size: 12px; line-height: 16px; font-weight: 600; padding: 4px 10px; border-radius: 9999px; border: 1px solid; }
+
+  /* Course cards */
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+  .course { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-muted); border-radius: 16px; overflow: hidden; transition: border-color 120ms var(--ease), box-shadow 120ms var(--ease); }
+  .course:hover { border-color: var(--route-line); box-shadow: var(--e1); }
+  .cover { aspect-ratio: 4 / 3; display: flex; align-items: flex-end; padding: 16px; color: #fff; position: relative; }
+  .cover b { font-size: 28px; line-height: 34px; font-weight: 800; letter-spacing: -0.02em; }
+  .cover small { position: absolute; top: 16px; left: 16px; font-family: var(--font-utility); font-weight: 600; font-size: 12px; letter-spacing: 0.04em; opacity: .9; }
+  .course-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .course-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; line-height: 16px; color: var(--text-3); }
+  .badge { font-size: 12px; line-height: 16px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; }
+  .badge-free { background: var(--growth-quiet); color: var(--growth); }
+  .badge-paid { background: var(--subtle); color: var(--text-2); }
+  .course h3 { font-size: 18px; line-height: 26px; font-weight: 700; margin: 0; }
+  .course-foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border-muted); display: flex; justify-content: space-between; align-items: center; }
+  .price { font-size: 16px; line-height: 24px; font-weight: 800; }
+  .course-foot .more { color: var(--route); font-weight: 600; display: inline-flex; gap: 4px; align-items: center; }
+
+  /* Testimonials */
+  .voices { padding-top: 0; }
+  .quotes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  .quote { margin: 0; display: flex; flex-direction: column; gap: 20px; background: var(--surface); border: 1px solid var(--border-muted); border-radius: 16px; padding: 24px; }
+  .quote blockquote { margin: 0; font-size: 16px; line-height: 26px; color: var(--ink); }
+  .quote blockquote::before { content: "“"; display: block; font-size: 40px; line-height: 24px; font-weight: 800; color: var(--route-line); margin-bottom: 4px; }
+  .quote figcaption { display: flex; align-items: center; gap: 12px; margin-top: auto; }
+  .quote figcaption strong { display: block; font-size: 14px; line-height: 20px; }
+  .quote .who { display: block; font-size: 12px; line-height: 16px; color: var(--text-3); }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--route-quiet); color: var(--route); font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+  .proof { display: flex; align-items: center; gap: 8px; margin: 0; padding-top: 16px; border-top: 1px solid var(--border-muted); font-size: 12px; line-height: 16px; font-weight: 600; color: var(--recall); }
+
+  /* Teacher band */
+  .teacher { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: center; background: var(--surface); border: 1px solid var(--border-muted); border-radius: 24px; padding: 40px; }
+  .tree { list-style: none; margin: 0; padding: 20px; background: var(--canvas); border-radius: 16px; border: 1px solid var(--border-muted); }
+  .tree li { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+  .tree .lvl1 { padding-left: 24px; }
+  .tree .lvl2 { padding-left: 48px; color: var(--text-2); }
+  .tree .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--border); flex: none; }
+  .tree .ok .dot { background: var(--growth); border-color: var(--growth); }
+  .tree .now .dot { background: var(--route); border-color: var(--route); }
+  .tree .state { margin-left: auto; font-size: 12px; line-height: 16px; font-weight: 600; }
+
+  /* Footer */
+  footer { background: var(--ink); color: #CBD5E1; margin-top: 64px; }
+  .foot { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 32px; padding: 48px 0 32px; }
+  .foot img { height: 28px; width: auto; }
+  .foot h4 { color: #fff; font-size: 14px; line-height: 20px; margin: 0 0 12px; }
+  .foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .foot a:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+  .foot p { margin: 16px 0 0; max-width: 28em; color: #94A3B8; }
+  .foot .social { display: flex; gap: 8px; margin-top: 20px; }
+  .social a { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #CBD5E1; border: 1px solid rgba(203, 213, 225, 0.2); transition: background-color 120ms var(--ease), color 120ms var(--ease), border-color 120ms var(--ease); }
+  .social a:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(203, 213, 225, 0.4); color: #fff; text-decoration: none; }
+  .social svg { width: 20px; height: 20px; }
+  .copy { border-top: 1px solid rgba(203, 213, 225, 0.15); padding: 20px 0; font-size: 12px; color: #94A3B8; }
+
+  /* Review notes (mockup only) */
+  .note { display: none; position: absolute; z-index: 5; background: #FEF3C7; color: #713F12; border: 1px solid #F59E0B; border-radius: 8px; padding: 4px 8px; font: 600 12px/16px var(--font-utility); max-width: 280px; }
+  .show-notes .note { display: block; }
+  .rel { position: relative; }
+  .notes-toggle { position: fixed; right: 16px; bottom: 16px; z-index: 20; background: var(--ink); color: #fff; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 600; cursor: pointer; box-shadow: var(--e2); }
+
+  @media (max-width: 1024px) {
+    .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .quotes { grid-template-columns: 1fr; }
+    .hero-grid, .teacher { grid-template-columns: 1fr; gap: 40px; }
+  }
+  @media (max-width: 720px) {
+    .wrap { padding: 0 16px; }
+    .nav { gap: 12px; }
+    .nav-links { display: none; }
+    .nav-actions .btn-text { display: none; }
+    .hero { padding: 40px 0; }
+    .hero h1 { font-size: 32px; line-height: 40px; }
+    .hero-cta .btn-primary { width: 100%; }
+    .practice { padding: 16px; border-radius: 16px; }
+    .section { padding: 48px 0; }
+    .section-head { flex-direction: column; align-items: flex-start; }
+    .steps { grid-template-columns: 1fr; gap: 32px; padding-left: 28px; }
+    .steps::before { top: 6px; bottom: 6px; left: 5px; right: auto; width: 2px; height: auto; background: linear-gradient(180deg, var(--recall) 0 66%, var(--route-line) 66% 100%); }
+    .step { padding-right: 0; }
+    .step .node { position: absolute; left: -28px; top: 7px; }
+    .step h3 { margin-top: 0; }
+    .grid4 { grid-template-columns: 1fr; }
+    .teacher { padding: 24px; }
+    .foot { grid-template-columns: 1fr; }
+    .ratings { gap: 6px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0ms !important; }
+    .card.is-revealed { transform: none; }
+    .card.is-revealed .front { visibility: hidden; }
+    .card .back { transform: none; visibility: hidden; }
+    .card.is-revealed .back { visibility: visible; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav rel">
+    <a href="#" aria-label="VocaSpace — Trang chủ"><img src="../../../../../../public/brand/vocaspace-logo.svg" alt="VocaSpace"></a>
+    <nav class="nav-links" aria-label="Chính">
+      <a href="#" aria-current="page">Trang chủ</a>
+      <a href="#courses">Khóa học</a>
+      <a href="#">Học tập</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-text" href="#">Đăng nhập</a>
+      <a class="btn btn-primary" href="#">Đăng ký</a>
+    </div>
+    <span class="note" style="right:0;top:60px">Header trắng: đề xuất làm ở PR riêng (dùng chung mọi trang client)</span>
+  </div>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap hero-grid">
+      <div class="rel">
+        <p class="eyebrow">TOEIC · IELTS · Từ vựng theo chủ đề</p>
+        <h1 id="hero-title">Nhớ từ vựng lâu hơn, <em>ôn đúng lúc</em> bạn sắp quên</h1>
+        <p class="lead">Học bằng thẻ, tự đánh giá mức nhớ sau mỗi từ. VocaSpace xếp lịch ôn tiếp theo cho từng từ, để thời gian học dồn vào chỗ bạn còn yếu.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#">Học thử miễn phí <i data-lucide="arrow-right" class="icon" aria-hidden="true"></i></a>
+          <a class="btn btn-text" href="#courses">Xem tất cả khóa học</a>
+        </div>
+        <ul class="hero-facts">
+          <li><i data-lucide="check" class="icon" aria-hidden="true"></i>Học thử một chủ đề trước khi đăng ký</li>
+          <li><i data-lucide="check" class="icon" aria-hidden="true"></i>Có khóa học miễn phí</li>
+        </ul>
+        <span class="note" style="left:0;bottom:-36px">Một CTA chính Action Blue + một link Route Blue (Product Language §8). Copy cần xác nhận đúng sự thật.</span>
+      </div>
+
+      <div class="practice rel" id="practice" aria-label="Thử ôn một thẻ từ vựng">
+        <div class="practice-head">
+          <span class="eyebrow">Thử ngay · TOEIC Part 1</span>
+          <span class="meta" id="deck-count">Thẻ 1/3</span>
+        </div>
+        <div class="deck-bar" aria-hidden="true"><span id="deck-bar" style="width:0%"></span></div>
+
+        <div class="flip">
+          <div class="card" id="card">
+            <div class="face front" id="front">
+              <div class="word" id="word">commute</div>
+              <div class="phon" id="phon">/kəˈmjuːt/ · động từ</div>
+            </div>
+            <div class="face back" id="back" aria-live="polite">
+              <div class="phon" id="word-back" style="margin:0 0 6px;font-weight:600">commute</div>
+              <div class="mean" id="mean">đi lại hằng ngày giữa nhà và nơi làm</div>
+              <div class="ex" id="ex">She <b>commutes</b> to the office by train.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="practice-actions" id="actions">
+          <button class="btn btn-outline reveal-btn" id="reveal" type="button"><i data-lucide="rotate-cw" class="icon" aria-hidden="true"></i>Lật thẻ</button>
+          <div class="ratings" role="group" aria-label="Bạn nhớ từ này ở mức nào?">
+            <button class="rate rate-again" type="button" data-r="0">Lại</button>
+            <button class="rate rate-hard" type="button" data-r="1">Khó</button>
+            <button class="rate rate-good" type="button" data-r="2">Ổn</button>
+            <button class="rate rate-easy" type="button" data-r="3">Dễ</button>
+          </div>
+          <button class="btn btn-outline next-btn" id="next" type="button">Thẻ tiếp theo <i data-lucide="arrow-right" class="icon" aria-hidden="true"></i></button>
+        </div>
+
+        <div class="rail-block">
+          <div class="rail-label"><span>Lịch ôn của từ này</span><span>Ví dụ minh họa</span></div>
+          <div class="rail" aria-hidden="true">
+            <span class="node current"></span><span class="seg"></span>
+            <span class="node"></span><span class="seg"></span>
+            <span class="node"></span><span class="seg"></span>
+            <span class="node"></span><span class="seg"></span>
+            <span class="node"></span>
+          </div>
+          <div class="rail-ticks" aria-hidden="true">
+            <span class="on">Hôm nay</span><span>1 ngày</span><span>3 ngày</span><span>1 tuần</span><span>1 tháng</span>
+          </div>
+          <p class="schedule" id="schedule" role="status">Lật thẻ rồi chọn mức nhớ để xem lần ôn tiếp theo.</p>
+        </div>
+        <span class="note" style="right:-8px;top:-14px">Signature: thẻ lật + 4 mức đánh giá giống app + progression rail</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="how section" aria-labelledby="how-title">
+    <div class="wrap rel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Cách học</p>
+          <h2 class="h2" id="how-title">Ba bước để từ mới thành từ của bạn</h2>
+        </div>
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <span class="node" aria-hidden="true"></span>
+          <h3>Học bằng thẻ</h3>
+          <p>Mỗi chủ đề là một bộ thẻ có nghĩa, phiên âm và câu ví dụ, do giáo viên soạn theo mục tiêu thi.</p>
+        </li>
+        <li class="step">
+          <span class="node" aria-hidden="true"></span>
+          <h3>Tự đánh giá mức nhớ</h3>
+          <p>Sau mỗi thẻ bạn chọn một mức. Không có đúng sai, chỉ có bạn nhớ tới đâu.</p>
+          <div class="chip-row" aria-hidden="true">
+            <span class="chip" style="color:var(--attention);border-color:var(--attention-line);background:var(--attention-quiet)">Lại</span>
+            <span class="chip" style="color:var(--attention);border-color:var(--attention-line)">Khó</span>
+            <span class="chip" style="color:var(--recall);border-color:var(--recall-line)">Ổn</span>
+            <span class="chip" style="color:var(--recall);border-color:var(--recall-line);background:var(--recall-quiet)">Dễ</span>
+          </div>
+        </li>
+        <li class="step">
+          <span class="node" aria-hidden="true"></span>
+          <h3>Ôn đúng lúc sắp quên</h3>
+          <p>Từ khó quay lại sớm, từ đã chắc giãn ra xa. Mỗi ngày bạn chỉ ôn những thẻ đến hạn.</p>
+        </li>
+      </ol>
+      <span class="note" style="right:0;top:24px">Thay 3 thẻ icon "Tại sao chọn" và bỏ claim AI 24/7</span>
+    </div>
+  </section>
+
+  <section class="section" id="courses" aria-labelledby="courses-title">
+    <div class="wrap rel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Khóa học</p>
+          <h2 class="h2" id="courses-title">Khóa học nổi bật</h2>
+          <p class="lead">Những lựa chọn được học viên quan tâm nhiều, cân bằng giữa khóa học miễn phí và trả phí.</p>
+        </div>
+        <a class="btn btn-outline" href="#">Xem tất cả khóa học <i data-lucide="arrow-right" class="icon" aria-hidden="true"></i></a>
+      </div>
+      <div class="grid4">
+        <a class="course" href="#">
+          <div class="cover" style="background:#1E3A8A"><small>TOEIC</small><b>600+ từ cốt lõi</b></div>
+          <div class="course-body">
+            <div class="course-meta"><span class="badge badge-free">Miễn phí</span><span>1.240 học viên</span></div>
+            <h3>TOEIC 600: từ vựng cốt lõi theo chủ đề</h3>
+            <div class="course-foot"><span class="price">Miễn phí</span><span class="more">Xem chi tiết <i data-lucide="arrow-right" class="icon" aria-hidden="true"></i></span></div>
+          </div>
+        </a>
+        <a class="course" href="#">
+          <div class="cover" style="background:#0E7490"><small>IELTS</small><b>Academic</b></div>
+          <div class="course-body">
+            <div class="course-meta"><span class="badge badge-paid">Trả phí</span><span>865 học viên</span></div>
+            <h3>IELTS Academic Word List trọn bộ</h3>
+            <div class="course-foot"><span class="price">299.000 ₫</span><span class="more">Xem chi tiết <i data-lucide="arrow-right" class="icon" aria-hidden="true"></i></span></div>
+          </div>
+        </a>
+        <a class="course" href="#">
+          <div class="cover" style="background:#0F172A"><small>TOEIC</small><b>Part 5–6</b></div>
+          <div class="course-body">
+            <div class="course-meta"><span class="badge badge-paid">Trả phí</span><span>512 học viên</span></div>
+            <h3>Collocation thường gặp trong TOEIC Reading</h3>
+            <div class="course-foot"><span class="price">199.000 ₫</span><span class="more">Xem chi tiết <i data-lucide="arrow-right" class="icon" aria-hidden="true"></i></span></div>
+          </div>
+        </a>
+        <a class="course" href="#">
+          <div class="cover" style="background:#2563EB"><small>Giao tiếp</small><b>Công sở</b></div>
+          <div class="course-body">
+            <div class="course-meta"><span class="badge badge-free">Miễn phí</span><span>2.031 học viên</span></div>
+            <h3>Tiếng Anh văn phòng: email và cuộc họp</h3>
+            <div class="course-foot"><span class="price">Miễn phí</span><span class="more">Xem chi tiết <i data-lucide="arrow-right" class="icon" aria-hidden="true"></i></span></div>
+          </div>
+        </a>
+      </div>
+      <span class="note" style="right:0;top:-20px">Dữ liệu mẫu; bản thật giữ PublicCourseHighlights + ảnh bìa thật</span>
+    </div>
+  </section>
+
+  <section class="voices section" aria-labelledby="voices-title">
+    <div class="wrap rel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Học viên</p>
+          <h2 class="h2" id="voices-title">Học viên nói gì về VocaSpace</h2>
+        </div>
+      </div>
+      <div class="quotes">
+        <figure class="quote">
+          <blockquote>Trước mình học từ theo danh sách rồi quên gần hết sau một tuần. Giờ mỗi ngày chỉ ôn những thẻ đến hạn, khoảng 15 phút là xong.</blockquote>
+          <figcaption>
+            <span class="avatar" aria-hidden="true">MA</span>
+            <span><strong>Minh Anh</strong><span class="who">Học viên · TOEIC 600: từ vựng cốt lõi</span></span>
+          </figcaption>
+          <p class="proof"><i data-lucide="calendar-check" class="icon" aria-hidden="true"></i>Đã ôn 1.180 thẻ trong 42 ngày</p>
+        </figure>
+        <figure class="quote">
+          <blockquote>Phần tự đánh giá Lại, Khó, Ổn, Dễ giúp mình thật thà với bản thân. Từ nào chưa chắc thì nó quay lại sớm, không bị bỏ sót.</blockquote>
+          <figcaption>
+            <span class="avatar" aria-hidden="true">QH</span>
+            <span><strong>Quốc Huy</strong><span class="who">Học viên · IELTS Academic Word List</span></span>
+          </figcaption>
+          <p class="proof"><i data-lucide="calendar-check" class="icon" aria-hidden="true"></i>Đã ôn 2.430 thẻ trong 75 ngày</p>
+        </figure>
+        <figure class="quote">
+          <blockquote>Mình thích câu ví dụ trong từng thẻ, học xong là biết dùng từ trong email công việc luôn.</blockquote>
+          <figcaption>
+            <span class="avatar" aria-hidden="true">TL</span>
+            <span><strong>Thu Linh</strong><span class="who">Học viên · Tiếng Anh văn phòng</span></span>
+          </figcaption>
+          <p class="proof"><i data-lucide="calendar-check" class="icon" aria-hidden="true"></i>Đã ôn 640 thẻ trong 21 ngày</p>
+        </figure>
+      </div>
+      <span class="note" style="right:0;top:-20px">NỘI DUNG MẪU. Bản thật cần đánh giá thật + đồng ý công khai; số thẻ lấy từ dữ liệu học thật</span>
+    </div>
+  </section>
+
+  <section aria-labelledby="teacher-title">
+    <div class="wrap">
+      <div class="teacher rel">
+        <div>
+          <p class="eyebrow">Dành cho giáo viên</p>
+          <h2 class="h2" id="teacher-title">Soạn khóa học theo chương và chủ đề</h2>
+          <p class="lead" style="margin-top:12px">Sắp xếp nội dung thành chương, chủ đề và bộ thẻ. Học viên học theo đúng thứ tự bạn đặt ra.</p>
+          <div class="hero-cta" style="margin-top:24px">
+            <a class="btn btn-outline" href="#">Tạo khóa học</a>
+          </div>
+        </div>
+        <ul class="tree" aria-label="Ví dụ cấu trúc khóa học">
+          <li><i data-lucide="book-open" class="icon" aria-hidden="true"></i><strong>TOEIC 600: từ vựng cốt lõi</strong></li>
+          <li class="lvl1 ok"><span class="dot"></span>Chương 1 · Văn phòng<span class="state" style="color:var(--growth)">Đã đăng</span></li>
+          <li class="lvl2 ok"><span class="dot"></span>Họp và thuyết trình · 24 thẻ</li>
+          <li class="lvl2 now"><span class="dot"></span>Email công việc · 18 thẻ<span class="state" style="color:var(--route)">Đang soạn</span></li>
+          <li class="lvl1"><span class="dot"></span>Chương 2 · Đi lại<span class="state" style="color:var(--text-3)">Bản nháp</span></li>
+        </ul>
+        <span class="note" style="right:16px;top:-14px">Tuỳ chọn. Dùng cấu trúc khóa → chương → chủ đề có thật</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <img src="../../../../../../public/brand/vocaspace-logo-white.svg" alt="VocaSpace">
+      <p>Nền tảng học từ vựng bằng thẻ và lịch ôn tập cá nhân, cho người học và giáo viên tiếng Anh.</p>
+      <div class="rel">
+      <ul class="social" aria-label="VocaSpace trên mạng xã hội">
+        <li><a href="#" target="_blank" rel="noopener noreferrer" aria-label="VocaSpace trên Facebook (mở tab mới)"><i data-lucide="facebook" aria-hidden="true"></i></a></li>
+        <li><a href="#" target="_blank" rel="noopener noreferrer" aria-label="VocaSpace trên YouTube (mở tab mới)"><i data-lucide="youtube" aria-hidden="true"></i></a></li>
+        <li><a href="#" target="_blank" rel="noopener noreferrer" aria-label="VocaSpace trên Instagram (mở tab mới)"><i data-lucide="instagram" aria-hidden="true"></i></a></li>
+      </ul>
+      <span class="note" style="left:0;top:68px">Chỉ hiện kênh có trang chính thức thật; thiếu URL thì ẩn icon đó</span>
+      </div>
+    </div>
+    <div>
+      <h4>Khám phá</h4>
+      <ul><li><a href="#courses">Khóa học</a></li><li><a href="#">Học tập</a></li><li><a href="#">Dành cho giáo viên</a></li></ul>
+    </div>
+    <div>
+      <h4>Pháp lý</h4>
+      <ul><li><a href="#">Chính sách quyền riêng tư</a></li><li><a href="#">Điều khoản sử dụng</a></li></ul>
+    </div>
+  </div>
+  <div class="wrap copy">© 2026 VocaSpace. Bảo lưu mọi quyền.</div>
+</footer>
+
+<button class="notes-toggle" id="notes-toggle" type="button" aria-pressed="false">Hiện ghi chú thiết kế</button>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+  if (window.lucide) lucide.createIcons();
+
+  const deck = [
+    { word: "commute", phon: "/kəˈmjuːt/ · động từ", mean: "đi lại hằng ngày giữa nhà và nơi làm", ex: "She <b>commutes</b> to the office by train." },
+    { word: "itinerary", phon: "/aɪˈtɪnərəri/ · danh từ", mean: "lịch trình chuyến đi", ex: "Please check the <b>itinerary</b> before you book." },
+    { word: "reimburse", phon: "/ˌriːɪmˈbɜːs/ · động từ", mean: "hoàn lại tiền đã chi", ex: "The company will <b>reimburse</b> your travel costs." },
+  ];
+  // Illustrative only: the real interval comes from FSRS for each card.
+  const outcomes = [
+    { step: 0, text: "Ôn lại <strong>trong hôm nay</strong>." },
+    { step: 1, text: "Ôn lại <strong>sau khoảng 1 ngày</strong>." },
+    { step: 2, text: "Ôn lại <strong>sau khoảng 3 ngày</strong>." },
+    { step: 3, text: "Ôn lại <strong>sau khoảng 1 tuần</strong>." },
+  ];
+  let i = 0;
+  const $ = (id) => document.getElementById(id);
+  const actions = $("actions");
+  const nodes = [...document.querySelectorAll(".rail .node")];
+  const segs = [...document.querySelectorAll(".rail .seg")];
+  const ticks = [...document.querySelectorAll(".rail-ticks span")];
+
+  function setRail(step) {
+    nodes.forEach((n, k) => { n.classList.toggle("done", k < step); n.classList.toggle("current", k === step); });
+    segs.forEach((s, k) => s.classList.toggle("done", k < step));
+    ticks.forEach((t, k) => t.classList.toggle("on", k === step));
+  }
+
+  function load() {
+    const c = deck[i];
+    $("word").textContent = c.word; $("phon").textContent = c.phon; $("word-back").textContent = c.word;
+    $("mean").textContent = c.mean; $("ex").innerHTML = c.ex;
+    $("card").classList.remove("is-revealed");
+    actions.classList.remove("is-rating");
+    $("deck-count").textContent = `Thẻ ${i + 1}/${deck.length}`;
+    $("deck-bar").style.width = `${(i / deck.length) * 100}%`;
+    setRail(0);
+    $("schedule").textContent = "Lật thẻ rồi chọn mức nhớ để xem lần ôn tiếp theo.";
+  }
+
+  $("reveal").addEventListener("click", () => {
+    $("card").classList.add("is-revealed");
+    actions.classList.add("is-rating");
+    $("schedule").textContent = "Bạn nhớ từ này ở mức nào?";
+    document.querySelector(".rate-good").focus();
+  });
+
+  document.querySelectorAll(".rate").forEach((b) => b.addEventListener("click", () => {
+    const o = outcomes[+b.dataset.r];
+    setRail(o.step);
+    $("schedule").innerHTML = o.text;
+    $("deck-bar").style.width = `${((i + 1) / deck.length) * 100}%`;
+    actions.classList.remove("is-rating");
+    actions.classList.add("is-rated");
+    $("next").focus();
+  }));
+
+  $("next").addEventListener("click", () => {
+    actions.classList.remove("is-rated");
+    i = (i + 1) % deck.length;
+    load();
+    $("reveal").focus();
+  });
+
+  $("notes-toggle").addEventListener("click", (e) => {
+    const on = document.body.classList.toggle("show-notes");
+    e.currentTarget.setAttribute("aria-pressed", String(on));
+    e.currentTarget.textContent = on ? "Ẩn ghi chú thiết kế" : "Hiện ghi chú thiết kế";
+  });
+</script>
+</body>
+</html>

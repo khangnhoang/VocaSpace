@@ -31,6 +31,16 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Exit condition: that polish task is delivered.
 - Origin: student-user-flow-route:STUDENT-003; [original delivery contract](../student-user-flow-route/plan.md).
 
+<a id="uiux-001"></a>
+
+### UIUX-001: Public course loading, empty and error states keep pre-Product-Language colors
+
+- Status: Open (2026-11-04), recorded from the PR #183 review; outside U1, whose AC6 keeps these states unchanged.
+- Problem: `PublicCourseFeedback` and `PublicCourseGridSkeleton` in `app/(client)/courses/_components/PublicCourseStates.tsx` still use `gray-200`, `gray-600`, `blue-50` and `blue-500` literals. On `/` and `/courses` they no longer match the restyled course cards and section headings.
+- Evidence: U1 review of PR #183 on 2026-11-04; the states are shared by the homepage highlights and the `/courses` catalog.
+- Direction: a later UI task maps them to Product Language neutral and state tokens on both routes, with Owner review of the rendered states.
+- Exit condition: both routes render loading, empty and error states with Product Language tokens and the Owner accepts them.
+
 ## Resolved
 
 One line each.

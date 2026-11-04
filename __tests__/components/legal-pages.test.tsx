@@ -1,18 +1,15 @@
 // @vitest-environment jsdom
 
 import { render, screen, within } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import Home from "@/app/(client)/page";
+import { describe, expect, it } from "vitest";
+import HomeFooter from "@/app/(client)/_components/home/HomeFooter";
 import PrivacyPage, { metadata as privacyMetadata } from "@/app/(client)/privacy/page";
 import TermsPage, { metadata as termsMetadata } from "@/app/(client)/terms/page";
-
-// Trang chủ chỉ cần phần footer; highlights là server component gọi dữ liệu thật nên thay bằng null.
-vi.mock("@/app/(client)/_components/PublicCourseHighlights", () => ({ default: () => null }));
 
 // Test plan:
 // - Mục tiêu: A4b AC1–AC4 — /privacy và /terms hiện đúng tiêu đề, ngày cập nhật, link liên hệ và link chéo; footer trang chủ trỏ tới hai trang.
 // - Loại test: component render trong jsdom (RTL); trang là server component tĩnh, không mock dữ liệu.
-// - Đối tượng: PrivacyPage, TermsPage (kèm metadata.title) và phần footer "Pháp lý" của Home.
+// - Đối tượng: PrivacyPage, TermsPage (kèm metadata.title) và cột "Pháp lý" của HomeFooter.
 // - Case thành công: tiêu đề h1, một dòng "Cập nhật lần cuối" cùng giá trị ở cả hai trang, mailto support, link sang trang kia,
 //   quy tắc 16+ và điều khoản thanh toán/khoá học bị gỡ trong /terms; footer có đúng hai link tên tiếng Việt.
 // - Case thất bại: không áp dụng (không có dữ liệu, form hay lỗi).
@@ -115,29 +112,8 @@ describe("legal pages together", () => {
 });
 
 describe("home footer", () => {
-  beforeAll(() => {
-    // Carousel của trang chủ cần matchMedia; jsdom không có sẵn.
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: false,
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      onchange: null,
-      dispatchEvent: vi.fn(),
-    }));
-    class NoopObserver {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-    window.IntersectionObserver = NoopObserver as unknown as typeof IntersectionObserver;
-    window.ResizeObserver = NoopObserver as unknown as typeof ResizeObserver;
-  });
-
-  it("links the Pháp lý column to /privacy and /terms and keeps the other footer links as placeholders", () => {
-    render(<Home />);
+  it("links the Pháp lý column to /privacy and /terms only", () => {
+    render(<HomeFooter socialLinks={[]} />);
 
     const legalColumn = screen.getByRole("heading", { name: "Pháp lý" }).parentElement as HTMLElement;
     expect(within(legalColumn).getByRole("link", { name: "Chính sách quyền riêng tư" }).getAttribute("href")).toBe(
@@ -145,6 +121,5 @@ describe("home footer", () => {
     );
     expect(within(legalColumn).getByRole("link", { name: "Điều khoản sử dụng" }).getAttribute("href")).toBe("/terms");
     expect(within(legalColumn).getAllByRole("link")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "Contact Us" }).getAttribute("href")).toBe("#");
   });
 });

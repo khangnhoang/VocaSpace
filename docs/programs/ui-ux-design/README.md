@@ -24,6 +24,7 @@ Read [progress.md](./progress.md) for the current initiative. Keep closed initia
 
 | Initiative | Plan | Branch | Outcome | Dependencies | Gate to open |
 | --- | --- | --- | --- | --- | --- |
+| U1 homepage redesign | [plan](./implementation-plans/u1-homepage-redesign/plan.md) | `feat/homepage-redesign` | `/`, the shared client header and the public course card follow the Owner-accepted mockup and Product Language. | None. | Owner approval of the plan and an implementation grant. |
 
 ## 5. Opening an initiative
 

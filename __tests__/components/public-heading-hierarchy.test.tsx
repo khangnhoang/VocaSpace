@@ -23,9 +23,9 @@ describe("public page heading hierarchy", () => {
       '<SheetTitle className="sr-only">Điều hướng tài khoản</SheetTitle>',
     );
     expect(mobileAccountSheetSource).toContain(
-      '<SheetTrigger aria-label="Mở điều hướng tài khoản">',
+      'aria-label="Mở điều hướng tài khoản"',
     );
-    expect(headerSource).toContain('src="/brand/vocaspace-logo-white.svg"');
+    expect(headerSource).toContain('src="/brand/vocaspace-logo.svg"');
     expect(headerSource).toContain('alt="VocaSpace"');
     expect(mobileAccountSheetSource).toContain(
       '<p className="truncate font-semibold text-slate-900">',
@@ -35,12 +35,18 @@ describe("public page heading hierarchy", () => {
     );
   });
 
-  it("keeps one primary homepage hero heading and makes the alternate slide secondary", () => {
-    const homepageSource = readSource("app/(client)/page.tsx");
+  it("keeps exactly one homepage h1, in the hero", () => {
+    const homeSources = [
+      "app/(client)/page.tsx",
+      "app/(client)/_components/home/HeroPractice.tsx",
+      "app/(client)/_components/home/HomeHowItWorks.tsx",
+      "app/(client)/_components/home/HomeTestimonials.tsx",
+      "app/(client)/_components/home/HomeTeacherSection.tsx",
+      "app/(client)/_components/home/HomeFooter.tsx",
+      "app/(client)/_components/PublicCourseHighlights.tsx",
+    ];
 
-    expect(countTag(homepageSource, "h1")).toBe(1);
-    expect(homepageSource).toContain(
-      "<h2 className=\"text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight\">",
-    );
+    expect(countTag(readSource("app/(client)/_components/home/HomeHero.tsx"), "h1")).toBe(1);
+    homeSources.forEach((path) => expect(countTag(readSource(path), "h1")).toBe(0));
   });
 });

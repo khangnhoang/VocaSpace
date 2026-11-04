@@ -27,7 +27,8 @@ vi.mock("@/app/actions/auth", () => ({ signOutUser: mocks.signOutUser }));
 // - Đối tượng: Header + MobileAccountSheet.
 // - Case thành công: khách, học viên, thành viên khóa học, chỉ có lời mời đang chờ, teacher và admin — menu desktop và props của sheet khớp;
 //   danh sách đích đến trong sheet đã mở bằng danh sách link của menu desktop đã mở.
-// - Case thất bại: không có "Cài đặt" ở cả hai menu; người dùng thường không thấy link admin/khóa học.
+// - Case thất bại: không có "Cài đặt" ở cả hai menu; người dùng thường không thấy link admin/khóa học; không còn ô tìm kiếm không hoạt động.
+// - Điều hướng chính (U1 AC10–AC11): desktop có Trang chủ, Khóa học, Học tập; sheet mobile có Trang chủ, Khóa học.
 // - Bảo mật/phân quyền: link admin chỉ khi profiles.role = 'admin'; Header là nơi duy nhất đọc profile/membership/lời mời.
 // - Invariant cần giữ: nhãn khóa học "Lời mời cộng tác" chỉ khi có lời mời mà chưa là teacher/thành viên; cả hai menu link /teacher/courses.
 // - Ghi chú: Supabase được mock vì test kiểm tra wiring dữ liệu → UI, không phải RLS; hành vi truy vấn thật nằm ngoài phạm vi.
@@ -76,8 +77,9 @@ function findSheet(node: ReactNode): ReactElement<Record<string, unknown>> | nul
 
 function destinations(root: HTMLElement) {
   // Mục menu desktop là <a role="menuitem">, nên lấy theo thẻ <a> thay vì role link.
+  // Điều hướng chính (Trang chủ, Khóa học, Học tập) không phải đích tài khoản nên có test riêng.
   return Array.from(root.querySelectorAll("a[href]"))
-    .filter((link) => link.getAttribute("href") !== "/")
+    .filter((link) => link.getAttribute("href") !== "/" && !link.closest('nav[aria-label="Điều hướng chính"]'))
     .map((link) => [link.textContent?.trim(), link.getAttribute("href")]);
 }
 
@@ -142,6 +144,35 @@ const signedInScenarios: Array<{
     sheetProps: { isAdmin: true, courseWorkspaceLabel: null },
   },
 ];
+
+function primaryNavigation(root: HTMLElement) {
+  const nav = within(root).getByRole("navigation", { name: "Điều hướng chính" });
+  return within(nav)
+    .getAllByRole("link")
+    .map((link) => [link.textContent?.trim(), link.getAttribute("href")]);
+}
+
+describe("Header primary navigation", () => {
+  it("shows Trang chủ, Khóa học and Học tập on desktop and the first two in the mobile sheet", async () => {
+    mockSupabase({ user: null });
+
+    const { container } = render(await Header());
+
+    expect(primaryNavigation(container)).toEqual([
+      ["Trang chủ", "/"],
+      ["Khóa học", "/courses"],
+      ["Học tập", "/learn"],
+    ]);
+    expect(container.querySelector("input")).toBeNull();
+
+    fireEvent.click(within(container).getByRole("button", { name: "Mở điều hướng tài khoản" }));
+    const dialog = await screen.findByRole("dialog", { name: "Điều hướng tài khoản" });
+    expect(primaryNavigation(dialog)).toEqual([
+      ["Trang chủ", "/"],
+      ["Khóa học", "/courses"],
+    ]);
+  });
+});
 
 describe("Header account menus", () => {
   it.each(signedInScenarios)(
