@@ -1,6 +1,6 @@
 # U1 detail plan — homepage redesign
 
-Revision: r2, 2026-11-04 (Owner QA of the running r1 screen: deck tabs, hero intro, deck completion, primary teacher action, footer and course-card hovers, local sample mode — decisions 11–16). Owner approval: r1 2026-11-04; r2 decisions 2026-11-04. Charter: [README.md](../../README.md) (initiative U1).
+Revision: r3, 2026-11-04 (PR #183 review: intro flip waits for the card to be on screen, demo covers leave `public/`, motion durations no longer bound to Product Language — decisions 17–18; r2: Owner QA decisions 11–16). Owner approval: r1 2026-11-04; r2 and r3 decisions 2026-11-04. Charter: [README.md](../../README.md) (initiative U1).
 
 ## 1. Binding Spec
 
@@ -24,7 +24,7 @@ The Owner accepted the rendered mockup [homepage-mockup.html](./sources/homepage
 | AC10 | On every route that renders the shared `Header` (`(client)` routes and `not-found`), the header is a white surface with the dark logo, desktop links Trang chủ / Khóa học / Học tập with `aria-current="page"` on the active one, Route Blue "Đăng nhập" and Action Blue "Đăng ký ngay" for guests, and the unchanged account dropdown for signed-in users. The non-functional search field is removed. |
 | AC11 | Below `lg`, the existing account sheet trigger is restyled for the white header, and the sheet lists "Trang chủ" and "Khóa học" above its unchanged account items. |
 | AC12 | `PublicCourseCard` on `/` and `/courses` uses Product Language tokens: free badge in the Growth pair, price in ink, "Xem chi tiết" in Route Blue, muted border, `16px` radius, hover lifts the card 2px with Level 2 shadow, scales the cover to 1.03 and nudges the arrow. Layout, cover image, fallback, link target and accessible name are unchanged. |
-| AC13 | Motion: on load the hero lines enter in a 60ms stagger and the practice panel slides in, then the first card flips once and turns back (start 900ms, hold 1100ms), cancelled by any interaction with the panel; the hero rail fills toward the new mark in one sequence of at most `320ms`; the three-step rail draws once when the section first enters the viewport; the rated card slides out while the next slides in, without delaying the next action. Hover is `120ms`, state changes `220ms`, the flip `240ms`. Under `prefers-reduced-motion: reduce` every final state appears immediately (opacity at most `100ms`) with the same text, focus and actions. No section-wide reveal-on-scroll exists. |
+| AC13 | Motion: on load the hero lines enter in a 60ms stagger and the practice panel slides in, then the first card flips once and turns back (600ms after at least 60% of the card is on screen, hold 1100ms), cancelled by any interaction with the panel; the hero rail fills toward the new mark in one sequence of at most `320ms`; the three-step rail draws once when the section first enters the viewport; the rated card slides out while the next slides in, without delaying the next action. Hover is `120ms`, state changes `220ms`, the flip `240ms`. Under `prefers-reduced-motion: reduce` every final state appears immediately (opacity at most `100ms`) with the same text, focus and actions. No section-wide reveal-on-scroll exists. |
 | AC14 | At 375px, 768px and 1440px the page has no horizontal scroll; at 200% zoom content stays usable; text meets 4.5:1, focus indicators and control boundaries meet 3:1; touch-primary actions are at least `44 × 44px`. |
 
 ### 1.2 Scope and non-goals
@@ -61,7 +61,9 @@ The Owner accepted the rendered mockup [homepage-mockup.html](./sources/homepage
 13. (2026-11-04, Owner QA) Course-card hover lifts the card, scales the cover and nudges the arrow on `/` and `/courses`.
 14. (2026-11-04, Owner QA) Footer link hover brightens with an arrow instead of underline; social icons lift onto their network colors.
 15. (2026-11-04, Owner QA) The teacher action is a filled primary button.
-16. (2026-11-04, Owner QA) A local-only sample mode (`HOME_SAMPLE_CONTENT=1`, never in production) and `scripts/dev/seed-homepage-demo.mjs` (root-local DB only, `--apply`/`--revert`, covers in `public/demo/course-covers/`) show the page with full data.
+16. (2026-11-04, Owner QA) A local-only sample mode (`HOME_SAMPLE_CONTENT=1`, never in production) and `scripts/dev/seed-homepage-demo.mjs` (root-local DB only, `--apply`/`--revert`) show the page with full data. Amended by decision 18.
+17. (2026-11-04, PR #183 review) U1 motion is not bound to the Product Language duration limits, which the Owner plans to retire; motion still needs reduced-motion equivalence and must not delay the next action.
+18. (2026-11-04, PR #183 review) Demo covers live in `scripts/dev/homepage-demo-covers/` and are written to the local database as data URIs, so no demo asset ships with the build. Out-of-scope review findings go to [problems.md](../../problems.md) (UIUX-001).
 
 ## 2. Repository facts
 
