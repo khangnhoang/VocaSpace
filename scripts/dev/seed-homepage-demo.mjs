@@ -1,14 +1,20 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
-// Gán ảnh bìa mẫu (public/demo/course-covers) cho các khóa công khai chưa có ảnh ở DB local, để xem trang chủ đầy đủ.
+// Gán ảnh bìa mẫu cho các khóa công khai chưa có ảnh ở DB local, để xem trang chủ đầy đủ. Ảnh nằm cạnh script và được ghi
+// thẳng vào thumbnail_url dạng data URI (next/image tự bỏ tối ưu hóa với data:), nên không có file demo nào đi theo bản build.
 // Chỉ ghi vào root-local API 45321; khóa đã có ảnh thật được giữ nguyên, và --revert chỉ gỡ đúng các ảnh mẫu này.
 const root = resolve(import.meta.dirname, "../..");
-export const DEMO_COVER_PREFIX = "/demo/course-covers/";
-export const DEMO_COVERS = Array.from({ length: 6 }, (_, index) => `${DEMO_COVER_PREFIX}cover-${index + 1}.svg`);
+const coverDir = resolve(import.meta.dirname, "homepage-demo-covers");
+export const DEMO_COVERS = readdirSync(coverDir)
+  .filter((name) => name.endsWith(".svg"))
+  .sort()
+  .map((name) => `data:image/svg+xml;base64,${readFileSync(resolve(coverDir, name)).toString("base64")}`);
+// Bản đầu của script dùng đường dẫn trong public/; --revert vẫn gỡ các giá trị đó trên DB local đã chạy bản cũ.
+const LEGACY_COVER_PREFIX = "/demo/course-covers/";
 
 export function assertHomepageDemoTarget(apiUrl) {
   if (new URL(apiUrl).origin !== "http://127.0.0.1:45321") {
@@ -28,15 +34,27 @@ export async function applyHomepageDemo(env, mode) {
   });
 
   if (mode === "revert") {
-    const reverted = checked(
+    // Data URI dài nên không đưa cả danh sách vào URL của PostgREST: lọc theo prefix rồi so khớp chính xác ở đây.
+    const candidates = checked(
+      await service.from("courses").select("id, thumbnail_url").like("thumbnail_url", "data:image/svg+xml;base64,%"),
+      "Read demo covers",
+    );
+    const demoIds = candidates.filter((row) => DEMO_COVERS.includes(row.thumbnail_url)).map((row) => row.id);
+    const current = demoIds.length
+      ? checked(
+          await service.from("courses").update({ thumbnail_url: null }).in("id", demoIds).select("id"),
+          "Revert demo covers",
+        )
+      : [];
+    const legacy = checked(
       await service
         .from("courses")
         .update({ thumbnail_url: null })
-        .like("thumbnail_url", `${DEMO_COVER_PREFIX}%`)
+        .like("thumbnail_url", `${LEGACY_COVER_PREFIX}%`)
         .select("id"),
-      "Revert demo covers",
+      "Revert legacy demo covers",
     );
-    return { reverted: reverted.length };
+    return { reverted: current.length + legacy.length };
   }
 
   const catalog = checked(await service.rpc("get_public_course_catalog"), "Read public catalog");
