@@ -4,20 +4,24 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  BookMarked,
   BookOpen,
   ChevronRight,
   GraduationCap,
+  House,
   LayoutDashboard,
   LibraryBig,
   LogOut,
   Menu,
   User as UserIcon,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { signOutUser } from "@/app/actions/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
+import { isCurrentPath, PRIMARY_NAV_LABEL, PRIMARY_NAV_LINKS } from "@/components/ui/header-nav";
 import {
   Sheet,
   SheetClose,
@@ -48,6 +52,7 @@ export default function MobileAccountSheet({
   courseWorkspaceLabel = null,
 }: MobileAccountSheetProps) {
   const [open, setOpen] = React.useState(false);
+  const pathname = usePathname();
 
   React.useEffect(() => {
     const desktopMediaQuery = window.matchMedia(DESKTOP_BREAKPOINT_QUERY);
@@ -64,11 +69,11 @@ export default function MobileAccountSheet({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger aria-label="Mở điều hướng tài khoản">
-        <Menu
-          size={30}
-          className="border rounded-sm p-1 bg-white text-black"
-        />
+      <SheetTrigger
+        aria-label="Mở điều hướng tài khoản"
+        className="flex size-11 items-center justify-center rounded-[8px] border border-slate-300 bg-white text-slate-700 transition-colors duration-[120ms] hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 motion-reduce:transition-none"
+      >
+        <Menu aria-hidden="true" className="size-5" />
       </SheetTrigger>
       <SheetContent
         showCloseButton={false}
@@ -119,6 +124,32 @@ export default function MobileAccountSheet({
               </div>
             </div>
           </div>
+
+          <nav aria-label={PRIMARY_NAV_LABEL} className="border-t border-slate-100 px-4 py-3">
+            <ul className="space-y-1">
+              {PRIMARY_NAV_LINKS.slice(0, 2).map(({ label, href }) => {
+                const Icon = href === "/" ? House : BookMarked;
+                const isCurrent = isCurrentPath(pathname, href);
+                return (
+                  <li key={href}>
+                    <SheetClose asChild>
+                      <Link
+                        href={href}
+                        aria-current={isCurrent ? "page" : undefined}
+                        className="group flex h-12 items-center gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus-visible:bg-blue-50 focus-visible:text-blue-600 focus-visible:outline-none aria-[current=page]:text-route"
+                      >
+                        <Icon
+                          size={20}
+                          className="text-slate-500 transition-colors group-hover:text-blue-600 group-focus-visible:text-blue-600 group-aria-[current=page]:text-route"
+                        />
+                        <span>{label}</span>
+                      </Link>
+                    </SheetClose>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
 
           <div className="border-t border-slate-100 px-4 py-3">
             {!isAuthenticated && (

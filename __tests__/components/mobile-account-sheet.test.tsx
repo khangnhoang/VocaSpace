@@ -12,7 +12,8 @@ vi.mock("@/app/actions/auth", () => ({ signOutUser: mocks.signOutUser }));
 // - Mục tiêu: sheet tài khoản trên mobile có cùng đích đến với menu desktop cho khách, học viên, thành viên khóa học và admin (F1 AC1–AC3).
 // - Loại test: component interaction (RTL, jsdom).
 // - Đối tượng: MobileAccountSheet.
-// - Case thành công: khách thấy "Đăng nhập" (/login) và "Đăng ký ngay" (/register); người đã đăng nhập thấy "Không gian học tập", "Hồ sơ cá nhân",
+// - Case thành công: mọi người thấy "Trang chủ" (/) và "Khóa học" (/courses) phía trên mục tài khoản (U1 AC11);
+//   khách thấy "Đăng nhập" (/login) và "Đăng ký ngay" (/register); người đã đăng nhập thấy "Không gian học tập", "Hồ sơ cá nhân",
 //   link khóa học theo nhãn do Header truyền (href từ getTeacherCourseListPath), "Quản trị hệ thống" chỉ khi isAdmin, và "Đăng xuất" gọi signOutUser;
 //   bấm link đóng sheet.
 // - Case thất bại: không có "Cài đặt"; khách không thấy link học viên/admin/khóa học dù prop được truyền; người dùng thường không thấy link admin/khóa học.
@@ -47,13 +48,36 @@ function openSheet() {
   return screen.findByRole("dialog", { name: "Điều hướng tài khoản" });
 }
 
+// Điều hướng chính nằm trong nav riêng, giống nhau cho mọi người; các test tài khoản chỉ so phần còn lại.
 function links(dialog: HTMLElement) {
   return within(dialog)
     .queryAllByRole("link")
+    .filter((link) => !link.closest('nav[aria-label="Điều hướng chính"]'))
     .map((link) => [link.textContent?.trim(), link.getAttribute("href")]);
 }
 
 describe("MobileAccountSheet", () => {
+  it.each([false, true])(
+    "lists Trang chủ and Khóa học above the account items (signed in: %s)",
+    async (isAuthenticated) => {
+      render(<MobileAccountSheet isAuthenticated={isAuthenticated} />);
+
+      const dialog = await openSheet();
+      const nav = within(dialog).getByRole("navigation", { name: "Điều hướng chính" });
+
+      expect(
+        within(nav)
+          .getAllByRole("link")
+          .map((link) => [link.textContent?.trim(), link.getAttribute("href")]),
+      ).toEqual([
+        ["Trang chủ", "/"],
+        ["Khóa học", "/courses"],
+      ]);
+      const firstAccountLink = within(dialog).getAllByRole("link").find((link) => !nav.contains(link));
+      expect(nav.compareDocumentPosition(firstAccountLink!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    },
+  );
+
   it("offers a signed-out visitor the login and register links and closes after following one", async () => {
     render(<MobileAccountSheet isAuthenticated={false} isAdmin courseWorkspaceLabel="Khóa học của tôi" />);
 

@@ -10,9 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import {
-  Search,
   LibraryBig,
   User as UserIcon,
   BookOpen,
@@ -25,6 +23,7 @@ import Link from "next/link";
 import { signOutUser } from "@/app/actions/auth";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import MobileAccountSheet from "@/components/ui/mobile-account-sheet";
+import HeaderNav from "@/components/ui/header-nav";
 import { getAccountMenuState } from "@/lib/account-menu";
 
 export default async function Header() {
@@ -66,28 +65,24 @@ export default async function Header() {
   });
 
   return (
-    <header className="bg-white w-full">
-      <div className="bg-blue-400 h-16 flex justify-between item-center p-4">
-        <div className="w-2/3 flex justify-between">
-          <Link href="/" className="flex justify-center items-center gap-1">
-            <Image
-              src="/brand/vocaspace-logo-white.svg"
-              alt="VocaSpace"
-              width={587}
-              height={117}
-              className="h-[30px] w-auto"
-            />
-          </Link>
-          <div className="max-w-md w-2/3 md:flex lg:flex xl:flex justify-center items-center relative hidden">
-            <Input
-              placeholder="Tìm kiếm"
-              className="bg-white rounded-full border-none focus-visible:ring-0 focus-visible:ring-offset-0 pr-10 text-gray-900 shadow-sm"
-            />
-            <Search className="absolute text-gray-400 right-3 cursor-pointer hover:text-blue-500 transition-colors" />
-          </div>
-        </div>
+    <header className="w-full border-b border-slate-200 bg-white">
+      <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center gap-8 px-4 sm:px-6">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2"
+        >
+          <Image
+            src="/brand/vocaspace-logo.svg"
+            alt="VocaSpace"
+            width={587}
+            height={117}
+            loading="eager"
+            className="h-7 w-auto"
+          />
+        </Link>
+        <HeaderNav className="hidden flex-1 lg:block" />
         {/* CỤM NÚT BÊN PHẢI (DESKTOP) */}
-        <div className="hidden lg:flex items-center gap-4">
+        <div className="ml-auto hidden items-center gap-2 lg:flex">
           {user ? (
             // NẾU ĐÃ ĐĂNG NHẬP: HIỆN AVATAR DROPDOWN
             <DropdownMenu modal={false}>
@@ -97,7 +92,7 @@ export default async function Header() {
                   aria-label="Mở menu tài khoản"
                   className="relative h-10 w-10 rounded-full cursor-pointer"
                 >
-                  <Avatar className="h-10 w-10 border-2 border-white/20 hover:border-white transition-colors">
+                  <Avatar className="h-10 w-10 border-2 border-slate-200 transition-colors hover:border-route-line">
                     <AvatarImage src={profile?.avatar_url} />
                     <AvatarFallback>
                       {profile?.full_name?.charAt(0) || "U"}
@@ -193,23 +188,16 @@ export default async function Header() {
           ) : (
             // NẾU CHƯA ĐĂNG NHẬP: HIỆN NÚT LOGIN/REGISTER
             <div className="flex items-center gap-2">
-              <Link href="/login">
-                <Button
-                  variant="ghost"
-                  className="text-white hover:bg-white/20 hover:text-white font-medium cursor-pointer"
-                >
-                  Đăng nhập
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className="bg-white text-blue-500 hover:bg-gray-100 font-bold shadow-sm cursor-pointer">
-                  Đăng ký ngay
-                </Button>
-              </Link>
+              <Button asChild variant="link" className="px-2">
+                <Link href="/login">Đăng nhập</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/register">Đăng ký ngay</Link>
+              </Button>
             </div>
           )}
         </div>
-        <div className="grid grid-cols-1 justify-center items-center lg:hidden">
+        <div className="ml-auto flex items-center lg:hidden">
           <MobileAccountSheet
             avatarUrl={profile?.avatar_url}
             fullName={profile?.full_name}

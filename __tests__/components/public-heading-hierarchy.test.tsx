@@ -23,9 +23,9 @@ describe("public page heading hierarchy", () => {
       '<SheetTitle className="sr-only">Điều hướng tài khoản</SheetTitle>',
     );
     expect(mobileAccountSheetSource).toContain(
-      '<SheetTrigger aria-label="Mở điều hướng tài khoản">',
+      'aria-label="Mở điều hướng tài khoản"',
     );
-    expect(headerSource).toContain('src="/brand/vocaspace-logo-white.svg"');
+    expect(headerSource).toContain('src="/brand/vocaspace-logo.svg"');
     expect(headerSource).toContain('alt="VocaSpace"');
     expect(mobileAccountSheetSource).toContain(
       '<p className="truncate font-semibold text-slate-900">',
