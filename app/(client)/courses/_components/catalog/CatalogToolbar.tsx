@@ -22,6 +22,7 @@ const PRICE_OPTIONS: { value: CatalogPriceGroup; label: string }[] = [
 ];
 
 const SEARCH_COMMIT_DELAY_MS = 150;
+// Viền control dùng slate-500 (4,76:1) thay cho Border #CBD5E1 để đạt 3:1 theo U2 AC11 (Owner quyết định 2026-11-05).
 
 type CatalogToolbarProps = {
   query: CatalogQuery;
@@ -137,7 +138,7 @@ export function CatalogToolbar({
               }}
               placeholder="Tìm theo tên khóa học"
               autoComplete="off"
-              className="h-11 w-full rounded-xl border border-slate-300 bg-white pr-12 pl-10.5 text-sm text-slate-900 transition-[border-color,box-shadow] duration-150 placeholder:text-slate-500 hover:border-slate-400 focus:border-route focus:shadow-[0_0_0_3px_var(--route-quiet)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+              className="h-11 w-full rounded-xl border border-slate-500 bg-white pr-12 pl-10.5 text-sm text-slate-900 transition-[border-color,box-shadow] duration-150 placeholder:text-slate-500 hover:border-slate-600 focus:border-route focus:shadow-[0_0_0_3px_var(--route-quiet)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
             />
             {draft ? (
               <button
@@ -151,7 +152,7 @@ export function CatalogToolbar({
             ) : (
               <kbd
                 aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-md border border-slate-300 bg-slate-100 px-1.5 font-[family-name:var(--font-geist-sans)] text-xs leading-4 text-slate-500 lg:inline"
+                className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-md border border-slate-300 bg-slate-100 px-1.5 font-[family-name:var(--font-geist-sans)] text-xs leading-4 text-slate-600 lg:inline"
               >
                 /
               </kbd>
@@ -183,7 +184,7 @@ export function CatalogToolbar({
                     <span
                       className={cn(
                         "relative font-[family-name:var(--font-geist-sans)] text-xs leading-4 tabular-nums",
-                        active ? "text-route" : "text-slate-500",
+                        active ? "text-route" : "text-slate-600",
                       )}
                     >
                       {priceCounts[option.value]}
@@ -201,15 +202,15 @@ export function CatalogToolbar({
             className={cn(
               "inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route",
               query.preview
-                ? "border-route-line bg-route-quiet text-route"
-                : "border-slate-300 bg-white text-slate-600 hover:border-route-line hover:text-slate-900",
+                ? "border-route bg-route-quiet text-route"
+                : "border-slate-500 bg-white text-slate-600 hover:border-route hover:text-slate-900",
             )}
           >
             <span
               aria-hidden="true"
               className={cn(
                 "grid size-4 place-items-center rounded border-[1.5px] transition-colors duration-150",
-                query.preview ? "border-route bg-route text-white" : "border-slate-400 bg-white text-transparent",
+                query.preview ? "border-route bg-route text-white" : "border-slate-500 bg-white text-transparent",
               )}
             >
               <Check className="size-3" strokeWidth={3} />
@@ -226,7 +227,7 @@ export function CatalogToolbar({
                 id="catalog-sort"
                 value={query.sort}
                 onChange={(event) => onSort(event.target.value as PublicCatalogSort)}
-                className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-slate-300 bg-white pr-10 pl-3.5 text-sm font-semibold text-slate-900 hover:border-slate-400 focus:border-route focus:shadow-[0_0_0_3px_var(--route-quiet)] focus:outline-none"
+                className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-slate-500 bg-white pr-10 pl-3.5 text-sm font-semibold text-slate-900 hover:border-slate-600 focus:border-route focus:shadow-[0_0_0_3px_var(--route-quiet)] focus:outline-none"
               >
                 {(Object.keys(CATALOG_SORT_LABELS) as PublicCatalogSort[]).map((sort) => (
                   <option key={sort} value={sort}>

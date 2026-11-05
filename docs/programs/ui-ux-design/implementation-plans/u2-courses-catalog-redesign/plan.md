@@ -1,6 +1,6 @@
 # U2 detail plan — public course catalog redesign
 
-Revision: r4, 2026-11-05 (CP1 benchmark: decisions 13–14 amend G2 and the cost threshold). Owner approval: r3 on 2026-11-05; r4 changes by Owner decisions 13–14. Charter: [README.md](../../README.md) (initiative U2).
+Revision: r5, 2026-11-05 (CP1 benchmark: decisions 13–14; final QA: decision 15). Owner approval: r3 on 2026-11-05; r4–r5 changes by Owner decisions 13–15. Charter: [README.md](../../README.md) (initiative U2).
 
 ## 1. Binding Spec
 
@@ -62,6 +62,7 @@ The Owner accepted the rendered demo [sources/index.html](./sources/index.html) 
 12. (2026-11-05) Changing page adds a browser history entry, so Back returns to the previous catalog page; search, filter and sort changes replace the entry. This overrides the demo, which replaced the entry on page changes.
 13. (2026-11-05, CP1 benchmark) Calling the D2 helper per course grew to about 200 ms at 500 and 700–950 ms at 1,000 courses. The Owner chose a set-based rule equivalent to D2, with correctness first: parity tests against the D2 helper covering publication, removal and quota states; D2 behavior and flows unchanged; the catalog link stays display-only while D2 keeps enforcing preview access.
 14. (2026-11-05, CP1 benchmark) The cost threshold is under 100 ms for the RPC at 1,000 courses, measured with `EXPLAIN (ANALYZE, BUFFERS)` on synthetic data in a rolled-back transaction; the 3× ratio to the old RPC is dropped because the old RPC computes a single count.
+15. (2026-11-05, final QA) The search field, sort select and "Có học thử" toggle on `/courses` use a slate-500 (`#64748B`) boundary instead of the Product Language Border `#CBD5E1`, which measured 1.48:1 against white, so AC11's 3:1 control-boundary rule holds. Local to this page; no shared token or control changes.
 
 ## 2. Repository facts
 
