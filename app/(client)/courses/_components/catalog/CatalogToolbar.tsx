@@ -55,8 +55,16 @@ export function CatalogToolbar({
     if (draft.trim().slice(0, PUBLIC_CATALOG_SEARCH_MAX_LENGTH) !== query.q) setDraft(query.q);
   }
 
-  useEffect(() => () => {
-    if (commitTimer.current) clearTimeout(commitTimer.current);
+  useEffect(() => {
+    // Back/Forward trong lúc đang chờ ghi từ khóa: bỏ lần ghi đó để không đè lên mục lịch sử vừa quay về.
+    const cancelPendingSearch = () => {
+      if (commitTimer.current) clearTimeout(commitTimer.current);
+    };
+    window.addEventListener("popstate", cancelPendingSearch);
+    return () => {
+      window.removeEventListener("popstate", cancelPendingSearch);
+      cancelPendingSearch();
+    };
   }, []);
 
   useEffect(() => {
@@ -165,7 +173,7 @@ export function CatalogToolbar({
                     aria-pressed={active}
                     onClick={() => onPrice(option.value)}
                     className={cn(
-                      "relative inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold whitespace-nowrap transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-route",
+                      "relative inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold whitespace-nowrap transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-route",
                       active ? "text-route" : "text-slate-600 hover:text-slate-900",
                       active && !renderPriceIndicator && "bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_0_0_1px_var(--color-slate-200)]",
                     )}

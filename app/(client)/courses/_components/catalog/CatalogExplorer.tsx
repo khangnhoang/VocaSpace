@@ -95,6 +95,7 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
   ].filter((chip) => chip !== null);
   const clearAll = () => writeCatalogQuery({ q: "", price: "all", preview: false }, "replace");
   const changePage = (page: number) => {
+    if (page === pageData.page) return;
     focusListAfterPageChange.current = true;
     setUserPagedTo(page);
     writeCatalogQuery({ page }, "push");
@@ -152,7 +153,7 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
                     <FilterChip key={chip.key} label={chip.label} onClear={() => writeCatalogQuery(chip.clear, "replace")} />
                   ))}
                   {chips.length > 1 ? (
-                    <button type="button" onClick={clearAll} className="min-h-8 px-1 font-semibold text-route hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-route">
+                    <button type="button" onClick={clearAll} className="min-h-8 pointer-coarse:min-h-11 px-1 font-semibold text-route hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-route">
                       Xóa tất cả
                     </button>
                   ) : null}
@@ -203,7 +204,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
       type="button"
       onClick={onClear}
       aria-label={`Bỏ bộ lọc ${label}`}
-      className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-route-line bg-route-quiet py-0 pr-1.5 pl-3 text-sm font-semibold text-route hover:border-route focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route"
+      className="inline-flex min-h-8 pointer-coarse:min-h-11 items-center gap-1.5 rounded-full border border-route-line bg-route-quiet py-0 pr-1.5 pl-3 text-sm font-semibold text-route hover:border-route focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route"
     >
       {label}
       <X aria-hidden="true" className="size-3.5" />

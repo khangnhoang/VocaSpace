@@ -111,7 +111,7 @@ export function buildCatalogDemoRows(demoStudentIds) {
           id: id("04", n * 10000 + t * 100 + c),
           topic_id: topicId,
           front_content: { word: `word ${t}.${c}` },
-          back_content: { meaning: `nghĩa ${t}.${c}` },
+          back_content: { translation: `nghĩa ${t}.${c}` },
           order_index: c,
         });
       }

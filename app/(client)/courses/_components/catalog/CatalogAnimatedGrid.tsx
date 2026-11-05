@@ -118,8 +118,18 @@ function useScrollReveal(containerRef: { current: HTMLDivElement | null }, pageK
       element.dataset.reveal = "pending";
       observer.observe(element);
     });
+    // Tab tới một thẻ chưa hiện: hiện ngay để focus không rơi vào thẻ trong suốt.
+    const revealOnFocus = (event: FocusEvent) => {
+      const element = (event.target as HTMLElement).closest<HTMLElement>('[data-reveal="pending"]');
+      if (!element) return;
+      element.style.transitionDelay = "0ms";
+      element.dataset.reveal = "in";
+      observer.unobserve(element);
+    };
+    container.addEventListener("focusin", revealOnFocus);
 
     return () => {
+      container.removeEventListener("focusin", revealOnFocus);
       observer.disconnect();
       pending.forEach((element) => {
         element.dataset.reveal = "in";

@@ -722,7 +722,11 @@ function listingParityMismatches() {
     select l.id, 'card_count' from listing as l join expected as e using (id) where l.card_count <> e.card_count
     union all
     select l.id, 'instructor_name' from listing as l join expected as e using (id)
-      where l.instructor_name is distinct from e.instructor_name;
+      where l.instructor_name is distinct from e.instructor_name
+    union all
+    select l.id, 'enrollment_count' from listing as l
+      join public.get_public_course_catalog() as catalog using (id)
+      where l.enrollment_count <> catalog.enrollment_count;
   `);
 }
 

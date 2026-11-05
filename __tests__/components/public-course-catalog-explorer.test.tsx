@@ -145,6 +145,8 @@ describe("CatalogExplorer", () => {
   it("paginates 12 per page, pushes a history entry and moves focus to the first course of the new page", () => {
     renderExplorer(Array.from({ length: 14 }, (_, index) => listing(index + 1)));
     expect(screen.getAllByRole("article")).toHaveLength(12);
+    fireEvent.click(screen.getByRole("link", { name: "Trang 1" }));
+    expect(pushCount).toBe(0);
     expect(screen.getByText("Hiển thị 1–12 trong 14 khóa học")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("link", { name: "Trang 2" }));
