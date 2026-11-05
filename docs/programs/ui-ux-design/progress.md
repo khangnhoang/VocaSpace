@@ -6,13 +6,13 @@ Charter: [README.md](./README.md). Problems: [problems.md](./problems.md).
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [U2 plan](./implementation-plans/u2-courses-catalog-redesign/plan.md) r3, approved by the Owner 2026-11-05. |
-| Current unit / checkpoint | U2 on `feat/courses-catalog-redesign` from `736cc56`; CP1 next. |
-| Status | Plan approved; implementation starting. Independent review passed r2 (0 Critical, 0 Required); r3 applies its optional suggestions. |
-| Completed evidence | U1 merged in PR #183 and PR #184 (see Milestones). U2 demo `sources/index.html` checked in the built-in browser at 375/660/1440px: search, price filter, no-results, page 2 with focus, signed-in overlay and 0/1/3-course and error states rendered without console errors or horizontal scroll. Contrast, 200% zoom and full keyboard order were not measured on the demo. |
-| Accepted deviations | none. |
+| Spec revision | [U2 plan](./implementation-plans/u2-courses-catalog-redesign/plan.md) r4: r3 approved by the Owner 2026-11-05; r4 records Owner decisions 13–14 from the CP1 benchmark. |
+| Current unit / checkpoint | U2 on `feat/courses-catalog-redesign` from `736cc56`; CP1 done, CP2 next. |
+| Status | CP1 committed locally (RPC, schema, action, tests, catalog demo fixture). |
+| Completed evidence | CP1 on root-local 45321: `migration up --local` applied; read-model integration suite 17/17 (parity with the D2 helper and detail RPC on every listed course, preview edge states, 30-day count, admin own-row overlay, ACLs); a mutated quota formula made the parity query report a mismatch and the restored function reported none; action tests 24/24; `tsc`, targeted eslint and `docs:check` passed. Isolated runtime 45441 rebuilt from scratch with `db reset --local`, function present, stack stopped. `db diff --schema public` on root: no changes. `EXPLAIN (ANALYZE, BUFFERS)` in rolled-back transactions: about 8/22/35 ms at 243/543/1,043 courses, all shared hits. `seed-catalog-demo.mjs` applied, reverted and re-applied (30 courses, 158 topics, 1,524 cards, 797 enrollments); a repeat apply is a no-op. |
+| Accepted deviations | `node_modules` lacked `motion` from `main`; `npm install` restored it and its unrelated lockfile rewrite was reverted. The integration suite runs with env from `supabase status -o env` because `.env.local` points at an older port. |
 | Blockers / Owner decisions | The hosted migration needs its own grant before merge. U1 leftovers are tracked in [UIUX-002](./problems.md#uiux-002). |
-| Next action | Implement CP1 (Main). |
+| Next action | Implement CP2 (Main). |
 | Current authority | Owner granted 2026-11-05: plan r3 approval, implementation of CP1–CP4 by Main in this session, and local commits per checkpoint. Local DB work follows the plan (root `migration up`, isolated-runtime reset, root-local fixture script). No push, PR, merge, hosted migration or deployment is granted. |
 
 ## Milestones
@@ -27,4 +27,5 @@ Charter: [README.md](./README.md). Problems: [problems.md](./problems.md).
 - 2026-11-04 U1 plan r3 records the PR #183 review fixes and UIUX-001 (`b66649c6`).
 - 2026-11-05 U1 merged after review fixes (PR 183, `dfe79c4`).
 - 2026-11-05 U1 trial motion and responsive follow-up merged (PR 184, `736cc56`).
-- 2026-11-05 Owner approved the U2 course catalog plan r3 after independent review (this commit).
+- 2026-11-05 Owner approved the U2 course catalog plan r3 after independent review (`115cc18`).
+- 2026-11-05 U2 CP1: catalog listing RPC, schema, action, parity tests and local catalog fixture (this commit).

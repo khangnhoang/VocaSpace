@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getPublicCourseCatalog,
+  getPublicCourseCatalogListing,
   getPublicCourseDetail,
 } from "@/app/actions/public-course";
 import { createClient } from "@/utils/supabase/server";
@@ -8,7 +9,10 @@ import { createClient } from "@/utils/supabase/server";
 // Test plan:
 // - Mục tiêu: bảo vệ Server Action catalog/detail công khai và lớp phủ ghi danh/tiến độ của học viên (LF3 AC10).
 // - Loại test: unit Server Action với Supabase client mock (RPC, enrollment và user_topic_progress là các chain riêng).
-// - Đối tượng: `getPublicCourseCatalog`, `getPublicCourseDetail` và `learner_progress` suy ra từ `buildLearnCourseProgressProjection`.
+// - Đối tượng: `getPublicCourseCatalog`, `getPublicCourseCatalogListing` (U2), `getPublicCourseDetail` và `learner_progress`
+//   suy ra từ `buildLearnCourseProgressProjection`.
+// - U2 listing: khách không đọc enrollments; người đăng nhập chỉ đọc theo user_id của mình; lỗi overlay vẫn trả catalog
+//   nhưng không có khóa "Đang học"; lỗi RPC hoặc lệch contract trả lỗi an toàn.
 // - Case thành công: catalog chuẩn hóa; detail cho khách, chưa ghi danh, ghi danh chưa có tiến độ, một phần, xong hết và syllabus rỗng.
 // - Case thất bại: slug sai, RPC lỗi/null/lệch contract, lỗi đọc enrollment và lỗi đọc tiến độ đều trả lỗi hoặc not_found, không ra dữ liệu giả.
 // - Bảo mật/phân quyền: chỉ đọc hàng `user_topic_progress` của chính người dùng (kể cả admin), không lộ user id trong DTO; khách không đọc bảng nào.
@@ -95,6 +99,8 @@ type ClientOptions = {
   user?: { id: string } | null;
   enrollment?: { id: string } | null;
   enrollmentError?: unknown;
+  // U2: các hàng enrollment mà overlay của catalog listing đọc về.
+  enrollmentRows?: { course_id: string }[];
   // LF3 AC10: hàng user_topic_progress hoàn thành và lỗi đọc tiến độ.
   progressRows?: { topic_id: string; is_topic_completed: boolean }[];
   progressError?: unknown;
@@ -111,6 +117,15 @@ function createMockClient(options: ClientOptions = {}) {
   enrollmentQuery.maybeSingle.mockResolvedValue({
     data: options.enrollment ?? null,
     error: options.enrollmentError ?? null,
+  });
+  // Builder thật của Supabase là thenable; overlay của catalog listing await ngay sau .eq().
+  Object.assign(enrollmentQuery, {
+    then: (resolve: (value: unknown) => unknown) =>
+      resolve(
+        options.enrollmentError
+          ? { data: null, error: options.enrollmentError }
+          : { data: options.enrollmentRows ?? [], error: null },
+      ),
   });
 
   const progressQuery = {
@@ -203,6 +218,101 @@ describe("public course actions", () => {
     );
     await expect(getPublicCourseCatalog()).resolves.toMatchObject({
       status: "error",
+    });
+  });
+
+  describe("catalog listing (U2)", () => {
+    const otherCourseId = "99999999-9999-4999-8999-999999999999";
+    function listingItem(id = courseId) {
+      return {
+        ...catalogItem(),
+        id,
+        slug: id === courseId ? "public-course" : "other-course",
+        recent_enrollment_count: "3",
+        topic_count: 4,
+        card_count: 120,
+        preview_topic_slug: "first-topic",
+        instructor_name: "Nguyễn Minh Anh",
+        description_excerpt: "Mô tả ngắn",
+      };
+    }
+
+    it("returns normalized courses and skips the enrollment read for guests", async () => {
+      const client = createMockClient({ rpcData: [listingItem()] });
+      mockClient(client);
+
+      const result = await getPublicCourseCatalogListing();
+
+      expect(result).toEqual({
+        status: "success",
+        data: {
+          courses: [
+            {
+              ...listingItem(),
+              price: 120000,
+              enrollment_count: 12,
+              recent_enrollment_count: 3,
+            },
+          ],
+          enrolledCourseIds: [],
+        },
+      });
+      expect(client.rpc).toHaveBeenCalledWith("get_public_course_catalog_listing");
+      expect(client.from).not.toHaveBeenCalled();
+    });
+
+    it("reads only the signed-in user's enrollments and keeps listed courses only", async () => {
+      const client = createMockClient({
+        rpcData: [listingItem(), listingItem(otherCourseId)],
+        user: { id: userId },
+        enrollmentRows: [
+          { course_id: courseId },
+          { course_id: courseId },
+          { course_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+        ],
+      });
+      mockClient(client);
+
+      const result = await getPublicCourseCatalogListing();
+
+      expect(client.from).toHaveBeenCalledWith("enrollments");
+      expect(client.enrollmentQuery.eq).toHaveBeenCalledWith("user_id", userId);
+      expect(result).toMatchObject({
+        status: "success",
+        data: { enrolledCourseIds: [courseId] },
+      });
+    });
+
+    it("keeps the catalog without enrolled state when the enrollment read fails", async () => {
+      mockClient(
+        createMockClient({
+          rpcData: [listingItem()],
+          user: { id: userId },
+          enrollmentError: { message: "rls" },
+        }),
+      );
+
+      const result = await getPublicCourseCatalogListing();
+
+      expect(result.status).toBe("success");
+      expect(result.status === "success" && result.data.enrolledCourseIds).toEqual([]);
+      expect(result.status === "success" && result.data.courses).toHaveLength(1);
+    });
+
+    it("returns a safe error on RPC failure or contract drift", async () => {
+      mockClient(createMockClient({ rpcData: null, rpcError: { message: "db" } }));
+      await expect(getPublicCourseCatalogListing()).resolves.toMatchObject({
+        status: "error",
+      });
+
+      mockClient(
+        createMockClient({
+          rpcData: [{ ...listingItem(), preview_topic_slug: "Bad Slug" }],
+        }),
+      );
+      await expect(getPublicCourseCatalogListing()).resolves.toMatchObject({
+        status: "error",
+      });
     });
   });
 

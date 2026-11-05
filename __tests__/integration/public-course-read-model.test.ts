@@ -7,7 +7,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 // Test plan:
 // - Mục tiêu: kiểm tra public catalog/detail và D2 Preview eligibility giữ whitelist, không nới RLS content.
 // - Loại test: integration/RPC/RLS/Supabase.
-// - Đối tượng: get_public_course_catalog/detail, D2 service-only RPC ACL, direct-table RLS và index enrollment course_id.
+// - Đối tượng: get_public_course_catalog/catalog_listing/detail, D2 service-only RPC ACL, direct-table RLS và index enrollment course_id.
+// - U2 catalog listing: cùng tập khóa với catalog cũ; số chủ đề/thẻ khớp đề cương chi tiết; học thử theo quy tắc D2 và bị
+//   tắt khi vượt quota; owner bị xóa mềm trả null; lượt ghi danh 30 ngày bỏ bản ghi cũ; admin chỉ thấy khóa mình ghi danh khi lọc user_id.
 // - Case thành công: anon/authenticated đọc catalog/detail và safe Preview booleans; catalog/order/instructor đúng.
 // - Case thất bại: unknown, draft, removed course trả null; removed chapter và draft/pending/removed topic bị loại.
 // - Bảo mật/phân quyền: output không lộ identity/contact/role/content; anon/authenticated không gọi Preview content/answer/media RPC;
@@ -38,6 +40,15 @@ type CatalogRow = {
   price: number | string;
   created_at: string;
   enrollment_count: number | string;
+};
+
+type ListingRow = CatalogRow & {
+  recent_enrollment_count: number | string;
+  topic_count: number;
+  card_count: number;
+  preview_topic_slug: string | null;
+  instructor_name: string | null;
+  description_excerpt: string | null;
 };
 
 type InstructorPresentation = {
@@ -674,6 +685,47 @@ function collectObjectKeys(value: unknown, keys = new Set<string>()) {
   return keys;
 }
 
+// RPC catalog listing tự tính học thử, số chủ đề/thẻ và owner theo tập hợp; đối chiếu từng khóa với helper D2
+// (nguồn quyết định quyền học thử) và với get_public_course_detail để bắt lệch khi một trong hai quy tắc đổi.
+function listingParityMismatches() {
+  return queryLocalDatabase<{ id: string; field: string }>(`
+    with listing as (select * from public.get_public_course_catalog_listing()),
+    expected as (
+      select
+        l.id,
+        (
+          select t.slug
+          from public.topics as t
+          join public.chapters as ch on ch.id = t.chapter_id and ch.course_id = t.course_id
+          where t.course_id = l.id and private.d2_public_preview_is_eligible(t.id)
+          order by ch.order_index, ch.id, t.order_index, t.id
+          limit 1
+        ) as preview_topic_slug,
+        (
+          select coalesce(sum(jsonb_array_length(chapter -> 'topics')), 0)::integer
+          from jsonb_array_elements(public.get_public_course_detail(l.slug) -> 'syllabus') as chapter
+        ) as topic_count,
+        (
+          select count(*)::integer
+          from jsonb_array_elements(public.get_public_course_detail(l.slug) -> 'syllabus') as chapter,
+            jsonb_array_elements(chapter -> 'topics') as topic
+          join public.cards as cd on cd.topic_id = (topic ->> 'id')::uuid and cd.removed_at is null
+        ) as card_count,
+        nullif(btrim(public.get_public_course_detail(l.slug) -> 'owner' ->> 'full_name'), '') as instructor_name
+      from listing as l
+    )
+    select l.id, 'preview_topic_slug' as field from listing as l join expected as e using (id)
+      where l.preview_topic_slug is distinct from e.preview_topic_slug
+    union all
+    select l.id, 'topic_count' from listing as l join expected as e using (id) where l.topic_count <> e.topic_count
+    union all
+    select l.id, 'card_count' from listing as l join expected as e using (id) where l.card_count <> e.card_count
+    union all
+    select l.id, 'instructor_name' from listing as l join expected as e using (id)
+      where l.instructor_name is distinct from e.instructor_name;
+  `);
+}
+
 async function getDetail(client: SupabaseClient, slug: string) {
   const { data, error } = await client.rpc("get_public_course_detail", {
     p_course_slug: slug,
@@ -736,6 +788,261 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
       ]);
       expect(Number(detailRow?.price)).toBe(0);
       expect(Number(detailRow?.enrollment_count)).toBe(2);
+    }
+  });
+
+  it("lists the same courses as the catalog with syllabus counts, owner rule, excerpt and enrollment counts", async () => {
+    const { data: ownerProfile, error: ownerError } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", SEEDED_ADMIN_ID)
+      .single();
+    throwFixtureError("Không thể đọc seeded admin profile", ownerError);
+
+    for (const client of [anonymousClient, studentClient]) {
+      const [catalog, listing] = await Promise.all([
+        client.rpc("get_public_course_catalog"),
+        client.rpc("get_public_course_catalog_listing"),
+      ]);
+      expect(catalog.error).toBeNull();
+      expect(listing.error).toBeNull();
+
+      const catalogIds = (catalog.data as CatalogRow[]).map((row) => row.id);
+      const listingRows = listing.data as ListingRow[];
+      expect(listingRows.map((row) => row.id)).toEqual(catalogIds);
+
+      const byId = new Map(listingRows.map((row) => [row.id, row]));
+      const detailRow = byId.get(fixture.detailCourseId);
+      expect(Object.keys(detailRow ?? {}).sort()).toEqual([
+        "card_count",
+        "created_at",
+        "description_excerpt",
+        "enrollment_count",
+        "id",
+        "instructor_name",
+        "preview_topic_slug",
+        "price",
+        "recent_enrollment_count",
+        "slug",
+        "thumbnail_url",
+        "title",
+        "topic_count",
+      ]);
+
+      const detail = await getDetail(client, fixture.detailSlug);
+      const syllabusTopicCount = detail!.syllabus.flatMap((chapter) => chapter.topics).length;
+      expect(detailRow).toMatchObject({
+        topic_count: syllabusTopicCount,
+        card_count: 1,
+        preview_topic_slug: null,
+        instructor_name: ownerProfile?.full_name ?? null,
+        description_excerpt: "Public-safe course description",
+      });
+      expect(syllabusTopicCount).toBe(fixture.publishedTopicIdsInOrder.length);
+      expect(Number(detailRow?.enrollment_count)).toBe(2);
+      expect(Number(detailRow?.recent_enrollment_count)).toBe(2);
+
+      expect(byId.get(fixture.ownerlessCourseId)).toMatchObject({
+        topic_count: 0,
+        card_count: 0,
+        preview_topic_slug: null,
+        instructor_name: null,
+      });
+      expect(byId.get(fixture.secondPublishedCourseId)?.instructor_name).toBeNull();
+    }
+  });
+
+  it("counts only enrollments from the last 30 days as recent", async () => {
+    const { error } = await supabaseAdmin.from("enrollments").insert({
+      user_id: SEEDED_TEACHER_ID,
+      course_id: fixture.secondPublishedCourseId,
+      enrolled_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    throwFixtureError("Không thể tạo enrollment cũ", error);
+
+    const { data, error: rpcError } = await anonymousClient.rpc(
+      "get_public_course_catalog_listing",
+    );
+    expect(rpcError).toBeNull();
+    const row = (data as ListingRow[]).find(
+      (item) => item.id === fixture.secondPublishedCourseId,
+    );
+    expect(Number(row?.enrollment_count)).toBe(1);
+    expect(Number(row?.recent_enrollment_count)).toBe(0);
+  });
+
+  it("links the first eligible preview topic and drops it when the preview quota is exceeded", async () => {
+    const [topicTwoId, topicFourId] = fixture.publishedTopicIdsInOrder;
+    const setPreview = async (topicId: string, isPreview: boolean) => {
+      const { error } = await supabaseAdmin
+        .from("topics")
+        .update({ is_preview: isPreview })
+        .eq("id", topicId);
+      throwFixtureError("Không thể đổi preview marker", error);
+    };
+    const readPreviewSlug = async () => {
+      const { data, error } = await anonymousClient.rpc(
+        "get_public_course_catalog_listing",
+      );
+      expect(error).toBeNull();
+      return (data as ListingRow[]).find((row) => row.id === fixture.detailCourseId)
+        ?.preview_topic_slug;
+    };
+    const { data: topics, error: topicError } = await supabaseAdmin
+      .from("topics")
+      .select("id, slug")
+      .in("id", [topicTwoId, topicFourId]);
+    throwFixtureError("Không thể đọc topic slugs", topicError);
+    const slugById = new Map((topics ?? []).map((topic) => [topic.id, topic.slug]));
+
+    try {
+      // Quota của khóa fixture là 1 (4 chủ đề đang hoạt động): một marker hợp lệ, hai marker làm học thử bị tạm dừng.
+      await setPreview(topicFourId, true);
+      expect(await readPreviewSlug()).toBe(slugById.get(topicFourId));
+
+      await setPreview(topicTwoId, true);
+      expect(await readPreviewSlug()).toBeNull();
+    } finally {
+      await setPreview(topicTwoId, false);
+      await setPreview(topicFourId, false);
+    }
+  });
+
+  it("matches the D2 preview helper and the detail RPC for every published course", () => {
+    expect(listingParityMismatches()).toEqual([]);
+  });
+
+  it("follows the D2 preview rule across draft, removed, removed-chapter and quota edge cases", async () => {
+    const suffix = randomUUID();
+    const courseId = randomUUID();
+    createdCourseIds.add(courseId);
+    throwFixtureError(
+      "Không thể tạo course preview-edge",
+      (
+        await supabaseAdmin.from("courses").insert({
+          id: courseId,
+          title: "Preview Edge Course",
+          slug: `public-read-preview-edge-${suffix}`,
+          price: 0,
+          status: "published",
+          created_at: "2026-01-13T12:00:00.000Z",
+          removed_at: null,
+        })
+      ).error,
+    );
+    const [chapterA, chapterB, removedChapter] = [randomUUID(), randomUUID(), randomUUID()];
+    throwFixtureError(
+      "Không thể tạo chapter preview-edge",
+      (
+        await supabaseAdmin.from("chapters").insert([
+          { id: chapterA, course_id: courseId, created_by_user_id: SEEDED_ADMIN_ID, title: "A", order_index: 1 },
+          { id: chapterB, course_id: courseId, created_by_user_id: SEEDED_ADMIN_ID, title: "B", order_index: 2 },
+          {
+            id: removedChapter,
+            course_id: courseId,
+            created_by_user_id: SEEDED_ADMIN_ID,
+            title: "Removed",
+            order_index: 3,
+            removed_at: "2026-01-16T12:00:00.000Z",
+          },
+        ])
+      ).error,
+    );
+    const topic = (
+      key: string,
+      chapterId: string,
+      orderIndex: number,
+      status: "draft" | "pending" | "published",
+      isPreview: boolean,
+      removedAt: string | null = null,
+    ) => ({
+      id: randomUUID(),
+      course_id: courseId,
+      chapter_id: chapterId,
+      title: key,
+      slug: `preview-edge-${key}-${suffix}`,
+      status,
+      order_index: orderIndex,
+      is_preview: isPreview,
+      original_creator_user_id: SEEDED_TEACHER_ID,
+      responsible_author_user_id: SEEDED_TEACHER_ID,
+      first_approved_at: status === "published" ? "2026-01-10T12:00:00.000Z" : null,
+      removed_at: removedAt,
+    });
+    // 6 chủ đề đang hoạt động (mọi trạng thái) → quota 2. Chủ đề đã gỡ và chủ đề trong chương đã gỡ không được tính.
+    const topics = {
+      a1Draft: topic("a1", chapterA, 1, "draft", true),
+      a2: topic("a2", chapterA, 2, "published", false),
+      a3: topic("a3", chapterA, 3, "published", false),
+      a4Pending: topic("a4", chapterA, 4, "pending", false),
+      b1: topic("b1", chapterB, 1, "published", true),
+      b2: topic("b2", chapterB, 2, "published", false),
+      b3Removed: topic("b3", chapterB, 3, "published", true, "2026-01-16T12:00:00.000Z"),
+      r1: topic("r1", removedChapter, 1, "published", true),
+    };
+    throwFixtureError(
+      "Không thể tạo topic preview-edge",
+      (await supabaseAdmin.from("topics").insert(Object.values(topics))).error,
+    );
+    const setPreview = async (id: string, isPreview: boolean) =>
+      throwFixtureError(
+        "Không thể đổi preview marker",
+        (await supabaseAdmin.from("topics").update({ is_preview: isPreview }).eq("id", id)).error,
+      );
+    const readSlug = async () => {
+      const { data, error } = await anonymousClient.rpc("get_public_course_catalog_listing");
+      expect(error).toBeNull();
+      return (data as ListingRow[]).find((row) => row.id === courseId);
+    };
+
+    // Marker hợp lệ = a1 (draft) + b1 = 2 ≤ quota 2: draft không đủ điều kiện, nên chọn b1.
+    expect(await readSlug()).toMatchObject({
+      preview_topic_slug: topics.b1.slug,
+      topic_count: 4,
+    });
+    expect(listingParityMismatches()).toEqual([]);
+
+    // Thêm a2 → 3 marker > quota 2: học thử của cả khóa bị tạm dừng.
+    await setPreview(topics.a2.id, true);
+    expect((await readSlug())?.preview_topic_slug).toBeNull();
+    expect(listingParityMismatches()).toEqual([]);
+
+    // Bỏ marker của a1 → a2 + b1 = 2: chương A đứng trước nên chọn a2.
+    await setPreview(topics.a1Draft.id, false);
+    expect((await readSlug())?.preview_topic_slug).toBe(topics.a2.slug);
+    expect(listingParityMismatches()).toEqual([]);
+  });
+
+  it("returns only the admin's own enrollments when the overlay filters by user id", async () => {
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error: signInError } = await adminClient.auth.signInWithPassword({
+      email: "admin@gmail.com",
+      password: SEEDED_PASSWORD,
+    });
+    throwFixtureError("Không thể đăng nhập seeded admin", signInError);
+
+    try {
+      const unfiltered = await adminClient
+        .from("enrollments")
+        .select("user_id, course_id")
+        .eq("course_id", fixture.detailCourseId);
+      expect(unfiltered.error).toBeNull();
+      // Policy admin cho đọc mọi enrollment, nên overlay "Đang học" không được dựa vào RLS một mình.
+      expect(new Set(unfiltered.data?.map((row) => row.user_id))).toEqual(
+        new Set([SEEDED_ADMIN_ID, SEEDED_STUDENT_ID]),
+      );
+
+      const own = await adminClient
+        .from("enrollments")
+        .select("user_id, course_id")
+        .eq("user_id", SEEDED_ADMIN_ID);
+      expect(own.error).toBeNull();
+      expect(own.data?.length).toBeGreaterThan(0);
+      expect(own.data?.every((row) => row.user_id === SEEDED_ADMIN_ID)).toBe(true);
+    } finally {
+      await adminClient.auth.signOut();
     }
   });
 
@@ -1008,6 +1315,7 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
       where namespaces.nspname = 'public'
         and p.proname in (
           'get_public_course_catalog',
+          'get_public_course_catalog_listing',
           'get_public_course_detail'
         )
       order by p.proname;
@@ -1015,6 +1323,7 @@ describe.sequential("public course read model RPC and RLS boundary", () => {
 
     expect(rows.map((row) => row.function_name)).toEqual([
       "get_public_course_catalog",
+      "get_public_course_catalog_listing",
       "get_public_course_detail",
     ]);
     rows.forEach((row) => {

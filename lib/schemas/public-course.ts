@@ -70,6 +70,24 @@ export const publicCourseCatalogRpcSchema = z.array(
   publicCourseCatalogItemSchema,
 );
 
+const publicCountSchema = z.number().int().nonnegative().safe();
+
+// U2: read model của trang /courses; get_public_course_catalog giữ nguyên cho trang chủ và sitemap.
+export const publicCourseCatalogListingItemSchema = publicCourseCatalogItemSchema
+  .extend({
+    recent_enrollment_count: publicEnrollmentCountSchema,
+    topic_count: publicCountSchema,
+    card_count: publicCountSchema,
+    preview_topic_slug: publicCourseSlugSchema.nullable(),
+    instructor_name: z.string().nullable(),
+    description_excerpt: z.string().nullable(),
+  })
+  .strict();
+
+export const publicCourseCatalogListingRpcSchema = z.array(
+  publicCourseCatalogListingItemSchema,
+);
+
 export const publicCourseDetailRpcSchema = z
   .object({
     id: z.uuid(),
@@ -102,6 +120,9 @@ export const publicCourseDetailSchema = publicCourseDetailRpcSchema.extend({
 
 export type PublicCourseCatalogItem = z.output<
   typeof publicCourseCatalogItemSchema
+>;
+export type PublicCourseCatalogListingItem = z.output<
+  typeof publicCourseCatalogListingItemSchema
 >;
 export type PublicCourseDetailRpc = z.output<
   typeof publicCourseDetailRpcSchema
