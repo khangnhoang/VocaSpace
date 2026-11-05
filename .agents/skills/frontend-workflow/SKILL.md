@@ -232,13 +232,29 @@ Ask only focused questions the repository cannot answer.
 
 ### Scope and components
 
-Do not refactor unrelated modules, redesign adjacent screens, rename unrelated files, alter DB/RLS/migrations from a frontend-only task, install packages, run shadcn CLI, replace libraries, or add speculative abstractions.
+Do not refactor unrelated modules, redesign adjacent screens, rename unrelated files, alter DB/RLS/migrations from a frontend-only task, install packages without permission, run shadcn CLI without permission, replace libraries, or add speculative abstractions.
 
 Prefer existing components, wrappers, helpers, schemas, toasts, and route structure.
 
 Classify components as page-specific, feature-specific, feature-reusable, cross-product reusable, or global primitive.
 
 Do not put business-specific behavior in `components/ui/*` or create a global abstraction from superficial markup similarity.
+
+### Motion integration
+
+The Owner-selected React animation dependency is `motion` (Motion for React). Consult the official examples and API documentation for the chosen interaction before implementation; do not restrict a redesign to effects or feature bundles already used in the repository. Most features ship in the same npm package and need imports and integration, not separate downloads of each effect. Check the selected example's version, license and dependencies; install additional required packages within the Owner's dependency grant, and ask only when that scope or a paid resource is not covered. Do not install both `motion` and `framer-motion` directly or add another engine for the same job.
+
+Keep motion within the smallest client boundary; static page content and data fetching may stay server-rendered. For feature-level animations without drag or layout measurement, prefer `LazyMotion` with `domAnimation` and `m` from `motion/react-m`; `strict` catches accidentally importing the full `motion` component inside that boundary. This trims the feature set, but synchronous features are still loaded with the boundary; use a dynamic feature import only when deferring them has a concrete benefit. Installation downloads an npm package; tree shaking and code splitting decide what the browser loads. Do not claim a bundle size or performance improvement without measuring this build.
+
+Set `MotionConfig reducedMotion="user"`. It removes transform/layout motion but does not disable every opacity or color animation, so use `useReducedMotion` for immediate settled states, custom timelines, autoplay, stagger and celebrations as needed. CSS motion still needs its own `motion-reduce`/`motion-safe` handling. Preserve server-rendered content, stable hydration, keyboard focus and immediate next actions; do not wait for an exit sequence before mounting an available action. Use `initial={false}` where initial hiding would conceal essential server-rendered content.
+
+Disabling a transform animation does not choose an accessible static orientation. For a 3D card flip, reset the parent rotation and the back-face rotation together under reduced motion, and show the face matching the semantic state; otherwise the answer can face away even though its DOM text and focus tests pass. Inspect the rendered result.
+
+Prefer `AnimatePresence` or animation completion callbacks over duration-matched cleanup timers. An exiting element must be inert and hidden from assistive technology as soon as it stops being current. Never let CSS and Motion compete for the same transform on the same element; separate wrappers when flip and slide coexist. Verify rapid interactions, reduced motion and responsive overflow in addition to settled screenshots. Timings belong to the component or surface, with no product-wide ceiling.
+
+Match CSS transition properties to the installed Tailwind version's generated CSS: individual `translate`, `scale` and `rotate` properties are not covered by a custom list containing only `transform`. Sample intermediate positions in the browser to confirm movement, not just endpoint classes. For rapid demo-deck changes, an exiting snapshot can still obscure current content despite `aria-hidden`/`inert`; isolate or reset that deck's presence boundary and verify the painted content as well as the accessibility tree.
+
+Check the current official [installation](https://motion.dev/docs/react-installation), [LazyMotion](https://motion.dev/docs/react-lazy-motion), [accessibility](https://motion.dev/docs/react-accessibility) and [AnimatePresence](https://motion.dev/docs/react-animate-presence) documentation when implementing or changing these APIs. This choice supports future redesigns such as `/courses` and `/login`; it does not itself authorize changing those routes or bypassing their design acceptance.
 
 ## Testing
 
