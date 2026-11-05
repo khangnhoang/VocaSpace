@@ -81,7 +81,8 @@ describe("CatalogExplorer", () => {
       originalReplace(...args);
       notifyUrl();
     };
-    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    // Motion đọc prefers-reduced-motion một lần cho cả file, nên mọi test chạy với chuyển động bật.
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -204,6 +205,58 @@ describe("CatalogExplorer", () => {
     expect(within(bare).queryByText(/chủ đề/)).toBeNull();
     expect(within(bare).queryByText("Nguyễn Minh Anh")).toBeNull();
     expect(within(bare).queryAllByRole("link")).toHaveLength(1);
+  });
+
+  it("keeps new results usable at once while removed cards leave inert and hidden from assistive technology", () => {
+    renderExplorer([listing(1, { title: "Anh văn" }), listing(2, { title: "Nhật ngữ" })]);
+
+    fireEvent.click(within(screen.getByRole("group", { name: "Lọc theo giá" })).getByRole("button", { name: /Miễn phí/ }));
+
+    expect(cardTitles()).toEqual(["Nhật ngữ"]);
+    expect(screen.getByRole("link", { name: "Xem chi tiết khóa học Nhật ngữ" })).toBeTruthy();
+    const leaving = document.querySelector('[aria-hidden="true"] article');
+    if (leaving) {
+      expect(leaving.closest("[inert]")).not.toBeNull();
+    }
+  });
+
+  it("only arms the scroll reveal for cards below the viewport, never for visible ones", () => {
+    const callbacks = new Map<Element, IntersectionObserverCallback>();
+    class FakeObserver {
+      constructor(private readonly cb: IntersectionObserverCallback) {}
+      observe(element: Element) {
+        callbacks.set(element, this.cb);
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("IntersectionObserver", FakeObserver);
+    const realRect = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const isBelow = this.textContent?.includes("Khóa 12") && this.hasAttribute("data-reveal-item");
+      return { ...realRect.call(this), top: isBelow ? window.innerHeight + 200 : 10 } as DOMRect;
+    };
+
+    try {
+      renderExplorer(Array.from({ length: 12 }, (_, index) => listing(index + 1)));
+      const items = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal-item]"));
+      const pending = items.filter((element) => element.dataset.reveal === "pending");
+
+      expect(pending).toHaveLength(1);
+      expect(pending[0].textContent).toContain("Khóa 12");
+      expect([...callbacks.keys()].filter((element) => element.hasAttribute("data-reveal-item"))).toEqual(pending);
+
+      act(() =>
+        callbacks.get(pending[0])!(
+          [{ isIntersecting: true, target: pending[0], boundingClientRect: { top: 0, left: 0 } } as unknown as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        ),
+      );
+      expect(pending[0].dataset.reveal).toBe("in");
+    } finally {
+      Element.prototype.getBoundingClientRect = realRect;
+      vi.unstubAllGlobals();
+    }
   });
 
   it("shows a single wide card without the toolbar when the catalog has one course", () => {

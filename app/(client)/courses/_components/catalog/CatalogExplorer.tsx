@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { domMax, LazyMotion, MotionConfig, useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +17,7 @@ import {
   type CatalogPriceGroup,
   type CatalogQuery,
 } from "@/lib/public-courses/catalog-query";
+import { CatalogAnimatedGrid } from "./CatalogAnimatedGrid";
 import { CatalogCourseCard } from "./CatalogCourseCard";
 import { CatalogPagination } from "./CatalogPagination";
 import { CatalogStatePanel } from "./CatalogStatePanel";
@@ -22,6 +25,7 @@ import { CATALOG_SORT_LABELS, CatalogToolbar } from "./CatalogToolbar";
 
 const PRICE_LABEL: Record<Exclude<CatalogPriceGroup, "all">, string> = { free: "Miễn phí", paid: "Trả phí" };
 const CONTAINER = "mx-auto w-full max-w-[1200px] px-4 sm:px-6";
+const RESULTS_GRID_ID = "catalog-results-grid";
 const GRID = "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4";
 
 type CatalogExplorerProps = {
@@ -38,23 +42,34 @@ function writeCatalogQuery(patch: Partial<CatalogQuery>, mode: "push" | "replace
   window.history[mode === "push" ? "pushState" : "replaceState"](null, "", url);
 }
 
-export function CatalogExplorer({ courses, enrolledCourseIds }: CatalogExplorerProps) {
+export function CatalogExplorer(props: CatalogExplorerProps) {
+  return (
+    <LazyMotion features={domMax} strict>
+      <MotionConfig reducedMotion="user">
+        <CatalogExplorerContent {...props} />
+      </MotionConfig>
+    </LazyMotion>
+  );
+}
+
+function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerProps) {
   const searchParams = useSearchParams();
+  const reduceMotion = useReducedMotion() ?? false;
+  const [userPagedTo, setUserPagedTo] = useState<number | null>(null);
   const query = parseCatalogQuery(searchParams);
   const enrolled = useMemo(() => new Set(enrolledCourseIds), [enrolledCourseIds]);
   const results = filterAndSortCatalog(courses, query);
   const priceCounts = countPriceGroups(courses, query);
   const pageData = paginateCatalog(results, query.page);
-  const listRef = useRef<HTMLDivElement>(null);
   const focusListAfterPageChange = useRef(false);
-
 
   useEffect(() => {
     if (!focusListAfterPageChange.current) return;
     focusListAfterPageChange.current = false;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    listRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-    listRef.current?.querySelector<HTMLAnchorElement>("h3 a")?.focus({ preventScroll: true });
+    const list = document.getElementById(RESULTS_GRID_ID);
+    list?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    list?.querySelector<HTMLAnchorElement>("h3 a")?.focus({ preventScroll: true });
   }, [pageData.page]);
 
   if (courses.length === 1) {
@@ -81,6 +96,7 @@ export function CatalogExplorer({ courses, enrolledCourseIds }: CatalogExplorerP
   const clearAll = () => writeCatalogQuery({ q: "", price: "all", preview: false }, "replace");
   const changePage = (page: number) => {
     focusListAfterPageChange.current = true;
+    setUserPagedTo(page);
     writeCatalogQuery({ page }, "push");
   };
 
@@ -93,6 +109,16 @@ export function CatalogExplorer({ courses, enrolledCourseIds }: CatalogExplorerP
         onPrice={(price) => writeCatalogQuery({ price }, "replace")}
         onPreview={(preview) => writeCatalogQuery({ preview }, "replace")}
         onSort={(sort) => writeCatalogQuery({ sort }, "replace")}
+        renderPriceIndicator={(active) =>
+          active ? (
+            <m.span
+              layoutId="catalog-price-indicator"
+              aria-hidden="true"
+              className="absolute inset-0 rounded-lg bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_0_0_1px_var(--color-slate-200)]"
+              transition={{ duration: reduceMotion ? 0 : 0.38, ease: [0.4, 0, 0.2, 1] }}
+            />
+          ) : null
+        }
       />
 
       <section aria-labelledby="catalog-results-title" className={`${CONTAINER} pt-2`}>
@@ -134,18 +160,24 @@ export function CatalogExplorer({ courses, enrolledCourseIds }: CatalogExplorerP
               ) : null}
             </div>
 
-            <div ref={listRef} className={`${GRID} scroll-mt-4 lg:scroll-mt-24`}>
-              {pageData.items.map((course, index) => (
-                <CatalogCourseCard
-                  key={course.id}
-                  course={course}
-                  searchQuery={query.q}
-                  isEnrolled={enrolled.has(course.id)}
-                  showTrend={query.sort === "trending"}
-                  prioritizeImage={pageData.page === 1 && index === 0}
-                />
-              ))}
-            </div>
+            <CatalogAnimatedGrid
+              pageKey={pageData.page}
+              fadeIn={userPagedTo === pageData.page}
+              id={RESULTS_GRID_ID}
+              className={`${GRID} scroll-mt-4 lg:scroll-mt-24`}
+              items={pageData.items.map((course, index) => ({
+                key: course.id,
+                node: (
+                  <CatalogCourseCard
+                    course={course}
+                    searchQuery={query.q}
+                    isEnrolled={enrolled.has(course.id)}
+                    showTrend={query.sort === "trending"}
+                    prioritizeImage={pageData.page === 1 && index === 0}
+                  />
+                ),
+              }))}
+            />
 
             {pageData.totalPages > 1 ? (
               <CatalogPagination
