@@ -36,9 +36,8 @@ export default function HomeHowItWorks() {
                     aria-hidden="true"
                     data-steps-connector={index}
                     className={cn(
-                      "absolute -bottom-1.5 left-[5px] top-5 w-0.5 origin-top transition-transform duration-[160ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-data-[drawn=false]/steps:scale-y-0 motion-reduce:transition-none md:bottom-auto md:left-3 md:right-0 md:top-[5px] md:h-0.5 md:w-auto md:origin-left md:group-data-[drawn=false]/steps:scale-x-0 md:group-data-[drawn=false]/steps:scale-y-100",
-                      // Hai đoạn nối tiếp nhau, mỗi đoạn 160ms: cả chuỗi 320ms.
-                      index === 0 ? "bg-recall" : "bg-route-line delay-[160ms]",
+                      "absolute -bottom-1.5 left-[5px] top-5 w-0.5 origin-top [--steps-rail-start:1_0] md:bottom-auto md:left-3 md:right-0 md:top-[5px] md:h-0.5 md:w-auto md:origin-left md:[--steps-rail-start:0_1]",
+                      index === 0 ? "bg-recall" : "bg-route-line",
                     )}
                   />
                 )}

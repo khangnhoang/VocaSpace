@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import styles from "./steps-rail.module.css";
 
 type StepsRailProps = {
   className?: string;
@@ -33,7 +34,7 @@ export default function StepsRail({ className, children }: StepsRailProps) {
   }, []);
 
   return (
-    <ol ref={listRef} className={cn("group/steps", className)}>
+    <ol ref={listRef} className={cn(styles.rail, className)}>
       {children}
     </ol>
   );

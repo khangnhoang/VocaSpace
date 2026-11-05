@@ -1,0 +1,18 @@
+@keyframes drawConnector {
+  from { scale: var(--steps-rail-start); }
+  to { scale: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rail[data-drawn="false"] [data-steps-connector] {
+    scale: var(--steps-rail-start);
+  }
+
+  .rail[data-drawn="true"] [data-steps-connector] {
+    animation: drawConnector 900ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  .rail[data-drawn="true"] [data-steps-connector="1"] {
+    animation-delay: 700ms;
+  }
+}

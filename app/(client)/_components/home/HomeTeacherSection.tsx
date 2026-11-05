@@ -39,7 +39,7 @@ export default function HomeTeacherSection({ isTeacher }: HomeTeacherSectionProp
               Sắp xếp nội dung thành chương, chủ đề và bộ thẻ. Học viên học theo đúng thứ tự bạn đặt ra.
             </p>
             {isTeacher ? (
-              <Button asChild size="lg" className="mt-6">
+              <Button asChild size="lg" className="mt-6 duration-[350ms]">
                 <Link href={getTeacherCourseListPath()}>
                   Mở khu soạn khóa học
                   <ArrowRight aria-hidden="true" />

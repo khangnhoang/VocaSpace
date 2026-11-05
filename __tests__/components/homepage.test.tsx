@@ -40,10 +40,12 @@ vi.mock("@/app/(client)/_components/home/HeroFreeCourseFact", async (importOrigi
 //   ẩn khi trống và nội dung mẫu chỉ có ngoài production; nút giáo viên theo role; footer chỉ có link thật.
 // - Loại test và đối tượng: component render trong jsdom (RTL) cho các khối trang chủ; gọi trực tiếp các server function async
 //   (HeroFreeCourseFact, getHomeViewer) với Supabase và catalog mock.
-// - Thành công / thất bại: khách và người đã đăng nhập; lật → đánh giá → thẻ tiếp theo; catalog có khóa miễn phí, chỉ trả phí, lỗi;
+// - Thành công / thất bại: khách và người đã đăng nhập; hiện đáp án → đánh giá → tự chuyển thẻ, Lại/Khó quay cuối hàng đợi; catalog có khóa miễn phí, chỉ trả phí, lỗi;
 //   nội dung rỗng và có dữ liệu; teacher, học viên, khách.
 // - Phân quyền / resilience: nút soạn khóa học chỉ với profiles.role = 'teacher'; khách không gọi bảng profiles.
 // - Invariant và cleanup: nhãn đánh giá lấy từ FLASHCARD_RATINGS; nội dung trang chủ phát hành để trống; RTL cleanup sau mỗi test.
+// - Motion r4: bước học thử theo đúng thao tác; đổi thẻ/bộ liên tiếp không để thẻ cũ còn truy cập được; giảm chuyển động vẫn hoàn thành được.
+// - Lỗi từ bị kẹt khi đổi bộ: bộ trước phải rời DOM ngay, vì chỉ aria-hidden không ngăn snapshot cũ che thẻ mới.
 // - Khoảng trống đã biết: hiệu ứng CSS (trượt, mờ, đường ray chạy), bố cục responsive và confetti thật được kiểm bằng trình duyệt;
 //   suite này chỉ kiểm điều kiện tự lật (thẻ đã vào màn hình) và việc bỏ qua khi tương tác trước hoặc giảm chuyển động.
 
@@ -108,15 +110,74 @@ describe("hero free-course fact", () => {
 });
 
 describe("hero practice", () => {
+  it("removes previous-deck snapshots immediately when returning to tabs before exit animations finish", () => {
+    render(<HeroPractice />);
+    const decks = [
+      { name: "TOEIC", word: "commute" },
+      { name: "IELTS", word: "substantial" },
+      { name: "Công sở", word: "deadline" },
+    ];
+
+    for (const name of ["IELTS", "Công sở", "TOEIC", "IELTS", "TOEIC", "Công sở"]) {
+      const tab = screen.getByRole("tab", { name });
+      fireEvent.mouseDown(tab);
+      fireEvent.click(tab);
+
+      expect(tab.getAttribute("aria-selected")).toBe("true");
+      for (const deck of decks) {
+        if (deck.name === name) {
+          expect(screen.getByText(deck.word, { ignore: VISIBLE_ONLY })).toBeTruthy();
+        } else {
+          expect(screen.queryByText(deck.word)).toBeNull();
+        }
+      }
+      expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("0");
+      expect(screen.getByRole("button", { name: "Hiện đáp án" })).toBeTruthy();
+    }
+  });
+
+  it("tracks the learning step without waiting for the visual transition", () => {
+    render(<HeroPractice />);
+    const steps = within(screen.getByRole("list", { name: "Các bước học thử" }));
+    const currentStep = () => steps.getAllByRole("listitem").find((item) => item.getAttribute("aria-current") === "step");
+
+    expect(currentStep()?.textContent).toContain("Gặp từ");
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    expect(currentStep()?.textContent).toContain("Nhớ lại");
+    fireEvent.click(screen.getByRole("button", { name: "Dễ" }));
+    expect(currentStep()?.textContent).toContain("Hẹn ôn");
+    expect(screen.getByRole("status").textContent).toBe("commute: Ôn lại sau khoảng 1 tuần.");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Hiện đáp án" }));
+  });
+
+  it("keeps only the current card accessible during rapid next-card and deck changes", () => {
+    render(<HeroPractice />);
+    for (let index = 0; index < 2; index++) {
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+    }
+
+    expect(screen.getByText("reimburse", { ignore: VISIBLE_ONLY })).toBeTruthy();
+    expect(screen.queryByText("commute", { ignore: VISIBLE_ONLY })).toBeNull();
+    expect(screen.queryByText("itinerary", { ignore: VISIBLE_ONLY })).toBeNull();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Công sở" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Công sở" }));
+
+    expect(screen.getByText("deadline", { ignore: VISIBLE_ONLY })).toBeTruthy();
+    expect(screen.queryByText("reimburse", { ignore: VISIBLE_ONLY })).toBeNull();
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("0");
+    expect(screen.getByRole("button", { name: "Hiện đáp án" })).toBeTruthy();
+  });
+
   it("reveals, rates and moves to the next card with keyboard focus following the next action", () => {
     render(<HeroPractice />);
     const status = screen.getByRole("status");
 
     expect(screen.getByText("commute", { ignore: VISIBLE_ONLY })).toBeTruthy();
-    expect(status.textContent).toBe("Lật thẻ rồi chọn mức nhớ để xem lần ôn tiếp theo.");
+    expect(status.textContent).toBe("Hiện đáp án rồi chọn mức nhớ để xem lần ôn tiếp theo.");
     expect(screen.getByText("Ví dụ minh họa")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Lật thẻ" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
 
     const group = screen.getByRole("group", { name: "Bạn nhớ từ này ở mức nào?" });
     const ratingButtons = within(group).getAllByRole("button");
@@ -126,18 +187,14 @@ describe("hero practice", () => {
 
     fireEvent.click(within(group).getByRole("button", { name: "Ổn" }));
 
-    expect(status.textContent).toBe("Ôn lại sau khoảng 3 ngày.");
+    expect(status.textContent).toBe("commute: Ôn lại sau khoảng 3 ngày.");
     expect(document.querySelector('[data-rail-mark="3 ngày"]')?.getAttribute("data-state")).toBe("current");
     expect(document.querySelector('[data-rail-mark="1 ngày"]')?.getAttribute("data-state")).toBe("done");
-    const next = screen.getByRole("button", { name: "Thẻ tiếp theo" });
-    expect(document.activeElement).toBe(next);
-
-    fireEvent.click(next);
 
     expect(screen.getByText("itinerary", { ignore: VISIBLE_ONLY })).toBeTruthy();
-    expect(screen.getByText("Thẻ 2/3")).toBeTruthy();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Lật thẻ" }));
-    expect(document.querySelector('[data-rail-mark="Hôm nay"]')?.getAttribute("data-state")).toBe("current");
+    expect(screen.getByText("Còn 2/3 thẻ")).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Hiện đáp án" }));
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("1");
   });
 
   it("keeps the hidden face out of the accessibility tree", () => {
@@ -148,26 +205,70 @@ describe("hero practice", () => {
 });
 
 describe("hero practice decks and completion", () => {
+  it("requeues Again and Hard until the same word is rated Good or Easy", async () => {
+    render(<HeroPractice />);
+    for (const label of ["Lại", "Dễ", "Dễ"]) {
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      fireEvent.click(screen.getByRole("button", { name: label }));
+    }
+
+    expect(screen.getByText("commute", { ignore: VISIBLE_ONLY })).toBeTruthy();
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("2");
+    expect(screen.queryByText("Hoàn thành bộ thử")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Thẻ tiếp theo" })).toBeNull();
+    expect(mocks.confetti).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Khó" }));
+    expect(screen.getByText("commute", { ignore: VISIBLE_ONLY })).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("commute: sẽ gặp lại trong bộ thử");
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("2");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ổn" }));
+    expect(screen.getByText("Hoàn thành bộ thử")).toBeTruthy();
+    await waitFor(() => expect(mocks.confetti).toHaveBeenCalledTimes(1));
+  });
+
+  it("preserves completion and focus without celebration when motion is reduced", async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener() {}, removeEventListener() {} });
+    try {
+      render(<HeroPractice />);
+      for (let index = 0; index < 3; index++) {
+        fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+        fireEvent.click(screen.getByRole("button", { name: "Dễ" }));
+      }
+
+      expect(screen.getByText("Hoàn thành bộ thử")).toBeTruthy();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Ôn lại bộ này" }));
+      expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("3");
+      await Promise.resolve();
+      expect(mocks.confetti).not.toHaveBeenCalled();
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
   it("switches decks from the tab list and starts the new deck from its first card", () => {
     render(<HeroPractice />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Lật thẻ" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
     fireEvent.mouseDown(screen.getByRole("tab", { name: "IELTS" }));
     fireEvent.click(screen.getByRole("tab", { name: "IELTS" }));
 
     expect(screen.getByRole("tab", { name: "IELTS" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("substantial", { ignore: VISIBLE_ONLY })).toBeTruthy();
-    expect(screen.getByText("Thẻ 1/3")).toBeTruthy();
-    expect(screen.getByRole("status").textContent).toBe("Lật thẻ rồi chọn mức nhớ để xem lần ôn tiếp theo.");
+    expect(screen.getByText("Còn 3/3 thẻ")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Hiện đáp án rồi chọn mức nhớ để xem lần ôn tiếp theo.");
   });
 
   it("celebrates once after the last card and lets the visitor restart the deck", async () => {
     render(<HeroPractice />);
 
-    for (const label of ["Dễ", "Ổn", "Khó"]) {
-      fireEvent.click(screen.getByRole("button", { name: "Lật thẻ" }));
+    for (const label of ["Dễ", "Ổn", "Dễ"]) {
+      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
       fireEvent.click(screen.getByRole("button", { name: label }));
-      if (label !== "Khó") fireEvent.click(screen.getByRole("button", { name: "Thẻ tiếp theo" }));
     }
 
     expect(screen.getByText("Hoàn thành bộ thử")).toBeTruthy();
@@ -180,13 +281,12 @@ describe("hero practice decks and completion", () => {
     fireEvent.click(restart);
 
     expect(screen.getByText("commute", { ignore: VISIBLE_ONLY })).toBeTruthy();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Lật thẻ" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Hiện đáp án" }));
   });
 });
 
 describe("hero practice intro flip", () => {
-  // Mặt trước đứng trước mặt sau trong DOM, nên chữ "commute" đầu tiên thuộc mặt trước.
-  const frontFace = () => screen.getAllByText("commute")[0].parentElement!;
+  const frontFace = () => screen.getByText("commute").closest("[data-flashcard-box] > div")!;
   // jsdom không có IntersectionObserver; bản giả này cho test tự quyết lúc nào thẻ vào màn hình.
   let observers: { callback: IntersectionObserverCallback; options?: IntersectionObserverInit }[] = [];
   const showCard = () =>
@@ -226,14 +326,14 @@ describe("hero practice intro flip", () => {
     expect(frontFace().getAttribute("aria-hidden")).toBe("true");
     act(() => vi.advanceTimersByTime(INTRO_FLIP_HOLD_MS));
     expect(frontFace().getAttribute("aria-hidden")).toBeNull();
-    expect(screen.getByRole("button", { name: "Lật thẻ" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hiện đáp án" })).toBeTruthy();
   });
 
   it("skips the intro when the visitor interacts first or prefers reduced motion", () => {
     vi.useFakeTimers();
     const { unmount } = render(<HeroPractice />);
     showCard();
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Lật thẻ" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Hiện đáp án" }));
     act(() => vi.advanceTimersByTime(INTRO_FLIP_DELAY_MS));
     expect(frontFace().getAttribute("aria-hidden")).toBeNull();
     unmount();

@@ -18,11 +18,11 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
   return (
     <Link
       href={href}
-      className="group relative inline-flex min-h-6 items-center text-slate-300 transition-colors duration-[120ms] ease-[cubic-bezier(0.2,0,0,1)] hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 motion-reduce:transition-none"
+      className="group relative inline-flex min-h-6 items-center text-slate-300 transition-colors duration-[450ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 motion-reduce:transition-none"
     >
       <ChevronRight
         aria-hidden="true"
-        className="absolute -left-4 size-3.5 -translate-x-1 text-recall-line opacity-0 transition-[opacity,transform] duration-[120ms] ease-[cubic-bezier(0.2,0,0,1)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 motion-reduce:transition-none"
+        className="absolute -left-4 size-3.5 -translate-x-1 text-recall-line opacity-0 transition-[opacity,translate] duration-[450ms] ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 motion-reduce:transition-none"
       />
       {children}
     </Link>
@@ -39,7 +39,7 @@ export default function HomeFooter({ socialLinks }: HomeFooterProps) {
       <div className={`${HOME_CONTAINER} grid grid-cols-1 gap-8 pb-8 pt-12 md:grid-cols-[2fr_1fr_1fr]`}>
         <div>
           <Image
-            src="/brand/vocaspace-logo-white.svg"
+            src="/brand/vocaspace-logo.svg"
             alt="VocaSpace"
             width={587}
             height={117}
@@ -60,7 +60,7 @@ export default function HomeFooter({ socialLinks }: HomeFooterProps) {
                       rel="noopener noreferrer"
                       aria-label={`VocaSpace trên ${name} (mở tab mới)`}
                       className={cn(
-                        "flex size-11 items-center justify-center rounded-[8px] border border-slate-300/20 text-slate-300 transition-[background-color,border-color,color,transform] duration-[120ms] ease-[cubic-bezier(0.2,0,0,1)] hover:-translate-y-0.5 hover:border-transparent hover:text-white focus-visible:border-transparent focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+                        "flex size-11 items-center justify-center rounded-[8px] border border-slate-300/20 text-slate-300 transition-[background-color,border-color,color,translate] duration-[450ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:border-transparent hover:text-white focus-visible:border-transparent focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
                         hover,
                       )}
                     >

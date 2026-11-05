@@ -38,7 +38,7 @@ export function PublicCourseHighlightsView({
             phí và trả phí.
           </p>
         </div>
-        <Button asChild variant="outline" className="w-fit shrink-0">
+        <Button asChild variant="outline" className="w-fit shrink-0 duration-[350ms]">
           <Link href={catalogPath}>
             Xem tất cả khóa học
             <ArrowRight aria-hidden="true" data-icon="inline-end" />
