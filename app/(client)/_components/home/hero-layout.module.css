@@ -1,0 +1,63 @@
+@media (min-width: 64rem) and (max-height: 52rem) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 13fr);
+    gap: 2rem;
+  }
+
+  .heroAccent {
+    white-space: nowrap;
+  }
+
+  .practiceGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(10rem, 14vw, 12rem);
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .demoStage [data-flashcard-box] {
+    height: 20rem;
+  }
+
+  .demoStage [data-flashcard-box] > div {
+    padding-inline: 1.25rem;
+  }
+
+  .reviewPanel {
+    margin-top: 0;
+  }
+
+  .reviewRail {
+    display: grid;
+    grid-template-columns: 0.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+    min-height: 9rem;
+    margin-block: 1rem;
+  }
+
+  .reviewTrack,
+  .reviewLabels {
+    flex-direction: column;
+  }
+
+  .reviewTrack {
+    margin: 0;
+  }
+
+  .reviewStop {
+    flex-direction: column;
+  }
+
+  .reviewSegment {
+    width: 0.125rem;
+    height: auto;
+  }
+
+  .reviewFill {
+    transform-origin: top;
+  }
+
+  .reviewLabels {
+    margin-block: -0.125rem;
+  }
+}

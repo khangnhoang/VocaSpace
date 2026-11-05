@@ -249,6 +249,10 @@ Appropriate examples:
 
 Marketing may use a purposeful signature interaction or atmosphere when it serves the visual thesis. Prefer one orchestrated motion moment over scattered effects unless repeated interaction requires otherwise. Avoid motion that delays repeated actions, distracts in dense forms/tables, or requires a new library without approval. Respect reduced motion.
 
+Motion for React (`motion`) is the Owner-selected library for richer React motion in UI/UX redesigns. Before designing substantial motion, consult its official [examples](https://motion.dev/examples) and [React documentation](https://motion.dev/docs/react), choose patterns that serve the screen's goal, and adapt them to the accepted product language. Explore beyond patterns already implemented in this repository: coordinated state changes, enter/exit sequences, layout continuity, SVG, scroll and gestures are available design options, not an obligation to use them all. Check whether an example uses the installed package, an additional dependency or paid Motion+ material before adopting it; integrate or install what the approved scope needs instead of limiting design to current imports. CSS remains appropriate for simple hover/focus feedback.
+
+Availability is not a reason to animate every element or retrofit untouched pages. Choose pacing from the actual distance, reading time and task; Product Language defines no product-wide duration ceiling. Keep a deliberate rhythm between response, reveal and narrative moments rather than slowing every transition equally. `frontend-workflow` owns integration, dependency permission, bundle and reduced-motion mechanics.
+
 ## Responsive design
 
 Check at minimum:

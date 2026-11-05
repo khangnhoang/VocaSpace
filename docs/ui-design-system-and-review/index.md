@@ -6,7 +6,7 @@ This index routes only to Owner-accepted design artifacts. Plans, progress recor
 
 ## Accepted product language
 
-- [VocaSpace Product Language](./product-language.md) — `Accepted` 2026-09-27; current content in this PR (Admin dark-values ownership, 2026-10-15). Shared product identity and semantic intent for Learning Experience and Teacher Authoring.
+- [VocaSpace Product Language](./product-language.md) — `Accepted` 2026-09-27; Admin dark-values ownership amended 2026-10-15; product-wide motion duration limits retired by Owner instruction 2026-11-05. Shared product identity and semantic intent for Learning Experience and Teacher Authoring.
 
 ## Accepted screen-type designs
 

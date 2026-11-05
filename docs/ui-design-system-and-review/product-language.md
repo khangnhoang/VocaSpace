@@ -7,6 +7,7 @@
 | Status | `Accepted` — published for downstream UI-2 design work; not runtime implementation authority |
 | Accepted candidate identity | `PL-CANDIDATE-1`; Owner-accepted pre-publication SHA-256 `CF68E4972CDFAC4B805ADEB0117C0CF895B07C5561D0E2D36676F8A356B439C1` on 2026-09-27 |
 | Accepted correction identity | `PL-MOTION-CORRECTION-1`; Owner-accepted through exact gate `PL-MOTION-CORRECTION-ACCEPT`, pre-publication SHA-256 `05F259BC199D4CAC880E29F6243BB7F49BDE48B33BC504F769396A260B3C2439`, on 2026-09-27 |
+| Current motion amendment | Owner instruction 2026-11-05 retires product-wide fixed durations and duration ceilings. Section 9 owns motion intent; component and surface owners choose and verify timing. Earlier acceptance hashes identify historical revisions. |
 | Acceptance scope | Typography, CTA hierarchy, tab/mode selector grammar, motion language, and the current light-reference/theme-capable direction are accepted together with the complete candidate |
 | Upstream contract | [UI-2 Detail Plan](./implementation-plans/ui-2/plan.md), Stage 1 |
 | Scope | Product-wide visual identity and semantic intent shared by Learning Experience (LE) and Teacher Authoring (TA) |
@@ -240,19 +241,21 @@ Mutually exclusive tab or mode selection uses one tab-style selector rather than
 
 Motion explains cause, state, or spatial continuity. It is not ambient decoration.
 
-| Motion role | Duration | Accepted easing | Allowed use |
-| --- | --- | --- | --- |
-| Immediate response | `120ms` | `cubic-bezier(0.2, 0, 0, 1)` | Hover, focus emphasis, press release, or another small perceptible response |
-| State transition | `220ms` | `cubic-bezier(0.2, 0, 0, 1)` | Selected state, validation feedback, progress/value change |
-| Spatial transition | `240ms` | `cubic-bezier(0.2, 0, 0, 1)` | Dialog, sheet, disclosure, answer reveal, flashcard flip |
-| Single earned micro-cue | `320ms` maximum | `cubic-bezier(0.16, 1, 0.3, 1)` | One bounded confirmation, progress movement, node change, or accomplishment accent |
-| Composed earned-completion sequence | Approximately `600–900ms` total | Each constituent uses the accepted easing appropriate to its semantic role | Two or more distinct, truthful completion transitions whose causal order would become unclear if collapsed into one micro-cue |
+Product Language sets no fixed duration or duration ceiling. The owning component or surface chooses duration, delay and stagger for the actual distance, content and task, and verifies them in the browser. A longer animation must remain perceptible and purposeful without holding back feedback or available actions. Existing component- or surface-specific timings remain local decisions; this amendment does not automatically change runtime code or retire those contracts.
+
+| Motion role | Accepted easing | Allowed use |
+| --- | --- | --- |
+| Immediate response | `cubic-bezier(0.2, 0, 0, 1)` | Hover, focus emphasis, press release, or another small perceptible response |
+| State transition | `cubic-bezier(0.2, 0, 0, 1)` | Selected state, validation feedback, progress/value change |
+| Spatial transition | `cubic-bezier(0.2, 0, 0, 1)` | Dialog, sheet, disclosure, answer reveal, flashcard flip |
+| Single earned micro-cue | `cubic-bezier(0.16, 1, 0.3, 1)` | One bounded confirmation, progress movement, node change, or accomplishment accent |
+| Composed earned-completion sequence | Each constituent uses the accepted easing appropriate to its semantic role | Two or more distinct, truthful completion transitions whose causal order would become unclear if collapsed into one micro-cue |
 
 Rules:
 
 - Feedback appears immediately; animation never delays correctness, error, save state, or the next repeated-practice action.
-- A composed earned-completion sequence contains only short, purposeful constituent transitions. Within this exception, one constituent may run longer than its ordinary role ceiling when necessary to make a truthful progression state perceptible; constituent transitions should normally remain approximately `220–450ms`, and the complete sequence remains approximately `600–900ms`.
-- The composed exception applies only when multiple semantic states truly change, such as local progress reaching complete → the active object becoming completed → the next context becoming available. It does not lengthen a single cue or change the accepted ceilings for Immediate response, State transition, Spatial transition, or ordinary progress updates.
+- A composed earned-completion sequence contains only purposeful constituent transitions, with enough time for each truthful progression state to be perceived.
+- Composition applies only when multiple semantic states truly change, such as local progress reaching complete → the active object becoming completed → the next context becoming available. A single cue and a composed sequence differ by meaning, not by a duration allowance.
 - Result text, confirmed values, focus, and the legal next action render immediately and never wait for the sequence. Causal order remains truthful: subordinate next context may appear only after the completed object is legibly completed.
 - A composed sequence is one-shot and completion-triggered. It must not replay automatically, pulse perpetually, or add decorative steps merely to consume the available duration.
 - Immediate response defines an interaction intent, not an exact Button recipe: hover remains position-stable and provides a restrained tone, contrast, boundary, or shadow cue beyond the pointer. Product Language does not require a separate Button press animation; UI-3 owns whether and how a component distinguishes press, plus the exact property combination, distance, shadow, and behavior.
@@ -271,15 +274,15 @@ Rules:
 Under `prefers-reduced-motion: reduce`:
 
 - remove nonessential translation, scale, rotation, flip, confetti, and stagger;
-- present the final state immediately or use an opacity change no longer than `100ms`;
+- present the final state immediately; any retained opacity change must be nonessential and must not postpone content or actions;
 - preserve the same text, icon, progress value, focus destination, and available next action; and
 - never require motion to explain correctness, sequence, hierarchy, or completion.
 
 Runtime should normally follow the operating-system/browser `prefers-reduced-motion` preference. The Default/Reduced selector in the non-authoritative review aid exists only to compare accessibility equivalence; it does not require a user-facing product setting. Its tab-style visual grammar is accepted above, while this review-specific instance and its own indicator transition cannot establish another runtime duration, easing, or product setting. Any explicit in-product override remains future product scope.
 
-Example pair: a flashcard answer may flip over `240ms` in the default mode; reduced motion swaps the face immediately with a `100ms` opacity change while retaining the same revealed content and focus position. A single completion cue may move/fade once over at most `320ms`. When multiple truthful completion states require causal storytelling, a composed sequence may span approximately `600–900ms`; reduced motion skips that sequence and shows the same settled completion, progress, next context, focus, and actions immediately.
+Example pair: a flashcard answer may flip at a surface-chosen pace in the default mode; reduced motion swaps the face immediately while retaining the same revealed content and focus position. A single completion cue may move/fade once. When multiple truthful completion states require causal storytelling, a composed sequence makes that order perceptible; reduced motion skips that sequence and shows the same settled completion, progress, next context, focus, and actions immediately.
 
-A static board can show the start/end states and reduced-motion equivalence, but it cannot establish timing or easing quality. Motion acceptance therefore requires the Owner to review a non-authoritative interactive aid derived from these exact values, compare default and reduced modes, and explicitly include motion in `PL-ACCEPT`. The document remains the source of truth; the aid must not introduce another duration, easing, state, or implementation requirement.
+A static board can show the start/end states and reduced-motion equivalence, but it cannot establish timing or easing quality. Component or surface motion therefore needs a running example comparing default and reduced modes. The Owner reviews the pacing in that context; an illustrative timing never becomes a product-wide limit. The document remains the source of truth for semantic intent and reduced-motion equivalence.
 
 ## 10. Token and runtime mapping
 
@@ -299,7 +302,7 @@ This table classifies ownership; it is not an instruction to edit runtime code i
 | Installed font families | Plus Jakarta Sans, Geist, and Geist Mono are loaded | `maps to current token` for availability; `proposed token/runtime change` for Plus Jakarta Sans/Geist Sans role wiring; no approved product role for Geist Mono | No font install; do not expose technical identifiers to create a mono use case |
 | Radius `8/12/16/24/full` | `--radius: 0.625rem` and generated radii coexist with many feature literals | `proposed token/runtime change` | UI-3 audits component uses before exact variants change |
 | Elevation levels | Current feature shadows are direct and inconsistent | `proposed token/runtime change` | Tokens are optional; the semantic limit matters more than token count |
-| Motion durations/easing | Tailwind/Radix utilities and feature durations exist without one product contract | `proposed token/runtime change` | Later component/surface work maps only where needed |
+| Motion roles/easing | Tailwind/Radix utilities and feature timings exist | `documentation-only rule` for intent; local runtime changes need their own scope | Component/surface owners choose and verify timing; no product-wide duration token or ceiling is required |
 | Lucide and real-content imagery | Current product already uses Lucide and course media | `maps to current token` / current convention | Continue; no asset or package addition |
 | Direct-literal and no-decoration rules | No single runtime owner can enforce these by itself | `documentation-only rule` | Review and later migrations apply the rule locally |
 | Screen-type expression | Current LE/TA patterns provide evidence but conflict in places | `documentation-only rule` until LE/TA acceptance | Screen-type artifacts specialize without copying values |
@@ -339,12 +342,12 @@ Rejected comparison: every section at `24–28px`, nested Level 2 shadows, or pi
 
 | Scenario | Default motion | Reduced motion | Persistent meaning |
 | --- | --- | --- | --- |
-| Selected/current row | State colors settle over `220ms` | Immediate | Route Blue marker + “Hiện tại”/selection semantics |
-| Flashcard answer reveal | Spatial transition up to `240ms` | Immediate or opacity up to `100ms` | Revealed answer, stable focus, rating actions |
-| Confirmed completion — single cue | One cue up to `320ms` | Immediate | Growth Green check, completion copy, next action |
-| Confirmed completion — composed sequence | Approximately `600–900ms` across purposeful constituents | Immediate settled state | Truthful progress complete → active object completed → subordinate next context; result and actions never wait |
-| Invalid focused field | State transition up to `220ms` | Immediate | Route Blue focus plus red boundary and corrective message |
-| Destructive confirmation | Dialog enter up to `240ms` | Immediate or opacity up to `100ms` | Object identity, consequence, cancel, destructive confirm |
+| Selected/current row | State colors settle at the component's chosen pace | Immediate | Route Blue marker + “Hiện tại”/selection semantics |
+| Flashcard answer reveal | Surface-paced spatial transition | Immediate | Revealed answer, stable focus, rating actions |
+| Confirmed completion — single cue | One perceptible cue | Immediate | Growth Green check, completion copy, next action |
+| Confirmed completion — composed sequence | Purposeful constituents in a legible causal order | Immediate settled state | Truthful progress complete → active object completed → subordinate next context; result and actions never wait |
+| Invalid focused field | Component-paced state transition | Immediate | Route Blue focus plus red boundary and corrective message |
+| Destructive confirmation | Context-preserving dialog enter | Immediate | Object identity, consequence, cancel, destructive confirm |
 
 ## 12. Uniqueness critique and corrections
 
@@ -364,6 +367,8 @@ The direction would fail this critique if a future application used only the col
 ## 13. Accepted scope and exclusions
 
 The Owner accepted exact candidate `PL-CANDIDATE-1`, pre-publication SHA-256 `CF68E4972CDFAC4B805ADEB0117C0CF895B07C5561D0E2D36676F8A356B439C1`, on 2026-09-27. Acceptance covers the color values, typography roles, CTA hierarchy, tab/mode selector grammar, surface/elevation model, geometry intent, motion language, current light-reference/theme-capable direction, and token mapping together. The Owner later issued exact gate `PL-MOTION-CORRECTION-ACCEPT` for bounded amendment `PL-MOTION-CORRECTION-1`, pre-publication SHA-256 `05F259BC199D4CAC880E29F6243BB7F49BDE48B33BC504F769396A260B3C2439`, on 2026-09-27. That amendment changes only the earned-completion composition rule; every other accepted Product Language decision remains unchanged.
+
+The Owner instruction on 2026-11-05 supersedes the product-wide fixed durations and ceilings in those historical motion approvals. The current section 9 and Plate C retain their semantic and accessibility requirements without prescribing timing; local component and surface contracts still own their explicitly accepted timings.
 
 This accepted Product Language does not:
 

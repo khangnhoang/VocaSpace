@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BriefcaseBusiness, CircleCheck, GraduationCap, Plane, RotateCcw, RotateCw } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
+import { domMax, LayoutGroup, LazyMotion, MotionConfig, useReducedMotion } from "motion/react";
+import { useAnimate } from "motion/react-mini";
+import * as m from "motion/react-m";
+import { BriefcaseBusiness, CircleCheck, GraduationCap, Plane, RotateCcw } from "lucide-react";
+import { Rating } from "ts-fsrs";
+import FlashcardStage from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/FlashcardStage";
+import type { FlashcardDTO } from "@/lib/schemas/learn";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 import { cn } from "@/lib/utils";
+import styles from "./hero-layout.module.css";
 
 type DemoCard = {
   word: string;
@@ -117,12 +124,28 @@ const RATING_OUTCOMES = [
 // đã nằm trong màn hình (trên mobile thẻ thường ở dưới mép lúc tải trang), chạy một lần, và bỏ qua khi người dùng giảm
 // chuyển động hoặc đã tương tác với khung thử.
 export const INTRO_VISIBLE_RATIO = 0.6;
-export const INTRO_FLIP_DELAY_MS = 600;
-export const INTRO_FLIP_HOLD_MS = 1100;
-const CARD_SWAP_MS = 220;
+export const INTRO_FLIP_DELAY_MS = 1600;
+export const INTRO_FLIP_HOLD_MS = 3400;
 
-type Phase = { kind: "front" } | { kind: "rating" } | { kind: "rated"; outcome: number };
-type FocusTarget = "reveal" | "firstRating" | "next" | "restart";
+type LastRating = { word: string; outcome: number };
+type DemoSession = { queue: number[]; isRevealed: boolean; lastRating: LastRating | null };
+
+// Các DTO và ID minh họa chỉ tồn tại trong bộ thử ở trình duyệt.
+const PRACTICE_DECKS = DEMO_DECKS.map((deck, deckIndex) => ({
+  ...deck,
+  cards: deck.cards.map((card, cardIndex): FlashcardDTO => {
+    const [phonetic, pos] = card.phonetic.split(" · ");
+    return {
+      id: `00000000-0000-4000-8000-${String(deckIndex * 3 + cardIndex + 1).padStart(12, "0")}`,
+      front_content: { word: card.word, phonetic, pos },
+      back_content: { translation: card.meaning, example: card.example.join("") },
+    };
+  }),
+}));
+
+function newSession(cardCount: number): DemoSession {
+  return { queue: Array.from({ length: cardCount }, (_, index) => index), isRevealed: false, lastRating: null };
+}
 
 function prefersReducedMotion() {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -150,90 +173,90 @@ async function celebrate(origin: HTMLElement | null) {
 }
 
 export default function HeroPractice() {
+  return (
+    <LazyMotion features={domMax} strict>
+      <MotionConfig reducedMotion="user">
+        <PracticeDemo />
+      </MotionConfig>
+    </LazyMotion>
+  );
+}
+
+function PracticeDemo() {
   const [deckId, setDeckId] = useState<DeckId>("toeic");
-  const [cardIndex, setCardIndex] = useState(0);
-  const [phase, setPhase] = useState<Phase>({ kind: "front" });
-  const [introFlip, setIntroFlip] = useState(false);
-  const [outgoing, setOutgoing] = useState<{ key: string; card: DemoCard } | null>(null);
-  const [swapCount, setSwapCount] = useState(0);
-  const pendingFocus = useRef<FocusTarget | null>(null);
+  const [session, setSession] = useState<DemoSession>(() => newSession(PRACTICE_DECKS[0].cards.length));
+  const [hasChangedDeck, setHasChangedDeck] = useState(false);
+  const indicatorGroup = useId();
+  const reduceMotion = useReducedMotion();
   const introCancelled = useRef(false);
+  const pendingFocus = useRef<"reveal" | "restart" | null>(null);
   const panelRef = useRef<HTMLElement>(null);
-  const cardAreaRef = useRef<HTMLDivElement>(null);
-  const revealRef = useRef<HTMLButtonElement>(null);
-  const firstRatingRef = useRef<HTMLButtonElement>(null);
-  const nextRef = useRef<HTMLButtonElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const restartRef = useRef<HTMLButtonElement>(null);
 
-  const deck = DEMO_DECKS.find((item) => item.id === deckId) ?? DEMO_DECKS[0];
-  const card: DemoCard = deck.cards[cardIndex];
-  const isLastCard = cardIndex === deck.cards.length - 1;
-  const isComplete = phase.kind === "rated" && isLastCard;
-  const isRevealed = phase.kind !== "front" || introFlip;
-  const currentMark = phase.kind === "rated" ? RATING_OUTCOMES[phase.outcome].mark : 0;
-  const completedCards = phase.kind === "rated" ? cardIndex + 1 : cardIndex;
+  const deck = PRACTICE_DECKS.find((item) => item.id === deckId) ?? PRACTICE_DECKS[0];
+  const card = deck.cards[session.queue[0]];
+  const completedCards = deck.cards.length - session.queue.length;
+  const currentMark = session.lastRating ? RATING_OUTCOMES[session.lastRating.outcome].mark : 0;
+  const currentStep = session.isRevealed ? 1 : session.lastRating ? 2 : 0;
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
     const timers: number[] = [];
-    const play = () => {
+    const cardArea = stageRef.current?.querySelector("[data-flashcard-box]");
+    if (!cardArea || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      observer.disconnect();
       timers.push(
         window.setTimeout(() => {
           if (introCancelled.current) return;
-          setIntroFlip(true);
-          timers.push(window.setTimeout(() => setIntroFlip(false), INTRO_FLIP_HOLD_MS));
+          setSession((current) => ({ ...current, isRevealed: true }));
+          timers.push(
+            window.setTimeout(() => {
+              if (!introCancelled.current) setSession((current) => ({ ...current, isRevealed: false }));
+            }, INTRO_FLIP_HOLD_MS),
+          );
         }, INTRO_FLIP_DELAY_MS),
       );
-    };
-
-    const cardArea = cardAreaRef.current;
-    let observer: IntersectionObserver | null = null;
-    if (cardArea && typeof IntersectionObserver !== "undefined") {
-      observer = new IntersectionObserver(
-        ([entry]) => {
-          if (!entry?.isIntersecting) return;
-          observer?.disconnect();
-          play();
-        },
-        { threshold: INTRO_VISIBLE_RATIO },
-      );
-      observer.observe(cardArea);
-    }
-
+    }, { threshold: INTRO_VISIBLE_RATIO });
+    observer.observe(cardArea);
     return () => {
-      observer?.disconnect();
+      observer.disconnect();
       timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
 
-  // Nút cần focus chỉ tồn tại sau khi React commit phase mới, nên focus trong effect thay vì ngay trong handler.
   useEffect(() => {
     const target = pendingFocus.current;
     pendingFocus.current = null;
-    if (target === "reveal") revealRef.current?.focus();
-    if (target === "firstRating") firstRatingRef.current?.focus();
-    if (target === "next") nextRef.current?.focus();
+    if (target === "reveal") stageRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     if (target === "restart") restartRef.current?.focus();
-  }, [phase, cardIndex, deckId]);
+  }, [session, deckId]);
 
   function stopIntro() {
     introCancelled.current = true;
-    setIntroFlip(false);
   }
 
-  function resetDeck(focus: FocusTarget | null) {
-    pendingFocus.current = focus;
-    setOutgoing(null);
-    setCardIndex(0);
-    setPhase({ kind: "front" });
+  function handleRateCard(rating: Rating) {
+    stopIntro();
+    if (!card || !session.isRevealed) return;
+    const outcome = FLASHCARD_RATINGS.findIndex((item) => item.rating === rating);
+    if (outcome === -1) return;
+    const [active, ...remaining] = session.queue;
+    // Cùng quy tắc với LearningWorkspace và PublicCoursePreviewExperience: Lại/Khó quay về cuối hàng đợi.
+    if (rating === Rating.Again || rating === Rating.Hard) remaining.push(active);
+    pendingFocus.current = remaining.length === 0 ? "restart" : "reveal";
+    setSession({ queue: remaining, isRevealed: false, lastRating: { word: card.front_content.word, outcome } });
+    if (remaining.length === 0) void celebrate(panelRef.current);
   }
 
-  const status =
-    phase.kind === "front"
-      ? "Lật thẻ rồi chọn mức nhớ để xem lần ôn tiếp theo."
-      : phase.kind === "rating"
-        ? "Bạn nhớ từ này ở mức nào?"
-        : `Ôn lại ${RATING_OUTCOMES[phase.outcome].when}.`;
+  const lastOutcome = session.lastRating && RATING_OUTCOMES[session.lastRating.outcome];
+  const status = session.isRevealed
+    ? "Bạn nhớ từ này ở mức nào?"
+    : session.lastRating && lastOutcome
+      ? `${session.lastRating.word}: ${session.lastRating.outcome < 2 ? "sẽ gặp lại trong bộ thử. " : ""}Ôn lại ${lastOutcome.when}.`
+      : "Hiện đáp án rồi chọn mức nhớ để xem lần ôn tiếp theo.";
 
   return (
     <section
@@ -241,204 +264,112 @@ export default function HeroPractice() {
       aria-labelledby="hero-practice-title"
       onPointerDownCapture={stopIntro}
       onKeyDownCapture={stopIntro}
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.10)] sm:rounded-3xl sm:p-6 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-4 motion-safe:duration-[320ms] motion-safe:delay-[120ms] motion-safe:fill-mode-both"
+      className="min-w-0 rounded-3xl border border-slate-300 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.10)] sm:max-lg:p-6 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-4 motion-safe:duration-[1200ms] motion-safe:delay-[250ms] motion-safe:ease-[cubic-bezier(0.4,0,0.2,1)] motion-safe:fill-mode-both"
     >
-      <div className="flex items-center justify-between gap-3">
-        <h2
-          id="hero-practice-title"
-          className="font-[family-name:var(--font-geist-sans)] text-xs font-semibold uppercase leading-4 tracking-[0.04em] text-recall"
-        >
+      <ol aria-label="Các bước học thử" className="mb-6 flex items-center gap-2 border-b border-slate-200 pb-5 text-xs font-semibold leading-4 text-slate-500 sm:gap-3 sm:text-sm lg:mb-3 lg:pb-3">
+        {["Gặp từ", "Nhớ lại", "Hẹn ôn"].map((label, index) => (
+          <li key={label} aria-current={index === currentStep ? "step" : undefined} className={cn("flex min-w-0 flex-1 items-center gap-2 transition-colors duration-[450ms] motion-reduce:transition-none", index === currentStep && "text-route", index < currentStep && "text-recall")}>
+            <span aria-hidden="true" className={cn("flex size-6 shrink-0 items-center justify-center rounded-full border transition-colors duration-[450ms] motion-reduce:transition-none", index === currentStep ? "border-route bg-route-quiet" : index < currentStep ? "border-recall bg-recall-quiet" : "border-slate-300")}>
+              {index < currentStep ? <CircleCheck className="size-3.5" /> : index + 1}
+            </span>
+            <span>{label}</span>
+            {index < 2 && <span aria-hidden="true" className="ml-auto hidden h-px flex-1 bg-slate-300 sm:block" />}
+          </li>
+        ))}
+      </ol>
+      <div className="flex min-h-8 items-center justify-between gap-3 sm:min-h-0">
+        <h2 id="hero-practice-title" className="font-[family-name:var(--font-geist-sans)] text-xs font-semibold uppercase leading-4 tracking-[0.04em] text-recall">
           Thử ngay · {deck.title}
         </h2>
-        <p className="font-[family-name:var(--font-geist-sans)] text-xs font-medium leading-4 text-slate-500">
-          Thẻ {cardIndex + 1}/{deck.cards.length}
+        <p className="shrink-0 font-[family-name:var(--font-geist-sans)] text-xs font-medium leading-4 text-slate-500">
+          Còn {session.queue.length}/{deck.cards.length} thẻ
         </p>
       </div>
-
       <Tabs
         value={deckId}
         onValueChange={(value) => {
+          const nextDeck = PRACTICE_DECKS.find((item) => item.id === value);
+          if (!nextDeck) return;
           stopIntro();
-          setDeckId(value as DeckId);
-          resetDeck(null);
+          setHasChangedDeck(true);
+          setDeckId(nextDeck.id);
+          setSession(newSession(nextDeck.cards.length));
         }}
-        className="mt-3 gap-0"
+        className="mt-3 gap-0 lg:mt-2"
       >
-        <TabsList
-          variant="line"
-          aria-label="Chọn bộ thẻ"
-          className="h-auto w-full justify-start gap-1 rounded-none border-b border-slate-200 p-0"
-        >
-          {DEMO_DECKS.map(({ id, tab, Icon }) => (
-            <TabsTrigger
-              key={id}
-              value={id}
-              className="h-10 flex-none rounded-none px-3 text-sm font-semibold text-slate-600 after:bg-route hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-route data-active:text-route group-data-horizontal/tabs:after:bottom-[-1px]"
-            >
-              <Icon aria-hidden="true" />
-              {tab}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value={deckId} className="mt-4">
-          <div
-            role="progressbar"
-            aria-label="Số thẻ đã ôn trong bộ thử"
-            aria-valuemin={0}
-            aria-valuemax={deck.cards.length}
-            aria-valuenow={completedCards}
-            className="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-100"
+        <LayoutGroup id={indicatorGroup}>
+          <TabsList
+            variant="line"
+            aria-label="Chọn bộ thẻ"
+            className="w-full justify-start gap-0 rounded-none border-b border-slate-200 p-0 group-data-horizontal/tabs:h-11"
           >
-            <span
-              className="block h-full rounded-full bg-recall transition-[width] duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
-              style={{ width: `${(completedCards / deck.cards.length) * 100}%` }}
-            />
-          </div>
-
-          {/* Cắt phần trượt ngang để thẻ ra/vào không làm trang tràn ngang trên mobile. */}
-          <div ref={cardAreaRef} className="relative overflow-x-clip">
+            {DEMO_DECKS.map(({ id, tab, Icon }) => (
+              <TabsTrigger key={id} value={id} className="h-11 min-w-0 flex-none select-none rounded-none px-2.5 py-0 text-xs font-semibold text-slate-600 transition-colors duration-[250ms] after:hidden hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-route data-active:text-route motion-reduce:transition-none sm:px-3 sm:text-sm">
+                <span data-deck-label="" className="relative inline-flex h-full items-center gap-1.5">
+                  <Icon aria-hidden="true" className="size-3.5 sm:size-4" />
+                  {tab}
+                  {deckId === id && (
+                    <m.span
+                      aria-hidden="true"
+                      layoutId="deck-indicator"
+                      transition={{ duration: reduceMotion ? 0 : 0.55, ease: [0.4, 0, 0.2, 1] }}
+                      className="pointer-events-none absolute -bottom-px inset-x-0 h-0.5 bg-route"
+                    />
+                  )}
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </LayoutGroup>
+        <TabsContent key={deckId} value={deckId} className={cn("mt-4 lg:mt-3", styles.practiceGrid)}>
+          {card ? (
             <div
-              key={`${deckId}-${cardIndex}`}
-              className={cn(
-                "[perspective:1200px]",
-                // Thẻ mới trượt vào từ phải cùng lúc thẻ cũ trượt ra trái, nên không phải chờ animation mới bấm tiếp được.
-                // Hiệu ứng trượt nằm ở lớp bọc này để không ghi đè transform lật thẻ của lớp bên trong.
-                swapCount > 0 && "animate-in fade-in slide-in-from-right-6 duration-[220ms] motion-reduce:animate-none",
-              )}
+              ref={stageRef}
+              role={session.isRevealed ? "group" : undefined}
+              aria-label={session.isRevealed ? "Bạn nhớ từ này ở mức nào?" : undefined}
             >
-              <div
-                className={cn(
-                  "grid min-h-48 [transform-style:preserve-3d] transition-transform duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none motion-reduce:[transform:none]",
-                  isRevealed && "[transform:rotateY(180deg)]",
-                )}
-              >
-                <div
-                  aria-hidden={isRevealed || undefined}
-                  inert={isRevealed}
-                  className={cn(
-                    "col-start-1 row-start-1 flex flex-col items-center justify-center rounded-2xl border border-slate-300 bg-slate-50 p-5 text-center [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
-                    isRevealed && "motion-reduce:invisible",
-                  )}
-                >
-                  <p className="text-[32px] font-extrabold leading-10 tracking-[-0.015em] text-slate-900">{card.word}</p>
-                  <p className="mt-1 text-sm text-slate-500">{card.phonetic}</p>
-                </div>
-                <div
-                  aria-hidden={!isRevealed || undefined}
-                  inert={!isRevealed}
-                  className={cn(
-                    "col-start-1 row-start-1 [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] motion-reduce:[transform:none]",
-                    !isRevealed && "motion-reduce:invisible",
-                  )}
-                >
-                  <CardBack card={card} />
-                </div>
-              </div>
-            </div>
-            {outgoing && (
-              <div
-                key={outgoing.key}
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 animate-out fade-out slide-out-to-left-6 duration-[220ms] fill-mode-forwards motion-reduce:hidden"
-              >
-                <CardBack card={outgoing.card} />
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 min-h-11">
-            {phase.kind === "front" && (
-              <Button
-                ref={revealRef}
-                type="button"
-                variant="outline"
-                size="lg"
-                className="w-full"
-                onClick={() => {
+              <DemoLearningCard
+                enter={hasChangedDeck}
+                currentCard={card}
+                cardsLeft={session.queue.length}
+                totalCards={deck.cards.length}
+                isFlipped={session.isRevealed}
+                setIsFlipped={(isRevealed) => {
                   stopIntro();
-                  pendingFocus.current = "firstRating";
-                  setPhase({ kind: "rating" });
+                  setSession((current) => ({ ...current, isRevealed }));
                 }}
-              >
-                <RotateCw aria-hidden="true" />
-                Lật thẻ
-              </Button>
-            )}
-            {phase.kind === "rating" && (
-              <div role="group" aria-label="Bạn nhớ từ này ở mức nào?" className="grid grid-cols-4 gap-2">
-                {FLASHCARD_RATINGS.map(({ label, className }, index) => (
-                  <Button
-                    key={label}
-                    ref={index === 0 ? firstRatingRef : undefined}
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    className={cn("px-1", className)}
-                    onClick={() => {
-                      pendingFocus.current = isLastCard ? "restart" : "next";
-                      setPhase({ kind: "rated", outcome: index });
-                      if (isLastCard) void celebrate(panelRef.current);
-                    }}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            )}
-            {phase.kind === "rated" && !isComplete && (
+                handleRateCard={handleRateCard}
+              />
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-growth-line bg-growth-quiet p-5 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-[900ms] motion-safe:ease-[cubic-bezier(0.4,0,0.2,1)]">
+              <CircleCheck aria-hidden="true" className="mb-3 size-6 text-growth" />
+              <p className="font-bold text-growth">Hoàn thành bộ thử</p>
+              <p className="mt-2 text-sm leading-[22px] text-slate-700">Bạn đã nhớ {deck.cards.length}/{deck.cards.length} thẻ. Trong app, mỗi thẻ có lịch ôn riêng.</p>
               <Button
-                ref={nextRef}
+                ref={restartRef}
                 type="button"
                 variant="outline"
                 size="lg"
-                className="w-full"
+                className="mt-4 duration-[350ms]"
                 onClick={() => {
                   pendingFocus.current = "reveal";
-                  setOutgoing({ key: `${deckId}-${cardIndex}-${swapCount}`, card });
-                  setSwapCount((count) => count + 1);
-                  setCardIndex((index) => index + 1);
-                  setPhase({ kind: "front" });
-                  window.setTimeout(() => setOutgoing(null), CARD_SWAP_MS + 80);
+                  setSession(newSession(deck.cards.length));
                 }}
               >
-                Thẻ tiếp theo
-                <ArrowRight aria-hidden="true" />
+                <RotateCcw aria-hidden="true" />
+                Ôn lại bộ này
               </Button>
-            )}
-            {isComplete && (
-              <div className="flex flex-col gap-3 rounded-2xl border border-growth-line bg-growth-quiet p-4 sm:flex-row sm:items-center motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-[320ms]">
-                <CircleCheck aria-hidden="true" className="size-6 shrink-0 text-growth" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold leading-5 text-growth">Hoàn thành bộ thử</p>
-                  <p className="text-sm leading-[22px] text-slate-700">
-                    Bạn đã ôn {deck.cards.length}/{deck.cards.length} thẻ. Trong app, mỗi thẻ có lịch ôn riêng.
-                  </p>
-                </div>
-                <Button
-                  ref={restartRef}
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  className="shrink-0"
-                  onClick={() => resetDeck("reveal")}
-                >
-                  <RotateCcw aria-hidden="true" />
-                  Ôn lại bộ này
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-5 border-t border-slate-200 pt-4">
-            <div className="flex justify-between gap-3 font-[family-name:var(--font-geist-sans)] text-xs font-medium leading-4 text-slate-500">
-              <span>Lịch ôn của từ này</span>
+              <div role="progressbar" aria-label="Tiến độ từ vựng" aria-valuemin={0} aria-valuemax={deck.cards.length} aria-valuenow={completedCards} className="mt-4 h-1.5 rounded-full bg-recall" />
+            </div>
+          )}
+          <div className={cn("mt-5 rounded-2xl border border-recall-line bg-recall-quiet p-4 sm:max-lg:p-5 lg:mt-3", styles.reviewPanel)}>
+            <div className="flex flex-wrap justify-between gap-2 font-[family-name:var(--font-geist-sans)] text-xs font-medium leading-4 text-recall">
+              <span>{session.lastRating ? `Lịch ôn của ${session.lastRating.word}` : "Lịch ôn của từ này"}</span>
               <span>Ví dụ minh họa</span>
             </div>
             <ReviewRail currentMark={currentMark} />
-            <p role="status" className="mt-3 min-h-[22px] text-sm text-slate-600">
-              {status}
-            </p>
+            <p role="status" className="mt-4 min-h-[44px] text-sm font-semibold leading-[22px] text-slate-900 lg:mt-2">{status}</p>
           </div>
         </TabsContent>
       </Tabs>
@@ -446,50 +377,61 @@ export default function HeroPractice() {
   );
 }
 
-function CardBack({ card }: { card: DemoCard }) {
+function DemoLearningCard({ enter, ...props }: ComponentProps<typeof FlashcardStage> & { enter: boolean }) {
+  const [scope, animate] = useAnimate<HTMLDivElement>();
+  const reduceMotion = useReducedMotion();
+  useLayoutEffect(() => {
+    if (!enter || reduceMotion || typeof scope.current?.animate !== "function") return;
+    // Dùng lớp nội dung để chuyển động khi đổi bộ mà không dịch khung thẻ.
+    const animation = animate(
+      "[data-flashcard-box] > div > div",
+      { transform: ["translateX(12px)", "translateX(0px)"] },
+      { duration: 0.65, ease: [0.4, 0, 0.2, 1] },
+    );
+    return () => animation.cancel();
+  }, [animate, enter, reduceMotion, scope]);
   return (
-    <div className="flex h-full min-h-48 flex-col items-center justify-center rounded-2xl border border-slate-300 bg-white p-5 text-center">
-      <p className="text-sm font-semibold text-slate-500">{card.word}</p>
-      <p className="mt-1.5 text-lg font-bold leading-[26px] text-slate-900">{card.meaning}</p>
-      <p className="mt-2 max-w-[30em] text-sm text-slate-600">
-        {card.example[0]}
-        <strong className="font-semibold text-slate-900">{card.example[1]}</strong>
-        {card.example[2]}
-      </p>
+    <div ref={scope} className={cn("[&_[data-flashcard-box]]:duration-[800ms] [&_[data-flashcard-box]>div]:overflow-x-hidden lg:[&_[data-flashcard-box]]:h-[clamp(11rem,calc(100svh-35.5rem),22rem)] lg:[&_[data-flashcard-box]>div]:py-5", styles.demoStage)}>
+      <FlashcardStage {...props} />
     </div>
   );
 }
 
-// Khi chọn mức nhớ, đường ray chạy lần lượt từ mốc đầu tới mốc mới: mỗi đoạn 80ms, tối đa bốn đoạn nên cả chuỗi
-// không quá 320ms (Product Language: single earned micro-cue). Quay về "Hôm nay" thì đổi ngay, không cần kể lại thứ tự.
-const RAIL_STEP_MS = 80;
+// Đường ray kể thứ tự lịch ôn, còn thông báo và hành động kế tiếp luôn có ngay khi chọn mức nhớ.
+const RAIL_STEP_MS = 250;
 
 function ReviewRail({ currentMark }: { currentMark: number }) {
+  const reduceMotion = useReducedMotion();
   const timing = (step: number, isFilling: boolean) => ({
-    transitionDuration: `${RAIL_STEP_MS}ms`,
+    transitionDuration: "550ms",
     transitionDelay: isFilling && currentMark > 0 ? `${step * RAIL_STEP_MS}ms` : "0ms",
   });
 
   return (
-    <div aria-hidden="true">
-      <div className="mx-1 mt-3 flex items-center">
+    <div aria-hidden="true" className={styles.reviewRail}>
+      <div className={cn("mx-1 mt-3 flex items-center", styles.reviewTrack)}>
         {DEMO_RAIL_MARKS.map((mark, index) => (
-          <div key={mark} className={cn("flex items-center", index > 0 && "flex-1")}>
+          <div key={mark} className={cn("flex items-center", styles.reviewStop, index > 0 && "flex-1")}>
             {index > 0 && (
-              <span
-                style={timing(index - 1, index <= currentMark)}
-                className={cn(
-                  "h-0.5 flex-1 transition-colors ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-                  index <= currentMark ? "bg-recall" : "bg-slate-300",
-                )}
-              />
+              <span className={cn("h-0.5 flex-1 overflow-hidden bg-slate-300", styles.reviewSegment)}>
+                <m.span
+                  initial={false}
+                  animate={{ scale: index <= currentMark ? 1 : 0 }}
+                  transition={{
+                    duration: reduceMotion || index > currentMark ? 0 : 0.55,
+                    delay: reduceMotion || index > currentMark ? 0 : ((index - 1) * RAIL_STEP_MS) / 1000,
+                    ease: [0.4, 0, 0.2, 1],
+                  }}
+                  className={cn("block h-full origin-left bg-recall", styles.reviewFill)}
+                />
+              </span>
             )}
             <span
               data-rail-mark={mark}
               data-state={index < currentMark ? "done" : index === currentMark ? "current" : "next"}
               style={timing(index, index <= currentMark)}
               className={cn(
-                "size-3 shrink-0 rounded-full border-2 transition-[background-color,border-color,box-shadow] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+                "size-3 shrink-0 rounded-full border-2 transition-[background-color,border-color,box-shadow] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
                 index < currentMark && "border-recall bg-recall",
                 index === currentMark && "border-route bg-route ring-[3px] ring-route-quiet",
                 index > currentMark && "border-slate-300 bg-white",
@@ -498,7 +440,7 @@ function ReviewRail({ currentMark }: { currentMark: number }) {
           </div>
         ))}
       </div>
-      <div className="mt-2 flex justify-between text-xs leading-4 text-slate-500">
+      <div className={cn("mt-2 flex justify-between text-xs leading-4 text-slate-500", styles.reviewLabels)}>
         {DEMO_RAIL_MARKS.map((mark, index) => (
           <span key={mark} className={cn(index === currentMark && "font-bold text-route")}>
             {mark}

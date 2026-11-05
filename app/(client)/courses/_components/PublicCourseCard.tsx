@@ -29,7 +29,7 @@ export function PublicCourseCard({
       aria-label={`Xem chi tiết khóa học ${course.title}`}
       className="group block h-full rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2"
     >
-      <Card className="h-full gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white py-0 shadow-none transition-[border-color,box-shadow,transform] duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] group-hover:-translate-y-0.5 group-hover:border-route-line group-hover:shadow-[0_8px_24px_rgba(15,23,42,0.10)] motion-reduce:transition-none motion-reduce:group-hover:translate-y-0">
+      <Card className="h-full gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white py-0 shadow-none transition-[border-color,box-shadow,translate] duration-[700ms] ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:-translate-y-0.5 group-hover:border-route-line group-hover:shadow-[0_8px_24px_rgba(15,23,42,0.10)] motion-reduce:transition-none motion-reduce:group-hover:translate-y-0">
         <div className="relative aspect-4/3 overflow-hidden bg-slate-100">
           {course.thumbnail_url ? (
             <Image
@@ -38,7 +38,7 @@ export function PublicCourseCard({
               fill
               priority={prioritizeImage}
               sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 25vw"
-              className="object-cover transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+              className="object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
             />
           ) : (
             <div
@@ -79,11 +79,11 @@ export function PublicCourseCard({
                 ? "Miễn phí"
                 : `${priceFormatter.format(course.price)} ₫`}
             </p>
-            <span className="inline-flex items-center gap-1 font-semibold text-route group-hover:underline group-hover:underline-offset-4">
+            <span className="relative inline-flex items-center gap-1 font-semibold text-route after:absolute after:inset-x-0 after:-bottom-1 after:h-px after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-[650ms] after:ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:after:scale-x-100 motion-reduce:after:transition-none">
               Xem chi tiết
               <ArrowRight
                 aria-hidden="true"
-                className="size-4 transition-transform duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] group-hover:translate-x-0.5 motion-reduce:transition-none"
+                className="size-4 transition-transform duration-[650ms] ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:translate-x-0.5 motion-reduce:transition-none"
               />
             </span>
           </div>
