@@ -1,4 +1,5 @@
 import {
+  PUBLIC_CATALOG_SEARCH_MAX_LENGTH,
   publicCourseCatalogQuerySchema,
   type PublicCatalogSort,
   type PublicCourseCatalogListingItem,
@@ -64,7 +65,8 @@ export function parseCatalogQuery(params: SearchParamsLike): CatalogQuery {
 /** Chuỗi query chuẩn (bỏ giá trị mặc định), không gồm dấu "?". */
 export function serializeCatalogQuery(query: CatalogQuery) {
   const params = new URLSearchParams();
-  if (query.q) params.set("q", query.q);
+  const q = query.q.trim().slice(0, PUBLIC_CATALOG_SEARCH_MAX_LENGTH);
+  if (q) params.set("q", q);
   if (query.price !== "all") params.set("gia", query.price);
   if (query.preview) params.set("hoc-thu", "1");
   if (query.sort !== "popular") params.set("sap-xep", query.sort);

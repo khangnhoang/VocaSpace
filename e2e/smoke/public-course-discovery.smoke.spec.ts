@@ -46,7 +46,7 @@ test("guest discovers the canonical public course detail", async ({
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Khám phá khóa học phù hợp với bạn",
+      name: "Tìm khóa học hợp với mục tiêu của bạn",
     }),
   ).toBeVisible();
   await expect(page.locator(`a[href="${canonicalPath}"]`).first()).toBeVisible();

@@ -41,6 +41,7 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Direction: a later UI task maps them to Product Language neutral and state tokens on both routes, with Owner review of the rendered states.
 - Exit condition: both routes render loading, empty and error states with Product Language tokens and the Owner accepts them.
 - Update (2026-11-05): planned in [U2](./implementation-plans/u2-courses-catalog-redesign/plan.md) AC13; the shared error panel also renders on `/courses/[course-slug]`, so U2 checks that route too.
+- Update (2026-11-05): U2 CP4 maps `PublicCourseFeedback` and `PublicCourseGridSkeleton` to Product Language tokens on `/`, `/courses` and the detail-route error panel; `/courses` itself now uses the new catalog panels. Open until the Owner accepts the rendered states.
 
 <a id="uiux-002"></a>
 

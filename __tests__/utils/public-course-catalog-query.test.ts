@@ -50,6 +50,7 @@ describe("catalog URL query", () => {
     expect(parsed).toEqual({ q: "tu vung", price: "paid", preview: true, sort: "az", page: 3 });
     expect(serializeCatalogQuery(parsed)).toBe("q=tu+vung&gia=paid&hoc-thu=1&sap-xep=az&trang=3");
     expect(serializeCatalogQuery(DEFAULT_CATALOG_QUERY)).toBe("");
+    expect(serializeCatalogQuery({ ...DEFAULT_CATALOG_QUERY, q: "  tieng  " })).toBe("q=tieng");
   });
 
   it("falls back to defaults for unknown, invalid, repeated or oversized values", () => {
