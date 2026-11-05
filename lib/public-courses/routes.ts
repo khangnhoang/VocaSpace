@@ -20,6 +20,11 @@ export function getPublicCoursePreviewPath(
   return `${getPublicCourseDetailPath(courseSlug)}/preview/${encodeURIComponent(topicSlug)}`;
 }
 
+export function getLearnCourseOverviewPath(rawCourseSlug: string) {
+  const courseSlug = publicCourseSlugSchema.parse(rawCourseSlug);
+  return `/learn/${encodeURIComponent(courseSlug)}`;
+}
+
 // FEAT6 AC11: "Tiếp tục thanh toán" mở thẳng mã QR của khoản đang chờ. Không parse slug để một slug lạ không làm hỏng cả danh sách.
 export const RESUME_PAYMENT_PARAM = "thanh-toan";
 export const RESUME_PAYMENT_VALUE = "tiep-tuc";

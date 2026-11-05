@@ -2,26 +2,30 @@ import React, { useTransition } from "react";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useRouter } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getPublicCourseCatalog } from "@/app/actions/public-course";
+import { getPublicCourseCatalog, getPublicCourseCatalogListing } from "@/app/actions/public-course";
 import PublicCourseHighlights, {
   PublicCourseHighlightsView,
 } from "@/app/(client)/_components/PublicCourseHighlights";
 import CoursesPage from "@/app/(client)/courses/page";
 import CoursesLoading from "@/app/(client)/courses/loading";
-import { PublicCourseCatalogView } from "@/app/(client)/courses/_components/PublicCourseCatalogView";
 import { PublicCourseGrid } from "@/app/(client)/courses/_components/PublicCourseGrid";
 import { PublicCourseRetryButton } from "@/app/(client)/courses/_components/PublicCourseRetryButton";
 import { selectHighlightedCourses } from "@/lib/public-courses/highlighted-course-selector";
-import type { PublicCourseCatalogItem } from "@/lib/schemas/public-course";
+import type { PublicCourseCatalogItem, PublicCourseCatalogListingItem } from "@/lib/schemas/public-course";
 
 vi.mock("@/app/actions/public-course", () => ({
   getPublicCourseCatalog: vi.fn(),
+  getPublicCourseCatalogListing: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: vi.fn(),
+  useSearchParams: () => new URLSearchParams(),
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT ${url}`);
+  }),
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -32,7 +36,8 @@ vi.mock("react", async (importOriginal) => {
 // Test plan:
 // - Mục tiêu: bảo vệ catalog public đầy đủ và homepage highlights dùng chung presentation nhưng khác allocation.
 // - Loại test: component/route static render và source contract.
-// - Đối tượng: PublicCourseHighlights, CoursesPage, PublicCourseGrid, CoursesLoading và cleanup read path cũ.
+// - Đối tượng: PublicCourseHighlights, CoursesPage (U2: hero, trạng thái trống/lỗi/một khóa, chuẩn hóa URL), PublicCourseGrid,
+//   CoursesLoading và cleanup read path cũ. Tương tác lọc/phân trang nằm ở public-course-catalog-explorer.test.tsx.
 // - Case thành công: homepage tối đa bốn với card h3; catalog giữ đủ row/thứ tự với card h2; link/image accessible.
 // - Case thất bại: homepage phân biệt empty/error; retry refresh route với pending/disabled; catalog loading không hiển thị error.
 // - Bảo mật/phân quyền: UI chỉ nhận public DTO đã parse; test không mở rộng content access.
@@ -41,6 +46,25 @@ vi.mock("react", async (importOriginal) => {
 // - Kết quả verify gần nhất: passed bằng focused B1.3/B1.2 Vitest command ngày 2026-07-11 (8 B1.3 tests).
 
 const mockedGetPublicCourseCatalog = vi.mocked(getPublicCourseCatalog);
+const mockedGetListing = vi.mocked(getPublicCourseCatalogListing);
+const mockedRedirect = vi.mocked(redirect);
+
+function listingItem(index: number, overrides: Partial<PublicCourseCatalogListingItem> = {}): PublicCourseCatalogListingItem {
+  return {
+    ...course(index, index % 2 === 0 ? 0 : 120000, 100 - index, null),
+    recent_enrollment_count: 0,
+    topic_count: 2,
+    card_count: 20,
+    preview_topic_slug: index % 3 === 0 ? `chu-de-${index}` : null,
+    instructor_name: null,
+    description_excerpt: null,
+    ...overrides,
+  };
+}
+
+async function renderCoursesPage(search: Record<string, string> = {}) {
+  return renderToStaticMarkup(await CoursesPage({ searchParams: Promise.resolve(search) }));
+}
 const mockedUseRouter = vi.mocked(useRouter);
 const mockedUseTransition = vi.mocked(useTransition);
 const refreshRoute = vi.fn();
@@ -142,59 +166,65 @@ describe("public catalog and homepage course discovery", () => {
     expect(errorHtml).not.toContain("safe public error");
   });
 
-  it("renders every catalog course in action-provided order without homepage truncation", async () => {
-    const actionOrder = [
-      catalogCourses[5],
-      catalogCourses[1],
-      catalogCourses[4],
-      catalogCourses[0],
-      catalogCourses[3],
-      catalogCourses[2],
-    ];
-    mockedGetPublicCourseCatalog.mockResolvedValue({
+  it("renders the catalog hero, real facts and the first page of courses by popularity", async () => {
+    mockedGetListing.mockResolvedValue({
       status: "success",
-      data: actionOrder,
+      data: { courses: Array.from({ length: 14 }, (_, index) => listingItem(index + 1)), enrolledCourseIds: [] },
     });
 
-    const html = renderToStaticMarkup(await CoursesPage());
+    const html = await renderCoursesPage();
 
     expect(html).not.toContain("<main");
-    expect(countOccurrences(html, 'aria-label="Xem chi tiết khóa học')).toBe(6);
-    expect(countOccurrences(html, "<h2")).toBe(6);
-    expect(html).not.toContain("<h3");
-    actionOrder.forEach((item, index) => {
-      const currentIndex = html.indexOf(item.title);
-      expect(currentIndex).toBeGreaterThan(-1);
-      if (index > 0) {
-        expect(currentIndex).toBeGreaterThan(
-          html.indexOf(actionOrder[index - 1].title),
-        );
-      }
-    });
+    expect(countOccurrences(html, "<h1")).toBe(1);
+    expect(html).toContain("Tìm khóa học hợp với mục tiêu của bạn");
+    expect(html).toMatch(/<b[^>]*>14<\/b> khóa học/);
+    expect(html).toMatch(/<b[^>]*>7<\/b> khóa miễn phí/);
+    expect(html).toMatch(/<b[^>]*>4<\/b> khóa cho\s*học thử/);
+    expect(countOccurrences(html, "<h3")).toBe(12);
+    expect(html.indexOf("Khóa học 1<")).toBeLessThan(html.indexOf("Khóa học 2<"));
+    expect(html.replace(/<!-- -->/g, "")).toContain("Hiển thị 1–12 trong 14 khóa học");
+    expect(mockedRedirect).not.toHaveBeenCalled();
   });
 
-  it("keeps catalog empty and recoverable error states distinct", () => {
-    const emptyHtml = renderToStaticMarkup(
-      <PublicCourseCatalogView result={{ status: "success", data: [] }} />,
-    );
-    const errorHtml = renderToStaticMarkup(
-      <PublicCourseCatalogView
-        result={{ status: "error", error: "safe public error" }}
-      />,
-    );
+  it("redirects invalid or out-of-range parameters to the canonical catalog URL", async () => {
+    mockedGetListing.mockResolvedValue({
+      status: "success",
+      data: { courses: Array.from({ length: 14 }, (_, index) => listingItem(index + 1)), enrolledCourseIds: [] },
+    });
 
-    expect(emptyHtml).toContain("Chưa có khóa học công khai");
-    expect(emptyHtml).toContain('href="/"');
-    expect(emptyHtml).not.toContain("Chưa thể tải danh sách khóa học");
+    await expect(renderCoursesPage({ trang: "9", "sap-xep": "bogus", gia: "free" })).rejects.toThrow(
+      "NEXT_REDIRECT /courses?gia=free",
+    );
+    await expect(renderCoursesPage({ trang: "2", "sap-xep": "az" })).rejects.toThrow(
+      "NEXT_REDIRECT /courses?sap-xep=az&trang=2",
+    );
+  });
+
+  it("renders dedicated empty, error and single-course states", async () => {
+    mockedGetListing.mockResolvedValueOnce({ status: "success", data: { courses: [], enrolledCourseIds: [] } });
+    const emptyHtml = await renderCoursesPage();
+    mockedGetListing.mockResolvedValueOnce({ status: "error", error: "safe public error" });
+    const errorHtml = await renderCoursesPage();
+    mockedGetListing.mockResolvedValueOnce({
+      status: "success",
+      data: { courses: [listingItem(1)], enrolledCourseIds: [] },
+    });
+    const singleHtml = await renderCoursesPage();
+
+    expect(emptyHtml).toContain("Chưa có khóa học nào được công khai");
+    expect(emptyHtml).toContain('href="/#hero-practice-title"');
+    expect(emptyHtml).not.toContain('role="search"');
+    expect(emptyHtml).not.toContain("khóa miễn phí");
     expect(errorHtml).toContain('role="alert"');
     expect(errorHtml).toContain(">Thử lại</button>");
-    expect(errorHtml).not.toContain('href="/courses"');
     expect(errorHtml).toContain("Chưa thể tải danh sách khóa học");
     expect(errorHtml).not.toContain("safe public error");
+    expect(singleHtml).not.toContain('role="search"');
+    expect(countOccurrences(singleHtml, "<h3")).toBe(1);
   });
 
   it("refreshes Server Component data once and exposes the retry pending state", () => {
-    const retryButton = PublicCourseRetryButton() as React.ReactElement<{
+    const retryButton = PublicCourseRetryButton({}) as React.ReactElement<{
       onClick: () => void;
     }>;
 
@@ -253,12 +283,8 @@ describe("public catalog and homepage course discovery", () => {
         join(process.cwd(), "app/(client)/courses/page.tsx"),
         "utf8",
       ),
-      readFileSync(
-        join(
-          process.cwd(),
-          "app/(client)/courses/_components/PublicCourseCatalogView.tsx",
-        ),
-        "utf8",
+      ...collectProductionSource(
+        join(process.cwd(), "app/(client)/courses/_components/catalog"),
       ),
     ].join("\n");
     const productionSource = [

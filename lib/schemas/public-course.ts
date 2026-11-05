@@ -88,6 +88,37 @@ export const publicCourseCatalogListingRpcSchema = z.array(
   publicCourseCatalogListingItemSchema,
 );
 
+export const PUBLIC_CATALOG_SORTS = [
+  "popular",
+  "trending",
+  "newest",
+  "az",
+  "price-asc",
+  "price-desc",
+] as const;
+export const PUBLIC_CATALOG_SEARCH_MAX_LENGTH = 100;
+
+// Search param có thể lặp (?q=a&q=b); lấy giá trị đầu tiên như trình duyệt và URLSearchParams.get.
+const firstSearchParam = (value: unknown) => (Array.isArray(value) ? value[0] : value);
+
+// U2 AC5: tham số URL của /courses là input không tin cậy; giá trị sai quay về mặc định thay vì làm hỏng trang.
+export const publicCourseCatalogQuerySchema = z.object({
+  q: z.preprocess(
+    firstSearchParam,
+    z
+      .string()
+      .transform((value) => value.trim().slice(0, PUBLIC_CATALOG_SEARCH_MAX_LENGTH))
+      .catch(""),
+  ).default(""),
+  gia: z.preprocess(firstSearchParam, z.enum(["free", "paid"]).optional().catch(undefined)),
+  "hoc-thu": z.preprocess(firstSearchParam, z.literal("1").optional().catch(undefined)),
+  "sap-xep": z.preprocess(firstSearchParam, z.enum(PUBLIC_CATALOG_SORTS).optional().catch(undefined)),
+  trang: z.preprocess(
+    firstSearchParam,
+    z.coerce.number().int().min(1).max(10_000).optional().catch(undefined),
+  ),
+});
+
 export const publicCourseDetailRpcSchema = z
   .object({
     id: z.uuid(),
@@ -124,6 +155,8 @@ export type PublicCourseCatalogItem = z.output<
 export type PublicCourseCatalogListingItem = z.output<
   typeof publicCourseCatalogListingItemSchema
 >;
+export type PublicCatalogSort = (typeof PUBLIC_CATALOG_SORTS)[number];
+export type PublicCourseCatalogQueryRaw = z.input<typeof publicCourseCatalogQuerySchema>;
 export type PublicCourseDetailRpc = z.output<
   typeof publicCourseDetailRpcSchema
 >;
