@@ -84,6 +84,8 @@ describe("CatalogExplorer", () => {
     // Motion đọc prefers-reduced-motion một lần cho cả file, nên mọi test chạy với chuyển động bật.
     window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
     Element.prototype.scrollIntoView = vi.fn();
+    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+    Element.prototype.releasePointerCapture = vi.fn();
   });
 
   afterEach(() => {
@@ -137,7 +139,9 @@ describe("CatalogExplorer", () => {
     ]);
     expect(cardTitles()).toEqual(["An", "Cờ", "Bảng"]);
 
-    fireEvent.change(screen.getByLabelText("Sắp xếp"), { target: { value: "price-desc" } });
+    // Select của Radix: mở bằng bàn phím, chọn bằng Enter trên option.
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Sắp xếp" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("option", { name: "Giá cao đến thấp" }), { key: "Enter" });
     expect(window.location.search).toBe("?sap-xep=price-desc");
     expect(cardTitles()).toEqual(["Bảng", "An", "Cờ"]);
   });

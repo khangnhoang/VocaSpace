@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import {
+  ArrowDownAZ,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  Check,
+  ChevronDown,
+  Clock,
+  Search,
+  TrendingUp,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { CatalogPriceGroup, CatalogQuery } from "@/lib/public-courses/catalog-query";
 import { PUBLIC_CATALOG_SEARCH_MAX_LENGTH, type PublicCatalogSort } from "@/lib/schemas/public-course";
@@ -13,6 +26,15 @@ export const CATALOG_SORT_LABELS: Record<PublicCatalogSort, string> = {
   az: "Tên A–Z",
   "price-asc": "Giá thấp đến cao",
   "price-desc": "Giá cao đến thấp",
+};
+
+const SORT_ICONS: Record<PublicCatalogSort, LucideIcon> = {
+  popular: Users,
+  trending: TrendingUp,
+  newest: Clock,
+  az: ArrowDownAZ,
+  "price-asc": ArrowUpNarrowWide,
+  "price-desc": ArrowDownWideNarrow,
 };
 
 const PRICE_OPTIONS: { value: CatalogPriceGroup; label: string }[] = [
@@ -222,21 +244,38 @@ export function CatalogToolbar({
             <label htmlFor="catalog-sort" className="font-semibold whitespace-nowrap max-sm:sr-only">
               Sắp xếp
             </label>
-            <div className="relative w-full sm:w-auto">
-              <select
+            <Select value={query.sort} onValueChange={(value) => onSort(value as PublicCatalogSort)}>
+              <SelectTrigger
                 id="catalog-sort"
-                value={query.sort}
-                onChange={(event) => onSort(event.target.value as PublicCatalogSort)}
-                className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-slate-500 bg-white pr-10 pl-3.5 text-sm font-semibold text-slate-900 hover:border-slate-600 focus:border-route focus:shadow-[0_0_0_3px_var(--route-quiet)] focus:outline-none"
+                className="group h-11 w-full min-w-48 gap-2 rounded-xl border-slate-500 bg-white px-3.5 text-sm font-semibold text-slate-900 shadow-none transition-[border-color,box-shadow] duration-150 hover:border-slate-600 focus-visible:border-route focus-visible:ring-0 focus-visible:shadow-[0_0_0_3px_var(--route-quiet)] data-[size=default]:h-11 data-[state=open]:border-route data-[state=open]:shadow-[0_0_0_3px_var(--route-quiet)] sm:w-auto [&>svg:last-child]:hidden"
               >
-                {(Object.keys(CATALOG_SORT_LABELS) as PublicCatalogSort[]).map((sort) => (
-                  <option key={sort} value={sort}>
-                    {CATALOG_SORT_LABELS[sort]}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-500" />
-            </div>
+                <SelectValue />
+                <ChevronDown
+                  aria-hidden="true"
+                  className="ml-auto size-4 shrink-0 text-slate-600 transition-transform duration-200 group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+                />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                align="end"
+                sideOffset={8}
+                className="w-(--radix-select-trigger-width) min-w-56 rounded-xl border border-slate-200 bg-white p-1.5 text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)] ring-0 data-[side=bottom]:translate-y-0 motion-reduce:animate-none!"
+              >
+                {(Object.keys(CATALOG_SORT_LABELS) as PublicCatalogSort[]).map((sort) => {
+                  const Icon = SORT_ICONS[sort];
+                  return (
+                    <SelectItem
+                      key={sort}
+                      value={sort}
+                      className="min-h-9 cursor-pointer gap-2.5 rounded-lg py-1.5 pr-9 pl-2.5 text-sm leading-5 font-medium text-slate-700 transition-colors duration-150 focus:bg-slate-100 focus:text-slate-900 data-[state=checked]:bg-route-quiet data-[state=checked]:font-semibold data-[state=checked]:text-route pointer-coarse:min-h-11 motion-reduce:transition-none [&_svg]:text-current"
+                    >
+                      <Icon aria-hidden="true" className="size-4 shrink-0 opacity-80" />
+                      {CATALOG_SORT_LABELS[sort]}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

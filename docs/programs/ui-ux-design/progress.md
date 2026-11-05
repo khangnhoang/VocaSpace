@@ -33,4 +33,5 @@ Charter: [README.md](./README.md). Problems: [problems.md](./problems.md).
 - 2026-11-05 U2 CP3: list reflow, sliding price indicator, page fade-in and scroll reveal (`0ba9156`).
 - 2026-11-05 U2 CP4: shared course states on Product Language tokens and the discovery smoke contract (`607788e`).
 - 2026-11-05 U2 implementation review 1 fixes: touch targets, pending-search and same-page history guards, focus reveal, fixture card backs, enrollment parity (`c86164d`).
-- 2026-11-05 U2 final QA: contrast fixes for counts, hint and control boundaries (decision 15) (this commit).
+- 2026-11-05 U2 final QA: contrast fixes for counts, hint and control boundaries (decision 15) (`048a317`).
+- 2026-11-05 U2 Owner QA: the sort control uses the shared Radix Select with icons instead of the native select (this commit).
