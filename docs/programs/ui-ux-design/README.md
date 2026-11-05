@@ -25,6 +25,7 @@ Read [progress.md](./progress.md) for the current initiative. Keep closed initia
 | Initiative | Plan | Branch | Outcome | Dependencies | Gate to open |
 | --- | --- | --- | --- | --- | --- |
 | U1 homepage redesign | [plan](./implementation-plans/u1-homepage-redesign/plan.md) | `feat/homepage-redesign` | `/`, the shared client header and the public course card follow the Owner-accepted mockup and Product Language. | None. | Owner approval of the plan and an implementation grant. |
+| U2 course catalog redesign | [plan](./implementation-plans/u2-courses-catalog-redesign/plan.md) | `feat/courses-catalog-redesign` | `/courses` gains search, price and preview filters, sorting, pagination, richer course cards and dedicated states on Product Language; homepage course states close UIUX-001. | U1 header and card language (merged). | Owner approval of the plan and an implementation grant. |
 
 ## 5. Opening an initiative
 

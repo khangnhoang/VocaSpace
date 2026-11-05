@@ -6,14 +6,14 @@ Charter: [README.md](./README.md). Problems: [problems.md](./problems.md).
 
 | Field | Value |
 | --- | --- |
-| Spec revision | [U1 plan](./implementation-plans/u1-homepage-redesign/plan.md) r7. Owner QA accepted the overall composition and authorized delivery after clarifying the trial queue, card motion, indicator and connector start state on 2026-11-05. |
-| Current unit / checkpoint | U1 follow-up on `feat/homepage-motion-identity`. R6 uses the real learning stage for the public trial and corrects the connector start state. |
-| Status | Owner accepted the overall rendered composition. Preparing grouped commits and PR delivery. |
-| Completed evidence | Historical U1 delivery merged as PR #183 at `dfe79c4e`. R6 focused run passed 186 tests in seven files. The homepage regression verifies Again → Easy → Easy leaves two of three cards passed, Hard leaves the last card pending, and Good completes it. TypeScript and focused eslint passed. Edge at 320/375/768/1440px in default and reduced motion confirmed fixed card bounds, label-width underlines and correct focus and queue transitions. A further 73 rapid switches showed one matching front face at each step. The underline passed through intermediate positions and rendered CSS reports an 800ms flip. At 375/1440px both connectors began at zero, connector two stayed at zero during the delay and both reached one. The reduced-motion probe showed the settled connectors and a revealed answer without rotation. Docker Engine and the existing local Supabase containers recovered after isolating the stale Secrets Engine socket. QA scripts and images are in `test-results/homepage-motion/`. |
-| Accepted deviations | R6 uses `FlashcardStage` for the real card layout and rating controls. The homepage applies a 650ms entry to the text on deck change and an 800ms flip at the usage site. The one-time intro reveals the same rating controls as a manual reveal. |
-| Blockers / Owner decisions | Browser UI zoom at 200%, exhaustive control contrast and production bundle size remain unverified. Prior r4 audit findings are tracked in the working evidence for that revision. |
-| Next action | Commit related groups, push, create the PR and merge after CI passes. |
-| Current authority | Fetch/switch/pull, branch creation, removal of Product Language timing limits, homepage refinement, Motion installation, frontend skill guidance and local verification granted 2026-11-05. Owner granted grouped commits, push, PR creation and merge after CI passes on 2026-11-05. The task started the Next dev server; the pre-existing local Supabase stack was reused without fixture writes/reset. |
+| Spec revision | [U2 plan](./implementation-plans/u2-courses-catalog-redesign/plan.md) r3, approved by the Owner 2026-11-05. |
+| Current unit / checkpoint | U2 on `feat/courses-catalog-redesign` from `736cc56`; CP1 next. |
+| Status | Plan approved; implementation starting. Independent review passed r2 (0 Critical, 0 Required); r3 applies its optional suggestions. |
+| Completed evidence | U1 merged in PR #183 and PR #184 (see Milestones). U2 demo `sources/index.html` checked in the built-in browser at 375/660/1440px: search, price filter, no-results, page 2 with focus, signed-in overlay and 0/1/3-course and error states rendered without console errors or horizontal scroll. Contrast, 200% zoom and full keyboard order were not measured on the demo. |
+| Accepted deviations | none. |
+| Blockers / Owner decisions | The hosted migration needs its own grant before merge. U1 leftovers are tracked in [UIUX-002](./problems.md#uiux-002). |
+| Next action | Implement CP1 (Main). |
+| Current authority | Owner granted 2026-11-05: plan r3 approval, implementation of CP1–CP4 by Main in this session, and local commits per checkpoint. Local DB work follows the plan (root `migration up`, isolated-runtime reset, root-local fixture script). No push, PR, merge, hosted migration or deployment is granted. |
 
 ## Milestones
 
@@ -25,3 +25,6 @@ Charter: [README.md](./README.md). Problems: [problems.md](./problems.md).
 - 2026-11-04 U1 plan r2 records the Owner QA decisions 11–16 (`18bdded`).
 - 2026-11-04 PR #183 opened for U1 (PR 183, `18bdded`).
 - 2026-11-04 U1 plan r3 records the PR #183 review fixes and UIUX-001 (`b66649c6`).
+- 2026-11-05 U1 merged after review fixes (PR 183, `dfe79c4`).
+- 2026-11-05 U1 trial motion and responsive follow-up merged (PR 184, `736cc56`).
+- 2026-11-05 Owner approved the U2 course catalog plan r3 after independent review (this commit).
