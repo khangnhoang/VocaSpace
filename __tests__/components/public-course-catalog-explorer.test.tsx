@@ -265,6 +265,46 @@ describe("CatalogExplorer", () => {
     }
   });
 
+  it("shows the back-to-top button only after the third card scrolls above the viewport", async () => {
+    const realRect = Element.prototype.getBoundingClientRect;
+    let thirdCardTop = 300;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const grid = this.parentElement;
+      const isThird = grid?.id === "catalog-results-grid" && grid.children.item(2) === this;
+      return { ...realRect.call(this), top: isThird ? thirdCardTop : 0 } as DOMRect;
+    };
+    window.scrollTo = vi.fn();
+    const heading = document.createElement("h1");
+    heading.id = "catalog-title";
+    heading.tabIndex = -1;
+    document.body.append(heading);
+
+    try {
+      renderExplorer(Array.from({ length: 6 }, (_, index) => listing(index + 1)));
+      expect(screen.queryByRole("button", { name: "Lên đầu trang" })).toBeNull();
+
+      thirdCardTop = -20;
+      await act(async () => {
+        window.dispatchEvent(new Event("scroll"));
+        await vi.advanceTimersByTimeAsync(50);
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Lên đầu trang" }));
+      expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+      expect(document.activeElement).toBe(heading);
+
+      // Nút đang rời đi bằng animation vẫn còn trong DOM nhưng đã inert và aria-hidden, nên không còn là một nút.
+      thirdCardTop = 300;
+      await act(async () => {
+        window.dispatchEvent(new Event("scroll"));
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(screen.queryByRole("button", { name: "Lên đầu trang" })).toBeNull();
+    } finally {
+      Element.prototype.getBoundingClientRect = realRect;
+      heading.remove();
+    }
+  });
+
   it("shows a single wide card without the toolbar when the catalog has one course", () => {
     renderExplorer([listing(1, { title: "Khóa duy nhất" })]);
     expect(screen.queryByRole("search")).toBeNull();

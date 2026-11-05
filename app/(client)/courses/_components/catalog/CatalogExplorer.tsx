@@ -18,6 +18,7 @@ import {
   type CatalogQuery,
 } from "@/lib/public-courses/catalog-query";
 import { CatalogAnimatedGrid } from "./CatalogAnimatedGrid";
+import { CatalogBackToTop } from "./CatalogBackToTop";
 import { CatalogCourseCard } from "./CatalogCourseCard";
 import { CatalogPagination } from "./CatalogPagination";
 import { CatalogStatePanel } from "./CatalogStatePanel";
@@ -191,6 +192,7 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
                 onPage={changePage}
               />
             ) : null}
+            <CatalogBackToTop gridId={RESULTS_GRID_ID} afterCard={3} focusTargetId="catalog-title" />
           </>
         )}
       </section>

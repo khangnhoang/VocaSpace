@@ -15,7 +15,8 @@ export function CatalogHero({ facts }: { facts: CatalogFacts | null }) {
       </p>
       <h1
         id="catalog-title"
-        className={`${ENTER} motion-safe:delay-[60ms] mt-3 max-w-[18em] text-[32px] font-extrabold leading-10 tracking-[-0.02em] text-balance text-slate-900 sm:text-[40px] sm:leading-12`}
+        tabIndex={-1}
+        className={`outline-none ${ENTER} motion-safe:delay-[60ms] mt-3 max-w-[18em] text-[32px] font-extrabold leading-10 tracking-[-0.02em] text-balance text-slate-900 sm:text-[40px] sm:leading-12`}
       >
         Tìm khóa học hợp với mục tiêu của bạn
       </h1>
