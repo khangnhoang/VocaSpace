@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-export function PublicCourseRetryButton() {
+export function PublicCourseRetryButton({ className = "mt-6 min-h-10 px-4" }: { className?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -17,7 +17,7 @@ export function PublicCourseRetryButton() {
     <Button
       type="button"
       variant="outline"
-      className="mt-6 min-h-10 px-4"
+      className={className}
       onClick={retry}
       disabled={isPending}
     >

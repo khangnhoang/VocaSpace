@@ -8,10 +8,12 @@ import {
   type LearnDashboardTopicRow,
 } from "@/lib/learn-dashboard";
 import {
+  publicCourseCatalogListingRpcSchema,
   publicCourseCatalogRpcSchema,
   publicCourseDetailRpcSchema,
   publicCourseSlugSchema,
   type PublicCourseCatalogItem,
+  type PublicCourseCatalogListingItem,
   type PublicCourseDetail,
   type PublicCourseDetailRpc,
   type PublicCourseLearnerProgress,
@@ -21,6 +23,16 @@ import { createClient } from "@/utils/supabase/server";
 
 export type PublicCourseCatalogResult =
   | { status: "success"; data: PublicCourseCatalogItem[] }
+  | { status: "error"; error: string };
+
+export type PublicCourseCatalogListingResult =
+  | {
+      status: "success";
+      data: {
+        courses: PublicCourseCatalogListingItem[];
+        enrolledCourseIds: string[];
+      };
+    }
   | { status: "error"; error: string };
 
 export type PublicCourseDetailResult =
@@ -79,6 +91,54 @@ export async function getPublicCourseCatalog(): Promise<PublicCourseCatalogResul
   }
 
   return { status: "success", data: parsed.data };
+}
+
+export async function getPublicCourseCatalogListing(): Promise<PublicCourseCatalogListingResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_public_course_catalog_listing");
+
+  if (error) {
+    console.error("Public course catalog listing RPC failed", error);
+    return { status: "error", error: PUBLIC_CATALOG_ERROR };
+  }
+
+  const parsed = publicCourseCatalogListingRpcSchema.safeParse(data);
+  if (!parsed.success) {
+    console.error("Public course catalog listing contract drift", parsed.error.issues);
+    return { status: "error", error: PUBLIC_CATALOG_ERROR };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let enrolledCourseIds: string[] = [];
+
+  if (user) {
+    // Lọc user_id tường minh: policy admin cho đọc mọi enrollment, RLS một mình sẽ gắn "Đang học" cho mọi khóa.
+    const { data: enrollments, error: enrollmentError } = await supabase
+      .from("enrollments")
+      .select("course_id")
+      .eq("user_id", user.id);
+
+    if (enrollmentError) {
+      // U2 AC8: catalog vẫn hiển thị, chỉ bỏ trạng thái "Đang học" thay vì chặn cả trang.
+      console.error("Public course catalog enrollment overlay failed", enrollmentError);
+    } else {
+      const listedIds = new Set(parsed.data.map((course) => course.id));
+      enrolledCourseIds = Array.from(
+        new Set(
+          (enrollments ?? [])
+            .map((enrollment) => enrollment.course_id)
+            .filter((courseId): courseId is string => listedIds.has(courseId)),
+        ),
+      );
+    }
+  }
+
+  return {
+    status: "success",
+    data: { courses: parsed.data, enrolledCourseIds },
+  };
 }
 
 export async function getPublicCourseDetail(

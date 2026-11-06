@@ -40,6 +40,18 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Evidence: U1 review of PR #183 on 2026-11-04; the states are shared by the homepage highlights and the `/courses` catalog.
 - Direction: a later UI task maps them to Product Language neutral and state tokens on both routes, with Owner review of the rendered states.
 - Exit condition: both routes render loading, empty and error states with Product Language tokens and the Owner accepts them.
+- Update (2026-11-05): planned in [U2](./implementation-plans/u2-courses-catalog-redesign/plan.md) AC13; the shared error panel also renders on `/courses/[course-slug]`, so U2 checks that route too.
+- Update (2026-11-05): U2 CP4 maps `PublicCourseFeedback` and `PublicCourseGridSkeleton` to Product Language tokens on `/`, `/courses` and the detail-route error panel; `/courses` itself now uses the new catalog panels. Open until the Owner accepts the rendered states.
+
+<a id="uiux-002"></a>
+
+### UIUX-002: U1 homepage checks left unverified at delivery
+
+- Status: Open (2026-11-05), carried from the U1 State when U1 closed with PR #184.
+- Problem: U1 AC14 asks for 200% zoom usability and measured contrast of new text, focus and control pairs; neither was fully verified, and the production bundle cost of the Motion integration was not measured.
+- Evidence: U1 State before 2026-11-05 listed "Browser UI zoom at 200%, exhaustive control contrast and production bundle size remain unverified"; U1 [plan](./implementation-plans/u1-homepage-redesign/plan.md) AC14.
+- Direction: run the 200% zoom and contrast checks on `/` and measure the homepage's production client bundle with and without the Motion trial; fix any AC14 failure in a focused PR.
+- Exit condition: 200% zoom and contrast results for `/` are recorded and meet AC14, and the bundle measurement is recorded.
 
 ## Resolved
 

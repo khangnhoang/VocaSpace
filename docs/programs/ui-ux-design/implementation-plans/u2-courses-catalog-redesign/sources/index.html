@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VocaSpace — Thư viện khóa học (demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --canvas: #F8FAFC; --surface: #FFFFFF; --subtle: #F1F5F9;
+    --border: #CBD5E1; --border-muted: #E2E8F0;
+    --ink: #0F172A; --text-2: #475569; --text-3: #64748B;
+    --route: #2563EB; --route-quiet: #EFF6FF; --route-line: #93C5FD;
+    --action: #2B6CED; --action-hover: #1F5AD6;
+    --recall: #0E7490; --recall-quiet: #ECFEFF; --recall-line: #A5F3FC;
+    --growth: #15803D; --growth-quiet: #F0FDF4; --growth-line: #86EFAC;
+    --attention: #A16207; --attention-quiet: #FFFBEB; --attention-line: #FCD34D;
+    --correction: #B91C1C; --correction-quiet: #FEF2F2; --correction-line: #FCA5A5;
+    --e1: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --e2: 0 8px 24px rgba(15, 23, 42, 0.10);
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --font: "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-utility: "Geist", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { scroll-padding-top: 160px; }
+  body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 22px; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  :focus-visible { outline: 2px solid var(--route); outline-offset: 3px; }
+  .icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+  /* Buttons — Button contract: 8px radius, 44px touch-primary */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 8px; border: 1px solid transparent; font-size: 14px; line-height: 20px; font-weight: 600; cursor: pointer; background: none; transition: background-color 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease); }
+  .btn-primary { background: var(--action); color: #fff; }
+  .btn-primary:hover { background: var(--action-hover); }
+  .btn-outline { background: var(--surface); border-color: var(--border); color: var(--ink); }
+  .btn-outline:hover { border-color: var(--route-line); background: var(--route-quiet); }
+  .btn-text { color: var(--route); padding: 0 4px; }
+  .btn-text:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .eyebrow { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--recall); margin: 0; }
+
+  /* Header — U1 accepted white header */
+  .site-header { background: var(--surface); border-bottom: 1px solid var(--border-muted); position: sticky; top: 0; z-index: 30; }
+  .nav { display: flex; align-items: center; gap: 32px; height: 64px; }
+  .logo { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; letter-spacing: -0.01em; }
+  .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 14px; }
+  .nav-links { display: flex; gap: 4px; flex: 1; }
+  .nav-links a { padding: 8px 12px; border-radius: 8px; font-weight: 600; color: var(--text-2); transition: background-color 160ms var(--ease); }
+  .nav-links a:hover { background: var(--subtle); color: var(--ink); }
+  .nav-links a[aria-current="page"] { color: var(--route); }
+  .nav-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  .nav-actions .btn { min-height: 40px; padding: 0 16px; white-space: nowrap; }
+  .avatar { width: 36px; height: 36px; border-radius: 9999px; background: var(--route-quiet); color: var(--route); display: grid; place-items: center; font-weight: 700; font-size: 13px; border: 1px solid var(--route-line); }
+  .menu-btn { display: none; width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); align-items: center; justify-content: center; }
+
+  /* Catalog hero — compact, search-first */
+  .hero { padding: 48px 0 24px; }
+  .hero h1 { font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: -0.02em; margin: 12px 0 12px; max-width: 18em; text-wrap: balance; }
+  .hero .lead { font-size: 16px; line-height: 26px; color: var(--text-2); margin: 0; max-width: 40em; }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 20px 0 0; padding: 0; list-style: none; color: var(--text-2); }
+  .facts li { display: flex; align-items: center; gap: 8px; }
+  .facts b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .facts .icon { color: var(--recall); }
+
+  /* Toolbar — sticky search + facets + sort */
+  .toolbar-sentinel { height: 1px; }
+  .toolbar { position: sticky; top: 64px; z-index: 20; background: var(--canvas); padding: 12px 0; transition: box-shadow 200ms var(--ease), background-color 200ms var(--ease); }
+  .toolbar.is-stuck { background: rgba(248, 250, 252, 0.96); box-shadow: 0 1px 0 var(--border-muted), 0 6px 16px rgba(15, 23, 42, 0.06); }
+  .toolbar-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .search { position: relative; flex: 1 1 320px; max-width: 440px; }
+  .search .icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-3); width: 18px; height: 18px; }
+  .search input { width: 100%; height: 44px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); padding: 0 76px 0 42px; font-size: 14px; transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease); }
+  .search input::placeholder { color: var(--text-3); }
+  .search input:hover { border-color: #94A3B8; }
+  .search input:focus { outline: none; border-color: var(--route); box-shadow: 0 0 0 3px var(--route-quiet); }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 8px; border: 0; background: none; color: var(--text-3); display: none; align-items: center; justify-content: center; cursor: pointer; }
+  .search-clear:hover { background: var(--subtle); color: var(--ink); }
+  .search.has-value .search-clear { display: inline-flex; }
+  .kbd { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-family: var(--font-utility); font-size: 12px; line-height: 16px; color: var(--text-3); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; background: var(--subtle); pointer-events: none; }
+  .search.has-value .kbd { display: none; }
+
+  .segmented { position: relative; display: inline-flex; padding: 4px; gap: 2px; background: var(--subtle); border-radius: 12px; border: 1px solid var(--border-muted); }
+  .seg-indicator { position: absolute; top: 4px; bottom: 4px; left: 0; width: 0; background: var(--surface); border-radius: 8px; box-shadow: var(--e1), 0 0 0 1px var(--border-muted); transition: transform 380ms var(--ease), width 380ms var(--ease); }
+  .seg-btn { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: none; font-weight: 600; color: var(--text-2); cursor: pointer; white-space: nowrap; transition: color 200ms var(--ease); }
+  .seg-btn:hover { color: var(--ink); }
+  .seg-btn[aria-pressed="true"] { color: var(--route); }
+  .seg-count { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .seg-btn[aria-pressed="true"] .seg-count { color: var(--route); }
+
+  .toggle-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 9999px; border: 1px solid var(--border); background: var(--surface); font-weight: 600; color: var(--text-2); cursor: pointer; transition: background-color 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease); }
+  .toggle-chip:hover { border-color: var(--route-line); color: var(--ink); }
+  .toggle-chip .box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--border); display: grid; place-items: center; background: var(--surface); transition: background-color 160ms var(--ease), border-color 160ms var(--ease); }
+  .toggle-chip .box .icon { width: 12px; height: 12px; stroke-width: 3; color: #fff; opacity: 0; }
+  .toggle-chip[aria-pressed="true"] { border-color: var(--route-line); background: var(--route-quiet); color: var(--route); }
+  .toggle-chip[aria-pressed="true"] .box { background: var(--route); border-color: var(--route); }
+  .toggle-chip[aria-pressed="true"] .box .icon { opacity: 1; }
+
+  .sort { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }
+  .sort label { font-weight: 600; white-space: nowrap; }
+  .select-wrap { position: relative; }
+  .select-wrap select { appearance: none; height: 44px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); padding: 0 40px 0 14px; font-weight: 600; color: var(--ink); cursor: pointer; }
+  .select-wrap select:hover { border-color: #94A3B8; }
+  .select-wrap .icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%) rotate(90deg); pointer-events: none; color: var(--text-3); }
+
+  /* Result line + active filter chips */
+  .result-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; min-height: 32px; margin: 4px 0 20px; color: var(--text-2); }
+  .result-bar b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .active-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .filter-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 6px 0 12px; border-radius: 9999px; border: 1px solid var(--route-line); background: var(--route-quiet); color: var(--route); font-weight: 600; cursor: pointer; }
+  .filter-chip .icon { width: 14px; height: 14px; }
+  .filter-chip:hover { border-color: var(--route); }
+  .clear-all { border: 0; background: none; color: var(--route); font-weight: 600; cursor: pointer; padding: 6px 4px; }
+  .clear-all:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+  /* Course grid + card — U1 card language + content line + preview action */
+  .grid { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; transition: opacity 180ms var(--ease); }
+  .grid.is-leaving { opacity: 0; }
+  .course { position: relative; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-muted); border-radius: 16px; overflow: hidden; translate: 0 0; transition: border-color 700ms var(--ease), box-shadow 700ms var(--ease), translate 700ms var(--ease); }
+  .course:hover { translate: 0 -2px; border-color: var(--route-line); box-shadow: var(--e2); }
+  .course.is-enrolled { border-color: var(--route-line); }
+  .cover { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: var(--subtle); }
+  .cover-art { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 16px; color: #fff; transition: transform 900ms var(--ease); }
+  .course:hover .cover-art { transform: scale(1.03); }
+  .cover-art b { font-size: 26px; line-height: 32px; font-weight: 800; letter-spacing: -0.02em; max-width: 9em; }
+  .cover-art small { position: absolute; top: 16px; left: 16px; font-family: var(--font-utility); font-weight: 600; font-size: 12px; line-height: 16px; letter-spacing: 0.04em; opacity: .85; }
+  .cover-art.empty { align-items: center; justify-content: center; color: var(--text-3); }
+  .cover-art.empty .icon { width: 48px; height: 48px; stroke-width: 1.5; }
+  .course-body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .course-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: var(--text-3); }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 12px; line-height: 16px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; white-space: nowrap; }
+  .badge-free { background: var(--growth-quiet); color: var(--growth); }
+  .badge-paid { background: var(--subtle); color: var(--text-2); }
+  .badge-new { background: var(--recall-quiet); color: var(--recall); }
+  .badge-enrolled { background: var(--route-quiet); color: var(--route); }
+  .enroll { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .enroll .icon { width: 14px; height: 14px; }
+  .course-title { font-size: 18px; line-height: 26px; font-weight: 700; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .course-title a::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: 16px; }
+  .course-title a:focus-visible { outline: none; }
+  .course-title a:focus-visible::after { outline: 2px solid var(--route); outline-offset: 2px; }
+  .course-title mark { background: #FEF3C7; color: inherit; border-radius: 3px; padding: 0 1px; }
+  .instructor { margin: -4px 0 0; color: var(--text-3); font-size: 13px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .desc { margin: 0; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .content-line { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-2); }
+  .content-line span { display: inline-flex; align-items: center; gap: 5px; }
+  .content-line .icon { width: 14px; height: 14px; color: var(--recall); }
+  .trend { color: var(--recall); }
+  .course-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border-muted); padding-top: 14px; }
+  .price { margin: 0; font-size: 16px; line-height: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .foot-link { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; margin-right: -10px; border-radius: 8px; font-weight: 600; color: var(--route); white-space: nowrap; transition: background-color 160ms var(--ease); }
+  .foot-link:hover { background: var(--route-quiet); }
+  .foot-link .icon { transition: transform 650ms var(--ease); }
+  .course:hover .foot-link .icon.arrow, .foot-link:hover .icon.arrow { transform: translateX(2px); }
+  .foot-link .play { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+  .foot-detail { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--route); white-space: nowrap; }
+  .foot-detail .icon { transition: transform 650ms var(--ease); }
+  .course:hover .foot-detail .icon { transform: translateX(2px); }
+
+  /* Single-course catalog: wide card */
+  .grid.single { grid-template-columns: minmax(0, 1fr); }
+  .course.wide { flex-direction: row; max-width: 960px; }
+  .course.wide .cover { aspect-ratio: auto; flex: 0 0 42%; min-height: 280px; }
+  .course.wide .course-body { padding: 28px 32px; gap: 12px; }
+  .course.wide .course-title { font-size: 24px; line-height: 32px; -webkit-line-clamp: 3; }
+  .course.wide .desc { -webkit-line-clamp: 4; font-size: 15px; line-height: 24px; }
+
+  /* Scroll reveal (Owner decision for /courses) */
+  .reveal { opacity: 0; transform: translateY(18px); }
+  .reveal.in { opacity: 1; transform: none; transition: opacity 600ms var(--ease), transform 700ms var(--ease); }
+
+  /* Hero entrance */
+  .enter { animation: enter 700ms var(--ease) both; }
+  .enter:nth-child(2) { animation-delay: 60ms; } .enter:nth-child(3) { animation-delay: 120ms; } .enter:nth-child(4) { animation-delay: 180ms; }
+  @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  /* Pagination */
+  .pager { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 40px 0 0; }
+  .pager ol { list-style: none; display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; flex-wrap: wrap; justify-content: center; }
+  .page-btn { min-width: 44px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; background: none; font-weight: 600; color: var(--text-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-variant-numeric: tabular-nums; transition: background-color 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease); }
+  .page-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); color: var(--ink); }
+  .page-btn[aria-current="page"] { background: var(--route-quiet); border-color: var(--route-line); color: var(--route); }
+  .page-btn:disabled { color: #94A3B8; cursor: not-allowed; }
+  .page-gap { width: 28px; text-align: center; color: var(--text-3); }
+  .pager-note { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-3); margin: 0; }
+
+  /* State panels */
+  .state { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 40px; align-items: center; background: var(--surface); border: 1px solid var(--border-muted); border-radius: 24px; padding: 40px 48px; }
+  .state h2 { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.01em; margin: 8px 0 8px; }
+  .state p { margin: 0; color: var(--text-2); max-width: 36em; font-size: 15px; line-height: 24px; }
+  .state-actions { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; margin-top: 24px; }
+  .state .chip-line { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .state.is-error { border-color: var(--correction-line); }
+  .state.is-error .eyebrow { color: var(--correction); }
+  .deck-art { width: 200px; height: 160px; }
+  .suggest { margin-top: 48px; }
+  .suggest h2 { font-size: 18px; line-height: 26px; font-weight: 700; margin: 0 0 4px; }
+  .suggest > p { margin: 0 0 20px; color: var(--text-2); }
+
+  /* Skeleton */
+  .sk { background: linear-gradient(90deg, var(--subtle) 0 40%, #E8EEF5 50%, var(--subtle) 60% 100%); background-size: 300% 100%; animation: shimmer 1.4s linear infinite; border-radius: 8px; }
+  @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  .sk-card { background: var(--surface); border: 1px solid var(--border-muted); border-radius: 16px; overflow: hidden; }
+  .sk-card .sk-cover { aspect-ratio: 4/3; border-radius: 0; }
+  .sk-card .sk-body { padding: 18px 20px 20px; display: grid; gap: 12px; }
+
+  main { min-height: calc(100vh - 64px - 160px); }
+  /* Footer (U1) */
+  .site-footer { margin-top: 80px; background: var(--ink); color: #CBD5E1; padding: 32px 0; font-size: 13px; }
+  .site-footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+  /* Demo panel — not part of the design */
+  .demo { position: fixed; right: 16px; bottom: 16px; z-index: 50; width: 300px; max-width: calc(100vw - 32px); background: #111827; color: #E5E7EB; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.3); font-family: var(--font-utility); font-size: 12px; line-height: 18px; }
+  .demo summary { cursor: pointer; padding: 10px 14px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
+  .demo summary::after { content: "▾"; }
+  .demo[open] summary::after { content: "▴"; }
+  .demo .body { padding: 0 14px 14px; display: grid; gap: 10px; }
+  .demo fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+  .demo legend { width: 100%; color: #9CA3AF; margin-bottom: 4px; }
+  .demo label { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; background: #1F2937; cursor: pointer; }
+  .demo label:has(input:checked) { background: #2563EB; color: #fff; }
+  .demo input { margin: 0; accent-color: #2563EB; }
+  .demo input[type=radio] { position: absolute; opacity: 0; pointer-events: none; }
+  .demo code { display: block; background: #1F2937; border-radius: 6px; padding: 6px 8px; word-break: break-all; color: #93C5FD; }
+
+  /* Responsive */
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 860px) {
+    /* The toolbar wraps to several rows here; sticking it would cover too much of the list. */
+    .toolbar { position: static; }
+    .toolbar.is-stuck { box-shadow: none; }
+    html { scroll-padding-top: 80px; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .sort { margin-left: 0; }
+    .search { max-width: none; flex-basis: 100%; }
+    .state { grid-template-columns: 1fr; padding: 32px 24px; gap: 24px; text-align: left; }
+    .course.wide { flex-direction: column; }
+    .course.wide .cover { aspect-ratio: 16/9; min-height: 0; flex: none; }
+  }
+  @media (max-width: 720px) {
+    .nav-links { display: none; }
+    .nav-actions .btn-outline { display: none; }
+    .menu-btn { display: inline-flex; }
+  }
+  @media (max-width: 600px) {
+    .wrap { padding: 0 16px; }
+    .hero { padding: 32px 0 16px; }
+    .hero h1 { font-size: 32px; line-height: 40px; }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .cover { aspect-ratio: 16 / 9; }
+    .nav { gap: 12px; }
+    .nav-actions .btn { padding: 0 12px; }
+    .toolbar-row { gap: 8px; }
+    .seg-scroll { flex-basis: 100%; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+    .seg-scroll::-webkit-scrollbar { display: none; }
+    .sort { flex: 1; }
+    .sort label { display: none; }
+    .select-wrap, .select-wrap select { width: 100%; }
+    .kbd { display: none; }
+    .deck-art { width: 150px; height: 120px; }
+    .pager .page-label { display: none; }
+  }
+
+  /* Reduced motion — same final states, no movement */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: 1ms !important; }
+    .reveal { opacity: 1; transform: none; }
+  }
+  html[data-rm="1"] *, html[data-rm="1"] *::before, html[data-rm="1"] *::after { animation: none !important; transition-duration: 1ms !important; }
+  html[data-rm="1"] .reveal { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+  <symbol id="i-retry" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></symbol>
+</svg>
+
+<header class="site-header">
+  <div class="wrap nav">
+    <a class="logo" href="#"><span class="logo-mark">V</span>VocaSpace</a>
+    <nav class="nav-links" aria-label="Điều hướng chính">
+      <a href="#">Trang chủ</a>
+      <a href="#" aria-current="page">Khóa học</a>
+      <a href="#">Học tập</a>
+    </nav>
+    <div class="nav-actions" id="navActions"></div>
+    <button class="menu-btn" type="button" aria-label="Mở menu"><svg class="icon"><use href="#i-menu"/></svg></button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow enter">Thư viện khóa học</p>
+      <h1 class="enter">Tìm khóa học hợp với mục tiêu của bạn</h1>
+      <p class="lead enter">Mỗi khóa là một lộ trình chủ đề với thẻ từ vựng và bài luyện. Nhiều khóa cho học thử ngay, không cần đăng nhập.</p>
+      <ul class="facts enter" id="facts" aria-label="Tổng quan thư viện"></ul>
+    </div>
+  </section>
+
+  <div class="toolbar-sentinel" id="sentinel"></div>
+  <div class="toolbar" id="toolbar">
+    <div class="wrap toolbar-row" role="search">
+      <div class="search" id="searchBox">
+        <label for="q" class="sr-only">Tìm khóa học theo tên</label>
+        <svg class="icon"><use href="#i-search"/></svg>
+        <input id="q" type="search" placeholder="Tìm theo tên khóa học" autocomplete="off">
+        <span class="kbd" aria-hidden="true">/</span>
+        <button class="search-clear" type="button" id="qClear" aria-label="Xóa từ khóa tìm kiếm"><svg class="icon"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="seg-scroll">
+        <div class="segmented" role="group" aria-label="Lọc theo giá" id="seg">
+          <span class="seg-indicator" id="segInd" aria-hidden="true"></span>
+          <button class="seg-btn" type="button" data-price="all">Tất cả <span class="seg-count"></span></button>
+          <button class="seg-btn" type="button" data-price="free">Miễn phí <span class="seg-count"></span></button>
+          <button class="seg-btn" type="button" data-price="paid">Trả phí <span class="seg-count"></span></button>
+        </div>
+      </div>
+      <button class="toggle-chip" type="button" id="previewToggle" aria-pressed="false">
+        <span class="box"><svg class="icon"><use href="#i-check"/></svg></span>Có học thử
+      </button>
+      <div class="sort" id="sortWrap">
+        <label for="sort">Sắp xếp</label>
+        <div class="select-wrap">
+          <select id="sort">
+            <option value="popular">Phổ biến nhất</option>
+            <option value="trending">Thịnh hành 30 ngày</option>
+            <option value="newest">Mới nhất</option>
+            <option value="az">Tên A–Z</option>
+            <option value="price-asc">Giá thấp đến cao</option>
+            <option value="price-desc">Giá cao đến thấp</option>
+          </select>
+          <svg class="icon"><use href="#i-right"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="wrap" aria-labelledby="resultsHeading">
+    <h2 id="resultsHeading" class="sr-only">Danh sách khóa học</h2>
+    <div class="result-bar" id="resultBar"></div>
+    <p class="sr-only" role="status" aria-live="polite" id="live"></p>
+    <div id="results"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap"><span>© 2026 VocaSpace</span><span>Khóa học · Học tập · Quyền riêng tư · Điều khoản</span></div>
+</footer>
+
+<details class="demo" open>
+  <summary>Bảng demo (không thuộc thiết kế)</summary>
+  <div class="body">
+    <fieldset id="dsSet"><legend>Số khóa trong thư viện</legend></fieldset>
+    <fieldset id="modeSet"><legend>Trạng thái tải</legend></fieldset>
+    <fieldset><legend>Tùy chọn</legend>
+      <label><input type="checkbox" id="signedIn"> Đã đăng nhập</label>
+      <label><input type="checkbox" id="rm"> Giảm chuyển động</label>
+    </fieldset>
+    <div><div style="color:#9CA3AF;margin-bottom:4px">URL mô phỏng</div><code id="urlOut">/courses</code></div>
+  </div>
+</details>
+
+<script>
+(() => {
+  const TODAY = new Date("2026-11-05T12:00:00+07:00");
+  const DAY = 86400000;
+  const TONES = { ink: "#0F172A", route: "#1D4ED8", recall: "#0E7490", growth: "#166534", slate: "#334155", amber: "#92400E" };
+  const TEACHERS = ["Nguyễn Minh Anh", "Trần Quốc Bảo", "Lê Thu Hà", "Phạm Đức Huy", "Võ Ngọc Lan", "Đặng Hoàng Nam"];
+
+  // [title, coverLabel|null, tone, price, daysAgo, enrolled, trend30, chapters, topics, words, preview, desc]
+  const RAW = [
+    ["TOEIC 600+ cấp tốc trong 8 tuần", "TOEIC 600+", "route", 499000, 12, 1284, 162, 8, 32, 960, true, "Lộ trình từ vựng theo 7 phần thi, mỗi tuần một nhóm chủ đề kèm đề luyện ngắn để ôn đúng lúc sắp quên."],
+    ["3000 từ vựng tiếng Anh thông dụng nhất", "3000 TỪ", "ink", 0, 200, 2410, 88, 10, 40, 3000, true, "Những từ xuất hiện nhiều nhất trong hội thoại và văn bản, chia theo tần suất để học từ dễ đến khó."],
+    ["Giao tiếp công sở: email và cuộc họp", "CÔNG SỞ", "slate", 349000, 45, 932, 140, 6, 24, 620, true, "Cụm từ dùng ngay cho email, cuộc họp và báo cáo tiến độ, kèm ví dụ trong ngữ cảnh văn phòng Việt Nam."],
+    ["IELTS Vocabulary Band 6.5–7.0", "IELTS 7.0", "recall", 590000, 90, 1102, 64, 9, 36, 1080, true, "Từ vựng học thuật theo 12 chủ đề thường gặp trong IELTS, có collocation và câu mẫu cho Speaking và Writing."],
+    ["Tiếng Anh du lịch: sân bay, khách sạn, nhà hàng", "DU LỊCH", "growth", 0, 20, 640, 120, 4, 16, 420, true, "Mẫu câu và từ vựng cho từng bước chuyến đi, từ làm thủ tục bay đến gọi món và hỏi đường."],
+    ["Phrasal verbs qua tình huống đời thường", "PHRASAL VERBS", "amber", 199000, 150, 512, 20, 5, 20, 300, false, "300 cụm động từ hay dùng nhất, học qua đoạn hội thoại ngắn thay vì danh sách khô khan."],
+    ["Từ vựng IT cho lập trình viên", "IT", "ink", 299000, 5, 214, 190, 5, 18, 450, true, "Thuật ngữ trong tài liệu kỹ thuật, code review và họp sprint, kèm cách phát âm đúng."],
+    ["Tiếng Anh cho người mới bắt đầu", "A1", "route", 0, 300, 3120, 75, 6, 24, 600, true, "Bắt đầu từ chào hỏi, số đếm và đồ vật quanh nhà; mỗi chủ đề chỉ khoảng 25 từ để không bị quá tải."],
+    ["Collocations nâng cao cho bài viết học thuật", "ACADEMIC", "slate", 450000, 60, 288, 30, 7, 28, 700, true, "Kết hợp từ tự nhiên cho essay và báo cáo, có bài luyện thay thế từ lặp lại."],
+    ["Tiếng Nhật N5: 800 từ đầu tiên", "N5", "amber", 390000, 33, 455, 52, 6, 22, 800, true, "Từ vựng N5 kèm hiragana, kanji và câu ví dụ, sắp theo bài để luyện thi JLPT."],
+    ["Thành ngữ tiếng Anh thường gặp trong phim", "IDIOMS", "recall", 0, 120, 870, 41, 4, 15, 260, false, "Thành ngữ và cách nói lóng xuất hiện nhiều trong phim và series, kèm ngữ cảnh sử dụng."],
+    ["Từ vựng y khoa cơ bản cho điều dưỡng", null, "slate", 520000, 75, 96, 12, 6, 26, 740, true, "Bộ phận cơ thể, triệu chứng và giao tiếp với bệnh nhân bằng tiếng Anh cho nhân viên y tế."],
+    ["TOEIC Listening Part 1–4: từ khóa thường gặp", "LISTENING", "route", 279000, 110, 610, 33, 4, 16, 480, true, "Từ khóa và bẫy nghe thường gặp trong 4 phần nghe TOEIC, có audio mẫu cho từng thẻ."],
+    ["Tiếng Hàn sơ cấp: gia đình và trường học", "HÀN SƠ CẤP", "growth", 0, 25, 380, 95, 3, 12, 300, true, "Từ vựng tiếng Hàn sơ cấp theo chủ đề gần gũi, có phiên âm và câu ví dụ."],
+    ["Business English: đàm phán và thuyết trình", "BUSINESS", "ink", 690000, 180, 402, 18, 7, 28, 820, true, "Ngôn ngữ đàm phán, trình bày số liệu và trả lời câu hỏi khó trong môi trường doanh nghiệp."],
+    ["Từ vựng IELTS Speaking theo chủ đề", "SPEAKING", "recall", 350000, 40, 720, 110, 8, 30, 900, true, "Ý tưởng và từ vựng cho các chủ đề Speaking Part 1–3 hay ra, kèm câu trả lời mẫu."],
+    ["Tiếng Anh cho trẻ em: con vật và màu sắc", "KIDS", "amber", 0, 95, 560, 22, 3, 10, 200, true, "Thẻ hình minh họa sinh động giúp bé học từ qua hình ảnh và âm thanh."],
+    ["Từ vựng kinh tế – tài chính", null, "slate", 420000, 140, 233, 9, 6, 24, 680, false, "Thuật ngữ báo cáo tài chính, thị trường và ngân hàng thường gặp trên báo kinh tế."],
+    ["Ngữ âm và những từ dễ đọc sai", "PHÁT ÂM", "route", 0, 70, 990, 60, 4, 14, 280, true, "Những từ người Việt hay phát âm sai, luyện qua audio và so sánh cặp âm."],
+    ["Tiếng Trung HSK 1: 150 từ nền tảng", "HSK 1", "amber", 250000, 55, 344, 40, 4, 15, 150, true, "Từ vựng HSK 1 kèm pinyin, nét chữ và câu ví dụ ngắn."],
+    ["Từ vựng marketing và mạng xã hội", "MARKETING", "growth", 330000, 18, 190, 120, 5, 20, 540, true, "Thuật ngữ quảng cáo số, nội dung và chỉ số đo lường dùng hằng ngày."],
+    ["Tiếng Anh khách sạn – nhà hàng", "F&B", "recall", 0, 160, 470, 15, 5, 18, 460, true, "Mẫu câu phục vụ khách, xử lý phàn nàn và giới thiệu món cho nhân viên ngành dịch vụ."],
+    ["Từ đồng nghĩa – trái nghĩa cho bài thi", "SYNONYMS", "ink", 180000, 210, 300, 8, 5, 20, 500, false, "Nhóm từ đồng nghĩa và trái nghĩa hay xuất hiện trong đề thi, học theo cặp."],
+    ["TOEIC Reading: từ vựng Part 5–7", "READING", "route", 320000, 85, 580, 44, 6, 24, 720, true, "Từ vựng và cấu trúc hay gặp trong Part 5–7, kèm câu hỏi điền từ."],
+    ["Tiếng Pháp cơ bản cho người Việt", "FRANÇAIS", "slate", 380000, 130, 150, 10, 5, 18, 420, true, "Chào hỏi, giới thiệu bản thân và tình huống thường ngày bằng tiếng Pháp."],
+    ["Từ vựng logistics và xuất nhập khẩu", "LOGISTICS", "ink", 460000, 100, 172, 14, 6, 22, 600, false, "Chứng từ, vận tải và thủ tục hải quan bằng tiếng Anh cho người làm logistics."],
+    ["Học từ qua tin tức hằng tuần", "TIN TỨC", "recall", 0, 8, 260, 210, 2, 8, 160, true, "Mỗi tuần một chủ đề thời sự, chọn lọc từ mới đáng nhớ nhất từ các bản tin."],
+    ["Tiếng Anh pháp lý nhập môn: hợp đồng, điều khoản và thuật ngữ tố tụng thường gặp", "PHÁP LÝ", "slate", 750000, 240, 64, 3, 8, 34, 1020, true, "Thuật ngữ hợp đồng và tố tụng cơ bản cho sinh viên luật và người làm pháp chế."],
+    ["Từ vựng chủ đề môi trường", "MÔI TRƯỜNG", "growth", 0, 190, 410, 12, 3, 12, 300, false, "Từ vựng về khí hậu, năng lượng và rác thải, thường gặp trong bài đọc và bài viết."],
+    ["IELTS Writing Task 1: mô tả biểu đồ", "TASK 1", "recall", 299000, 65, 515, 70, 4, 14, 380, true, "Động từ, trạng từ và cấu trúc mô tả xu hướng, so sánh số liệu trong biểu đồ."],
+    ["Tiếng Đức A1: chào hỏi và giới thiệu", "DEUTSCH A1", "amber", 360000, 28, 98, 41, 4, 14, 360, true, "Nền tảng tiếng Đức A1 với từ vựng giao tiếp đầu tiên và mạo từ đi kèm."],
+    ["Tiếng Anh phỏng vấn xin việc", "PHỎNG VẤN", "route", 240000, 35, 680, 130, 4, 12, 320, true, "Cách giới thiệu bản thân, kể kinh nghiệm và trả lời câu hỏi hành vi bằng tiếng Anh."],
+    ["Từ vựng nấu ăn và ẩm thực", "ẨM THỰC", "amber", 0, 115, 330, 14, 3, 10, 240, true, "Nguyên liệu, cách chế biến và dụng cụ bếp, kèm công thức ngắn để luyện đọc."],
+    ["Động từ bất quy tắc qua thẻ ghi nhớ", "IRREGULAR", "ink", 0, 260, 1500, 30, 3, 9, 180, true, "180 động từ bất quy tắc chia thành nhóm có quy luật, ôn bằng thẻ ba dạng."],
+    ["Từ vựng thể thao", "THỂ THAO", "growth", 150000, 170, 120, 5, 3, 10, 260, false, "Từ vựng bóng đá, cầu lông và các môn phổ biến, kèm cách bình luận trận đấu."],
+    ["Tiếng Anh chăm sóc khách hàng", "CSKH", "recall", 280000, 80, 260, 25, 4, 14, 380, true, "Mẫu câu xử lý yêu cầu, xin lỗi và theo dõi khiếu nại qua điện thoại và chat."],
+    ["Từ vựng khoa học phổ thông", "KHOA HỌC", "slate", 210000, 145, 140, 6, 5, 18, 520, false, "Thuật ngữ vật lý, hóa học và sinh học cơ bản bằng tiếng Anh cho học sinh THPT."],
+    ["Tiếng Anh giao tiếp hằng ngày trong 30 ngày", "30 NGÀY", "route", 0, 3, 140, 140, 4, 30, 600, true, "Mỗi ngày một chủ đề giao tiếp ngắn, đủ để duy trì thói quen học đều đặn."],
+    ["Từ vựng bất động sản", "BẤT ĐỘNG SẢN", "ink", 410000, 220, 58, 2, 4, 16, 420, false, "Từ vựng mô tả nhà đất, hợp đồng thuê và giao dịch cho người làm môi giới."],
+    ["Từ vựng thời trang và mua sắm", "MUA SẮM", "amber", 0, 135, 295, 11, 3, 10, 250, true, "Quần áo, kích cỡ, chất liệu và mẫu câu khi đi mua sắm hoặc đổi trả hàng."],
+  ];
+
+  const COURSES = RAW.map((r, i) => ({
+    id: "c" + (i + 1), title: r[0], cover: r[1], tone: TONES[r[2]], price: r[3],
+    created: new Date(TODAY - r[4] * DAY), daysAgo: r[4], enrolled: r[5], trend30: r[6],
+    chapters: r[7], topics: r[8], words: r[9], preview: r[10], desc: r[11], teacher: TEACHERS[i % TEACHERS.length],
+  }));
+  const ENROLLED = new Set(["c3", "c8"]);
+  const NEW_DAYS = 30;
+  const PAGE_SIZE = 12;
+  const fmt = new Intl.NumberFormat("vi-VN");
+  const collator = new Intl.Collator("vi", { sensitivity: "base" });
+
+  const SORTS = {
+    popular: (a, b) => b.enrolled - a.enrolled || b.created - a.created,
+    trending: (a, b) => b.trend30 - a.trend30 || b.enrolled - a.enrolled,
+    newest: (a, b) => b.created - a.created,
+    az: (a, b) => collator.compare(a.title, b.title),
+    "price-asc": (a, b) => a.price - b.price || SORTS.popular(a, b),
+    "price-desc": (a, b) => b.price - a.price || SORTS.popular(a, b),
+  };
+  const SORT_LABEL = { popular: "Phổ biến nhất", trending: "Thịnh hành 30 ngày", newest: "Mới nhất", az: "Tên A–Z", "price-asc": "Giá thấp đến cao", "price-desc": "Giá cao đến thấp" };
+  const PRICE_LABEL = { free: "Miễn phí", paid: "Trả phí" };
+
+  const state = { dataset: 40, mode: "normal", signedIn: false, q: "", price: "all", preview: false, sort: "popular", page: 1 };
+
+  // Read the shareable URL state.
+  try {
+    const p = new URLSearchParams(location.search);
+    state.q = p.get("q") || "";
+    if (["free", "paid"].includes(p.get("gia"))) state.price = p.get("gia");
+    state.preview = p.get("hoc-thu") === "1";
+    if (SORTS[p.get("sap-xep")]) state.sort = p.get("sap-xep");
+    state.page = Math.max(1, parseInt(p.get("trang") || "1", 10) || 1);
+  } catch (_) {}
+
+  const $ = (s) => document.querySelector(s);
+  const el = { facts: $("#facts"), toolbar: $("#toolbar"), q: $("#q"), qClear: $("#qClear"), searchBox: $("#searchBox"), seg: $("#seg"), segInd: $("#segInd"), previewToggle: $("#previewToggle"), sort: $("#sort"), sortWrap: $("#sortWrap"), resultBar: $("#resultBar"), results: $("#results"), live: $("#live"), urlOut: $("#urlOut"), navActions: $("#navActions") };
+  const reduced = () => document.documentElement.dataset.rm === "1" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function highlight(title, q) {
+    const nq = norm(q.trim());
+    if (!nq) return esc(title);
+    const nt = norm(title);
+    const i = nt.indexOf(nq);
+    if (i < 0) return esc(title);
+    // NFD-normalised Vietnamese keeps one base letter per source letter, so indices line up.
+    return esc(title.slice(0, i)) + "<mark>" + esc(title.slice(i, i + nq.length)) + "</mark>" + esc(title.slice(i + nq.length));
+  }
+
+  const catalog = () => COURSES.slice(0, state.dataset);
+  function baseFiltered() {
+    const nq = norm(state.q.trim());
+    return catalog().filter((c) => (!nq || norm(c.title).includes(nq)) && (!state.preview || c.preview));
+  }
+  function filtered() {
+    return baseFiltered().filter((c) => state.price === "all" || (state.price === "free" ? c.price === 0 : c.price > 0)).sort(SORTS[state.sort]);
+  }
+
+  const icon = (id, cls = "icon") => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+
+  function cardHTML(c, { wide = false, headingTag = "h3" } = {}) {
+    const isNew = c.daysAgo <= NEW_DAYS;
+    const enrolled = state.signedIn && ENROLLED.has(c.id);
+    const cover = c.cover
+      ? `<div class="cover-art" style="background:${c.tone}" role="img" aria-label="Ảnh bìa khóa học ${esc(c.title)}"><b>${esc(c.cover)}</b></div>`
+      : `<div class="cover-art empty" role="img" aria-label="Chưa có ảnh bìa cho khóa học ${esc(c.title)}">${icon("book")}</div>`;
+    let foot;
+    if (enrolled) foot = `<a class="foot-link" href="#learn-${c.id}">Tiếp tục học ${icon("arrow", "icon arrow")}</a>`;
+    else if (c.preview) foot = `<a class="foot-link" href="#preview-${c.id}" aria-label="Học thử khóa ${esc(c.title)}"><svg class="icon play" aria-hidden="true"><use href="#i-play"/></svg>Học thử</a>`;
+    else foot = `<span class="foot-detail" aria-hidden="true">Xem chi tiết ${icon("arrow")}</span>`;
+    const trend = state.sort === "trending" && c.trend30 > 0 ? `<span class="trend">${icon("trend")}+${fmt.format(c.trend30)} trong 30 ngày</span>` : "";
+    return `
+      <div class="cover">${cover}</div>
+      <div class="course-body">
+        <div class="course-meta">
+          <span class="badges">
+            ${enrolled ? `<span class="badge badge-enrolled">Đang học</span>` : ""}
+            <span class="badge ${c.price === 0 ? "badge-free" : "badge-paid"}">${c.price === 0 ? "Miễn phí" : "Trả phí"}</span>
+            ${isNew ? `<span class="badge badge-new">Mới</span>` : ""}
+          </span>
+          <span class="enroll">${icon("users")}${fmt.format(c.enrolled)} học viên</span>
+        </div>
+        <${headingTag} class="course-title"><a href="#detail-${c.id}" title="${esc(c.title)}">${highlight(c.title, state.q)}</a></${headingTag}>
+        <p class="instructor">${esc(c.teacher)}</p>
+        <p class="desc">${esc(c.desc)}</p>
+        <p class="content-line"><span>${icon("layers")}${c.topics} chủ đề</span><span>${icon("book")}${fmt.format(c.words)} từ</span>${trend}</p>
+        <div class="course-foot">
+          <p class="price">${c.price === 0 ? "Miễn phí" : fmt.format(c.price) + " ₫"}</p>
+          ${foot}
+        </div>
+      </div>`;
+  }
+
+  // ---------- Grid with FLIP reflow ----------
+  let grid = null;
+  const nodes = new Map();
+  let revealIO = null;
+  function ensureRevealIO() {
+    if (revealIO) return revealIO;
+    revealIO = new IntersectionObserver((entries) => {
+      const shown = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top || a.boundingClientRect.left - b.boundingClientRect.left);
+      shown.forEach((e, i) => {
+        e.target.style.transitionDelay = reduced() ? "0ms" : `${Math.min(i, 7) * 70}ms`;
+        e.target.classList.add("in");
+        revealIO.unobserve(e.target);
+        setTimeout(() => { e.target.style.transitionDelay = ""; }, 1400);
+      });
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+    return revealIO;
+  }
+  function markReveal(node) {
+    if (reduced()) { node.classList.add("reveal", "in"); return; }
+    node.classList.add("reveal");
+    node.classList.remove("in");
+    ensureRevealIO().observe(node);
+  }
+
+  function renderGrid(list, { animate }) {
+    if (!grid || !grid.isConnected) {
+      el.results.innerHTML = "";
+      grid = document.createElement("div");
+      grid.className = "grid";
+      el.results.appendChild(grid);
+      nodes.clear();
+      animate = "reveal";
+    }
+    const doFlip = animate === "flip" && !reduced();
+    const before = new Map();
+    if (doFlip) nodes.forEach((n, id) => before.set(id, n.getBoundingClientRect()));
+    const gridRect = grid.getBoundingClientRect();
+    const keep = new Set(list.map((c) => c.id));
+
+    // Leaving cards: pin at their old spot and fade out.
+    nodes.forEach((n, id) => {
+      if (keep.has(id)) return;
+      nodes.delete(id);
+      if (!doFlip) { n.remove(); return; }
+      const r = before.get(id);
+      Object.assign(n.style, { position: "absolute", left: r.left - gridRect.left + "px", top: r.top - gridRect.top + "px", width: r.width + "px", height: r.height + "px", margin: 0, pointerEvents: "none", zIndex: 0 });
+      n.setAttribute("aria-hidden", "true");
+      n.querySelectorAll("a").forEach((a) => a.setAttribute("tabindex", "-1"));
+      n.animate([{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(0.96)" }], { duration: 260, easing: "cubic-bezier(0.4,0,0.2,1)", fill: "forwards" }).finished.then(() => n.remove()).catch(() => n.remove());
+    });
+
+    const fresh = [];
+    list.forEach((c) => {
+      let n = nodes.get(c.id);
+      if (!n) {
+        n = document.createElement("article");
+        n.className = "course";
+        n.dataset.id = c.id;
+        nodes.set(c.id, n);
+        fresh.push(n);
+      }
+      n.classList.toggle("is-enrolled", state.signedIn && ENROLLED.has(c.id));
+      n.innerHTML = cardHTML(c);
+      grid.appendChild(n); // re-append in the new order
+    });
+    // Keep leaving (absolute) cards at the end so they don't occupy grid cells.
+    grid.querySelectorAll('.course[aria-hidden="true"]').forEach((n) => grid.appendChild(n));
+
+    if (animate === "reveal") { list.forEach((c) => markReveal(nodes.get(c.id))); return; }
+    if (!doFlip) { fresh.forEach((n) => n.classList.add("reveal", "in")); return; }
+
+    nodes.forEach((n, id) => {
+      const a = before.get(id);
+      if (!a) return;
+      const b = n.getBoundingClientRect();
+      const dx = a.left - b.left, dy = a.top - b.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      n.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], { duration: 520, easing: "cubic-bezier(0.4,0,0.2,1)" });
+    });
+    fresh.forEach((n) => {
+      n.classList.add("reveal", "in");
+      n.animate([{ opacity: 0, transform: "scale(0.96)" }, { opacity: 1, transform: "scale(1)" }], { duration: 420, delay: 120, easing: "cubic-bezier(0.4,0,0.2,1)", fill: "backwards" });
+    });
+  }
+
+  // ---------- Pagination ----------
+  function pageWindow(cur, total) {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const set = new Set([1, total, cur - 1, cur, cur + 1]);
+    if (cur <= 3) [2, 3, 4].forEach((p) => set.add(p));
+    if (cur >= total - 2) [total - 1, total - 2, total - 3].forEach((p) => set.add(p));
+    const pages = [...set].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+    const out = [];
+    pages.forEach((p, i) => { if (i && p - pages[i - 1] > 1) out.push("…"); out.push(p); });
+    return out;
+  }
+  function renderPager(total, count) {
+    let pager = el.results.querySelector(".pager");
+    if (total <= 1) { pager && pager.remove(); return; }
+    if (!pager) { pager = document.createElement("nav"); pager.className = "pager"; pager.setAttribute("aria-label", "Phân trang khóa học"); el.results.appendChild(pager); }
+    const cur = state.page;
+    const from = (cur - 1) * PAGE_SIZE + 1, to = Math.min(cur * PAGE_SIZE, count);
+    pager.innerHTML = `<ol>
+      <li><button class="page-btn" data-page="${cur - 1}" ${cur === 1 ? "disabled" : ""} aria-label="Trang trước">${icon("left")}<span class="page-label">Trước</span></button></li>
+      ${pageWindow(cur, total).map((p) => p === "…" ? `<li class="page-gap" aria-hidden="true">…</li>` : `<li><button class="page-btn" data-page="${p}" ${p === cur ? 'aria-current="page"' : ""} aria-label="Trang ${p}">${p}</button></li>`).join("")}
+      <li><button class="page-btn" data-page="${cur + 1}" ${cur === total ? "disabled" : ""} aria-label="Trang sau"><span class="page-label">Sau</span>${icon("right")}</button></li>
+    </ol><p class="pager-note">Hiển thị ${from}–${to} trong ${count} khóa học</p>`;
+    if (!reduced()) { pager.classList.remove("reveal", "in"); markReveal(pager); }
+  }
+
+  // ---------- State panels ----------
+  const deckArt = `<svg class="deck-art" viewBox="0 0 200 160" aria-hidden="true">
+      <rect x="44" y="34" width="116" height="84" rx="12" fill="#F1F5F9" stroke="#CBD5E1" stroke-dasharray="6 5" transform="rotate(-8 102 76)"/>
+      <rect x="40" y="38" width="116" height="84" rx="12" fill="#F8FAFC" stroke="#CBD5E1" stroke-dasharray="6 5" transform="rotate(4 98 80)"/>
+      <rect x="36" y="44" width="120" height="86" rx="12" fill="#fff" stroke="#93C5FD" stroke-width="2"/>
+      <path d="M58 76h52M58 92h76M58 108h40" stroke="#E2E8F0" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="146" cy="56" r="14" fill="#ECFEFF" stroke="#0E7490" stroke-width="2"/><path d="M146 50v12M140 56h12" stroke="#0E7490" stroke-width="2" stroke-linecap="round"/>
+    </svg>`;
+  const searchArt = `<svg class="deck-art" viewBox="0 0 200 160" aria-hidden="true">
+      <rect x="30" y="40" width="120" height="86" rx="12" fill="#fff" stroke="#CBD5E1" stroke-width="2"/>
+      <path d="M52 70h56M52 86h76M52 102h36" stroke="#E2E8F0" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="140" cy="96" r="26" fill="#EFF6FF" stroke="#2563EB" stroke-width="3"/>
+      <path d="m159 115 18 18" stroke="#2563EB" stroke-width="5" stroke-linecap="round"/>
+      <path d="M131 96h18" stroke="#2563EB" stroke-width="3" stroke-linecap="round"/>
+    </svg>`;
+
+  function renderPanel(html) { grid = null; nodes.clear(); el.results.innerHTML = html; el.results.querySelectorAll(".state, .suggest").forEach(markReveal); }
+
+  function activeChips() {
+    const chips = [];
+    if (state.q.trim()) chips.push({ key: "q", label: `“${state.q.trim()}”` });
+    if (state.price !== "all") chips.push({ key: "price", label: PRICE_LABEL[state.price] });
+    if (state.preview) chips.push({ key: "preview", label: "Có học thử" });
+    return chips;
+  }
+  const chipHTML = (ch) => `<button type="button" class="filter-chip" data-clear="${ch.key}" aria-label="Bỏ bộ lọc ${esc(ch.label)}">${esc(ch.label)}${icon("x")}</button>`;
+
+  // ---------- Main render ----------
+  function render(opts = {}) {
+    const animate = opts.animate || "flip";
+    document.documentElement.dataset.rm = $("#rm").checked ? "1" : "0";
+    el.navActions.innerHTML = state.signedIn
+      ? `<span class="avatar" aria-label="Tài khoản Minh Anh">MA</span>`
+      : `<a class="btn btn-outline" href="#">Đăng nhập</a><a class="btn btn-primary" href="#">Đăng ký ngay</a>`;
+
+    const all = catalog();
+    const total = all.length;
+
+    // Hero facts: only real counts.
+    if (state.mode === "normal" && total > 0) {
+      const free = all.filter((c) => c.price === 0).length, prev = all.filter((c) => c.preview).length;
+      el.facts.innerHTML = `<li>${icon("book")}<span><b>${total}</b> khóa học</span></li>${free ? `<li>${icon("gift")}<span><b>${free}</b> khóa miễn phí</span></li>` : ""}${prev ? `<li><svg class="icon" aria-hidden="true" style="fill:currentColor;stroke:none;width:12px;height:12px"><use href="#i-play"/></svg><span><b>${prev}</b> khóa cho học thử không cần đăng nhập</span></li>` : ""}`;
+      el.facts.hidden = false;
+    } else { el.facts.innerHTML = ""; el.facts.hidden = true; }
+
+    el.toolbar.hidden = !(state.mode !== "error" && total >= 2);
+    el.sortWrap.hidden = total < 2;
+
+    if (state.mode === "loading") {
+      el.resultBar.innerHTML = `<span class="sk" style="width:180px;height:16px"></span>`;
+      renderPanel(`<div class="grid" role="status" aria-busy="true" aria-label="Đang tải danh sách khóa học">${Array.from({ length: 8 }, () => `<div class="sk-card"><div class="sk sk-cover"></div><div class="sk-body"><span class="sk" style="width:40%;height:18px"></span><span class="sk" style="height:22px"></span><span class="sk" style="width:70%;height:22px"></span><span class="sk" style="height:40px"></span></div></div>`).join("")}</div>`);
+      el.results.querySelectorAll(".reveal").forEach((n) => n.classList.add("in"));
+      return syncUrl();
+    }
+    if (state.mode === "error") {
+      el.resultBar.innerHTML = "";
+      renderPanel(`<div class="state is-error" role="alert">${`<svg class="deck-art" viewBox="0 0 200 160" aria-hidden="true"><rect x="36" y="38" width="128" height="90" rx="12" fill="#fff" stroke="#FCA5A5" stroke-width="2"/><circle cx="100" cy="83" r="22" fill="#FEF2F2" stroke="#B91C1C" stroke-width="2"/><path d="M100 72v13M100 93v.5" stroke="#B91C1C" stroke-width="3" stroke-linecap="round"/></svg>`}
+        <div><p class="eyebrow">Lỗi kết nối</p><h2>Chưa thể tải danh sách khóa học</h2>
+        <p>Kết nối dữ liệu đang gián đoạn. Thử tải lại; bộ lọc bạn đã chọn vẫn được giữ nguyên.</p>
+        <div class="state-actions"><button class="btn btn-primary" type="button" id="retry">${icon("retry")}Thử lại</button></div></div></div>`);
+      return syncUrl();
+    }
+    if (total === 0) {
+      el.resultBar.innerHTML = "";
+      renderPanel(`<div class="state" role="status">${deckArt}
+        <div><p class="eyebrow">Thư viện đang được soạn</p><h2>Chưa có khóa học nào được công khai</h2>
+        <p>Các giáo viên đang hoàn thiện những khóa học đầu tiên. Trong lúc chờ, bạn có thể thử cách VocaSpace giúp nhớ từ lâu hơn bằng bộ thẻ mẫu trên trang chủ.</p>
+        <div class="state-actions"><a class="btn btn-primary" href="#home-trial">Thử bộ thẻ mẫu</a><a class="btn-text btn" href="#">Về trang chủ</a></div></div></div>`);
+      return syncUrl();
+    }
+    if (total === 1) {
+      el.resultBar.innerHTML = "";
+      grid = null; nodes.clear();
+      el.results.innerHTML = `<div class="grid single"><article class="course wide">${cardHTML(all[0], { headingTag: "h3" })}</article></div>`;
+      markReveal(el.results.querySelector(".course"));
+      return syncUrl();
+    }
+
+    // Facet counts reflect the search + preview filters.
+    const base = baseFiltered();
+    const counts = { all: base.length, free: base.filter((c) => c.price === 0).length, paid: base.filter((c) => c.price > 0).length };
+    el.seg.querySelectorAll(".seg-btn").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.price === state.price));
+      b.querySelector(".seg-count").textContent = counts[b.dataset.price];
+    });
+    moveIndicator();
+    el.previewToggle.setAttribute("aria-pressed", String(state.preview));
+    el.sort.value = state.sort;
+    el.searchBox.classList.toggle("has-value", !!state.q);
+    if (el.q.value !== state.q) el.q.value = state.q;
+
+    const list = filtered();
+    const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    state.page = Math.min(state.page, pages);
+    const chips = activeChips();
+
+    if (list.length === 0) {
+      el.resultBar.innerHTML = "";
+      const where = [state.q.trim() && `khớp “${esc(state.q.trim())}”`, state.price !== "all" && `trong nhóm ${PRICE_LABEL[state.price]}`, state.preview && "có học thử"].filter(Boolean).join(" ");
+      const popular = [...all].sort(SORTS.popular).slice(0, 4);
+      // When only the price group excludes everything, offer the other group's real count.
+      const other = state.price === "free" ? "paid" : state.price === "paid" ? "free" : null;
+      const otherHint = other && counts[other] > 0 ? `<button class="btn btn-primary" type="button" data-price-switch="${other}">Xem ${counts[other]} khóa ${PRICE_LABEL[other].toLowerCase()}</button>` : "";
+      renderPanel(`<div class="state" role="status">${searchArt}
+          <div><p class="eyebrow">Không có kết quả</p><h2>Không có khóa học nào ${where}</h2>
+          <p>Thử bỏ bớt một điều kiện, hoặc tìm bằng một từ ngắn hơn. Tìm kiếm không cần gõ dấu.</p>
+          <div class="chip-line">${chips.map(chipHTML).join("")}</div>
+          <div class="state-actions">${otherHint}<button class="btn btn-outline" type="button" data-clear="all">Xóa tất cả bộ lọc</button></div></div></div>
+        <section class="suggest" aria-labelledby="sgH"><h2 id="sgH">Khóa học được ghi danh nhiều nhất</h2><p>Gợi ý từ toàn bộ thư viện, không theo bộ lọc hiện tại.</p>
+        <div class="grid">${popular.map((c) => `<article class="course">${cardHTML(c, { headingTag: "h3" })}</article>`).join("")}</div></section>`);
+      el.results.querySelectorAll(".suggest .course").forEach(markReveal);
+      el.live.textContent = "Không tìm thấy khóa học phù hợp.";
+      return syncUrl();
+    }
+
+    const from = (state.page - 1) * PAGE_SIZE;
+    el.resultBar.innerHTML = `<span><b>${list.length}</b> khóa học${list.length !== total ? ` trong ${total}` : ""} · ${SORT_LABEL[state.sort]}</span>${chips.length ? `<span class="active-chips">${chips.map(chipHTML).join("")}</span>${chips.length > 1 ? `<button class="clear-all" type="button" data-clear="all">Xóa tất cả</button>` : ""}` : ""}`;
+    if (grid && grid.classList.contains("single")) grid = null;
+    renderGrid(list.slice(from, from + PAGE_SIZE), { animate });
+    renderPager(pages, list.length);
+    el.live.textContent = `Tìm thấy ${list.length} khóa học.`;
+    syncUrl();
+  }
+
+  function moveIndicator() {
+    const btn = el.seg.querySelector(`[data-price="${state.price}"]`);
+    if (!btn || !btn.offsetWidth) return;
+    el.segInd.style.width = btn.offsetWidth + "px";
+    el.segInd.style.transform = `translateX(${btn.offsetLeft}px)`;
+  }
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (state.q.trim()) p.set("q", state.q.trim());
+    if (state.price !== "all") p.set("gia", state.price);
+    if (state.preview) p.set("hoc-thu", "1");
+    if (state.sort !== "popular") p.set("sap-xep", state.sort);
+    if (state.page > 1) p.set("trang", String(state.page));
+    const qs = p.toString();
+    el.urlOut.textContent = "/courses" + (qs ? "?" + qs : "");
+    try { history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "")); } catch (_) {}
+  }
+
+  function changePage(p) {
+    state.page = p;
+    const doFade = !reduced() && grid;
+    const go = () => {
+      grid && grid.classList.remove("is-leaving");
+      // Fresh nodes for a new page so the page enters with the scroll reveal.
+      nodes.forEach((n) => n.remove()); nodes.clear();
+      render({ animate: "reveal" });
+      document.querySelector("#resultsHeading").parentElement.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
+      grid && grid.querySelector(".course-title a")?.focus({ preventScroll: true });
+    };
+    if (doFade) { grid.classList.add("is-leaving"); setTimeout(go, 180); } else go();
+  }
+
+  function clearFilter(key) {
+    if (key === "q" || key === "all") state.q = "";
+    if (key === "price" || key === "all") state.price = "all";
+    if (key === "preview" || key === "all") state.preview = false;
+    state.page = 1;
+    render();
+  }
+
+  // ---------- Events ----------
+  let typing;
+  el.q.addEventListener("input", () => {
+    state.q = el.q.value; state.page = 1;
+    el.searchBox.classList.toggle("has-value", !!state.q);
+    clearTimeout(typing);
+    typing = setTimeout(() => render(), 140);
+  });
+  el.q.addEventListener("keydown", (e) => { if (e.key === "Escape" && el.q.value) { e.preventDefault(); state.q = ""; el.q.value = ""; state.page = 1; render(); } });
+  el.qClear.addEventListener("click", () => { state.q = ""; state.page = 1; render(); el.q.focus(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && !["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) { e.preventDefault(); el.q.focus(); }
+  });
+  el.seg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (!b) return; state.price = b.dataset.price; state.page = 1; render(); });
+  el.previewToggle.addEventListener("click", () => { state.preview = !state.preview; state.page = 1; render(); });
+  el.sort.addEventListener("change", () => { state.sort = el.sort.value; state.page = 1; render(); });
+  el.results.addEventListener("click", (e) => {
+    const pb = e.target.closest(".page-btn"); if (pb && !pb.disabled) { changePage(+pb.dataset.page); return; }
+    const cl = e.target.closest("[data-clear]"); if (cl) { clearFilter(cl.dataset.clear); return; }
+    const ps = e.target.closest("[data-price-switch]"); if (ps) { state.price = ps.dataset.priceSwitch; state.page = 1; render(); return; }
+    if (e.target.closest("#retry")) { state.mode = "loading"; syncDemo(); render(); setTimeout(() => { state.mode = "normal"; syncDemo(); render({ animate: "reveal" }); }, 900); return; }
+    if (e.target.closest("a[href^='#']")) e.preventDefault();
+  });
+  el.resultBar.addEventListener("click", (e) => { const cl = e.target.closest("[data-clear]"); if (cl) clearFilter(cl.dataset.clear); });
+  addEventListener("resize", moveIndicator);
+
+  // Sticky toolbar shadow.
+  new IntersectionObserver(([e]) => el.toolbar.classList.toggle("is-stuck", !e.isIntersecting), { rootMargin: "-65px 0px 0px 0px" }).observe($("#sentinel"));
+
+  // ---------- Demo panel ----------
+  const dsSet = $("#dsSet"), modeSet = $("#modeSet");
+  [0, 1, 3, 12, 40].forEach((n) => dsSet.insertAdjacentHTML("beforeend", `<label><input type="radio" name="ds" value="${n}">${n} khóa</label>`));
+  [["normal", "Bình thường"], ["loading", "Đang tải"], ["error", "Lỗi"]].forEach(([v, l]) => modeSet.insertAdjacentHTML("beforeend", `<label><input type="radio" name="mode" value="${v}">${l}</label>`));
+  function syncDemo() {
+    dsSet.querySelector(`input[value="${state.dataset}"]`).checked = true;
+    modeSet.querySelector(`input[value="${state.mode}"]`).checked = true;
+  }
+  dsSet.addEventListener("change", (e) => { state.dataset = +e.target.value; state.page = 1; grid = null; nodes.clear(); render({ animate: "reveal" }); });
+  modeSet.addEventListener("change", (e) => { state.mode = e.target.value; grid = null; nodes.clear(); render({ animate: "reveal" }); });
+  $("#signedIn").addEventListener("change", (e) => { state.signedIn = e.target.checked; render(); });
+  $("#rm").addEventListener("change", () => render());
+  if (matchMedia("(max-width: 600px)").matches) $(".demo").open = false;
+
+  syncDemo();
+  render({ animate: "reveal" });
+  document.fonts && document.fonts.ready.then(moveIndicator);
+})();
+</script>
+</body>
+</html>
