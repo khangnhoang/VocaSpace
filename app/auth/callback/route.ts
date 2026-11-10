@@ -1,9 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { oauthCallbackCodeSchema } from "@/lib/schemas/auth";
+import {
+  LAST_SIGN_IN_METHOD_COOKIE,
+  RETURN_PATH_COOKIE,
+  expiredReturnPathCookieOptions,
+  isHttpsProtocol,
+  lastSignInMethodCookieOptions,
+  resolveReturnPath,
+} from "@/lib/auth/return-path";
 
-// G1: chỉ chuyển tới hai path cố định; không bao giờ đọc `next`/`redirect_to` từ query.
-const SUCCESS_PATH = "/";
+// G1: thất bại luôn về path cố định; thành công về `/` hoặc trang đích nội bộ thuộc allowlist mà proxy đã ghi vào
+// cookie. Không bao giờ đọc `next`/`redirect_to` từ query.
 const FAILURE_PATH = "/login?auth_error=oauth";
 
 export async function GET(request: NextRequest) {
@@ -29,5 +37,9 @@ export async function GET(request: NextRequest) {
     return redirectTo(FAILURE_PATH);
   }
 
-  return redirectTo(SUCCESS_PATH);
+  const secure = isHttpsProtocol(request.nextUrl.protocol);
+  const response = redirectTo(resolveReturnPath(request.cookies.get(RETURN_PATH_COOKIE)?.value));
+  response.cookies.set(RETURN_PATH_COOKIE, "", expiredReturnPathCookieOptions(secure));
+  response.cookies.set(LAST_SIGN_IN_METHOD_COOKIE, "google", lastSignInMethodCookieOptions(secure));
+  return response;
 }

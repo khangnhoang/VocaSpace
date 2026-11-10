@@ -73,7 +73,7 @@ export default function LoginPage() {
     } else {
       toast.success("Đăng nhập thành công!");
       setTimeout(() => {
-        router.push("/");
+        router.push(res?.redirectTo ?? "/");
         router.refresh(); // Ép header load lại lấy Auth mới
       }, 1000);
     }

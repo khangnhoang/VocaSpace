@@ -46,6 +46,22 @@ export const emailConfirmationParamsSchema = z.object({
 // Callback OAuth chỉ cần `code`; mọi tham số khác trên URL (kể cả `next`) không được đọc.
 export const oauthCallbackCodeSchema = z.string().trim().min(1);
 
+// U3 G1: trang đích sau đăng nhập chỉ là pathname nội bộ thuộc ba vùng proxy tự chặn. Mỗi đoạn path chỉ gồm
+// ký tự an toàn hoặc %XX; cấm `.`/`..` và mọi %XX giải mã thành `/`, `\`, `.` hay ký tự điều khiển, vì trình
+// duyệt hoặc server có thể giải mã chúng thành đường dẫn khác (open redirect, vượt thư mục).
+const RETURN_PATH_PATTERN = /^\/(?:teacher|profile|admin)(?:\/[A-Za-z0-9._~%-]+)*$/;
+const RETURN_PATH_FORBIDDEN_ENCODING = /%(?:2f|5c|2e|[01][0-9a-f]|7f)/i;
+
+export const returnPathSchema = z
+  .string()
+  .max(512)
+  .regex(RETURN_PATH_PATTERN)
+  .refine((path) => !RETURN_PATH_FORBIDDEN_ENCODING.test(path))
+  .refine((path) => path.split("/").every((segment) => segment !== "." && segment !== ".."));
+
+export const lastSignInMethodSchema = z.enum(["email", "google"]);
+export type LastSignInMethod = z.infer<typeof lastSignInMethodSchema>;
+
 // --- FORM LOGIN (Giữ nguyên) ---
 export const loginSchema = z.object({
   email: z.email("Email không đúng định dạng"),
