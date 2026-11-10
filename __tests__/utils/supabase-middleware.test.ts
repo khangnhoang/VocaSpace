@@ -27,7 +27,7 @@ const mockedCreateServerClient = vi.mocked(createServerClient);
 //   - Middleware chỉ là lớp điều hướng phiên; Server Actions/RLS vẫn là lớp bảo vệ dữ liệu thật.
 // - Ổn định/resilience:
 //   - Không mở lại legacy redirect từ old teacher /courses/*.
-//   - U3 G1/G2/G2b: redirect của khách chưa đăng nhập vào /teacher, /profile, /admin ghi cookie trang đích (chỉ pathname,
+//   - U3 G1/G2/G2b: redirect của khách chưa đăng nhập vào /teacher, /profile, /admin ghi cookie trang đích (chỉ pathname; path sai allowlist thì xoá cookie cũ;
 //     HttpOnly, Lax, Path=/, 10 phút, Secure theo giao thức request); response đi thẳng (kể cả /learn) và request đã
 //     đăng nhập không bao giờ ghi cookie này, vì prefetch cũng chạy qua proxy.
 // - Invariant cần giữ:
@@ -264,13 +264,18 @@ describe("updateSession return-path cookie (U3)", () => {
     expect(returnPathCookie(response)).toContain("vs_return_to=%2Fteacher");
   });
 
-  it("does not record a guarded path whose characters fail the allowlist", async () => {
+  it("clears any stored path when a guarded path fails the allowlist", async () => {
     mockUser(null);
 
-    const response = await updateSession(requestFor("/profile/%2fevil.example"));
+    const response = await updateSession(
+      new NextRequest("https://vocaspace.test/profile/%2fevil.example", { headers: { cookie: "vs_return_to=%2Fprofile" } }),
+    );
 
     expect(response.status).toBe(307);
-    expect(returnPathCookie(response)).toBeNull();
+    const cookie = returnPathCookie(response);
+    expect(cookie).toMatch(/^vs_return_to=;/);
+    expect(cookie).toMatch(/Max-Age=0/);
+    expect(cookie).toMatch(/Path=\//);
   });
 
   it.each(["/learn", "/learn/some-course", "/", "/login", "/courses", "/register"])(

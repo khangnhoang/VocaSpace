@@ -1,7 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { SIGN_IN_REASON_PARAM, SIGN_IN_REQUIRED_REASON } from '@/lib/auth/sign-in-reason'
-import { RETURN_PATH_COOKIE, isHttpsProtocol, parseReturnPath, returnPathCookieOptions } from '@/lib/auth/return-path'
+import {
+  RETURN_PATH_COOKIE,
+  expiredReturnPathCookieOptions,
+  isHttpsProtocol,
+  parseReturnPath,
+  returnPathCookieOptions,
+} from '@/lib/auth/return-path'
 
 function isTeacherRoutePath(pathname: string) {
   return pathname === '/teacher' || pathname.startsWith('/teacher/')
@@ -68,13 +74,13 @@ export async function updateSession(request: NextRequest) {
     const response = NextResponse.redirect(url)
     // U3 G2b: chỉ ghi trên redirect này. Prefetch cũng chạy qua proxy mà không lộ header prefetch, nên không bao giờ
     // ghi trên response đi thẳng (kể cả /learn) để tránh lưu một trang khách chưa hề mở.
+    // Path bị chặn nhưng không qua allowlist thì xoá trang đích cũ, để lần đăng nhập này về `/` (AC7).
     const returnPath = parseReturnPath(request.nextUrl.pathname)
+    const secure = isHttpsProtocol(request.nextUrl.protocol)
     if (returnPath) {
-      response.cookies.set(
-        RETURN_PATH_COOKIE,
-        returnPath,
-        returnPathCookieOptions(isHttpsProtocol(request.nextUrl.protocol)),
-      )
+      response.cookies.set(RETURN_PATH_COOKIE, returnPath, returnPathCookieOptions(secure))
+    } else {
+      response.cookies.set(RETURN_PATH_COOKIE, '', expiredReturnPathCookieOptions(secure))
     }
     return response
   }
