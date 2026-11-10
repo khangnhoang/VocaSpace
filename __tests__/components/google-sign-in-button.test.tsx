@@ -20,7 +20,7 @@ vi.mock("sonner", () => ({
 // Test plan:
 // - Mục tiêu: nút Google chỉ chuyển người dùng sang Google khi provider đang bật (G3), còn lại giữ họ ở trang.
 // - Loại test: component interaction trong jsdom (RTL); fetch tới /auth/v1/settings và Supabase browser client được mock.
-// - Đối tượng: GoogleSignInButton.
+// - Đối tượng: GoogleSignInButton (nhãn "Tiếp tục với Google", U3 quyết định 13).
 // - Case thành công: `external.google: true` → signInWithOAuth gọi đúng một lần với provider google và
 //   redirectTo = origin + /auth/callback; nút bị khóa khi đang chờ, bấm lần hai không gọi thêm.
 // - Case thất bại: `external.google: false`, thiếu trường, HTTP không OK, fetch lỗi, JSON hỏng → toast "chưa khả dụng",
@@ -41,7 +41,7 @@ function settingsResponse(body: unknown, init: { ok?: boolean } = {}) {
 }
 
 function clickGoogle() {
-  fireEvent.click(screen.getByRole("button", { name: "Đăng nhập bằng Google" }));
+  fireEvent.click(screen.getByRole("button", { name: "Tiếp tục với Google" }));
 }
 
 beforeEach(() => {
@@ -76,7 +76,7 @@ describe("GoogleSignInButton", () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(UNAVAILABLE));
     expect(mocks.signInWithOAuth).not.toHaveBeenCalled();
     await waitFor(() =>
-      expect((screen.getByRole("button", { name: "Đăng nhập bằng Google" }) as HTMLButtonElement).disabled).toBe(false),
+      expect((screen.getByRole("button", { name: "Tiếp tục với Google" }) as HTMLButtonElement).disabled).toBe(false),
     );
   });
 
@@ -95,7 +95,7 @@ describe("GoogleSignInButton", () => {
   it("starts Google sign-in once with the callback URL and stays disabled while the browser leaves", async () => {
     fetchMock.mockResolvedValue(settingsResponse({ external: { google: true } }));
     render(<GoogleSignInButton />);
-    const button = screen.getByRole("button", { name: "Đăng nhập bằng Google" }) as HTMLButtonElement;
+    const button = screen.getByRole("button", { name: "Tiếp tục với Google" }) as HTMLButtonElement;
 
     clickGoogle();
 
@@ -121,7 +121,7 @@ describe("GoogleSignInButton", () => {
 
     clickGoogle();
     await waitFor(() =>
-      expect((screen.getByRole("button", { name: "Đăng nhập bằng Google" }) as HTMLButtonElement).disabled).toBe(true),
+      expect((screen.getByRole("button", { name: "Tiếp tục với Google" }) as HTMLButtonElement).disabled).toBe(true),
     );
     clickGoogle();
 
@@ -143,7 +143,7 @@ describe("GoogleSignInButton", () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(FAILED));
     expect(mocks.toastError).not.toHaveBeenCalledWith(UNAVAILABLE);
     await waitFor(() =>
-      expect((screen.getByRole("button", { name: "Đăng nhập bằng Google" }) as HTMLButtonElement).disabled).toBe(false),
+      expect((screen.getByRole("button", { name: "Tiếp tục với Google" }) as HTMLButtonElement).disabled).toBe(false),
     );
   });
 });

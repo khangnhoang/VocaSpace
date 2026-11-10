@@ -37,8 +37,8 @@ test.afterAll(async () => {
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("student@gmail.com");
-  await page.getByLabel("Password").fill("123123");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByLabel("Mật khẩu", { exact: true }).fill("123123");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 
