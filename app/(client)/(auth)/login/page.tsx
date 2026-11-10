@@ -1,5 +1,8 @@
 "use client";
 import { Suspense, useRef, useState } from "react";
+import { useReducedMotion } from "motion/react";
+import { useAnimate } from "motion/react-mini";
+import * as m from "motion/react-m";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -57,6 +60,8 @@ export default function LoginPage() {
   const [status, setStatus] = useState<"idle" | "pending" | "success">("idle");
   const [serverError, setServerError] = useState<string | null>(null);
   const submitting = useRef(false);
+  const [formScope, animate] = useAnimate<HTMLDivElement>();
+  const reduceMotion = useReducedMotion();
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -79,6 +84,10 @@ export default function LoginPage() {
         setServerError(res?.error ?? SIGN_IN_FAILED_FALLBACK);
         setStatus("idle");
         form.setFocus("password", { shouldSelect: true });
+        // Rung một lần để báo thất bại; thông báo lỗi và focus đã có ngay, không chờ hiệu ứng (AC13).
+        if (!reduceMotion && typeof formScope.current?.animate === "function") {
+          animate(formScope.current, { transform: ["translateX(0px)", "translateX(-6px)", "translateX(6px)", "translateX(-4px)", "translateX(3px)", "translateX(0px)"] }, { duration: 0.34, ease: [0.2, 0, 0, 1] });
+        }
         return;
       }
       setStatus("success");
@@ -121,6 +130,7 @@ export default function LoginPage() {
       ) : null}
 
       {/* U3 G10: method="post" để một lần submit trước khi hydrate không đưa mật khẩu lên URL. */}
+      <div ref={formScope}>
       <form method="post" noValidate onSubmit={form.handleSubmit(onSubmit)} className="grid gap-[18px]">
         <EmailField
           id="login-email"
@@ -164,7 +174,15 @@ export default function LoginPage() {
             </>
           ) : status === "success" ? (
             <>
-              <Check aria-hidden="true" />
+              <m.span
+                aria-hidden="true"
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                className="inline-flex"
+              >
+                <Check />
+              </m.span>
               Đã đăng nhập
             </>
           ) : (
@@ -175,6 +193,7 @@ export default function LoginPage() {
           )}
         </Button>
       </form>
+      </div>
 
       {googleFirst ? null : (
         <>

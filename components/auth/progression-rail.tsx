@@ -27,13 +27,19 @@ export function ProgressionRail({ label, steps, current }: ProgressionRailProps)
             <li
               key={step}
               aria-current={isCurrent ? "step" : undefined}
-              className={cn(
-                "relative flex flex-col items-center gap-2 text-center",
-                index > 0 &&
-                  "before:absolute before:top-[11px] before:right-1/2 before:h-0.5 before:w-full before:bg-slate-300",
-                index > 0 && (done || isCurrent) && "before:bg-growth",
-              )}
+              className="relative flex flex-col items-center gap-2 text-center"
             >
+              {index > 0 ? (
+                // Đoạn nối tới bước này tô xanh dần từ trái khi đã tới (AC13); giảm chuyển động thì đổi ngay.
+                <span aria-hidden="true" className="absolute top-[11px] right-1/2 h-0.5 w-full bg-slate-300">
+                  <span
+                    className={cn(
+                      "block size-full origin-left bg-growth transition-transform duration-500 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
+                      done || isCurrent ? "scale-x-100" : "scale-x-0",
+                    )}
+                  />
+                </span>
+              ) : null}
               <span className="relative z-10 grid size-6 place-items-center">
                 {done ? (
                   <span className="grid size-5 place-items-center rounded-full bg-growth text-white">

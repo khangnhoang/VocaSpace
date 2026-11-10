@@ -4,10 +4,16 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogIn, UserPlus } from "lucide-react";
+import { domMax, LazyMotion, MotionConfig } from "motion/react";
+import * as m from "motion/react-m";
 import { cn } from "@/lib/utils";
 import type { LastSignInMethod } from "@/lib/schemas/auth";
 import { AuthShellContext, type AuthPanelState } from "./auth-shell-context";
 import { MemoryCurvePanel } from "./memory-curve-panel";
+import { AutoHeight, SlideIn } from "./auth-motion";
+
+// Thứ tự để chọn hướng trượt khi đổi trang: quên mật khẩu ← đăng nhập → đăng ký.
+const ROUTE_ORDER: Record<string, number> = { "/forgot-password": -1, "/login": 0, "/register": 1 };
 
 const LOGIN_PANEL: AuthPanelState = {
   variant: { kind: "login" },
@@ -58,6 +64,10 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
   const [panelOverride, setPanelOverride] = useState<AuthPanelState | null>(null);
   const [tabsOverride, setTabsOverride] = useState<boolean | null>(null);
   const [passwordFocused, setPasswordFocusedState] = useState(false);
+  const [route, setRoute] = useState({ current: pathname, direction: 1 });
+  if (route.current !== pathname) {
+    setRoute({ current: pathname, direction: Math.sign((ROUTE_ORDER[pathname] ?? 0) - (ROUTE_ORDER[route.current] ?? 0)) || 1 });
+  }
 
   const setPanel = useCallback((panel: AuthPanelState | null) => setPanelOverride(panel), []);
   const setShowTabs = useCallback((show: boolean | null) => setTabsOverride(show), []);
@@ -74,6 +84,8 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
 
   return (
     <AuthShellContext.Provider value={context}>
+      <LazyMotion features={domMax} strict>
+      <MotionConfig reducedMotion="user">
       <div className="mx-auto w-full max-w-[1200px] px-4 pt-4 pb-10 sm:px-6 sm:pt-8 sm:pb-16">
         <div className="grid gap-1 rounded-[20px] border border-slate-200 bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,0.06)] min-[960px]:min-h-[660px] min-[960px]:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] min-[960px]:gap-3 min-[960px]:rounded-[24px] min-[960px]:p-3">
           <section className="flex justify-center px-3 pt-5 pb-4 min-[960px]:px-9 min-[960px]:pt-7">
@@ -89,19 +101,30 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
                         aria-current={current ? "page" : undefined}
                         className={cn(
                           "relative flex min-h-12 flex-1 items-center justify-center gap-2 rounded-t-[8px] text-sm leading-5 font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route",
-                          current
-                            ? "text-route after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-route"
-                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                          current ? "text-route" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                         )}
                       >
                         <Icon aria-hidden="true" className="size-5" />
                         {label}
+                        {current ? (
+                          // Panel và thanh tab sống trong layout chung, nên vạch chỉ báo trượt sang tab mới (AC2).
+                          <m.span
+                            layoutId="auth-tab-indicator"
+                            aria-hidden="true"
+                            transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+                            className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-route"
+                          />
+                        ) : null}
                       </Link>
                     );
                   })}
                 </nav>
               ) : null}
-              {children}
+              <AutoHeight>
+                <SlideIn motionKey={route.current} direction={route.direction}>
+                  {children}
+                </SlideIn>
+              </AutoHeight>
             </div>
           </section>
           <MemoryCurvePanel
@@ -112,6 +135,8 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
           />
         </div>
       </div>
+      </MotionConfig>
+      </LazyMotion>
     </AuthShellContext.Provider>
   );
 }

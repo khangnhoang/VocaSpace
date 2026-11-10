@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, type CSSProperties } from "react";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -10,9 +11,52 @@ import {
   TICK_LABELS,
   curveGeometry,
   yForRecall,
+  type CurveGeometry,
   type CurveVariant,
 } from "@/lib/auth/memory-curve";
 import type { AuthPanelCopy } from "./auth-shell-context";
+import styles from "./memory-curve-panel.module.css";
+
+const SEGMENT_MS = 520;
+const LAPSE_MS = 1100;
+const JUMP_MS = 380;
+
+type Timing = { className: string; style: CSSProperties; kind: "draw" | "pop" | "fade" };
+
+// Chỉ phần chưa từng hiện mới được vẽ, nối tiếp nhau: mốc đầu, rồi từng đoạn và mốc nó dẫn tới (AC13). Timing của mỗi
+// phần được giữ từ lần đầu xuất hiện, nên render lại (đổi bước, focus mật khẩu) không chạy lại hay cắt ngang hiệu ứng.
+function drawTimeline(geometry: CurveGeometry, timings: Map<string, Timing>) {
+  // Phần đã rời màn hình (ví dụ đi từ /login sang /register) được coi là mới khi hiện lại, để không chờ độ trễ cũ.
+  const present = new Set<string>([
+    ...geometry.paths.flatMap((path) => (path.area ? [path.key, `${path.key}-area`] : [path.key])),
+    ...geometry.nodes.map((node) => node.key),
+    ...(geometry.ghost ? ["ghost"] : []),
+    ...(geometry.preview ? [`preview-${geometry.nodes.length}`] : []),
+  ]);
+  for (const key of [...timings.keys()]) if (!present.has(key)) timings.delete(key);
+  const isNew = (key: string) => !timings.has(key);
+  let cursor = 120;
+  const style = (delay: number, duration?: number) =>
+    ({ "--delay": `${Math.max(0, Math.round(delay))}ms`, ...(duration ? { "--duration": `${duration}ms` } : {}) }) as CSSProperties;
+  const addNode = (key: string | undefined) => {
+    if (key && isNew(key)) timings.set(key, { className: styles.pop, style: style(cursor - 60), kind: "pop" });
+  };
+
+  addNode(geometry.nodes[0]?.key);
+  geometry.paths.forEach((path, index) => {
+    if (isNew(path.key)) {
+      const duration = path.tone === "lapse" ? LAPSE_MS : path.tone === "jump" ? JUMP_MS : SEGMENT_MS;
+      timings.set(path.key, { className: styles.draw, style: style(cursor, duration), kind: "draw" });
+      if (path.area) timings.set(`${path.key}-area`, { className: styles.fade, style: style(cursor + 200), kind: "fade" });
+      cursor += duration * 0.82;
+    }
+    addNode(geometry.nodes[index + 1]?.key);
+  });
+  if (geometry.ghost && isNew("ghost")) timings.set("ghost", { className: styles.fade, style: style(0, 1400), kind: "fade" });
+  const previewKey = `preview-${geometry.nodes.length}`;
+  if (geometry.preview && isNew(previewKey)) timings.set(previewKey, { className: styles.fade, style: style(cursor, 500), kind: "fade" });
+  return timings;
+}
 
 const CHART_SUMMARY: Record<CurveVariant["kind"], string> = {
   login:
@@ -36,6 +80,16 @@ const pct = (value: number, total: number) => `${(value / total) * 100}%`;
 export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlipped }: MemoryCurvePanelProps) {
   const geometry = curveGeometry(variant);
   const { width, height } = CURVE_VIEWBOX;
+  // Panel giữ nguyên khi đổi trang/bước, nên bảng timing sống cùng panel và chỉ thêm phần mới.
+  const [knownTimings] = useState(() => new Map<string, Timing>());
+  const timings = drawTimeline(geometry, knownTimings);
+  // data-curve-motion cho biết phần nào đang có hiệu ứng vẽ (dùng khi kiểm tra và gỡ lỗi).
+  const anim = (key: string) => {
+    const timing = timings.get(key);
+    return timing
+      ? { "data-curve-part": key, className: timing.className, style: timing.style, "data-curve-motion": timing.kind }
+      : { "data-curve-part": key };
+  };
   const thresholdY = yForRecall(REVIEW_THRESHOLD);
   const lastNodeX = REVIEW_X[REVIEW_X.length - 1];
 
@@ -105,18 +159,43 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
               <line key={x} x1={x} x2={x} y1={PLOT_BOUNDS.yBottom} y2={PLOT_BOUNDS.yBottom + 6} stroke="#CBD5E1" />
             ))}
             {geometry.paths.map((path) =>
-              path.area ? <path key={`${path.key}-area`} d={path.area} fill="rgba(14,116,144,0.08)" /> : null,
+              path.area ? (
+                <path
+                  key={`${path.key}-area`}
+                  d={path.area}
+                  fill="rgba(14,116,144,0.08)"
+                  {...anim(`${path.key}-area`)}
+                />
+              ) : null,
             )}
             {geometry.ghost ? (
-              <path d={geometry.ghost} fill="none" stroke="#64748B" strokeWidth={1.75} strokeDasharray="4 5" />
+              <path
+                d={geometry.ghost}
+                fill="none"
+                stroke="#64748B"
+                strokeWidth={1.75}
+                strokeDasharray="4 5"
+                {...anim("ghost")}
+              />
             ) : null}
             {geometry.preview ? (
-              <path d={geometry.preview} fill="none" stroke="#94A3B8" strokeWidth={2} strokeDasharray="2 6" strokeLinecap="round" />
+              <path
+                key={`preview-${geometry.nodes.length}`}
+                d={geometry.preview}
+                fill="none"
+                stroke="#94A3B8"
+                strokeWidth={2}
+                strokeDasharray="2 6"
+                strokeLinecap="round"
+                {...anim(`preview-${geometry.nodes.length}`)}
+              />
             ) : null}
             {geometry.paths.map((path) => (
               <path
                 key={path.key}
                 d={path.d}
+                pathLength={1}
+                {...anim(path.key)}
                 fill="none"
                 stroke={path.tone === "lapse" ? "#A16207" : path.tone === "jump" ? "#2563EB" : "#0E7490"}
                 strokeWidth={2.75}
@@ -125,7 +204,7 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
               />
             ))}
             {geometry.nodes.map((node) => (
-              <g key={node.key}>
+              <g key={node.key} {...anim(node.key)}>
                 {node.tone === "current" || node.tone === "relearn" ? (
                   <circle cx={node.x} cy={node.y} r={13} fill="#EFF6FF" stroke="#93C5FD" />
                 ) : null}

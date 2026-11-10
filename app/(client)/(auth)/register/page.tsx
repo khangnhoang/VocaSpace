@@ -27,6 +27,7 @@ import { useAuthPanel, useAuthShell, type AuthPanelState } from "@/components/au
 import { ProgressionRail } from "@/components/auth/progression-rail";
 import { cn } from "@/lib/utils";
 import { CheckEmailPanel } from "./_components/CheckEmailPanel";
+import { SlideIn } from "@/components/auth/auth-motion";
 
 const REGISTER_STAGES =["Tài khoản", "Thông tin", "Ảnh", "Xác minh", "Mật khẩu"] as const;
 
@@ -94,6 +95,8 @@ export default function RegisterPage() {
   });
   const { errors } = form.formState;
   const stage = submittedEmail ? 4 : step;
+  const [stageMove, setStageMove] = useState({ stage, direction: 1 });
+  if (stageMove.stage !== stage) setStageMove({ stage, direction: stage > stageMove.stage ? 1 : -1 });
 
   useAuthPanel(STAGE_PANELS[stage]);
 
@@ -163,14 +166,16 @@ export default function RegisterPage() {
     return (
       <>
         {rail}
-        <CheckEmailPanel
-          email={submittedEmail}
-          // Giữ nguyên giá trị form và file ảnh để gửi lại đúng dữ liệu cũ.
-          onEditForm={() => {
-            setSubmittedEmail(null);
-            goTo(1);
-          }}
-        />
+        <SlideIn motionKey={`stage-${stage}`} direction={stageMove.direction}>
+          <CheckEmailPanel
+            email={submittedEmail}
+            // Giữ nguyên giá trị form và file ảnh để gửi lại đúng dữ liệu cũ.
+            onEditForm={() => {
+              setSubmittedEmail(null);
+              goTo(1);
+            }}
+          />
+        </SlideIn>
       </>
     );
   }
@@ -179,6 +184,7 @@ export default function RegisterPage() {
     <>
       {rail}
 
+      <SlideIn motionKey={`stage-${stage}`} direction={stageMove.direction}>
       {step === 1 ? (
         <section aria-labelledby="register-title">
           <h1 id="register-title" ref={titleRef} tabIndex={-1} className={AUTH_TITLE_CLASS}>
@@ -390,6 +396,7 @@ export default function RegisterPage() {
           </form>
         </section>
       ) : null}
+      </SlideIn>
     </>
   );
 }

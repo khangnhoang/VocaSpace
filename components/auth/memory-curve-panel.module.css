@@ -1,0 +1,53 @@
+/* U3 AC13: đường cong tự vẽ bằng CSS để chạy ngay từ lần vẽ đầu, không cần chờ hydrate và không ẩn nội dung trước đó (G10).
+   Phần tử đã vẽ ở lần render trước không gắn các lớp này nên không vẽ lại. */
+.draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw var(--duration, 520ms) cubic-bezier(0.2, 0, 0, 1) var(--delay, 0ms) forwards;
+}
+
+.pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: pop 420ms cubic-bezier(0.16, 1, 0.3, 1) var(--delay, 0ms) forwards;
+}
+
+.fade {
+  opacity: 0;
+  animation: fade var(--duration, 700ms) linear var(--delay, 0ms) forwards;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fade {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draw,
+  .pop,
+  .fade {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+    transform: none;
+  }
+}
