@@ -80,3 +80,12 @@ VocaSpace may later expose a product-level animation preference through global a
 The account-menu switch in the current TA review aid is non-authoritative review chrome and interaction evidence only. This future direction does not amend the accepted Product Language, require a Teacher-specific setting, define preference precedence or persistence, or authorize runtime implementation. The placement direction is the avatar (account) dropdown, per the Owner direction below. Persistence, precedence and the detailed design stay future work, which must receive separate Owner acceptance and implementation authority.
 
 Owner direction of 2026-10-15 for where the preference lives: the control belongs in the avatar (account) dropdown, as a toggle whose track uses a Route-to-Action blue gradient and whose knob animates when it is switched, and the reduced-motion setting is off by default, which is the same default behaviour as `ON` above (normal motion); whether the label reads as "animation" or as "reduce motion" is a future design decision this list does not settle. A gradient track is a gradient use outside the data-bar exception in the Admin screen-type design and would need its own accepted exception. The operating-system `prefers-reduced-motion` signal stays respected independently, and persistence and precedence between the two stay future work. This direction is not part of the Admin screen-type acceptance and is not a runtime change.
+
+<a id="feat-025"></a>
+
+## FEAT-025: Return to `/learn` after sign-in
+
+- Status: Deferred (Owner, 2026-11-09) by [U3 plan](./implementation-plans/u3-auth-pages-redesign/plan.md) decision 14.
+- Direction: a signed-out learner whom a `/learn…` page sends to `/login` returns to that page after signing in, as U3 does for `/teacher`, `/profile` and `/admin`.
+- Why deferred: the `/learn` pages cannot write cookies while rendering, and the proxy cannot tell a production link prefetch from a navigation, while the header shows the "Học tập" link to every visitor. A design must prove on a production build that prefetch never records the path, and must keep U3 G1 (never read from the query).
+- Target program: [UI/UX design](./README.md).

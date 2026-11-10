@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VocaSpace Auth Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --canvas: #F8FAFC; --surface: #FFFFFF; --subtle: #F1F5F9; --border: #CBD5E1; --muted-border: #E2E8F0;
+    --ink: #0F172A; --text-2: #475569; --text-3: #64748B; --control-line: #64748B;
+    --route: #2563EB; --route-quiet: #EFF6FF; --route-line: #93C5FD;
+    --action: #2B6CED; --action-hover: #1D4ED8;
+    --recall: #0E7490; --recall-quiet: #ECFEFF; --recall-line: #A5F3FC;
+    --growth: #15803D; --growth-quiet: #F0FDF4; --growth-line: #86EFAC;
+    --attention: #A16207; --attention-quiet: #FFFBEB; --attention-line: #FCD34D;
+    --correction: #B91C1C; --correction-quiet: #FEF2F2; --correction-line: #FCA5A5;
+    --l1: 0 1px 2px rgba(15, 23, 42, 0.06); --l2: 0 8px 24px rgba(15, 23, 42, 0.10);
+    --ease: cubic-bezier(0.2, 0, 0, 1); --ease-earned: cubic-bezier(0.16, 1, 0.3, 1);
+    --font: "Plus Jakarta Sans", system-ui, sans-serif; --font-utility: "Geist", "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 22px; -webkit-font-smoothing: antialiased; }
+  html.rm *, html.rm *::before, html.rm *::after { transition: none !important; animation: none !important; }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: var(--route); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  svg.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  svg.i.s16 { width: 16px; height: 16px; }
+  :focus-visible { outline: 2px solid var(--route); outline-offset: 2px; }
+
+  /* Header (simplified copy of the current white header) */
+  .site-header { background: #fff; border-bottom: 1px solid var(--muted-border); }
+  .site-header .in { max-width: 1200px; margin: 0 auto; height: 64px; display: flex; align-items: center; gap: 32px; padding: 0 24px; }
+  .site-header img { height: 28px; width: auto; display: block; }
+  .site-header nav { display: flex; gap: 4px; flex: 1; }
+  .site-header nav a { color: var(--text-2); text-decoration: none; font-weight: 600; padding: 8px 12px; border-radius: 8px; }
+  .site-header nav a:hover { background: var(--subtle); color: var(--ink); }
+  .site-header .right { display: flex; gap: 8px; align-items: center; }
+  .hdr-link { color: var(--route); font-weight: 600; text-decoration: none; padding: 8px; }
+  .hdr-btn { background: var(--action); color: #fff; font-weight: 600; text-decoration: none; padding: 9px 16px; border-radius: 8px; }
+  .hdr-menu { display: none; width: 44px; height: 44px; border: 0; background: none; border-radius: 8px; color: var(--ink); align-items: center; justify-content: center; margin-left: auto; }
+  @media (max-width: 1023px) { .site-header nav, .site-header .right { display: none; } .hdr-menu { display: inline-flex; } .site-header .in { padding: 0 16px; } }
+
+  /* Shell */
+  .auth { max-width: 1200px; margin: 0 auto; padding: 32px 24px 140px; }
+  .shell { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 12px; background: var(--surface); border: 1px solid var(--muted-border); border-radius: 24px; box-shadow: var(--l1); padding: 12px; min-height: 660px; }
+  .form-col { padding: 28px 36px 28px; display: flex; justify-content: center; }
+  .form-inner { width: 100%; max-width: 408px; display: flex; flex-direction: column; }
+
+  /* Tabs: accepted tab grammar (icon + label, bottom indicator, no box) */
+  .tabs { position: relative; display: flex; border-bottom: 1px solid var(--muted-border); margin-bottom: 28px; }
+  .tab { flex: 1; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: none; color: var(--text-2); font-weight: 600; font-size: 14px; line-height: 20px; border-radius: 8px 8px 0 0; cursor: pointer; transition: background-color 160ms var(--ease), color 160ms var(--ease); }
+  .tab:hover { background: var(--subtle); color: var(--ink); }
+  .tab[aria-current="page"] { color: var(--route); }
+  .tab-ind { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--route); border-radius: 2px; transition: transform 420ms var(--ease-earned), width 420ms var(--ease-earned); }
+  .tabs[hidden] { display: none; }
+
+  /* Progression rail */
+  .rail-wrap[hidden] { display: none; }
+  .rail-wrap { margin-bottom: 26px; }
+  .rail-meta { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-2); margin: 0 0 12px; display: flex; justify-content: space-between; }
+  .rail-meta b { color: var(--route); font-weight: 600; }
+  .rail { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .rail li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+  .rail li::before { content: ""; position: absolute; top: 11px; right: 50%; width: 100%; height: 2px; background: var(--border); }
+  .rail li:first-child::before { display: none; }
+  .rail li::after { content: ""; position: absolute; top: 11px; right: 50%; width: 100%; height: 2px; background: var(--growth); transform-origin: left center; transform: scaleX(0); transition: transform 480ms var(--ease); }
+  .rail li:first-child::after { display: none; }
+  .rail li.done::after, .rail li.current::after { transform: scaleX(1); }
+  .dot { position: relative; z-index: 1; width: 24px; height: 24px; display: grid; place-items: center; }
+  .dot span { width: 12px; height: 12px; border-radius: 9999px; background: #fff; border: 2px solid var(--control-line); transition: all 300ms var(--ease); display: grid; place-items: center; }
+  .rail li.current .dot span { width: 16px; height: 16px; border-color: var(--route); box-shadow: 0 0 0 4px var(--route-quiet); background: #fff; }
+  .rail li.current .dot span::after { content: ""; width: 6px; height: 6px; border-radius: 9999px; background: var(--route); }
+  .rail li.done .dot span { width: 20px; height: 20px; border-color: var(--growth); background: var(--growth); }
+  .rail li.done .dot span svg { width: 12px; height: 12px; stroke: #fff; stroke-width: 3; fill: none; }
+  .rail li:not(.done) .dot svg { display: none; }
+  .rail .lbl { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; color: var(--text-3); }
+  .rail li.current .lbl { color: var(--route); }
+  .rail li.done .lbl { color: var(--text-2); }
+
+  /* Views */
+  .viewport { position: relative; }
+  .view[hidden] { display: none; }
+  .view h1 { font-size: 32px; line-height: 40px; font-weight: 800; letter-spacing: -0.015em; margin: 0 0 8px; outline: none; }
+  .view .lead { font-size: 16px; line-height: 26px; color: var(--text-2); margin: 0 0 24px; }
+  .back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--route); font-weight: 600; text-decoration: none; margin: -8px 0 12px; border-radius: 8px; background: none; border: 0; padding: 0; cursor: pointer; }
+  .back:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+  .stack { display: grid; gap: 18px; }
+  .field { display: grid; gap: 6px; }
+  .field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .field label, .field legend { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink); padding: 0; }
+  .opt { font-weight: 500; color: var(--text-3); }
+  .control { position: relative; }
+  .input { width: 100%; height: 44px; border: 1px solid var(--control-line); border-radius: 12px; background: #fff; padding: 0 14px; font-size: 16px; line-height: 24px; color: var(--ink); transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease); }
+  .input::placeholder { color: var(--text-3); }
+  .input:hover { border-color: var(--ink); }
+  .input:focus-visible { outline: 2px solid var(--route); outline-offset: 2px; border-color: var(--route); }
+  .input[aria-invalid="true"] { border-color: var(--correction); box-shadow: inset 0 0 0 1px var(--correction); }
+  .input.has-btn { padding-right: 52px; }
+  .eye { position: absolute; right: 2px; top: 2px; width: 40px; height: 40px; border: 0; background: none; border-radius: 10px; color: var(--text-2); display: grid; place-items: center; cursor: pointer; }
+  .eye:hover { background: var(--subtle); color: var(--ink); }
+  .hint { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-3); margin: 0; }
+  .err { display: flex; gap: 6px; align-items: flex-start; color: var(--correction); font-size: 13px; line-height: 18px; font-weight: 500; margin: 0; }
+  .err[hidden], .caps[hidden], .suggest[hidden] { display: none; }
+  .err svg { margin-top: 1px; }
+  .caps { display: flex; gap: 6px; align-items: center; color: var(--attention); font-size: 13px; line-height: 18px; font-weight: 600; margin: 0; }
+  .suggest { margin: 0; font-size: 13px; line-height: 18px; color: var(--text-2); display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+  .suggest button { border: 0; background: none; padding: 4px 2px; min-height: 28px; color: var(--route); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .row-end { display: flex; justify-content: flex-end; margin-top: -10px; }
+  .link { display: inline-flex; align-items: center; min-height: 44px; color: var(--route); font-weight: 600; text-decoration: none; border-radius: 8px; background: none; border: 0; padding: 0 2px; cursor: pointer; }
+  .link:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; background: var(--recall-quiet); color: var(--recall); border: 1px solid var(--recall-line); white-space: nowrap; }
+  .tag[hidden] { display: none; }
+
+  .btn { position: relative; width: 100%; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; font-size: 14px; line-height: 20px; font-weight: 600; cursor: pointer; border: 1px solid transparent; padding: 0 16px; transition: background-color 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease); text-decoration: none; }
+  .btn-primary { background: var(--action); color: #fff; }
+  .btn-primary:hover { background: var(--action-hover); }
+  .btn-primary.ok { background: var(--growth); }
+  .btn-outline { background: #fff; color: var(--ink); border-color: var(--control-line); }
+  .btn-outline:hover { background: var(--subtle); }
+  .btn[disabled], .btn[aria-disabled="true"] { cursor: not-allowed; }
+  .btn-primary[disabled]:not(.ok):not([aria-busy="true"]) { background: var(--muted-border); color: var(--text-2); }
+  .btn-outline[disabled] { color: var(--text-3); background: var(--subtle); }
+  .btn .lbl-inner { display: inline-flex; align-items: center; gap: 8px; }
+  .spin { animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .divider { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; margin: 4px 0; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--muted-border); }
+  .legal { text-align: center; font-size: 12px; line-height: 20px; color: var(--text-2); margin: 4px 0 0; }
+  .legal a { color: var(--route); text-underline-offset: 2px; }
+  .actions { display: grid; gap: 10px; }
+  .actions .link { justify-self: center; }
+
+  .notice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 22px; margin: 0 0 18px; border: 1px solid transparent; }
+  .notice svg { margin-top: 1px; }
+  .notice[hidden] { display: none; }
+  .notice.info { background: var(--route-quiet); color: var(--route); border-color: var(--route-line); }
+  .notice.error { background: var(--correction-quiet); color: var(--correction); border-color: var(--correction-line); }
+  .notice.recall { background: var(--recall-quiet); color: var(--recall); border-color: var(--recall-line); }
+  .notice .t { color: var(--ink); }
+
+  .radio-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .radio { position: relative; }
+  .radio input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .radio span { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 1px solid var(--control-line); border-radius: 12px; font-weight: 600; color: var(--text-2); transition: all 160ms var(--ease); }
+  .radio input:hover + span { background: var(--subtle); color: var(--ink); }
+  .radio input:checked + span { border-color: var(--route); background: var(--route-quiet); color: var(--route); box-shadow: inset 0 0 0 1px var(--route); }
+  .radio input:focus-visible + span { outline: 2px solid var(--route); outline-offset: 2px; }
+  .radio input:checked + span::before { content: ""; width: 8px; height: 8px; border-radius: 9999px; background: var(--route); }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  fieldset[aria-invalid="true"] .radio span { border-color: var(--correction); }
+
+  .avatar-pick { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 0 4px; }
+  .avatar { position: relative; width: 112px; height: 112px; border-radius: 9999px; border: 2px dashed var(--control-line); background: var(--subtle); display: grid; place-items: center; overflow: hidden; color: var(--text-3); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar svg.i { width: 36px; height: 36px; }
+  .avatar.has { border-style: solid; border-color: var(--route); }
+  .avatar-actions { display: flex; gap: 8px; }
+  .avatar-actions .btn { width: auto; }
+
+  .email-chip { display: block; padding: 10px 14px; border-radius: 12px; background: var(--subtle); font-weight: 700; font-size: 16px; line-height: 24px; word-break: break-all; margin: 4px 0 14px; }
+  .mail-anchor { width: 48px; height: 48px; border-radius: 9999px; display: grid; place-items: center; background: var(--route-quiet); color: var(--route); margin-bottom: 16px; }
+  .mail-anchor svg.i { width: 24px; height: 24px; }
+  .mail-anchor.ok { background: var(--growth-quiet); color: var(--growth); }
+  .demo-link { margin-top: 14px; border: 1px dashed #7C3AED; color: #6D28D9; background: #F5F3FF; border-radius: 8px; min-height: 40px; font-weight: 600; font-size: 13px; cursor: pointer; padding: 0 12px; }
+
+  .meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 2px; }
+  .meter i { height: 4px; border-radius: 9999px; background: var(--muted-border); transition: background-color 240ms var(--ease); }
+  .meter-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .meter-lbl { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; color: var(--text-3); }
+  .match { display: flex; gap: 6px; align-items: center; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--growth); margin: 0; }
+  .match[hidden] { display: none; }
+
+  /* Panel */
+  .panel { position: relative; background: var(--subtle); border-radius: 16px; padding: 28px 28px 26px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .panel-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .eyebrow { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--recall); margin: 0; }
+  .illus { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; color: var(--text-2); background: #fff; border: 1px solid var(--border); border-radius: 9999px; padding: 2px 10px; }
+  .chart-box { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; position: relative; }
+  #chart { width: 100%; height: auto; display: block; overflow: visible; }
+  #chart text { font-family: var(--font-utility); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; color: var(--text-2); }
+  .legend li { display: inline-flex; align-items: center; gap: 8px; }
+  .legend li[hidden] { display: none; }
+  .legend svg { width: 22px; height: 8px; }
+  .panel-bottom { display: block; }
+  .caption h2 { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 6px; }
+  .caption .stage { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.04em; color: var(--route); margin: 0 0 6px; }
+  .caption .stage:empty { display: none; }
+  .caption p { font-size: 16px; line-height: 26px; color: var(--text-2); margin: 0; max-width: 46ch; }
+
+  .flash { position: relative; width: 196px; height: 120px; perspective: 900px; margin-bottom: 8px; }
+  .flash::after { content: ""; position: absolute; left: var(--stem, 50%); top: 100%; height: var(--stemh, 18px); border-left: 2px dashed #94A3B8; transform: translateX(-1px); }
+  .flash[hidden] { display: none; }
+  .flash-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 640ms var(--ease); }
+  .flash.flipped .flash-inner { transform: rotateY(180deg); }
+  .face { position: absolute; inset: 0; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--l2); }
+  .face.front { background: #fff; border: 1px solid var(--border); }
+  .face.back { background: var(--ink); color: #fff; transform: rotateY(180deg); }
+  .face .k { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; color: var(--recall); letter-spacing: 0.04em; }
+  .face .w { font-size: 22px; line-height: 28px; font-weight: 800; letter-spacing: -0.01em; }
+  .face .ipa { font-family: var(--font-utility); font-size: 13px; line-height: 16px; color: var(--text-2); font-weight: 500; }
+  .face.back .bt { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 14px; line-height: 20px; }
+  .face.back .bs { font-size: 12px; line-height: 18px; color: #CBD5E1; }
+
+  /* Demo controls: review chrome, not product UI */
+  .demo { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; width: min(1100px, calc(100% - 32px)); background: #1E1B4B; color: #E0E7FF; border-radius: 14px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28); font-family: var(--font-utility); font-size: 12px; line-height: 16px; }
+  .demo summary { cursor: pointer; padding: 10px 14px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+  .demo summary::-webkit-details-marker { display: none; }
+  .demo .body { display: flex; flex-wrap: wrap; gap: 10px 18px; padding: 0 14px 12px; align-items: center; }
+  .demo .grp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .demo .grp > span { color: #A5B4FC; font-weight: 600; margin-right: 2px; }
+  .demo button, .demo select { background: #312E81; color: #fff; border: 1px solid #4338CA; border-radius: 8px; min-height: 32px; padding: 0 10px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; }
+  .demo button[aria-pressed="true"] { background: #fff; color: #1E1B4B; border-color: #fff; }
+  .demo label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; min-height: 32px; }
+  .demo input[type="checkbox"] { width: 16px; height: 16px; accent-color: #A5B4FC; }
+
+  @media (max-width: 959px) {
+    .auth { padding: 16px 16px 120px; }
+    .shell { grid-template-columns: minmax(0, 1fr); padding: 8px; min-height: 0; gap: 4px; border-radius: 20px; }
+    .panel { order: -1; padding: 14px 16px 12px; gap: 6px; }
+    .panel-top .illus { display: none; }
+    .legend, .caption p, .flash { display: none !important; }
+    .panel-bottom { display: block; }
+    .caption h2 { font-size: 16px; line-height: 24px; margin: 0; }
+    .caption .stage { display: none; }
+    .form-col { padding: 20px 12px 16px; }
+    .view h1 { font-size: 28px; line-height: 36px; }
+    .view .lead { font-size: 15px; line-height: 24px; margin-bottom: 20px; }
+    .demo { bottom: 8px; width: calc(100% - 16px); }
+  }
+  @media (max-width: 380px) { .rail .lbl { font-size: 11px; } .radio-row { gap: 6px; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></symbol>
+  <symbol id="i-login" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></symbol>
+  <symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-mail-check" viewBox="0 0 24 24"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></symbol>
+  <symbol id="i-triangle" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+  <symbol id="i-loader" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></symbol>
+</svg>
+
+<header class="site-header">
+  <div class="in">
+    <a href="#" aria-label="VocaSpace, trang chủ"><img src="../../../../../../public/brand/vocaspace-logo.svg" alt="VocaSpace" width="587" height="117"></a>
+    <nav aria-label="Điều hướng chính"><a href="#">Trang chủ</a><a href="#">Khóa học</a></nav>
+    <div class="right"><a class="hdr-link" href="#" data-go="login">Đăng nhập</a><a class="hdr-btn" href="#" data-go="reg1">Đăng ký ngay</a></div>
+    <button class="hdr-menu" type="button" aria-label="Mở menu"><svg class="i"><use href="#i-menu"/></svg></button>
+  </div>
+</header>
+
+<main class="auth">
+  <div class="shell">
+    <section class="form-col">
+      <div class="form-inner">
+        <nav class="tabs" id="tabs" aria-label="Đăng nhập hoặc đăng ký">
+          <button class="tab" type="button" data-go="login" aria-current="page"><svg class="i"><use href="#i-login"/></svg>Đăng nhập</button>
+          <button class="tab" type="button" data-go="reg1"><svg class="i"><use href="#i-user-plus"/></svg>Đăng ký</button>
+          <span class="tab-ind" id="tabInd" aria-hidden="true"></span>
+        </nav>
+
+        <div class="rail-wrap" id="railWrap" hidden>
+          <p class="rail-meta"><span id="railText">Bước 1/5</span><b id="railName">Tài khoản</b></p>
+          <ol class="rail" id="rail" aria-label="Tiến trình đăng ký">
+            <li><span class="dot"><span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span></span><span class="lbl">Tài khoản</span></li>
+            <li><span class="dot"><span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span></span><span class="lbl">Thông tin</span></li>
+            <li><span class="dot"><span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span></span><span class="lbl">Ảnh</span></li>
+            <li><span class="dot"><span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span></span><span class="lbl">Xác minh</span></li>
+            <li><span class="dot"><span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span></span><span class="lbl">Mật khẩu</span></li>
+          </ol>
+        </div>
+
+        <div class="viewport" id="viewport">
+
+          <!-- LOGIN -->
+          <section class="view" id="v-login" aria-labelledby="h-login">
+            <h1 id="h-login" tabindex="-1">Chào mừng trở lại</h1>
+            <p class="lead">Đăng nhập để học tiếp đúng chỗ bạn đã dừng.</p>
+            <p class="notice info" id="reasonNotice" role="status" hidden><svg class="i"><use href="#i-info"/></svg><span>Vui lòng đăng nhập để tiếp tục. Xong bước này, bạn sẽ quay lại trang vừa xem.</span></p>
+            <p class="notice error" id="loginError" role="alert" hidden><svg class="i"><use href="#i-alert"/></svg><span>Sai email hoặc mật khẩu! Kiểm tra lại rồi thử lần nữa.</span></p>
+
+            <div id="googleFirst" hidden>
+              <div class="actions" style="margin-bottom:14px">
+                <button class="btn btn-outline google-btn" type="button"></button>
+              </div>
+              <div class="divider" style="margin-bottom:14px">hoặc dùng email</div>
+            </div>
+
+            <form id="f-login" class="stack" novalidate>
+              <div class="field">
+                <div class="field-head"><label for="l-email">Email</label><span class="tag" id="lastEmailTag" hidden><svg class="i s16" style="width:12px;height:12px"><use href="#i-history"/></svg>Lần trước</span></div>
+                <input class="input" id="l-email" type="email" autocomplete="email" inputmode="email" placeholder="ban@example.com" aria-describedby="l-email-err l-email-sug">
+                <p class="err" id="l-email-err" hidden></p>
+                <p class="suggest" id="l-email-sug" aria-live="polite" hidden></p>
+              </div>
+              <div class="field">
+                <label for="l-pass">Mật khẩu</label>
+                <div class="control">
+                  <input class="input has-btn" id="l-pass" type="password" autocomplete="current-password" aria-describedby="l-pass-err l-pass-caps">
+                  <button class="eye" type="button" data-eye="l-pass" aria-label="Hiện mật khẩu" aria-pressed="false"><svg class="i"><use href="#i-eye"/></svg></button>
+                </div>
+                <p class="caps" id="l-pass-caps" hidden><svg class="i s16"><use href="#i-triangle"/></svg>Caps Lock đang bật</p>
+                <p class="err" id="l-pass-err" hidden></p>
+              </div>
+              <div class="row-end"><button class="link" type="button" data-go="forgot">Quên mật khẩu?</button></div>
+              <div class="actions">
+                <button class="btn btn-primary" id="loginBtn" type="submit"><span class="lbl-inner">Đăng nhập<svg class="i"><use href="#i-chevron-right"/></svg></span></button>
+                <p class="hint" id="loginAfter" role="status" style="text-align:center" hidden></p>
+              </div>
+            </form>
+
+            <div id="googleLast">
+              <div class="divider" style="margin:18px 0 14px">hoặc</div>
+              <div class="actions"><button class="btn btn-outline google-btn" type="button"></button></div>
+            </div>
+            <p class="legal" style="margin-top:16px">Bằng việc tiếp tục, bạn xác nhận đã đủ 16 tuổi và đồng ý với <a href="#">Điều khoản sử dụng</a> và <a href="#">Chính sách quyền riêng tư</a> của VocaSpace.</p>
+          </section>
+
+          <!-- REGISTER 1 -->
+          <section class="view" id="v-reg1" aria-labelledby="h-reg1" hidden>
+            <h1 id="h-reg1" tabindex="-1">Tạo tài khoản</h1>
+            <p class="lead">Chỉ khoảng một phút. Mật khẩu sẽ được đặt sau khi bạn xác minh email.</p>
+            <form id="f-reg1" class="stack" novalidate>
+              <div class="field">
+                <label for="r-user">Tên tài khoản</label>
+                <input class="input" id="r-user" type="text" autocomplete="username" aria-describedby="r-user-hint r-user-err">
+                <p class="hint" id="r-user-hint">Ít nhất 3 ký tự.</p>
+                <p class="err" id="r-user-err" hidden></p>
+              </div>
+              <div class="field">
+                <label for="r-email">Email</label>
+                <input class="input" id="r-email" type="email" autocomplete="email" inputmode="email" placeholder="ban@example.com" aria-describedby="r-email-hint r-email-err r-email-sug">
+                <p class="hint" id="r-email-hint">Link xác minh sẽ được gửi tới email này.</p>
+                <p class="err" id="r-email-err" hidden></p>
+                <p class="suggest" id="r-email-sug" aria-live="polite" hidden></p>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" type="submit"><span class="lbl-inner">Tiếp tục<svg class="i"><use href="#i-chevron-right"/></svg></span></button>
+              </div>
+            </form>
+            <div class="divider" style="margin:18px 0 14px">hoặc</div>
+            <div class="actions"><button class="btn btn-outline google-btn" type="button"></button></div>
+            <p class="legal" style="margin-top:16px">Bằng việc tiếp tục, bạn xác nhận đã đủ 16 tuổi và đồng ý với <a href="#">Điều khoản sử dụng</a> và <a href="#">Chính sách quyền riêng tư</a> của VocaSpace.</p>
+          </section>
+
+          <!-- REGISTER 2 -->
+          <section class="view" id="v-reg2" aria-labelledby="h-reg2" hidden>
+            <h1 id="h-reg2" tabindex="-1">Thông tin của bạn</h1>
+            <p class="lead">Dùng cho hồ sơ học viên của bạn.</p>
+            <form id="f-reg2" class="stack" novalidate>
+              <div class="field">
+                <label for="r-name">Họ và tên</label>
+                <input class="input" id="r-name" type="text" autocomplete="name" aria-describedby="r-name-err">
+                <p class="err" id="r-name-err" hidden></p>
+              </div>
+              <div class="field">
+                <label for="r-phone">Số điện thoại</label>
+                <input class="input" id="r-phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0901234567" aria-describedby="r-phone-err">
+                <p class="err" id="r-phone-err" hidden></p>
+              </div>
+              <div class="field">
+                <label for="r-dob">Ngày sinh</label>
+                <input class="input" id="r-dob" type="date" min="1900-01-01" aria-describedby="r-dob-err">
+                <p class="err" id="r-dob-err" hidden></p>
+              </div>
+              <fieldset class="field" id="r-gender" aria-describedby="r-gender-err">
+                <legend>Giới tính</legend>
+                <div class="radio-row">
+                  <label class="radio"><input type="radio" name="gender" value="male"><span>Nam</span></label>
+                  <label class="radio"><input type="radio" name="gender" value="female"><span>Nữ</span></label>
+                  <label class="radio"><input type="radio" name="gender" value="other"><span>Khác</span></label>
+                </div>
+                <p class="err" id="r-gender-err" hidden></p>
+              </fieldset>
+              <div class="actions">
+                <button class="btn btn-primary" type="submit"><span class="lbl-inner">Tiếp tục<svg class="i"><use href="#i-chevron-right"/></svg></span></button>
+                <button class="link" type="button" data-go="reg1" data-dir="-1">Quay lại</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- REGISTER 3 -->
+          <section class="view" id="v-reg3" aria-labelledby="h-reg3" hidden>
+            <h1 id="h-reg3" tabindex="-1">Ảnh đại diện</h1>
+            <p class="lead">Không bắt buộc. Bạn có thể thêm hoặc đổi sau trong hồ sơ.</p>
+            <form id="f-reg3" class="stack" novalidate>
+              <div class="avatar-pick">
+                <div class="avatar" id="avatar"><svg class="i"><use href="#i-camera"/></svg></div>
+                <input type="file" id="r-avatar" accept="image/*" class="sr-only">
+                <div class="avatar-actions">
+                  <label for="r-avatar" class="btn btn-outline" id="pickLbl" tabindex="0" role="button">Chọn ảnh</label>
+                  <button type="button" class="btn btn-outline" id="clearAvatar" hidden>Bỏ ảnh</button>
+                </div>
+              </div>
+              <p class="notice error" id="regError" role="alert" hidden><svg class="i"><use href="#i-alert"/></svg><span>Đăng ký chưa thành công, vui lòng thử lại.</span></p>
+              <div class="actions">
+                <button class="btn btn-primary" id="createBtn" type="submit"><span class="lbl-inner">Tạo tài khoản</span></button>
+                <button class="link" type="button" data-go="reg2" data-dir="-1">Quay lại</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- REGISTER 4: check email -->
+          <section class="view" id="v-reg4" aria-labelledby="h-reg4" hidden>
+            <div class="mail-anchor"><svg class="i"><use href="#i-mail-check"/></svg></div>
+            <h1 id="h-reg4" tabindex="-1">Kiểm tra email của bạn</h1>
+            <p class="lead" style="margin-bottom:4px">Chúng tôi đã gửi link xác minh tới</p>
+            <span class="email-chip" id="sentEmail">lan.nguyen@gmail.com</span>
+            <p class="lead" style="font-size:14px;line-height:22px;margin-bottom:20px">Bấm link trong email để xác minh, rồi đặt mật khẩu ở chặng cuối.</p>
+            <div class="actions">
+              <a class="btn btn-primary" id="openMail" href="#" target="_blank" rel="noopener"><span class="lbl-inner">Mở Gmail<svg class="i s16"><use href="#i-external"/></svg></span></a>
+              <button class="btn btn-outline" id="resendBtn" type="button">Gửi lại email</button>
+              <p class="hint" id="resendMsg" role="status" style="text-align:center" hidden></p>
+              <button class="link" type="button" data-go="reg1" data-dir="-1">Sửa thông tin đăng ký</button>
+            </div>
+            <p class="hint" style="text-align:center;margin-top:6px">Không thấy email? Xem thư mục Spam hoặc gửi lại sau ít phút.</p>
+            <button class="demo-link" type="button" data-go="reg5">Demo: mô phỏng bấm link xác minh →</button>
+          </section>
+
+          <!-- REGISTER 5: set password -->
+          <section class="view" id="v-reg5" aria-labelledby="h-reg5" hidden>
+            <h1 id="h-reg5" tabindex="-1">Đặt mật khẩu</h1>
+            <p class="lead">Email đã được xác minh. Đặt mật khẩu để lần sau đăng nhập bằng email.</p>
+            <form id="f-reg5" class="stack" novalidate>
+              <div class="field">
+                <label for="s-pass">Mật khẩu mới</label>
+                <div class="control">
+                  <input class="input has-btn" id="s-pass" type="password" autocomplete="new-password" aria-describedby="s-pass-meter s-pass-caps s-pass-err">
+                  <button class="eye" type="button" data-eye="s-pass" aria-label="Hiện mật khẩu" aria-pressed="false"><svg class="i"><use href="#i-eye"/></svg></button>
+                </div>
+                <div id="s-pass-meter">
+                  <div class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                  <div class="meter-row" style="margin-top:6px"><span class="hint">Ít nhất 6 ký tự.</span><span class="meter-lbl" id="meterLbl" aria-live="polite"></span></div>
+                </div>
+                <p class="caps" id="s-pass-caps" hidden><svg class="i s16"><use href="#i-triangle"/></svg>Caps Lock đang bật</p>
+                <p class="err" id="s-pass-err" hidden></p>
+              </div>
+              <div class="field">
+                <label for="s-confirm">Nhập lại mật khẩu</label>
+                <div class="control">
+                  <input class="input has-btn" id="s-confirm" type="password" autocomplete="new-password" aria-describedby="s-confirm-err s-match">
+                  <button class="eye" type="button" data-eye="s-confirm" aria-label="Hiện mật khẩu" aria-pressed="false"><svg class="i"><use href="#i-eye"/></svg></button>
+                </div>
+                <p class="match" id="s-match" hidden><svg class="i s16"><use href="#i-check"/></svg>Hai mật khẩu đã khớp</p>
+                <p class="err" id="s-confirm-err" hidden></p>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" id="savePwBtn" type="submit"><span class="lbl-inner">Lưu mật khẩu</span></button>
+              </div>
+            </form>
+          </section>
+
+          <!-- DONE -->
+          <section class="view" id="v-done" aria-labelledby="h-done" hidden>
+            <div class="mail-anchor ok"><svg class="i"><use href="#i-check"/></svg></div>
+            <h1 id="h-done" tabindex="-1">Tài khoản đã sẵn sàng</h1>
+            <p class="lead">Đã lưu mật khẩu và đăng nhập cho bạn.</p>
+            <p class="hint" role="status">Đang chuyển tới trang chủ…</p>
+            <button class="demo-link" type="button" data-go="login" data-dir="-1">Demo: quay lại từ đầu</button>
+          </section>
+
+          <!-- FORGOT -->
+          <section class="view" id="v-forgot" aria-labelledby="h-forgot" hidden>
+            <button class="back" type="button" data-go="login" data-dir="-1"><svg class="i s16"><use href="#i-arrow-left"/></svg>Quay lại đăng nhập</button>
+            <h1 id="h-forgot" tabindex="-1">Quên mật khẩu?</h1>
+            <p class="lead">Nhập email tài khoản VocaSpace, chúng tôi sẽ gửi link để bạn đặt mật khẩu mới.</p>
+            <p class="notice recall" id="forgotSent" role="status" hidden><svg class="i"><use href="#i-mail-check"/></svg><span class="t">Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé.</span></p>
+            <form id="f-forgot" class="stack" novalidate>
+              <div class="field">
+                <label for="fp-email">Email</label>
+                <input class="input" id="fp-email" type="email" autocomplete="email" inputmode="email" placeholder="ban@example.com" aria-describedby="fp-email-err fp-email-sug">
+                <p class="err" id="fp-email-err" hidden></p>
+                <p class="suggest" id="fp-email-sug" aria-live="polite" hidden></p>
+              </div>
+              <div class="actions">
+                <button class="btn btn-primary" id="forgotBtn" type="submit"><span class="lbl-inner">Gửi link đặt lại</span></button>
+                <a class="btn btn-outline" id="forgotOpenMail" href="#" target="_blank" rel="noopener" hidden><span class="lbl-inner">Mở Gmail<svg class="i s16"><use href="#i-external"/></svg></span></a>
+              </div>
+            </form>
+          </section>
+
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Minh hoạ cách VocaSpace xếp lịch ôn">
+      <div class="panel-top">
+        <p class="eyebrow">Đường cong ghi nhớ</p>
+        <span class="illus">Minh hoạ</span>
+      </div>
+      <div class="chart-box">
+        <div class="flash" id="flash" aria-hidden="true">
+          <div class="flash-inner">
+            <div class="face front"><span class="k">THẺ TỪ</span><span><span class="w" style="display:block">remember</span><span class="ipa">/rɪˈmem.bər/ · ghi nhớ</span></span></div>
+            <div class="face back"><span class="bt"><svg class="i s16"><use href="#i-lock"/></svg>Không nhìn trộm đâu</span><span class="bs">Thẻ quay mặt đi khi bạn gõ mật khẩu.</span></div>
+          </div>
+        </div>
+        <svg id="chart" viewBox="0 0 560 270" role="img" aria-labelledby="chartTitle">
+          <title id="chartTitle">Minh hoạ: mỗi lần ôn đúng lúc sắp quên kéo mức nhớ trở lại gần 100%, và khoảng cách giữa các lần ôn dài dần.</title>
+          <g id="chartGrid"></g>
+          <g id="chartData"></g>
+        </svg>
+      </div>
+      <ul class="legend" id="legend">
+        <li id="lgSolid"><svg viewBox="0 0 22 8"><line x1="1" y1="4" x2="21" y2="4" stroke="#0E7490" stroke-width="2.5" stroke-linecap="round"/></svg>Ôn theo lịch FSRS</li>
+        <li id="lgGhost"><svg viewBox="0 0 22 8"><line x1="1" y1="4" x2="21" y2="4" stroke="#64748B" stroke-width="2" stroke-dasharray="3 3"/></svg>Không ôn lại</li>
+        <li><svg viewBox="0 0 22 8"><line x1="1" y1="4" x2="21" y2="4" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="4 3"/></svg>Ngưỡng ôn 90%</li>
+        <li id="lgLapse" hidden><svg viewBox="0 0 22 8"><line x1="1" y1="4" x2="21" y2="4" stroke="#A16207" stroke-width="2.5" stroke-linecap="round"/></svg>Lâu không ôn</li>
+      </ul>
+      <div class="panel-bottom">
+        <div class="caption" id="caption" aria-live="polite">
+          <p class="stage" id="capStage"></p>
+          <h2 id="capTitle">Ôn đúng lúc sắp quên.</h2>
+          <p id="capText"></p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<details class="demo" id="demo" open>
+  <summary><span>Bảng điều khiển demo (không thuộc giao diện thật)</span><span aria-hidden="true">▾</span></summary>
+  <div class="body">
+    <div class="grp"><span>Màn</span>
+      <button type="button" data-demo-go="login">Đăng nhập</button>
+      <button type="button" data-demo-go="reg1">Đăng ký</button>
+      <button type="button" data-demo-go="reg4">Kiểm tra email</button>
+      <button type="button" data-demo-go="forgot">Quên mật khẩu</button>
+      <button type="button" data-demo-go="reg5">Đặt mật khẩu</button>
+    </div>
+    <div class="grp"><span>Tình huống</span>
+      <label><input type="checkbox" id="dWrong">Sai mật khẩu</label>
+      <label><input type="checkbox" id="dReason">Đến từ trang cần đăng nhập</label>
+      <label>Lần trước <select id="dLast"><option value="">Chưa có</option><option value="email">Email</option><option value="google">Google</option></select></label>
+      <label><input type="checkbox" id="dRm">Giảm chuyển động</label>
+      <button type="button" id="dReplay">Phát lại đường cong</button>
+    </div>
+  </div>
+</details>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const mq = matchMedia('(prefers-reduced-motion: reduce)');
+  const st = { view: 'login', reduced: mq.matches, forgotSent: false, wrong: false, reason: false, last: '' };
+  const reduced = () => st.reduced;
+  const ORDER = { forgot: -1, login: 0, reg1: 1, reg2: 2, reg3: 3, reg4: 4, reg5: 5, done: 6 };
+
+  /* ---------- Google buttons (one markup, three places) ---------- */
+  const G = '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+  function renderGoogle() {
+    $$('.google-btn').forEach(b => {
+      b.innerHTML = G + '<span>Tiếp tục với Google</span>' + (st.last === 'google' ? '<span class="tag" style="margin-left:4px">Lần trước</span>' : '');
+    });
+    $('#googleFirst').hidden = st.last !== 'google';
+    $('#googleLast').hidden = st.last === 'google';
+    $('#lastEmailTag').hidden = st.last !== 'email';
+  }
+
+  /* ---------- Chart: FSRS power forgetting curve R = (1 + 19/81 · t/S)^-0.5 ---------- */
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const C = { x0: 58, x1: 530, yTop: 22, yBot: 232, rMin: 0.25, T: 45 };
+  const X = t => C.x0 + Math.log1p(2 * t) / Math.log1p(2 * C.T) * (C.x1 - C.x0);
+  const Y = r => C.yBot - (r - C.rMin) / (1 - C.rMin) * (C.yBot - C.yTop);
+  const R = (dt, s) => Math.pow(1 + 19 / 81 * dt / s, -0.5);
+  const REV = [0, 1, 3, 7, 30], STAB = [1, 2, 4, 23, 60];
+  const TICKS = ['Hôm nay', '1 ngày', '3 ngày', '1 tuần', '1 tháng'];
+  const COL = { recall: '#0E7490', route: '#2563EB', growth: '#15803D', attention: '#A16207', slate: '#64748B', border: '#CBD5E1', muted: '#E2E8F0' };
+  const f = n => n.toFixed(1);
+  function decay(t0, t1, s, dt0 = 0) {
+    let d = '';
+    for (let k = 0; k <= 56; k++) { const t = t0 + (t1 - t0) * k / 56; d += (k ? ' L' : 'M') + f(X(t)) + ',' + f(Y(R(t - t0 + dt0, s))); }
+    return d;
+  }
+  const seg = i => { const t1 = i < 4 ? REV[i + 1] : C.T; return decay(REV[i], t1, STAB[i]) + (i < 4 ? ` L${f(X(t1))},${f(Y(1))}` : ''); };
+  const areaOf = i => { const t1 = i < 4 ? REV[i + 1] : C.T; return decay(REV[i], t1, STAB[i]) + ` L${f(X(t1))},${f(Y(C.rMin))} L${f(X(REV[i]))},${f(Y(C.rMin))} Z`; };
+
+  function drawGrid() {
+    const g = $('#chartGrid'); g.innerHTML = '';
+    const add = (tag, a, txt) => { const e = document.createElementNS(SVGNS, tag); for (const k in a) e.setAttribute(k, a[k]); if (txt) e.textContent = txt; g.appendChild(e); return e; };
+    add('line', { x1: C.x0, x2: C.x1, y1: Y(1), y2: Y(1), stroke: COL.muted, 'stroke-width': 1 });
+    add('line', { x1: C.x0, x2: C.x1, y1: Y(0.9), y2: Y(0.9), stroke: COL.border, 'stroke-width': 1, 'stroke-dasharray': '4 4' });
+    add('line', { x1: C.x0, x2: C.x1, y1: Y(0.6), y2: Y(0.6), stroke: COL.muted, 'stroke-width': 1 });
+    add('line', { x1: C.x0, x2: C.x1, y1: C.yBot, y2: C.yBot, stroke: COL.border, 'stroke-width': 1 });
+    add('text', { x: C.x0 - 10, y: Y(1) + 5, 'text-anchor': 'end', 'font-size': 14, fill: COL.slate, 'font-weight': 600 }, '100%');
+    add('text', { x: C.x0 - 10, y: Y(0.6) + 5, 'text-anchor': 'end', 'font-size': 14, fill: COL.slate, 'font-weight': 600 }, '60%');
+    REV.forEach((t, i) => {
+      add('line', { x1: X(t), x2: X(t), y1: C.yBot, y2: C.yBot + 6, stroke: COL.border });
+      add('text', { x: X(t), y: C.yBot + 28, 'text-anchor': i === 0 ? 'start' : 'middle', 'font-size': 15, fill: '#475569', 'font-weight': 600, class: 'tick', 'data-i': i }, TICKS[i]);
+    });
+  }
+
+  // Each variant is a list of keyed items; only keys that were not on screen before animate.
+  function spec(v) {
+    const items = [];
+    const ghost = () => items.push({ key: 'ghost', type: 'ghost', d: decay(0, C.T, STAB[0]) });
+    const segs = n => { for (let i = 0; i < n; i++) { items.push({ key: 'a' + i, type: 'area', d: areaOf(i) }); items.push({ key: 's' + i, type: 'seg', d: seg(i) }); items.push({ key: 'n' + (i + 1) + (i + 1 === 4 && v === 'reg-done' ? 'g' : ''), type: 'node', t: i < 4 ? REV[i + 1] : null, r: 1, i: i + 1 }); } };
+    const node0 = () => items.unshift({ key: 'n0', type: 'node', t: 0, r: 1, i: 0 });
+    if (v === 'login') { ghost(); segs(4); items.push({ key: 'a4', type: 'area', d: areaOf(4) }, { key: 's4', type: 'seg', d: seg(4) }); node0(); }
+    else if (v.startsWith('reg-')) {
+      const k = v === 'reg-done' ? 5 : +v.slice(4);
+      segs(k - 1); node0();
+      if (v === 'reg-done') items.push({ key: 'a4', type: 'area', d: areaOf(4) }, { key: 's4', type: 'seg', d: seg(4) });
+      else { const i = k - 1, t1 = i < 4 ? REV[i + 1] : C.T; items.push({ key: 'p' + i, type: 'preview', d: decay(REV[i], t1, STAB[i]) }); }
+    } else if (v === 'forgot' || v === 'forgot-sent') {
+      segs(2); node0();
+      const tL = 30, rL = R(tL - 3, STAB[2]);
+      items.push({ key: 'lapse', type: 'lapse', d: decay(3, tL, STAB[2]) });
+      items.push({ key: 'low', type: 'low', x: X(tL), y: Y(rL) });
+      if (v === 'forgot-sent') {
+        items.push({ key: 'jump', type: 'jump', d: `M${f(X(tL))},${f(Y(rL))} L${f(X(tL))},${f(Y(1))}` });
+        items.push({ key: 'relearn', type: 'relearn', x: X(tL), y: Y(1) });
+        items.push({ key: 'after', type: 'seg', d: decay(tL, C.T, STAB[4]) });
+      }
+    }
+    return items;
+  }
+
+  const chart = { keys: new Set(), variant: null };
+  function nodeStyle(it, v) {
+    const k = v.startsWith('reg-') && v !== 'reg-done' ? +v.slice(4) - 1 : -1;
+    if (v === 'reg-done' && it.i === 4) return { fill: COL.growth, stroke: COL.growth, r: 7 };
+    if (it.i === k) return { fill: '#fff', stroke: COL.route, r: 7, halo: true };
+    if (v === 'login' && it.i === 4) return { fill: '#fff', stroke: COL.route, r: 6 };
+    return { fill: '#fff', stroke: COL.recall, r: 5 };
+  }
+  function drawChart(v, animate = true) {
+    const g = $('#chartData');
+    const items = spec(v);
+    const fresh = animate && !reduced();
+    g.innerHTML = '';
+    let cursor = 120;
+    const mk = (tag, a) => { const e = document.createElementNS(SVGNS, tag); for (const k in a) e.setAttribute(k, a[k]); g.appendChild(e); return e; };
+    const lastIdx = (() => { if (!v.startsWith('reg-') || v === 'reg-done') return -1; return +v.slice(4) - 1; })();
+    // Ticks: emphasise only reached marks.
+    const reached = v === 'login' || v === 'reg-done' ? 4 : v.startsWith('reg-') ? lastIdx : 2;
+    $$('#chartGrid .tick').forEach(t => t.setAttribute('fill', +t.dataset.i <= reached ? '#0F172A' : '#64748B'));
+    items.forEach(it => {
+      const isNew = !chart.keys.has(it.key);
+      let el;
+      if (it.type === 'area') el = mk('path', { d: it.d, fill: 'rgba(14,116,144,0.08)', stroke: 'none' });
+      if (it.type === 'ghost') el = mk('path', { d: it.d, fill: 'none', stroke: COL.slate, 'stroke-width': 1.75, 'stroke-dasharray': '4 5', opacity: 0.9 });
+      if (it.type === 'preview') el = mk('path', { d: it.d, fill: 'none', stroke: '#94A3B8', 'stroke-width': 2, 'stroke-dasharray': '2 6', 'stroke-linecap': 'round' });
+      if (it.type === 'seg') el = mk('path', { d: it.d, fill: 'none', stroke: COL.recall, 'stroke-width': 2.75, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+      if (it.type === 'lapse') el = mk('path', { d: it.d, fill: 'none', stroke: COL.attention, 'stroke-width': 2.75, 'stroke-linecap': 'round' });
+      if (it.type === 'jump') el = mk('path', { d: it.d, fill: 'none', stroke: COL.route, 'stroke-width': 2.75, 'stroke-linecap': 'round' });
+      if (it.type === 'node') {
+        if (it.t === null) return;
+        const s = nodeStyle(it, v);
+        el = mk('g', {});
+        if (s.halo) { const h = document.createElementNS(SVGNS, 'circle'); h.setAttribute('cx', X(it.t)); h.setAttribute('cy', Y(1)); h.setAttribute('r', 13); h.setAttribute('fill', '#EFF6FF'); h.setAttribute('stroke', '#93C5FD'); el.appendChild(h); }
+        const c = document.createElementNS(SVGNS, 'circle'); c.setAttribute('cx', X(it.t)); c.setAttribute('cy', Y(1)); c.setAttribute('r', s.r); c.setAttribute('fill', s.fill); c.setAttribute('stroke', s.stroke); c.setAttribute('stroke-width', 2.5); el.appendChild(c);
+        if (s.fill === COL.growth) { const p = document.createElementNS(SVGNS, 'path'); const cx = X(it.t), cy = Y(1); p.setAttribute('d', `M${cx - 3.2},${cy} L${cx - 0.8},${cy + 2.4} L${cx + 3.4},${cy - 2.4}`); p.setAttribute('stroke', '#fff'); p.setAttribute('stroke-width', 2); p.setAttribute('fill', 'none'); p.setAttribute('stroke-linecap', 'round'); el.appendChild(p); }
+      }
+      if (it.type === 'low') {
+        el = mk('g', {});
+        const c = document.createElementNS(SVGNS, 'circle'); c.setAttribute('cx', it.x); c.setAttribute('cy', it.y); c.setAttribute('r', 5); c.setAttribute('fill', '#fff'); c.setAttribute('stroke', COL.attention); c.setAttribute('stroke-width', 2.5); el.appendChild(c);
+        const t = document.createElementNS(SVGNS, 'text'); t.setAttribute('x', it.x - 10); t.setAttribute('y', it.y + 22); t.setAttribute('text-anchor', 'end'); t.setAttribute('font-size', 12); t.setAttribute('font-weight', 600); t.setAttribute('fill', COL.attention); t.textContent = 'Quên dần'; el.appendChild(t);
+      }
+      if (it.type === 'relearn') {
+        el = mk('g', {});
+        const h = document.createElementNS(SVGNS, 'circle'); h.setAttribute('cx', it.x); h.setAttribute('cy', it.y); h.setAttribute('r', 13); h.setAttribute('fill', '#EFF6FF'); h.setAttribute('stroke', '#93C5FD'); el.appendChild(h);
+        const c = document.createElementNS(SVGNS, 'circle'); c.setAttribute('cx', it.x); c.setAttribute('cy', it.y); c.setAttribute('r', 7); c.setAttribute('fill', '#fff'); c.setAttribute('stroke', COL.route); c.setAttribute('stroke-width', 2.5); el.appendChild(c);
+        const t = document.createElementNS(SVGNS, 'text'); t.setAttribute('x', it.x - 18); t.setAttribute('y', it.y - 10); t.setAttribute('text-anchor', 'end'); t.setAttribute('font-size', 12); t.setAttribute('font-weight', 700); t.setAttribute('fill', COL.route); t.textContent = 'Ôn lại'; el.appendChild(t);
+      }
+      if (!el || !fresh || !isNew) return;
+      // Orchestrated draw: strokes trace in order, nodes land when their stroke arrives.
+      if (['seg', 'lapse', 'jump'].includes(it.type)) {
+        const len = el.getTotalLength ? el.getTotalLength() : 0;
+        const dur = it.type === 'lapse' ? 1100 : it.type === 'jump' ? 380 : 520;
+        if (len) {
+          el.style.strokeDasharray = len;
+          el.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: dur, delay: cursor, easing: 'cubic-bezier(0.2,0,0,1)', fill: 'both' })
+            .finished.then(() => { el.style.strokeDasharray = ''; }).catch(() => {});
+        }
+        cursor += dur * 0.82;
+      } else if (['node', 'low', 'relearn'].includes(it.type)) {
+        el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center';
+        el.animate([{ transform: 'scale(0.2)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 420, delay: Math.max(0, cursor - 60), easing: 'cubic-bezier(0.16,1,0.3,1)', fill: 'both' });
+      } else if (it.type === 'area') {
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: cursor + 200, easing: 'linear', fill: 'both' });
+      } else {
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: it.type === 'ghost' ? 1400 : 500, delay: it.type === 'ghost' ? 0 : cursor, easing: 'linear', fill: 'both' });
+      }
+    });
+    chart.keys = new Set(items.map(i => i.key));
+    chart.variant = v;
+  }
+
+  /* ---------- Panel copy ---------- */
+  const RAIL_NAMES = ['Tài khoản', 'Thông tin', 'Ảnh đại diện', 'Xác minh email', 'Mật khẩu'];
+  const CAP = {
+    login: ['', 'Ôn đúng lúc sắp quên.', 'VocaSpace dùng FSRS để tính lúc bạn sắp quên từng thẻ và xếp lịch ôn ngay trước đó. Ôn ít lần hơn mà nhớ lâu hơn.'],
+    reg1: ['CHẶNG 1/5', 'Mỗi bước, một lần ghi nhớ.', 'Đường cong của bạn bắt đầu từ hôm nay. Xong mỗi chặng, nó lại vững thêm một nấc.'],
+    reg2: ['CHẶNG 2/5', 'Mỗi bước, một lần ghi nhớ.', 'Mỗi lần ôn đúng hạn, khoảng cách tới lần ôn sau lại dài hơn.'],
+    reg3: ['CHẶNG 3/5', 'Gần nửa chặng đường.', 'Ảnh đại diện không bắt buộc. Bạn có thể bỏ qua và thêm sau.'],
+    reg4: ['CHẶNG 4/5', 'Còn một lần xác minh.', 'Mở email và bấm link để đi tiếp tới chặng đặt mật khẩu.'],
+    reg5: ['CHẶNG 5/5', 'Chặng cuối.', 'Đặt mật khẩu xong, đường cong của bạn đi vào ổn định.'],
+    done: ['HOÀN TẤT', 'Tài khoản đã sẵn sàng.', 'Từ giờ, FSRS sẽ lo lịch ôn cho từng thẻ bạn học.'],
+    forgot: ['', 'Quên là chuyện bình thường.', 'Lâu không ôn thì trí nhớ nào cũng tụt dần. Một lần ôn lại là kéo nó lên.'],
+    forgotSent: ['', 'Một lần ôn lại là nhớ.', 'Mở email, bấm link và đặt mật khẩu mới để học tiếp.'],
+  };
+  function setPanel(key, animate) {
+    const [stage, title, text] = CAP[key];
+    const cap = $('#caption');
+    const apply = () => { $('#capStage').textContent = stage; $('#capTitle').textContent = title; $('#capText').textContent = text; };
+    $('#flash').hidden = key !== 'login';
+    $('#lgGhost').hidden = key !== 'login';
+    $('#lgLapse').hidden = !key.startsWith('forgot');
+    placeCard();
+    if (!animate || reduced() || $('#capTitle').textContent === title && $('#capText').textContent === text) { apply(); return; }
+    cap.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(4px)' }], { duration: 140, easing: 'cubic-bezier(0.2,0,0,1)' }).finished.then(() => {
+      apply();
+      cap.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(0.2,0,0,1)' });
+    });
+  }
+
+  // SVG text scales with the viewBox; keep axis labels at least 12px rendered on narrow panels.
+  function fitLabels() {
+    const s = $('#chart').getBoundingClientRect().width / 560 || 1;
+    $$('#chartGrid text').forEach(t => {
+      const tick = t.classList.contains('tick');
+      t.setAttribute('font-size', Math.max(tick ? 15 : 14, 12 / s).toFixed(1));
+      // Narrow strip: keep the first, "1 tuần" and "1 tháng" marks so labels never collide.
+      if (tick) t.style.display = s < 0.75 && ['1', '2'].includes(t.dataset.i) ? 'none' : '';
+    });
+  }
+
+  // The card sits above the latest review node ("1 tháng") with a dashed stem down to it.
+  function placeCard() {
+    const card = $('#flash'), svg = $('#chart');
+    if (card.hidden || getComputedStyle(card).display === 'none') return;
+    const s = svg.getBoundingClientRect().width / 560, nodeX = X(30) * s, cw = card.offsetWidth;
+    const left = Math.min(Math.max(nodeX - cw / 2, 0), svg.getBoundingClientRect().width - cw);
+    card.style.marginLeft = left + 'px';
+    card.style.setProperty('--stem', (nodeX - left) + 'px');
+    card.style.setProperty('--stemh', (8 + (Y(1) - 8) * s) + 'px');
+  }
+
+  /* ---------- Tabs + rail ---------- */
+  function placeInd() {
+    const active = $('.tab[aria-current="page"]'); const ind = $('#tabInd');
+    if (!active || $('#tabs').hidden) return;
+    ind.style.width = active.offsetWidth + 'px';
+    ind.style.transform = `translateX(${active.offsetLeft}px)`;
+  }
+  function setRail(view) {
+    const k = view === 'done' ? 6 : ORDER[view];
+    $$('#rail li').forEach((li, i) => {
+      li.classList.toggle('done', i + 1 < k);
+      li.classList.toggle('current', i + 1 === k);
+      if (i + 1 === k) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+      li.querySelector('.lbl').setAttribute('aria-label', RAIL_NAMES[i] + (i + 1 < k ? ', đã xong' : i + 1 === k ? ', bước hiện tại' : ''));
+    });
+    $('#railText').textContent = view === 'done' ? 'Đã xong 5/5' : `Bước ${k}/5`;
+    $('#railName').textContent = view === 'done' ? 'Hoàn tất' : RAIL_NAMES[k - 1];
+  }
+
+  /* ---------- View switching ---------- */
+  let busy = false;
+  function variantFor(view) {
+    if (view === 'login') return 'login';
+    if (view === 'forgot') return st.forgotSent ? 'forgot-sent' : 'forgot';
+    if (view === 'done') return 'reg-done';
+    return 'reg-' + ORDER[view];
+  }
+  async function go(view, dir) {
+    if (busy || view === st.view) return;
+    busy = true;
+    const from = $('#v-' + st.view), to = $('#v-' + view), vp = $('#viewport');
+    dir = dir ?? (Math.sign(ORDER[view] - ORDER[st.view]) || 1);
+    const rm = reduced();
+    const h0 = vp.offsetHeight;
+    if (!rm) await from.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${-dir * 16}px)` }], { duration: 140, easing: 'cubic-bezier(0.2,0,0,1)' }).finished;
+    from.hidden = true; to.hidden = false;
+    st.view = view;
+    // Tabs and rail live outside the swapped view.
+    const showTabs = view === 'login' || view === 'reg1';
+    $('#tabs').hidden = !showTabs;
+    $$('.tab').forEach(t => t.toggleAttribute('aria-current', false));
+    if (showTabs) { $(`.tab[data-go="${view}"]`).setAttribute('aria-current', 'page'); placeInd(); }
+    const showRail = view.startsWith('reg') || view === 'done';
+    $('#railWrap').hidden = !showRail;
+    if (showRail) setRail(view);
+    const h1 = vp.offsetHeight;
+    if (!rm) {
+      vp.animate([{ height: h0 + 'px' }, { height: h1 + 'px' }], { duration: 320, easing: 'cubic-bezier(0.2,0,0,1)' });
+      to.animate([{ opacity: 0, transform: `translateX(${dir * 24}px)` }, { opacity: 1, transform: 'none' }], { duration: 360, easing: 'cubic-bezier(0.2,0,0,1)' });
+    }
+    to.querySelector('h1').focus({ preventScroll: true });
+    setPanel(view === 'forgot' && st.forgotSent ? 'forgotSent' : view, true);
+    drawChart(variantFor(view), true);
+    if (view === 'reg4') syncMail();
+    busy = false;
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-go]');
+    if (!b) return;
+    e.preventDefault();
+    go(b.dataset.go, b.dataset.dir ? +b.dataset.dir : undefined);
+  });
+
+  /* ---------- Field helpers ---------- */
+  function setErr(id, msg) {
+    const input = document.getElementById(id), p = document.getElementById(id + '-err');
+    if (!p) return;
+    if (msg) { p.innerHTML = '<svg class="i s16"><use href="#i-alert"/></svg><span></span>'; p.lastChild.textContent = msg; p.hidden = false; input.setAttribute('aria-invalid', 'true'); }
+    else { p.hidden = true; input.removeAttribute('aria-invalid'); }
+    return !msg;
+  }
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  function shake(el) { if (!reduced()) el.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(-4px)' }, { transform: 'translateX(3px)' }, { transform: 'translateX(0)' }], { duration: 340, easing: 'cubic-bezier(0.2,0,0,1)' }); }
+  function focusFirstInvalid(form) { const el = form.querySelector('[aria-invalid="true"]'); if (el) (el.tagName === 'FIELDSET' ? el.querySelector('input') : el).focus(); }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function pending(btn, label) { btn.dataset.html ??= btn.innerHTML; btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.innerHTML = `<span class="lbl-inner"><svg class="i spin"><use href="#i-loader"/></svg>${label}</span>`; }
+  function restore(btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.classList.remove('ok'); btn.innerHTML = btn.dataset.html; }
+
+  // Show / hide password
+  $$('[data-eye]').forEach(b => b.addEventListener('click', () => {
+    const input = document.getElementById(b.dataset.eye); const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu');
+    b.querySelector('use').setAttribute('href', show ? '#i-eye-off' : '#i-eye');
+  }));
+  // Caps Lock warning
+  [['l-pass', 'l-pass-caps'], ['s-pass', 's-pass-caps'], ['s-confirm', 's-pass-caps']].forEach(([id, cap]) => {
+    const input = document.getElementById(id);
+    const check = e => { if (e.getModifierState) document.getElementById(cap).hidden = !e.getModifierState('CapsLock'); };
+    input.addEventListener('keydown', check); input.addEventListener('keyup', check);
+    input.addEventListener('blur', () => { document.getElementById(cap).hidden = true; });
+  });
+  // The flashcard turns away while the password is being typed.
+  const lp = $('#l-pass');
+  lp.addEventListener('focus', () => $('#flash').classList.add('flipped'));
+  lp.addEventListener('blur', () => $('#flash').classList.remove('flipped'));
+
+  // Email domain typo suggestion
+  const DOMAINS = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
+  function lev(a, b) { const m = [...Array(a.length + 1)].map((_, i) => [i]); for (let j = 1; j <= b.length; j++) m[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return m[a.length][b.length]; }
+  function suggestFor(v) { const at = v.lastIndexOf('@'); if (at < 1) return null; const dom = v.slice(at + 1).toLowerCase(); if (!dom || DOMAINS.includes(dom)) return null; let best = null; for (const d of DOMAINS) { const x = lev(dom, d); if (x <= 2 && (!best || x < best.x)) best = { d, x }; } return best ? v.slice(0, at + 1) + best.d : null; }
+  ['l-email', 'r-email', 'fp-email'].forEach(id => {
+    const input = document.getElementById(id), box = document.getElementById(id + '-sug');
+    input.addEventListener('blur', () => {
+      const s = suggestFor(input.value.trim());
+      if (!s) { box.hidden = true; return; }
+      box.innerHTML = '<span>Có phải ý bạn là <b></b>?</span><button type="button">Dùng địa chỉ này</button>';
+      box.querySelector('b').textContent = s; box.hidden = false;
+      box.querySelector('button').onclick = () => { input.value = s; box.hidden = true; setErr(id, ''); input.focus(); };
+    });
+    input.addEventListener('input', () => { box.hidden = true; });
+  });
+
+  /* ---------- Login ---------- */
+  $('#f-login').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('#loginBtn'); if (btn.disabled) return;
+    $('#loginError').hidden = true;
+    const email = $('#l-email').value.trim(), pass = $('#l-pass').value;
+    const ok = [setErr('l-email', EMAIL.test(email) ? '' : 'Email không đúng định dạng'), setErr('l-pass', pass ? '' : 'Vui lòng nhập mật khẩu')].every(Boolean);
+    if (!ok) { focusFirstInvalid(e.target); return; }
+    pending(btn, 'Đang đăng nhập…');
+    await sleep(900);
+    if (st.wrong) {
+      restore(btn); $('#loginError').hidden = false; shake($('#v-login')); $('#l-pass').select(); $('#l-pass').focus(); return;
+    }
+    btn.classList.add('ok'); btn.removeAttribute('aria-busy');
+    btn.innerHTML = '<span class="lbl-inner"><svg class="i"><use href="#i-check"/></svg>Đã đăng nhập</span>';
+    if (!reduced()) btn.querySelector('svg').animate([{ transform: 'scale(0.4)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(0.16,1,0.3,1)' });
+    const after = $('#loginAfter'); after.hidden = false; after.textContent = st.reason ? 'Đang quay lại trang bạn vừa xem…' : 'Đang chuyển tới trang chủ…';
+    await sleep(2200); restore(btn); after.hidden = true;
+  });
+
+  /* ---------- Register ---------- */
+  $('#f-reg1').addEventListener('submit', e => {
+    e.preventDefault();
+    const u = $('#r-user').value.trim(), m = $('#r-email').value.trim();
+    const ok = [setErr('r-user', u.length >= 3 ? '' : 'Tên tài khoản phải từ 3 ký tự trở lên'), setErr('r-email', EMAIL.test(m) ? '' : 'Email này không đúng định dạng')].every(Boolean);
+    if (!ok) { focusFirstInvalid(e.target); return; }
+    go('reg2', 1);
+  });
+  $('#f-reg2').addEventListener('submit', e => {
+    e.preventDefault();
+    const n = $('#r-name').value.trim(), p = $('#r-phone').value.trim(), d = $('#r-dob').value, g = $('input[name="gender"]:checked');
+    const phoneMsg = !/^[0-9]+$/.test(p) ? 'Số điện thoại chỉ được chứa số' : p.length < 10 ? 'Số điện thoại không hợp lệ' : p.length > 11 ? 'Số điện thoại quá dài' : '';
+    const dobOk = d && new Date(d) <= new Date();
+    const gs = $('#r-gender');
+    if (g) { gs.removeAttribute('aria-invalid'); $('#r-gender-err').hidden = true; } else { gs.setAttribute('aria-invalid', 'true'); const pe = $('#r-gender-err'); pe.innerHTML = '<svg class="i s16"><use href="#i-alert"/></svg><span>Vui lòng chọn giới tính</span>'; pe.hidden = false; }
+    const ok = [setErr('r-name', n.length >= 2 ? '' : 'Vui lòng nhập họ và tên'), setErr('r-phone', phoneMsg), setErr('r-dob', dobOk ? '' : 'Vui lòng chọn ngày sinh hợp lệ'), !!g].every(Boolean);
+    if (!ok) { focusFirstInvalid(e.target); return; }
+    go('reg3', 1);
+  });
+  $$('input[name="gender"]').forEach(r => r.addEventListener('change', () => { $('#r-gender').removeAttribute('aria-invalid'); $('#r-gender-err').hidden = true; }));
+  // Avatar
+  let avatarUrl = null;
+  $('#pickLbl').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#r-avatar').click(); } });
+  $('#r-avatar').addEventListener('change', e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (avatarUrl) URL.revokeObjectURL(avatarUrl);
+    avatarUrl = URL.createObjectURL(file);
+    const a = $('#avatar'); a.classList.add('has'); a.innerHTML = '<img alt="Ảnh đại diện đã chọn">'; a.firstChild.src = avatarUrl;
+    if (!reduced()) a.firstChild.animate([{ opacity: 0, transform: 'scale(1.08)' }, { opacity: 1, transform: 'none' }], { duration: 360, easing: 'cubic-bezier(0.2,0,0,1)' });
+    $('#pickLbl').textContent = 'Đổi ảnh'; $('#clearAvatar').hidden = false;
+  });
+  $('#clearAvatar').addEventListener('click', () => {
+    if (avatarUrl) URL.revokeObjectURL(avatarUrl); avatarUrl = null; $('#r-avatar').value = '';
+    const a = $('#avatar'); a.classList.remove('has'); a.innerHTML = '<svg class="i"><use href="#i-camera"/></svg>';
+    $('#pickLbl').textContent = 'Chọn ảnh'; $('#clearAvatar').hidden = true; $('#pickLbl').focus();
+  });
+  $('#f-reg3').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('#createBtn'); if (btn.disabled) return;
+    pending(btn, 'Đang tạo tài khoản…'); await sleep(1000); restore(btn);
+    go('reg4', 1);
+  });
+  // Check email
+  const MAIL = { 'gmail.com': ['Gmail', 'https://mail.google.com/mail/u/0/#inbox'], 'outlook.com': ['Outlook', 'https://outlook.live.com/mail/0/inbox'], 'hotmail.com': ['Outlook', 'https://outlook.live.com/mail/0/inbox'], 'yahoo.com': ['Yahoo Mail', 'https://mail.yahoo.com'] };
+  function mailFor(email) { return MAIL[(email.split('@')[1] || '').toLowerCase()]; }
+  function setMailBtn(a, email) { const m = mailFor(email); a.hidden = !m; if (m) { a.href = m[1]; a.querySelector('.lbl-inner').firstChild.textContent = 'Mở ' + m[0]; } }
+  function syncMail() {
+    const email = $('#r-email').value.trim() || 'lan.nguyen@gmail.com';
+    $('#sentEmail').textContent = email;
+    setMailBtn($('#openMail'), email);
+    $('#resendBtn').className = 'btn ' + (mailFor(email) ? 'btn-outline' : 'btn-primary');
+  }
+  let cd = 0, cdTimer = null;
+  $('#resendBtn').addEventListener('click', () => {
+    const b = $('#resendBtn'); if (cd > 0) return;
+    cd = 60; b.disabled = true; $('#resendMsg').hidden = false; $('#resendMsg').textContent = 'Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!';
+    const tick = () => { b.textContent = cd > 0 ? `Gửi lại email (${cd}s)` : 'Gửi lại email'; if (cd <= 0) { b.disabled = false; clearInterval(cdTimer); } cd--; };
+    tick(); cdTimer = setInterval(tick, 1000);
+  });
+  // Set password + strength meter
+  function strength(p) {
+    if (p.length < 6) return 0;
+    let s = 1; if (p.length >= 10) s++; if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++; if (/\d/.test(p) && /[^A-Za-z0-9]/.test(p)) s++;
+    return Math.min(s, 4);
+  }
+  const SLBL = ['Chưa đủ 6 ký tự', 'Yếu', 'Tạm được', 'Khá', 'Mạnh'], SCOL = ['#B91C1C', '#B91C1C', '#A16207', '#0E7490', '#15803D'];
+  function updateMeter() {
+    const p = $('#s-pass').value, s = strength(p), bars = $$('#s-pass-meter .meter i');
+    bars.forEach((b, i) => { b.style.background = p && i < Math.max(s, 1) ? SCOL[s] : ''; });
+    const l = $('#meterLbl'); l.textContent = p ? 'Độ mạnh: ' + SLBL[s] : ''; l.style.color = p ? SCOL[s] : '';
+    const c = $('#s-confirm').value; $('#s-match').hidden = !(c && c === p && p.length >= 6);
+  }
+  $('#s-pass').addEventListener('input', updateMeter); $('#s-confirm').addEventListener('input', updateMeter);
+  $('#f-reg5').addEventListener('submit', async e => {
+    e.preventDefault();
+    const p = $('#s-pass').value, c = $('#s-confirm').value, btn = $('#savePwBtn'); if (btn.disabled) return;
+    const ok = [setErr('s-pass', p.length >= 6 ? '' : 'Mật khẩu ít nhất 6 ký tự cho an toàn'), setErr('s-confirm', !c ? 'Vui lòng xác nhận lại mật khẩu' : c !== p ? 'Mật khẩu xác nhận không khớp' : '')].every(Boolean);
+    if (!ok) { focusFirstInvalid(e.target); return; }
+    pending(btn, 'Đang lưu…'); await sleep(900); restore(btn);
+    go('done', 1);
+  });
+
+  /* ---------- Forgot password ---------- */
+  let fcd = 0, fTimer = null;
+  $('#f-forgot').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('#forgotBtn'); if (btn.disabled || fcd > 0) return;
+    const email = $('#fp-email').value.trim();
+    if (!setErr('fp-email', EMAIL.test(email) ? '' : 'Email này không đúng định dạng')) { $('#fp-email').focus(); return; }
+    pending(btn, 'Đang gửi…'); await sleep(900);
+    // Same message and cooldown whether or not the account exists (G5).
+    st.forgotSent = true; $('#forgotSent').hidden = false;
+    setMailBtn($('#forgotOpenMail'), email);
+    setPanel('forgotSent', true); drawChart('forgot-sent', true);
+    fcd = 60; btn.removeAttribute('aria-busy');
+    const tick = () => { btn.innerHTML = `<span class="lbl-inner">${fcd > 0 ? `Gửi lại link (${fcd}s)` : 'Gửi lại link'}</span>`; btn.disabled = fcd > 0; if (fcd <= 0) clearInterval(fTimer); fcd--; };
+    tick(); fTimer = setInterval(tick, 1000);
+  });
+
+  /* ---------- Demo controls ---------- */
+  function sample() {
+    if (!$('#r-user').value) $('#r-user').value = 'lannguyen';
+    if (!$('#r-email').value) $('#r-email').value = 'lan.nguyen@gmail.com';
+    if (!$('#r-name').value) $('#r-name').value = 'Nguyễn Thị Lan';
+    if (!$('#r-phone').value) $('#r-phone').value = '0901234567';
+    if (!$('#r-dob').value) $('#r-dob').value = '2001-05-14';
+    if (!$('input[name="gender"]:checked')) $('input[name="gender"][value="female"]').checked = true;
+  }
+  $$('[data-demo-go]').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.demoGo;
+    if (['reg4', 'reg5'].includes(v)) sample();
+    if (v === 'forgot') { st.forgotSent = false; $('#forgotSent').hidden = true; $('#forgotOpenMail').hidden = true; }
+    go(v);
+  }));
+  $('#dWrong').addEventListener('change', e => { st.wrong = e.target.checked; });
+  $('#dReason').addEventListener('change', e => { st.reason = e.target.checked; $('#reasonNotice').hidden = !st.reason; });
+  $('#dLast').addEventListener('change', e => { st.last = e.target.value; renderGoogle(); });
+  $('#dRm').checked = st.reduced;
+  $('#dRm').addEventListener('change', e => { st.reduced = e.target.checked; document.documentElement.classList.toggle('rm', st.reduced); });
+  $('#dReplay').addEventListener('click', () => { chart.keys = new Set(); drawChart(chart.variant, true); });
+  if (innerWidth < 960) $('#demo').open = false;
+
+  /* ---------- Init ---------- */
+  document.documentElement.classList.toggle('rm', st.reduced);
+  renderGoogle(); drawGrid(); setPanel('login', false); placeInd();
+  fitLabels();
+  addEventListener('resize', () => { placeInd(); placeCard(); fitLabels(); });
+  document.fonts && document.fonts.ready.then(() => { placeInd(); placeCard(); fitLabels(); });
+  requestAnimationFrame(() => drawChart('login', true));
+})();
+</script>
+</body>
+</html>

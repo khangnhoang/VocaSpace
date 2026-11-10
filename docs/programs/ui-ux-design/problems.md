@@ -17,6 +17,7 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Required redesign acceptance: enabled input boundaries and focus indicators reach at least 3:1 against adjacent colors across all auth screens, verified in their rendered states with keyboard focus; align their styling together.
 - Owner production QA of A2 (2026-10-04): move the "Quên mật khẩu?" link on `/login` to the right edge (under the password field) in this redesign.
 - Exit condition: the auth redesign PR merges and meets the Required redesign acceptance above.
+- Plan: [U3 auth pages redesign](./implementation-plans/u3-auth-pages-redesign/plan.md) (AC1, AC3, AC14).
 - Origin: auth-onboarding:AUTH-012; [original delivery contract](../auth-onboarding/plan.md).
 
 <a id="student-003"></a>
