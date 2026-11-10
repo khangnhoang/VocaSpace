@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { curveGeometry, recallAt, REVIEW_THRESHOLD, REVIEW_X, xForDay, yForRecall } from "@/lib/auth/memory-curve";
 import { mailboxLinkFor, suggestEmailCorrection } from "@/lib/auth/email-help";
+import { PASSWORD_STRENGTH_LABELS, passwordStrength } from "@/lib/auth/password-strength";
 
 // Test plan:
-// - Mục tiêu: U3 AC12 (đường cong minh hoạ đúng công thức FSRS và đúng số mốc theo từng màn) và AC5 (gợi ý email chỉ
+// - Mục tiêu: U3 AC4 (thước đo độ mạnh mật khẩu chỉ gợi ý), AC12 (đường cong minh hoạ đúng công thức FSRS và đúng số mốc theo từng màn) và AC5 (gợi ý email chỉ
 //   cho lỗi gõ gần tên miền phổ biến, không bao giờ cho tên miền thật; link hộp thư chỉ cho Gmail/Outlook/Yahoo).
 // - Loại test: unit hàm thuần.
 // - Case chính: R(S) = 90% ở mỗi lần ôn; trục thời gian tăng dần; số đoạn/mốc của login, register 1–5, settled, forgot.
@@ -112,5 +113,24 @@ describe("mailboxLinkFor", () => {
 
   it.each(["lan@icloud.com", "lan@company.vn", "lan", ""])("offers no inbox link for %j", (value) => {
     expect(mailboxLinkFor(value)).toBeNull();
+  });
+});
+
+describe("passwordStrength", () => {
+  it.each([
+    ["", 0],
+    ["abc12", 0],
+    ["abcdef", 1],
+    ["abcdefghij", 2],
+    ["abcDefgh", 2],
+    ["abc#12", 2],
+    ["abcDef#2026xy", 4],
+    ["ABCDEFGHIJKL", 2],
+  ] as const)("rates %j as level %i", (password, level) => {
+    expect(passwordStrength(password)).toBe(level);
+  });
+
+  it("labels every level", () => {
+    expect(PASSWORD_STRENGTH_LABELS).toEqual(["Chưa đủ 6 ký tự", "Yếu", "Tạm được", "Khá", "Mạnh"]);
   });
 });

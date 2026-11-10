@@ -29,6 +29,66 @@ function describedBy(...ids: Array<string | false | null | undefined>) {
   return value || undefined;
 }
 
+type TextFieldProps = {
+  id: string;
+  label: string;
+  registration: UseFormRegisterReturn;
+  error?: string;
+  hint?: string;
+  type?: "text" | "tel";
+  autoComplete?: string;
+  inputMode?: "text" | "numeric";
+  placeholder?: string;
+};
+
+export function TextField({ id, label, registration, error, hint, type = "text", autoComplete, inputMode, placeholder }: TextFieldProps) {
+  const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className={LABEL_CLASS}>
+        {label}
+      </label>
+      <Input
+        id={id}
+        type={type}
+        autoComplete={autoComplete}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(hint && hintId, error && errorId)}
+        className={AUTH_INPUT_CLASS}
+        {...registration}
+      />
+      {hint ? (
+        <p id={hintId} className="font-[family-name:var(--font-geist-sans)] text-xs leading-4 font-medium text-slate-500">
+          {hint}
+        </p>
+      ) : null}
+      <FieldError id={errorId} message={error} />
+    </div>
+  );
+}
+
+export function AuthDivider({ label, className }: { label: string; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 font-[family-name:var(--font-geist-sans)] text-xs leading-4 font-semibold text-slate-500 before:h-px before:flex-1 before:bg-slate-200 after:h-px after:flex-1 after:bg-slate-200",
+        className,
+      )}
+    >
+      {label}
+    </div>
+  );
+}
+
+export const AUTH_TITLE_CLASS =
+  "text-[28px] leading-9 font-extrabold tracking-[-0.015em] text-slate-900 outline-none min-[960px]:text-[32px] min-[960px]:leading-10";
+export const AUTH_LEAD_CLASS = "mt-2 mb-6 text-base leading-[26px] text-slate-600";
+export const AUTH_TEXT_ACTION_CLASS =
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[8px] px-1 text-sm font-semibold text-route hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route";
+
 type EmailFieldProps = {
   id: string;
   registration: UseFormRegisterReturn;

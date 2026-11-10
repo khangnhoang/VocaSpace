@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SIGN_IN_REASON_MESSAGES, SIGN_IN_REASON_PARAM } from "@/lib/auth/sign-in-reason";
 import { GoogleSignInButton, LastUsedTag } from "@/components/auth/google-sign-in-button";
 import { LegalConsentNotice } from "@/components/auth/legal-consent-notice";
-import { AuthNotice, EmailField, PasswordField } from "@/components/auth/auth-fields";
+import { AuthDivider, AuthNotice, EmailField, PasswordField } from "@/components/auth/auth-fields";
 import { useAuthShell } from "@/components/auth/auth-shell-context";
 import { cn } from "@/lib/utils";
 
@@ -116,7 +116,7 @@ export default function LoginPage() {
       {googleFirst ? (
         <>
           {google}
-          <Divider label="hoặc dùng email" className="my-4" />
+          <AuthDivider label="hoặc dùng email" className="my-4" />
         </>
       ) : null}
 
@@ -178,7 +178,7 @@ export default function LoginPage() {
 
       {googleFirst ? null : (
         <>
-          <Divider label="hoặc" className="mt-5 mb-4" />
+          <AuthDivider label="hoặc" className="mt-5 mb-4" />
           {google}
         </>
       )}
@@ -186,18 +186,5 @@ export default function LoginPage() {
         <LegalConsentNotice />
       </div>
     </>
-  );
-}
-
-function Divider({ label, className }: { label: string; className?: string }) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3 font-[family-name:var(--font-geist-sans)] text-xs leading-4 font-semibold text-slate-500 before:h-px before:flex-1 before:bg-slate-200 after:h-px after:flex-1 after:bg-slate-200",
-        className,
-      )}
-    >
-      {label}
-    </div>
   );
 }
