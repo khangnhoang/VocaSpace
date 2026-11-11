@@ -58,7 +58,7 @@ export default function ForgotPasswordPage() {
             Nhập email tài khoản VocaSpace để nhận link đặt mật khẩu mới.
           </CardDescription>
         </CardHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={(event) => void form.handleSubmit(onSubmit)(event)} noValidate>
           <CardContent className="grid gap-4 py-4">
             <div className="grid gap-1.5">
               <Label htmlFor="recovery-email">Email</Label>

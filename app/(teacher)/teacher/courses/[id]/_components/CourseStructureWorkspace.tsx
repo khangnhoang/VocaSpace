@@ -572,36 +572,49 @@ export default function CourseStructureWorkspace({
     announce(`Đã đổi tên chương thành "${title}"`);
   };
 
+  const createChapterPendingRef = useRef(false);
   const onSubmitForm = (values: ChapterMetadataFormValues) => {
-    if (isReadOnly) return;
+    if (isReadOnly || createChapterPendingRef.current) return;
+    createChapterPendingRef.current = true;
     startTransition(async () => {
-      const res = await createChapter({ courseId, title: values.title });
-      if (res.error) {
-        toast.error(res.error);
-        return;
-      }
-      const createdChapterId =
-        "data" in res && typeof res.data?.id === "string" ? res.data.id : null;
-      const handledByDashboardFeedback =
-        createdChapterId !== null &&
-        showReturnFeedbackForSuccess({
-          type: "chapter_created",
-          courseId,
-          chapterId: createdChapterId,
+      try {
+        const res = await createChapter({ courseId, title: values.title }).catch(() => null);
+        if (!res) {
+          toast.error("Không nhận được kết quả tạo chương. Hãy kiểm tra danh sách chương trước khi thử lại.");
+          return;
+        }
+        if (res.error) {
+          toast.error(res.error);
+          return;
+        }
+        const createdChapterId =
+          "data" in res && typeof res.data?.id === "string" ? res.data.id : null;
+        const handledByDashboardFeedback =
+          createdChapterId !== null &&
+          showReturnFeedbackForSuccess({
+            type: "chapter_created",
+            courseId,
+            chapterId: createdChapterId,
+          });
+
+        if (!handledByDashboardFeedback) {
+          toast.success(res.message);
+        }
+
+        // Giữ hộp thoại (đang chờ) tới khi chương mới được chọn, để lúc đóng focus tới heading của nó.
+        const refreshedChapters = await refreshData().catch(() => {
+          setChaptersError("Không thể tải lại danh sách chương.");
+          return null;
         });
-
-      if (!handledByDashboardFeedback) {
-        toast.success(res.message);
+        if (createdChapterId && refreshedChapters?.some((chapter) => chapter.id === createdChapterId)) {
+          selectChapter(createdChapterId);
+          focusHeadingOnDialogCloseRef.current = true;
+        }
+        setIsAddDialogOpen(false);
+        form.reset();
+      } finally {
+        createChapterPendingRef.current = false;
       }
-
-      // Giữ hộp thoại (đang chờ) tới khi chương mới được chọn, để lúc đóng focus tới heading của nó.
-      await refreshData();
-      if (createdChapterId) {
-        selectChapter(createdChapterId);
-        focusHeadingOnDialogCloseRef.current = true;
-      }
-      setIsAddDialogOpen(false);
-      form.reset();
     });
   };
 
@@ -710,7 +723,7 @@ export default function CourseStructureWorkspace({
             submitLabel="Tạo chương"
             pendingLabel="Đang tạo…"
             isPending={isPending}
-            onSubmit={form.handleSubmit(onSubmitForm)}
+            onSubmit={(event) => void form.handleSubmit(onSubmitForm)(event)}
             onCloseAutoFocus={returnChapterDialogFocus}
           >
             <FormField

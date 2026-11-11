@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Check, Loader2, MapPin, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,66 +21,79 @@ export function useCoursePreviewAllocation(courseId: string, enabled: boolean) {
   const [isLoading, setIsLoading] = useState(enabled);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadContext, setLoadContext] = useState({ courseId, enabled });
+  if (courseId !== loadContext.courseId || enabled !== loadContext.enabled) {
+    setLoadContext({ courseId, enabled });
+    setAllocation(null);
+    setIsLoading(enabled);
+    setIsUpdating(false);
+    setError(null);
+  }
+  const activeContext = useRef<typeof loadContext | null>(null);
   const requestId = useRef(0);
 
-  const refresh = useCallback(async () => {
-    if (!enabled) return;
+  useLayoutEffect(() => {
+    activeContext.current = loadContext;
+    return () => { activeContext.current = null; };
+  }, [loadContext]);
+
+  const fetchAllocation = useCallback(() => {
+    if (activeContext.current !== loadContext) return;
     const currentRequest = ++requestId.current;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await getCoursePreviewAllocation(courseId);
-      if (currentRequest !== requestId.current) return;
+    const isCurrent = () => activeContext.current === loadContext && currentRequest === requestId.current;
+    return getCoursePreviewAllocation(courseId).then((result) => {
+      if (!isCurrent()) return;
       if ("error" in result) {
         setError(result.error ?? "Không thể tải phân bổ bài học xem thử.");
         return;
       }
       if (result.data) setAllocation(result.data);
-    } catch {
-      if (currentRequest === requestId.current) {
+    }).catch(() => {
+      if (isCurrent()) {
         setError("Không thể tải phân bổ bài học xem thử. Vui lòng thử lại.");
       }
-    } finally {
-      if (currentRequest === requestId.current) setIsLoading(false);
-    }
-  }, [courseId, enabled]);
+    }).finally(() => {
+      if (isCurrent()) setIsLoading(false);
+    });
+  }, [courseId, loadContext]);
+
+  const refresh = useCallback(async () => {
+    if (!enabled || activeContext.current !== loadContext) return;
+    setIsLoading(true);
+    setError(null);
+    await fetchAllocation();
+  }, [enabled, fetchAllocation, loadContext]);
 
   useEffect(() => {
-    if (!enabled) {
-      setAllocation(null);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-    void refresh();
-    return () => {
-      requestId.current += 1;
-    };
-  }, [enabled, refresh]);
+    if (!enabled) return;
+    void fetchAllocation();
+  }, [enabled, fetchAllocation]);
 
   const changeMarkers = useCallback(async (change: PreviewMarkerChange) => {
-    if (!enabled || isUpdating) return { error: "Thao tác đang được xử lý." };
+    const isCurrent = () => activeContext.current === loadContext;
+    if (!enabled || isUpdating || !isCurrent()) return { error: "Thao tác đang được xử lý." };
     setIsUpdating(true);
     setError(null);
     try {
       const result = await setCourseTopicPreviewMarkers({ courseId, ...change });
+      if (!isCurrent()) return result;
       if (result.allocation) setAllocation(result.allocation);
       if ("success" in result && result.success) {
         setAllocation(result.allocation);
         return result;
       }
       if (!result.allocation) await refresh();
-      setError(result.error ?? "Không thể cập nhật bài học xem thử. Vui lòng thử lại.");
+      if (isCurrent()) setError(result.error ?? "Không thể cập nhật bài học xem thử. Vui lòng thử lại.");
       return result;
     } catch {
       const message = "Không thể cập nhật bài học xem thử. Vui lòng thử lại.";
-      await refresh();
-      setError(message);
+      if (isCurrent()) await refresh();
+      if (isCurrent()) setError(message);
       return { error: message };
     } finally {
-      setIsUpdating(false);
+      if (isCurrent()) setIsUpdating(false);
     }
-  }, [courseId, enabled, isUpdating, refresh]);
+  }, [courseId, enabled, isUpdating, loadContext, refresh]);
 
   return { allocation, isLoading, isUpdating, error, refresh, changeMarkers };
 }

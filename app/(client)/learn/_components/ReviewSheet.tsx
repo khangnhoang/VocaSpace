@@ -28,6 +28,19 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
   const [isClosing, setIsClosing] = useState(false);
   // Thế hệ hàng đợi đã chấm hết thẻ và đang chờ lưu xong (AC5); null khi không có hoặc khi có thẻ được xếp lại.
   const [armedGeneration, setArmedState] = useState<number | null>(null);
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) {
+      setBatch({ status: "loading", cards: [], total: 0 });
+      setIsFlipped(false);
+      setPreviousAnswer(null);
+      setSaveError(null);
+      setWarning(null);
+      setIsClosing(false);
+      setArmedState(null);
+    }
+  }
   const operation = useRef<"load" | null>(null);
   const generation = useRef(0);
   const hasSaved = useRef(false);
@@ -108,19 +121,13 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
     if (queueGeneration === generation.current) callbacks.current.onReviewComplete();
   }
 
-  const loadBatch = useCallback(async () => {
+  const fetchBatch = useCallback(() => {
     if (operation.current) return;
     operation.current = "load";
     const request = ++generation.current;
     cardsRef.current = [];
-    setArmed(null);
-    setBatch({ status: "loading", cards: [], total: 0 });
-    setIsFlipped(false);
-    setPreviousAnswer(null);
-    setSaveError(null);
-    setWarning(null);
-    try {
-      const result = await getDeckReviewCards();
+    armedRef.current = null;
+    void getDeckReviewCards().then((result) => {
       if (request !== generation.current) return;
       if (result.success && result.cards) {
         cardsRef.current = result.cards;
@@ -128,24 +135,34 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
         setBatch({ status: "ready", cards: result.cards, total: result.cards.length, dueLeft: result.counts?.dueLeft });
       }
       else setBatch({ status: "error", cards: [], total: 0, error: result.error || "Chưa thể tải thẻ ôn tập. Hãy thử lại." });
-    } catch {
+    }).catch(() => {
       if (request === generation.current) setBatch({ status: "error", cards: [], total: 0, error: "Chưa thể tải thẻ ôn tập. Hãy thử lại." });
-    } finally {
+    }).finally(() => {
       if (request === generation.current) operation.current = null;
-    }
-  }, [setArmed]);
+    });
+  }, []);
+
+  function loadBatch() {
+    if (operation.current) return;
+    setArmedState(null);
+    setBatch({ status: "loading", cards: [], total: 0 });
+    setIsFlipped(false);
+    setPreviousAnswer(null);
+    setSaveError(null);
+    setWarning(null);
+    void fetchBatch();
+  }
 
   useEffect(() => {
     if (!isOpen) return;
     hasSaved.current = false;
     closing.current = false;
-    setIsClosing(false);
-    void loadBatch();
+    void fetchBatch();
     return () => {
       // Đóng/mở lại tạo lượt mới; phản hồi cũ không được thay thế thẻ của lượt đó.
       invalidate();
     };
-  }, [isOpen, loadBatch, invalidate]);
+  }, [isOpen, fetchBatch, invalidate]);
 
   const currentCard = batch.cards[0];
   // Giữ đáp án vừa ôn trên mặt sau trong lúc lật về từ mới; không trì hoãn thẻ hay thao tác kế tiếp.
