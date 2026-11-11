@@ -53,6 +53,8 @@ function SignInReasonNotice() {
 }
 
 const SIGN_IN_FAILED_FALLBACK = "Sai email hoặc mật khẩu!";
+// Yêu cầu không tới được máy chủ thì không phải lỗi thông tin đăng nhập, nên không báo "sai mật khẩu" (Owner 2026-11-11).
+const SIGN_IN_NETWORK_FAILED = "Không thể kết nối máy chủ. Kiểm tra mạng rồi thử lại.";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -95,8 +97,10 @@ export default function LoginPage() {
       router.replace(res.redirectTo ?? "/");
       router.refresh();
     } catch {
-      setServerError(SIGN_IN_FAILED_FALLBACK);
+      setServerError(SIGN_IN_NETWORK_FAILED);
       setStatus("idle");
+      // Giữ nguyên mật khẩu, không bôi đen và không rung: chỉ cần nhấn Enter để thử lại.
+      form.setFocus("password");
     } finally {
       submitting.current = false;
     }

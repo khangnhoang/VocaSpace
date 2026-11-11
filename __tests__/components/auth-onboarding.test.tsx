@@ -542,6 +542,25 @@ describe("/login", () => {
     expect(mocks.replace).not.toHaveBeenCalled();
   });
 
+  it("shows a connection message, not a wrong-password message, when the sign-in request fails in transit", async () => {
+    mocks.signInUser.mockRejectedValue(new TypeError("Failed to fetch"));
+    renderInShell(<LoginPage />);
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "lan@example.com" } });
+    fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "abc123" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Đăng nhập" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Không thể kết nối máy chủ. Kiểm tra mạng rồi thử lại.");
+    expect(screen.queryByText("Sai email hoặc mật khẩu!")).toBeNull();
+    const password = screen.getByLabelText("Mật khẩu") as HTMLInputElement;
+    expect(password.value).toBe("abc123");
+    await waitFor(() => expect(document.activeElement).toBe(password));
+    // Không bôi đen mật khẩu như khi sai thông tin: Enter là thử lại ngay.
+    expect(password.selectionEnd! - password.selectionStart!).toBe(0);
+    expect(screen.getByRole("button", { name: "Đăng nhập" }).hasAttribute("disabled")).toBe(false);
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
   it("navigates at once to the server-validated destination after a successful sign-in (AC3, AC7)", async () => {
     mocks.signInUser.mockResolvedValue({ success: true, redirectTo: "/profile/orders" });
     renderInShell(<LoginPage />);
