@@ -8,9 +8,10 @@ import { suggestEmailCorrection } from "@/lib/auth/email-help";
 import { cn } from "@/lib/utils";
 
 // U3 G7/AC14: viền slate-500 (#64748B, 4.76:1 trên nền trắng) và focus Route Blue 2px tách khỏi ô, đặt tại chỗ dùng;
-// primitive Input dùng chung giữ nguyên.
+// primitive Input dùng chung giữ nguyên. Input có `outline-none`, mà Tailwind v4 dùng chung biến kiểu viền cho
+// `outline-none` và `outline-2`, nên phải đặt lại `outline-solid` thì viền focus mới hiện.
 export const AUTH_INPUT_CLASS =
-  "h-11 rounded-[12px] border-slate-500 bg-white px-3.5 text-base leading-6 text-slate-900 placeholder:text-slate-500 hover:border-slate-900 focus-visible:border-route focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route focus-visible:ring-0 aria-invalid:border-correction aria-invalid:ring-0 aria-invalid:shadow-[inset_0_0_0_1px_var(--correction)] md:text-base";
+  "h-11 rounded-[12px] border-slate-500 bg-white px-3.5 text-base leading-6 text-slate-900 placeholder:text-slate-500 hover:border-slate-900 focus-visible:border-route focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route focus-visible:ring-0 aria-invalid:border-correction aria-invalid:ring-0 aria-invalid:shadow-[inset_0_0_0_1px_var(--correction)] md:text-base";
 
 const LABEL_CLASS = "text-sm leading-5 font-semibold text-slate-900";
 
