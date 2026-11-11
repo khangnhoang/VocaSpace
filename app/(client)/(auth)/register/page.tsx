@@ -276,7 +276,7 @@ export default function RegisterPage() {
                         aria-invalid={errors.dob ? true : undefined}
                         aria-describedby={errors.dob ? "dob-error" : undefined}
                         className={cn(
-                          "h-11 w-full justify-between rounded-[12px] border-slate-500 bg-white px-3.5 text-base font-normal hover:border-slate-900 hover:bg-white focus-visible:border-route aria-invalid:border-correction",
+                          "h-11 w-full justify-between rounded-[12px] border-slate-500 bg-white px-3.5 text-base font-normal hover:border-slate-900 hover:bg-white focus-visible:border-route aria-invalid:border-correction aria-invalid:ring-route",
                           field.value ? "text-slate-900" : "text-slate-500",
                         )}
                       >
