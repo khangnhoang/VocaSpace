@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { unstable_rethrow } from "next/navigation";
 import { AlertCircle, Check, Loader2 } from "lucide-react";
@@ -24,8 +24,8 @@ export function SetPasswordForm() {
     resolver: zodResolver(setPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
   });
-  const password = form.watch("password");
-  const confirmPassword = form.watch("confirmPassword");
+  const password = useWatch({ control: form.control, name: "password" });
+  const confirmPassword = useWatch({ control: form.control, name: "confirmPassword" });
   const strength = passwordStrength(password);
   const matches = password.length >= 6 && confirmPassword === password;
 

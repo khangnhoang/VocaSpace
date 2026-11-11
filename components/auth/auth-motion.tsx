@@ -29,7 +29,8 @@ export function SlideIn({ motionKey, direction, children }: { motionKey: string;
   );
 }
 
-// Khung co giãn mượt theo chiều cao nội dung (đổi bước, hiện lỗi). `overflow: clip` có lề 8px để viền focus không bị cắt.
+// Khung co giãn mượt theo chiều cao nội dung (đổi bước, hiện lỗi). Khung nới ra 6px mỗi phía (lề âm + đệm) để viền focus
+// 2px cách ô 2px không bị `overflow: clip` cắt, kể cả trên trình duyệt không hỗ trợ `overflow-clip-margin`.
 export function AutoHeight({ children }: { children: ReactNode }) {
   const reduceMotion = useReducedMotion();
   const innerRef = useRef<HTMLDivElement>(null);
@@ -48,7 +49,7 @@ export function AutoHeight({ children }: { children: ReactNode }) {
       initial={false}
       animate={{ height }}
       transition={{ duration: reduceMotion ? 0 : 0.32, ease: EASE }}
-      style={{ overflow: "clip", overflowClipMargin: 8 }}
+      style={{ overflow: "clip", overflowClipMargin: 8, margin: -6, padding: 6, boxSizing: "content-box" }}
     >
       <div ref={innerRef}>{children}</div>
     </m.div>

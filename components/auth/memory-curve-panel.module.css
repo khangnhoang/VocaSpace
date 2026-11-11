@@ -1,5 +1,5 @@
 /* U3 AC13: đường cong tự vẽ bằng CSS để chạy ngay từ lần vẽ đầu, không cần chờ hydrate và không ẩn nội dung trước đó (G10).
-   Phần tử đã vẽ ở lần render trước không gắn các lớp này nên không vẽ lại. */
+   Mỗi phần giữ nguyên lớp và độ trễ từ lần đầu xuất hiện, nên render lại không chạy lại hiệu ứng; phần mới có độ trễ riêng. */
 .draw {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;

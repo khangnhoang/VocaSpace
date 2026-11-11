@@ -8,7 +8,7 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 
 ### AUTH-012: Auth screens have no accepted design yet
 
-- Status: Deferred 2026-10-03 by the Owner to a separate login/register UI/UX redesign PR.
+- Status: Fixed locally on `feat/auth-pages-redesign` (U3), awaiting delivery; deferred 2026-10-03 by the Owner to this redesign. Evidence (2026-11-11, `next dev`, Playwright CLI): every auth input border measures 4.76:1 on white; keyboard focus on inputs, buttons and the date-of-birth control shows a Route Blue 2px indicator offset 2px; "Quên mật khẩu?" sits right-aligned under the password field; all auth screens share one shell. Closes when the U3 PR merges.
 - Problem: A1's new check-email and set-password cards use a neutral white header, while `/login` and `/register` keep the older Blue 400 header. The login form is also small and visually dated. There is no accepted screen-type design for public/auth screens (the "Client/Marketing" type named in `docs/ui-design-system-and-review/plan.md`), so neither header can claim to be the target.
 - A1 kept only cheap, behavior-level fixes: login floating labels now pass clicks to their inputs (`pointer-events-none`, matching `/register`).
 - Direction: design Client/Marketing (homepage, login, register, check-email, set-password) first, then align all auth cards in one redesign PR.

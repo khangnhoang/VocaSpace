@@ -1,7 +1,24 @@
 // U3 AC5: gợi ý sửa tên miền email gõ nhầm và link mở hộp thư. Chỉ gợi ý, không bao giờ tự đổi giá trị.
 const SUGGESTED_DOMAINS = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"] as const;
 // Tên miền thật nằm gần các tên trên (ví dụ ymail.com cách gmail.com 1 ký tự): không được coi là gõ nhầm.
-const REAL_PROVIDER_DOMAINS = new Set(["ymail.com", "mail.com", "email.com", "live.com", "msn.com", "gmx.com", "aol.com"]);
+const REAL_PROVIDER_DOMAINS = new Set([
+  "ymail.com",
+  "mail.com",
+  "email.com",
+  "live.com",
+  "msn.com",
+  "gmx.com",
+  "aol.com",
+  // Bản theo quốc gia của chính các nhà cung cấp trên.
+  "yahoo.ca",
+  "yahoo.fr",
+  "yahoo.de",
+  "hotmail.ca",
+  "hotmail.fr",
+  "hotmail.de",
+  "outlook.fr",
+  "outlook.de",
+]);
 const MAX_EDIT_DISTANCE = 2;
 
 const MAILBOX_LINKS: Record<string, { label: string; href: string }> = {

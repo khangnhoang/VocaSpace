@@ -176,7 +176,7 @@ export default function LoginPage() {
             <>
               <m.span
                 aria-hidden="true"
-                initial={{ scale: 0.4, opacity: 0 }}
+                initial={reduceMotion ? false : { scale: 0.4, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
                 className="inline-flex"

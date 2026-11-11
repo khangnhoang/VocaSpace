@@ -106,9 +106,13 @@ export default function RegisterPage() {
   }, [stage, setShowTabs]);
 
   // Đổi bước thì đưa focus về tiêu đề bước mới để trình đọc màn hình đọc đúng ngữ cảnh (AC8); lần mở trang thì không.
+  // Sang chặng kiểm tra email, nút vừa bấm biến mất nên focus phải chuyển sang tiêu đề của chặng đó.
   useEffect(() => {
-    if (!movedStep.current || submittedEmail) return;
-    titleRef.current?.focus();
+    if (submittedEmail) {
+      document.getElementById("check-email-title")?.focus();
+      return;
+    }
+    if (movedStep.current) titleRef.current?.focus();
   }, [step, submittedEmail]);
 
   const goTo = (next: 1 | 2 | 3) => {
@@ -130,10 +134,17 @@ export default function RegisterPage() {
     setAvatarPreview(URL.createObjectURL(file));
   };
 
+  // Xoá cả giá trị của ô chọn tệp để chọn lại đúng tệp đó vẫn kích hoạt onChange, và trả focus về ô chọn ảnh vì nút
+  // "Bỏ ảnh" sắp biến mất.
   const clearAvatar = () => {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     setAvatarFile(null);
     setAvatarPreview(null);
+    const input = document.getElementById("avatar-upload") as HTMLInputElement | null;
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
   };
 
   const onSubmit = async (data: RegisterInput) => {
@@ -265,7 +276,7 @@ export default function RegisterPage() {
                         aria-invalid={errors.dob ? true : undefined}
                         aria-describedby={errors.dob ? "dob-error" : undefined}
                         className={cn(
-                          "h-11 w-full justify-between rounded-[12px] border-slate-500 bg-white px-3.5 text-base font-normal hover:border-slate-900 hover:bg-white focus-visible:border-route focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route focus-visible:ring-0 aria-invalid:border-correction",
+                          "h-11 w-full justify-between rounded-[12px] border-slate-500 bg-white px-3.5 text-base font-normal hover:border-slate-900 hover:bg-white focus-visible:border-route aria-invalid:border-correction",
                           field.value ? "text-slate-900" : "text-slate-500",
                         )}
                       >

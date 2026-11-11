@@ -240,6 +240,7 @@ describe("/register", () => {
     expect(screen.getByText("learner@example.com")).toBeTruthy();
     expect(currentStage()).toBe("Xác minh");
     expect(screen.getByText("Bước 4/5")).toBeTruthy();
+    await waitFor(() => expect(document.activeElement?.textContent).toBe("Kiểm tra email của bạn"));
     expect(screen.getByRole("button", { name: "Gửi lại email" })).toBeTruthy();
     expect(screen.queryByText(/Google/)).toBeNull();
     expect(screen.queryByText(CONSENT_TEXT)).toBeNull();
@@ -312,6 +313,9 @@ describe("/register", () => {
     fireEvent.click(screen.getByRole("button", { name: "Bỏ ảnh" }));
     expect(screen.queryByRole("img", { name: "Ảnh đại diện đã chọn" })).toBeNull();
     expect(screen.getByText("Chọn ảnh")).toBeTruthy();
+    const fileInput = container.querySelector<HTMLInputElement>("#avatar-upload")!;
+    expect(fileInput.value).toBe("");
+    expect(document.activeElement).toBe(fileInput);
   });
 });
 
