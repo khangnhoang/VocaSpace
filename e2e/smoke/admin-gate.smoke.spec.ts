@@ -11,6 +11,7 @@ import { loginAsStudent, loginAsTeacher } from "../support/auth";
 // - Loại test: smoke E2E trên runtime Supabase cô lập (API 45441) với tài khoản seed student/teacher/admin và một admin tạo riêng cho case thu quyền.
 // - Case thành công: admin mở /admin từ menu tài khoản, thấy đúng 3 link sidebar (Dashboard, Quản lý User, Quản lý khóa học), điều hướng client
 //   sang "Quản lý User" rồi "Quản lý khóa học"; /admin/courses trả 200 kèm khung admin (AD3 AC1).
+//   Resize qua 768px trên cùng trang chuyển sidebar giữa desktop và drawer.
 // - Case thất bại:
 //   - Khách vào /admin/user-management và /admin/courses bị chuyển về /login?reason=signin_required (redirect thắng 404).
 //   - Student và teacher vào /admin, /admin/user-management và /admin/courses nhận trang not-found, không có sidebar/nội dung admin.
@@ -101,6 +102,33 @@ test("admin gets the course screen with the admin shell on a direct visit", asyn
   await expect(page.getByRole("heading", { name: "Quản lý khóa học", level: 1 })).toBeVisible();
   await expect(page.getByText("Menu Quản Trị")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Lọc khóa học theo trạng thái" })).toBeVisible();
+});
+
+test("admin sidebar follows the responsive breakpoint without a page reload", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 800 });
+  await loginAsAdmin(page);
+  const hydrationErrors: string[] = [];
+  page.on("pageerror", (error) => {
+    if (/hydrat|server.rendered|Minified React error #(418|423|425)\b/i.test(error.message)) {
+      hydrationErrors.push(error.message);
+    }
+  });
+  await page.goto("/admin");
+  const desktop = page.locator('[data-slot="sidebar"][data-state]');
+  await expect(desktop).toBeVisible();
+
+  await page.setViewportSize({ width: 767, height: 800 });
+  await expect(desktop).toHaveCount(0);
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  const drawer = page.getByRole("dialog", { name: "Sidebar" });
+  await expect(drawer.getByRole("link", { name: "Quản lý User" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+
+  await page.setViewportSize({ width: 768, height: 800 });
+  await expect(desktop.getByRole("link", { name: "Quản lý User" })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin$/);
+  expect(hydrationErrors).toEqual([]);
 });
 
 test("admin gets the not-found page on the stats and settings routes", async ({ page }) => {

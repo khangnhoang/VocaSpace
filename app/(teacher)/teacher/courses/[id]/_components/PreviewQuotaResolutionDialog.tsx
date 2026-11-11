@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,30 +76,44 @@ export default function PreviewQuotaResolutionDialog({
   const firstSelectionRef = useRef<HTMLInputElement>(null);
   const [projection, setProjection] = useState<PreviewQuotaProjection | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(open && targetId));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const sessionRef = useRef<object | null>(null);
+  const [loadContext, setLoadContext] = useState({ open, targetId, getProjection });
+  if (open !== loadContext.open || targetId !== loadContext.targetId || getProjection !== loadContext.getProjection) {
+    setLoadContext({ open, targetId, getProjection });
+    if (open && targetId) {
+      setProjection(null);
+      setSelectedIds([]);
+      setLoadError(null);
+      setMutationError(null);
+      setIsLoading(true);
+      if (!loadContext.open || targetId !== loadContext.targetId) setIsSubmitting(false);
+    }
+  }
+
+  useLayoutEffect(() => {
+    sessionRef.current = {};
+    return () => { sessionRef.current = null; };
+  }, [open, targetId]);
 
   useEffect(() => {
     if (!open || !targetId) return;
+    const session = sessionRef.current;
     let isCurrent = true;
-    setProjection(null);
-    setSelectedIds([]);
-    setLoadError(null);
-    setMutationError(null);
-    setIsLoading(true);
     void getProjection(targetId).then((result) => {
-      if (!isCurrent) return;
+      if (!isCurrent || sessionRef.current !== session) return;
       if (result.error || !result.data) {
         setLoadError(result.error ?? "Không thể tải số liệu xem thử. Vui lòng thử lại.");
         return;
       }
       setProjection(result.data);
     }).catch(() => {
-      if (isCurrent) setLoadError("Không thể tải số liệu xem thử. Vui lòng thử lại.");
+      if (isCurrent && sessionRef.current === session) setLoadError("Không thể tải số liệu xem thử. Vui lòng thử lại.");
     }).finally(() => {
-      if (isCurrent) setIsLoading(false);
+      if (isCurrent && sessionRef.current === session) setIsLoading(false);
     });
     return () => { isCurrent = false; };
   }, [getProjection, open, targetId]);
@@ -126,10 +140,12 @@ export default function PreviewQuotaResolutionDialog({
 
   const retryProjection = async () => {
     if (!targetId || isLoading) return;
+    const session = sessionRef.current;
     setIsLoading(true);
     setLoadError(null);
     try {
       const fresh = await getProjection(targetId);
+      if (sessionRef.current !== session) return;
       if (fresh.data) {
         const freshIds = new Set(fresh.data.outsideMarkedTopics.map((topic) => topic.id));
         setSelectedIds((current) => current.filter((id) => freshIds.has(id)));
@@ -138,18 +154,20 @@ export default function PreviewQuotaResolutionDialog({
         setLoadError(fresh.error ?? "Không thể tải số liệu xem thử. Vui lòng thử lại.");
       }
     } catch {
-      setLoadError("Không thể tải số liệu xem thử. Vui lòng thử lại.");
+      if (sessionRef.current === session) setLoadError("Không thể tải số liệu xem thử. Vui lòng thử lại.");
     } finally {
-      setIsLoading(false);
+      if (sessionRef.current === session) setIsLoading(false);
     }
   };
 
   const submit = async () => {
     if (!targetId || !projection || !canResolve || isSubmitting || loadError) return;
+    const session = sessionRef.current;
     setIsSubmitting(true);
     setMutationError(null);
     try {
       const result = await onConfirm(currentSelectedIds);
+      if (sessionRef.current !== session) return;
       if (result.cancelled) return;
       if (result.success) {
         setOpen(false);
@@ -162,6 +180,7 @@ export default function PreviewQuotaResolutionDialog({
         setProjection(result.previewProjection);
       } else {
         const fresh = await getProjection(targetId);
+        if (sessionRef.current !== session) return;
         if (fresh.data) {
           const freshIds = new Set(fresh.data.outsideMarkedTopics.map((topic) => topic.id));
           setSelectedIds((current) => current.filter((id) => freshIds.has(id)));
@@ -171,9 +190,9 @@ export default function PreviewQuotaResolutionDialog({
         }
       }
     } catch {
-      setMutationError("Không thể hoàn tất thao tác. Vui lòng thử lại.");
+      if (sessionRef.current === session) setMutationError("Không thể hoàn tất thao tác. Vui lòng thử lại.");
     } finally {
-      setIsSubmitting(false);
+      if (sessionRef.current === session) setIsSubmitting(false);
     }
   };
 

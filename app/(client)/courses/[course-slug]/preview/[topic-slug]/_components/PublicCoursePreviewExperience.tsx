@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { Rating } from "ts-fsrs";
 import {
   ArrowLeft,
@@ -147,8 +147,11 @@ export function PublicCoursePreviewExperience({
   const isAnswerPending = currentQuestionItem
     ? pendingAnswers[currentQuestionItem.question.id] !== undefined
     : false;
-  const currentQuestionIdRef = useRef<string | undefined>(undefined);
-  currentQuestionIdRef.current = currentQuestionItem?.question.id;
+  const currentQuestionId = currentQuestionItem?.question.id;
+  const currentQuestionIdRef = useRef(currentQuestionId);
+  useLayoutEffect(() => {
+    currentQuestionIdRef.current = currentQuestionId;
+  }, [currentQuestionId]);
   const questionHeadingId = useId();
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
   const focusQuestionHeading = useRef(false);

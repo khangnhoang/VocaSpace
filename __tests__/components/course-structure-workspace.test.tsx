@@ -11,7 +11,7 @@ import ChapterWorkbench, {
 } from "@/app/(teacher)/teacher/courses/[id]/_components/ChapterWorkbench";
 import CourseStructureWorkspace from "@/app/(teacher)/teacher/courses/[id]/_components/CourseStructureWorkspace";
 import type { Chapter, Topic } from "@/app/(teacher)/teacher/courses/[id]/_components/types";
-import type { CoursePreviewAllocation } from "@/lib/schemas/course-preview";
+import type { ChapterHidePreviewProjection, CoursePreviewAllocation } from "@/lib/schemas/course-preview";
 import { getTopicBuilderPath } from "@/lib/course-authoring/routes";
 
 // Radix Popper và @dnd-kit/dom đo kích thước qua ResizeObserver, mà jsdom không có API này.
@@ -1310,6 +1310,116 @@ describe("CourseStructureWorkspace chapter selection", () => {
       expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: "Chương mẫu 3" })),
     );
     expect(new URLSearchParams(window.location.search).get("chapter")).toBe(created.id);
+  });
+
+  it("validates the chapter title, deduplicates a pending create and retains input on failure", async () => {
+    let failCreate!: (value: { error: string }) => void;
+    mocks.createChapter.mockImplementationOnce(() => new Promise((resolve) => { failCreate = resolve; }));
+    mocks.createChapter.mockResolvedValueOnce({ error: "Vẫn chưa tạo được" });
+    setUrl("");
+    renderWorkspace();
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" });
+    fireEvent.click(screen.getByRole("button", { name: "Thêm chương" }));
+    const dialog = await screen.findByRole("dialog", { name: "Thêm chương" });
+    const title = within(dialog).getByRole<HTMLInputElement>("textbox", { name: "Tên chương" });
+    const form = title.closest("form")!;
+    await act(async () => { fireEvent.submit(form); });
+    expect(mocks.createChapter).not.toHaveBeenCalled();
+
+    fireEvent.change(title, { target: { value: "Chương kiểm thử" } });
+    await act(async () => {
+      fireEvent.submit(form);
+      fireEvent.submit(form);
+    });
+    expect(mocks.createChapter).toHaveBeenCalledTimes(1);
+    await act(async () => failCreate({ error: "Chưa tạo được chương" }));
+    expect(title.value).toBe("Chương kiểm thử");
+    await act(async () => { fireEvent.submit(form); });
+    expect(mocks.createChapter).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the title on a create transport error and selects the chapter after retry", async () => {
+    const created = makeChapter(3, { topicCount: 0 });
+    mocks.createChapter.mockRejectedValueOnce(new Error("network"));
+    mocks.createChapter.mockResolvedValueOnce({ success: true, message: "Đã tạo chương.", data: { id: created.id } });
+    setUrl("");
+    renderWorkspace();
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" });
+    fireEvent.click(screen.getByRole("button", { name: "Thêm chương" }));
+    const dialog = await screen.findByRole("dialog", { name: "Thêm chương" });
+    const title = within(dialog).getByRole<HTMLInputElement>("textbox", { name: "Tên chương" });
+    const submit = within(dialog).getByRole("button", { name: "Tạo chương" });
+    fireEvent.change(title, { target: { value: created.title } });
+    await act(async () => { fireEvent.click(submit); });
+    expect(title.value).toBe(created.title);
+    expect(isDisabled(submit)).toBe(false);
+    expect(mocks.createChapter).toHaveBeenCalledTimes(1);
+
+    mocks.getChaptersByCourseId.mockResolvedValue({ data: [...chapters, created] });
+    await act(async () => { fireEvent.click(submit); });
+    expect(mocks.createChapter).toHaveBeenCalledTimes(2);
+    expect(mocks.createChapter).toHaveBeenLastCalledWith({ courseId, title: created.title });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const heading = await screen.findByRole("heading", { level: 2, name: created.title });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+  });
+
+  it("resets quota selection and errors across chapter dialogs and ignores a late projection", async () => {
+    const allocation = exhaustedAllocation(makeTopic(1, { title: "Bài ngoài chương" }));
+    const projection: ChapterHidePreviewProjection = {
+      courseId,
+      chapterId: chapters[0].id,
+      currentAllocation: allocation,
+      projectedActiveTopicCount: 1,
+      projectedMarkedTopicCount: 1,
+      projectedCap: 0,
+      requiredUnmarkCount: 1,
+      internalActiveTopicCount: 1,
+      internalMarkedTopicCount: 0,
+      outsideMarkedTopics: allocation.markedTopics,
+      canManageMarkers: true,
+    };
+    let completeOldProjection!: (value: { error: string }) => void;
+    mocks.getChapterHidePreviewProjection
+      .mockResolvedValueOnce({ data: projection })
+      .mockImplementationOnce(() => new Promise((resolve) => { completeOldProjection = resolve; }))
+      .mockResolvedValueOnce({ data: { ...projection, chapterId: chapters[1].id } });
+    mocks.deleteChapter.mockResolvedValueOnce({ error: "Không thể xóa chương", previewProjection: projection });
+    setUrl("");
+    renderWorkspace();
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 1" });
+
+    async function openDelete(title: string) {
+      fireEvent.click(screen.getByRole("button", { name: "Xóa chương " + title }));
+      return within(await screen.findByRole("dialog", { name: "Xóa chương?" }));
+    }
+
+    const checkboxName = "Bỏ nhãn xem thử cho Bài ngoài chương";
+    const first = await openDelete(chapters[0].title);
+    const firstCheckbox = await first.findByRole<HTMLInputElement>("checkbox", { name: checkboxName });
+    fireEvent.click(firstCheckbox);
+    fireEvent.click(first.getByRole("button", { name: "Xóa chương" }));
+    expect(await first.findByText("Không thể xóa chương")).toBeTruthy();
+    expect(firstCheckbox.checked).toBe(true);
+    fireEvent.click(first.getByRole("button", { name: "Hủy bỏ" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const reopened = await openDelete(chapters[0].title);
+    expect(reopened.getByRole("status").textContent).toContain("Đang kiểm tra");
+    expect(reopened.queryByRole("alert")).toBeNull();
+    fireEvent.click(reopened.getByRole("button", { name: "Hủy bỏ" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const navigator = screen.getByRole("navigation", { name: "Chương" });
+    fireEvent.click(within(navigator).getByRole("button", { name: /^(?!Di chuyển).*Chương mẫu 2/ }));
+    await screen.findByRole("heading", { level: 2, name: "Chương mẫu 2" });
+    const second = await openDelete(chapters[1].title);
+    const secondCheckbox = await second.findByRole<HTMLInputElement>("checkbox", { name: checkboxName });
+    await act(async () => completeOldProjection({ error: "Phản hồi cũ" }));
+    expect(secondCheckbox.checked).toBe(false);
+    expect(second.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(secondCheckbox));
+    expect(mocks.getChapterHidePreviewProjection).toHaveBeenNthCalledWith(3, chapters[1].id);
   });
 
   it("announces the selected chapter when a row is chosen on a wide screen", async () => {

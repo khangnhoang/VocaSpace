@@ -20,7 +20,7 @@ interface UseCourseInfoEditOptions {
 
 // Luồng sửa thông tin khóa học dùng chung cho /teacher/courses và trang Tổng quan: cùng form, cùng
 // FormData gửi `updateCourse`, cùng khóa chống gửi trùng. Lưu lỗi thì giữ nguyên dữ liệu đã nhập.
-export function useCourseInfoEdit({ mutationLock, onSaved, onClosed }: UseCourseInfoEditOptions) {
+export function useCourseInfoEdit({ mutationLock: mutationLockRef, onSaved, onClosed }: UseCourseInfoEditOptions) {
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState<EditableCourseInfo | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -48,9 +48,9 @@ export function useCourseInfoEdit({ mutationLock, onSaved, onClosed }: UseCourse
   }
 
   function submit(values: CourseFormValues) {
-    if (!editing || mutationLock.current) return;
+    if (!editing || mutationLockRef.current) return;
     const courseId = editing.id;
-    mutationLock.current = true;
+    mutationLockRef.current = true;
     setSaveError(null);
     startTransition(async () => {
       try {
@@ -68,7 +68,7 @@ export function useCourseInfoEdit({ mutationLock, onSaved, onClosed }: UseCourse
         toast.error(message);
         setSaveError(message);
       }
-      finally { mutationLock.current = false; }
+      finally { mutationLockRef.current = false; }
     });
   }
 

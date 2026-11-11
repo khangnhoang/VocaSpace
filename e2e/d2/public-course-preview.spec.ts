@@ -11,6 +11,7 @@ import { chapterNavigator } from "../support/structure-ui";
 // - Mục tiêu: kiểm tra luồng public Preview, dữ liệu học không đổi, suspension do moderation và phục hồi qua tăng mẫu số.
 // - Loại test: Playwright trên app và Supabase local cô lập; fixture dùng dữ liệu thật, không mock request.
 // - Thành công: guest/enrolled actor dùng card, quiz, media; warning khớp audit; tạo draft hợp lệ tự mở lại Preview.
+// - DM-U4: kiểm tra bytes ảnh thật và JSON webhook bị từ chối trên HTTP, với và không yêu cầu gzip.
 // - Thất bại/cancel: Preview bị chặn khi A=20/M=5/cap=4; Escape đóng hộp thoại ẩn bài mà không đổi topic hoặc marker.
 // - Persistence: learner đã enroll có sẵn flashcard, answer và topic progress; so sánh toàn bộ hàng trước/sau Preview.
 // - Kích thước/bàn phím: kiểm tra tràn ngang ở 320/375/tablet/desktop, focus tiêu đề dialog và chọn đáp án bằng Space.
@@ -66,6 +67,26 @@ test("guest and enrolled Preview recovers automatically after denominator growth
   await page.getByRole("button", { name: "Dễ" }).click();
   const mediaResponse = await mediaResponsePromise;
   expect(mediaResponse.status()).toBe(200);
+  const mediaPath = new URL(mediaResponse.url()).pathname;
+  const storedImage = await fixture.supabase.storage.from("question_group_images").download(fixture.imagePath);
+  expect(storedImage.error).toBeNull();
+  if (!storedImage.data) throw new Error("Missing D2 image fixture");
+  const expectedImage = Buffer.from(await storedImage.data.arrayBuffer());
+  for (const encoding of ["identity", "gzip"]) {
+    const response = await page.request.get(mediaPath, { headers: { "Accept-Encoding": encoding } });
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toBe("image/png");
+    expect(response.headers()["content-encoding"]).toBeUndefined();
+    expect(await response.body()).toEqual(expectedImage);
+    test.info().annotations.push({
+      type: "DM-U4 media response",
+      description: `${encoding}: 200 image/png, unencoded, ${expectedImage.length} fixture bytes match`,
+    });
+  }
+
+  if (process.env.E2E_WEB_SERVER === "start") {
+    await expectPayosResponseCompression(page);
+  }
   const initialImage = page.getByRole("img", { name: "Hình ảnh của nhóm câu hỏi" });
   await expect(initialImage).toBeVisible();
   await expect.poll(() => initialImage.evaluate((image) =>
@@ -334,6 +355,26 @@ test("guest Preview allows finishing with 'Bỏ qua và hoàn thành' after inco
   await expect(page.getByText("Bạn đã xem hết nội dung mẫu.")).toBeVisible();
   await expect(page.getByText("0/1")).toBeVisible();
 });
+
+async function expectPayosResponseCompression(page: import("@playwright/test").Page) {
+  const data = { data: { reference: "dm-u4-invalid" } };
+  const identity = await page.request.post("/api/webhook/payos", {
+    data,
+    headers: { "Accept-Encoding": "identity" },
+  });
+  const gzip = await page.request.post("/api/webhook/payos", {
+    data,
+    headers: { "Accept-Encoding": "gzip" },
+  });
+  for (const response of [identity, gzip]) {
+    expect(response.status()).toBe(400);
+    expect(response.headers()["content-type"]).toMatch(/^application\/json\b/);
+  }
+  expect(identity.headers()["content-encoding"]).toBeUndefined();
+  expect(gzip.headers()["content-encoding"]).toBe("gzip");
+  expect((await identity.json()).message).toMatch(/^Dữ liệu sai cấu trúc:/);
+  expect(await gzip.body()).toEqual(await identity.body());
+}
 
 async function expectNoHorizontalOverflow(page: import("@playwright/test").Page, width: number) {
   await page.setViewportSize({ width, height: 900 });

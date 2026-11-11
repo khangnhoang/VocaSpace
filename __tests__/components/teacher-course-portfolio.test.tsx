@@ -223,9 +223,14 @@ describe('teacher course portfolio', () => {
     view.rerender(<TeacherCoursePortfolio result={{success:false,errorCode:'FORBIDDEN',error:'Không có quyền.'}} />);
     expect(screen.queryByRole('button',{name:'Thử lại'})).toBeNull();
   });
-  it('preserves failed edits, prevents repeat submit and refreshes only after confirmed success', async () => {
-    let finish!: (value: {error:string})=>void;
-    mocks.update.mockImplementationOnce(() => new Promise(resolve => {finish=resolve;}));
+  it.each(['returned error', 'rejected request'])('preserves failed edits, prevents repeat submit and retries after a %s', async (failure) => {
+    let finish!: () => void;
+    mocks.update.mockImplementationOnce(() => new Promise((resolve, reject) => {
+      finish = () => {
+        if (failure === 'returned error') resolve({error:'Không thể lưu.'});
+        else reject(new Error('network'));
+      };
+    }));
     show();
     fireEvent.click(screen.getByRole('button',{name:'Cài đặt thông tin'}));
     fireEvent.change(screen.getByLabelText('Tên khóa học'),{target:{value:'Tên khóa học đã sửa'}});
@@ -233,7 +238,7 @@ describe('teacher course portfolio', () => {
     fireEvent.click(save);
     await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1));
     fireEvent.click(save);
-    await act(async () => finish({error:'Không thể lưu.'}));
+    await act(async () => finish());
     expect(mocks.refresh).not.toHaveBeenCalled();
     expect((screen.getByLabelText('Tên khóa học') as HTMLInputElement).value).toBe('Tên khóa học đã sửa');
     fireEvent.click(screen.getByRole('button',{name:/Lưu|Cập nhật/}));
