@@ -53,7 +53,8 @@ function SignInReasonNotice() {
 }
 
 const SIGN_IN_FAILED_FALLBACK = "Sai email hoặc mật khẩu!";
-// Yêu cầu không tới được máy chủ thì không phải lỗi thông tin đăng nhập, nên không báo "sai mật khẩu" (Owner 2026-11-11).
+// Lời gọi Server Action thất bại (mạng, hoặc máy chủ lỗi/5xx) không phải lỗi thông tin đăng nhập, nên không báo "sai mật
+// khẩu" (U3 quyết định 15).
 const SIGN_IN_NETWORK_FAILED = "Không thể kết nối máy chủ. Kiểm tra mạng rồi thử lại.";
 
 export default function LoginPage() {

@@ -1,6 +1,6 @@
 # U3 detail plan — auth pages redesign
 
-Revision: r2, 2026-11-09 (independent plan review round 1: return path limited to proxy redirects per decision 14, native-submit guard, cookie attributes, email-suggestion exclusions, production-build smoke; round 2 PASS, its non-blocking wording fixes applied). Owner approval: r2 on 2026-11-10, including decision 13. Charter: [README.md](../../README.md) (initiative U3).
+Revision: r3, 2026-11-11 (Owner decision 15: a separate connection message when sign-in fails in transit). Previous: r2, 2026-11-09 (independent plan review round 1: return path limited to proxy redirects per decision 14, native-submit guard, cookie attributes, email-suggestion exclusions, production-build smoke; round 2 PASS, its non-blocking wording fixes applied). Owner approval: r2 on 2026-11-10, including decision 13. Charter: [README.md](../../README.md) (initiative U3).
 
 ## 1. Binding Spec
 
@@ -74,6 +74,7 @@ The Owner accepted the direction of the rendered demo [sources/index.html](./sou
 12. (2026-11-09) The last sign-in method is stored in a first-party cookie holding only `email` or `google`. The existing `/privacy` §3 wording ("ghi nhớ trạng thái giao diện") covers it, so the legal text does not change.
 13. (Proposed in r1; approved by the Owner with plan r2 on 2026-11-10) The demo's "Tài khoản đã sẵn sàng" pane is not built, because `setPasswordAfterConfirmation` already redirects to `/` on success (AC11). Success and failure feedback of sign-in, sign-up and recovery moves from toasts to the inline states above. The Google label becomes "Tiếp tục với Google" on every auth screen, replacing the A4 decision 1 label. The return-path cookie is part of signing in, so it falls under the existing `/privacy` §3 wording on cookies that keep the session; the legal text does not change. The Google button's two toasts ("Đăng nhập Google hiện chưa khả dụng", "Đăng nhập Google không thành công") stay as toasts with their A4 text, because they fire before any page state exists to hold them.
 14. (2026-11-09, Owner, after independent plan review round 1) The return path covers only the proxy's own redirects from `/teacher`, `/profile` and `/admin`. Production prefetch of the header's public "Học tập" link would otherwise record `/learn` for visitors who never opened it. Returning to `/learn` is deferred to FEAT-025.
+15. (2026-11-11, Owner, during the final independent review) When the sign-in Server Action call itself fails (network, or the server throws or answers 5xx), `/login` shows "Không thể kết nối máy chủ. Kiểm tra mạng rồi thử lại." instead of "Sai email hoặc mật khẩu!". It keeps both values and refocuses the password without selecting it or shaking, so Enter retries. An `{ error }` result from `signInUser` keeps the wrong-credentials behaviour (AC3). Known limit: a Supabase outage seen by the server still returns the wrong-credentials message, because `signInUser` maps every Supabase error to it.
 
 ## 2. Repository facts
 

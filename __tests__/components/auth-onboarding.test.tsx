@@ -65,7 +65,9 @@ vi.mock("sonner", () => ({
 // - U3 (CP2) /login và /forgot-password trong AuthShell: tab có aria-current; form `method="post"` (G10); nút Google
 //   "Tiếp tục với Google" và nhãn "Lần trước" theo cookie server đọc (AC6); hiện/ẩn mật khẩu, Caps Lock, thẻ lật khi
 //   focus mật khẩu; gợi ý email chỉ áp dụng khi bấm (AC5); đăng nhập sai báo ngay trong trang, giữ giá trị, chọn lại
-//   mật khẩu; đăng nhập đúng chuyển ngay tới `redirectTo` server trả về; recovery báo trung tính ngay trong trang (AC10).
+//   mật khẩu; lời gọi đăng nhập thất bại (lỗi mạng) báo "Không thể kết nối máy chủ…", giữ giá trị, focus mật khẩu
+//   không bôi đen (quyết định 15); đăng nhập đúng chuyển ngay tới `redirectTo` server trả về; recovery báo trung tính
+//   ngay trong trang (AC10).
 // - Invariant cần giữ: tên tiếp cận login là nhãn tiếng Việt đang hiển thị "Email", "Mật khẩu", "Đăng nhập" (U3 G9,
 //   thay hợp đồng aria-label A1 G9); smoke E2E đăng nhập theo các tên này.
 
