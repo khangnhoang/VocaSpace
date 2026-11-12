@@ -84,7 +84,7 @@ export default function ForgotPasswordPage() {
       ) : null}
 
       {/* U3 G10: method="post" để một lần submit trước khi hydrate không đưa email lên URL. */}
-      <form method="post" noValidate onSubmit={form.handleSubmit(onSubmit)} className="grid gap-[18px]">
+      <form method="post" noValidate onSubmit={(event) => void form.handleSubmit(onSubmit)(event)} className="grid gap-[18px]">
         <EmailField
           id="recovery-email"
           registration={form.register("email")}

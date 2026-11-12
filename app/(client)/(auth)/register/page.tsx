@@ -348,7 +348,7 @@ export default function RegisterPage() {
             Ảnh đại diện
           </h1>
           <p className={AUTH_LEAD_CLASS}>Không bắt buộc. Bạn có thể thêm hoặc đổi sau trong hồ sơ.</p>
-          <form method="post" noValidate onSubmit={form.handleSubmit(onSubmit)} className="grid gap-[18px]">
+          <form method="post" noValidate onSubmit={(event) => void form.handleSubmit(onSubmit)(event)} className="grid gap-[18px]">
             <div className="flex flex-col items-center gap-3.5 pt-2 pb-1">
               <div
                 className={cn(

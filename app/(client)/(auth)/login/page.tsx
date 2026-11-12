@@ -136,7 +136,7 @@ export default function LoginPage() {
 
       {/* U3 G10: method="post" để một lần submit trước khi hydrate không đưa mật khẩu lên URL. */}
       <div ref={formScope}>
-      <form method="post" noValidate onSubmit={form.handleSubmit(onSubmit)} className="grid gap-[18px]">
+      <form method="post" noValidate onSubmit={(event) => void form.handleSubmit(onSubmit)(event)} className="grid gap-[18px]">
         <EmailField
           id="login-email"
           registration={form.register("email")}
