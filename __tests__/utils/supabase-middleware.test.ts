@@ -27,6 +27,9 @@ const mockedCreateServerClient = vi.mocked(createServerClient);
 //   - Middleware chỉ là lớp điều hướng phiên; Server Actions/RLS vẫn là lớp bảo vệ dữ liệu thật.
 // - Ổn định/resilience:
 //   - Không mở lại legacy redirect từ old teacher /courses/*.
+//   - U3 G1/G2/G2b: redirect của khách chưa đăng nhập vào /teacher, /profile, /admin ghi cookie trang đích (chỉ pathname; path sai allowlist thì xoá cookie cũ;
+//     HttpOnly, Lax, Path=/, 10 phút, Secure theo giao thức request); response đi thẳng (kể cả /learn) và request đã
+//     đăng nhập không bao giờ ghi cookie này, vì prefetch cũng chạy qua proxy.
 // - Invariant cần giữ:
 //   - Chỉ /teacher, /teacher/..., /profile, /profile/..., /admin và /admin/... được middleware guard; /profileish, /adminish, /administrator thì không.
 //   - Với /admin, proxy không truy vấn profiles (AD1 G3); kiểm tra vai trò nằm ở server render (xem admin-access.test.ts).
@@ -213,6 +216,88 @@ describe("updateSession admin route guard", () => {
       expect(response.status).toBe(200);
       expect(redirectLocation(response)).toBeNull();
       expect(from).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("updateSession return-path cookie (U3)", () => {
+  function returnPathCookie(response: Response) {
+    const header = response.headers.get("set-cookie") ?? "";
+    return header.split(/,(?=\s*\w+=)/).find((cookie) => cookie.trim().startsWith("vs_return_to=")) ?? null;
+  }
+
+  it.each([
+    ["/teacher/courses/abc?x=1", "/teacher/courses/abc"],
+    ["/profile/orders?next=https://evil.example#h", "/profile/orders"],
+    ["/admin/user-management", "/admin/user-management"],
+  ])("records only the pathname of the signed-out %s redirect", async (path, expected) => {
+    mockUser(null);
+
+    const response = await updateSession(requestFor(path));
+
+    expect(response.status).toBe(307);
+    const cookie = returnPathCookie(response);
+    expect(cookie).toContain(`vs_return_to=${encodeURIComponent(expected)}`);
+    expect(cookie).toMatch(/Path=\//);
+    expect(cookie).toMatch(/Max-Age=600/);
+    expect(cookie).toMatch(/HttpOnly/i);
+    expect(cookie).toMatch(/SameSite=lax/i);
+    expect(cookie).toMatch(/Secure/i);
+  });
+
+  it("omits Secure when the request arrived over plain HTTP", async () => {
+    mockUser(null);
+
+    const response = await updateSession(new NextRequest("http://127.0.0.1:3100/profile"));
+
+    const cookie = returnPathCookie(response);
+    expect(cookie).toContain("vs_return_to=%2Fprofile");
+    expect(cookie).not.toMatch(/Secure/i);
+  });
+
+  it("keeps the existing redirect destination while adding the cookie", async () => {
+    mockUser(null);
+
+    const response = await updateSession(requestFor("/teacher?x=1"));
+
+    expect(redirectLocation(response)).toBe("https://vocaspace.test/login?x=1&reason=signin_required");
+    expect(returnPathCookie(response)).toContain("vs_return_to=%2Fteacher");
+  });
+
+  it("clears any stored path when a guarded path fails the allowlist", async () => {
+    mockUser(null);
+
+    const response = await updateSession(
+      new NextRequest("https://vocaspace.test/profile/%2fevil.example", { headers: { cookie: "vs_return_to=%2Fprofile" } }),
+    );
+
+    expect(response.status).toBe(307);
+    const cookie = returnPathCookie(response);
+    expect(cookie).toMatch(/^vs_return_to=;/);
+    expect(cookie).toMatch(/Max-Age=0/);
+    expect(cookie).toMatch(/Path=\//);
+  });
+
+  it.each(["/learn", "/learn/some-course", "/", "/login", "/courses", "/register"])(
+    "never writes the cookie on the signed-out pass-through response for %s",
+    async (pathname) => {
+      mockUser(null);
+
+      const response = await updateSession(requestFor(pathname));
+
+      expect(redirectLocation(response)).toBeNull();
+      expect(returnPathCookie(response)).toBeNull();
+    },
+  );
+
+  it.each(["/profile", "/teacher/courses", "/admin", "/login"])(
+    "never writes the cookie for a signed-in request to %s",
+    async (pathname) => {
+      mockUser({ id: "user-1" });
+
+      const response = await updateSession(requestFor(pathname));
+
+      expect(returnPathCookie(response)).toBeNull();
     },
   );
 });

@@ -90,8 +90,8 @@ for (const width of [375, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/login");
     await page.getByLabel("Email").fill("student@gmail.com");
-    await page.getByLabel("Password").fill("123123");
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByLabel("Mật khẩu", { exact: true }).fill("123123");
+    await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
     await expect(page).toHaveURL(/\/$/);
 
     // Chưa có tiến độ: chủ đề đầu (cũng là chủ đề Preview) là liên kết /learn với trạng thái Học tiếp.

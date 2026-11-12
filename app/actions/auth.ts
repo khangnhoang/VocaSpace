@@ -13,6 +13,15 @@ import {
   setPasswordSchema,
 } from "@/lib/schemas/auth";
 import { redirect } from "next/navigation";
+import { cookies, headers } from "next/headers";
+import {
+  LAST_SIGN_IN_METHOD_COOKIE,
+  RETURN_PATH_COOKIE,
+  expiredReturnPathCookieOptions,
+  isHttpsRequest,
+  lastSignInMethodCookieOptions,
+  resolveReturnPath,
+} from "@/lib/auth/return-path";
 
 const SIGNUP_UNAVAILABLE_MESSAGE = "Đăng ký tạm thời chưa khả dụng";
 const SIGNUP_RETRY_MESSAGE = "Đăng ký chưa thành công, vui lòng thử lại.";
@@ -178,7 +187,15 @@ export async function signInUser(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword(validated.data);
   if (error) return { error: SIGN_IN_FAILED_MESSAGE };
 
-  return { success: true };
+  // U3 G1/G2: trang đích chỉ lấy từ cookie proxy ghi và được kiểm tra lại ở đây; trường form nào (next,
+  // redirectTo…) cũng không được đọc. Cookie bị xoá sau lần đăng nhập thành công này.
+  const cookieStore = await cookies();
+  const secure = isHttpsRequest(await headers());
+  const redirectTo = resolveReturnPath(cookieStore.get(RETURN_PATH_COOKIE)?.value);
+  cookieStore.set(RETURN_PATH_COOKIE, "", expiredReturnPathCookieOptions(secure));
+  cookieStore.set(LAST_SIGN_IN_METHOD_COOKIE, "email", lastSignInMethodCookieOptions(secure));
+
+  return { success: true, redirectTo };
 }
 
 export async function setPasswordAfterConfirmation(formData: FormData) {

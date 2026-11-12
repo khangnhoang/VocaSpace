@@ -25,12 +25,29 @@ import { getPasswordSetupEligibility } from "@/lib/auth/password-setup";
 // - Ổn định/resilience: đọc marker lỗi thì từ chối; ghi bảng lỗi chỉ log rồi redirect; trùng khóa không sửa marker;
 //   cờ legacy bị bỏ qua (không đọc, không ghi); consume sau marker và scope user_id/session_id; consume lỗi vẫn redirect;
 //   session quá 24 giờ (A2b, reauthentication_needed) báo xin link mới, không ghi marker, không consume.
+// - U3 AC6/AC7 (signInUser): thành công trả `redirectTo` lấy từ cookie trang đích do proxy ghi (kiểm tra lại allowlist,
+//   sai thì `/`), xoá cookie đó và ghi cách đăng nhập `email`; trường form next/redirect_to/redirectTo không được đọc;
+//   thất bại không đụng cookie; Secure theo x-forwarded-proto hoặc Origin.
 // - Invariant cần giữ: không có đường nào trong action đăng ký trả session hay cho client chọn mật khẩu lúc tạo user.
 // - Kết quả verify gần nhất: xem milestone A5 CP1 trong progress.md (`npm run test:run -- __tests__/actions/auth.test.ts`).
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: vi.fn() }));
+const cookieJar = vi.hoisted(() => ({
+  values: new Map<string, string>(),
+  set: [] as Array<{ name: string; value: string; options: Record<string, unknown> }>,
+  headers: new Headers(),
+}));
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => (cookieJar.values.has(name) ? { name, value: cookieJar.values.get(name) } : undefined),
+    set: (name: string, value: string, options: Record<string, unknown>) => {
+      cookieJar.set.push({ name, value, options });
+    },
+  })),
+  headers: vi.fn(async () => cookieJar.headers),
+}));
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(() => {
     throw new Error("NEXT_REDIRECT");
@@ -139,6 +156,9 @@ function passwordForm(password = "abc123", confirmPassword = password) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cookieJar.values.clear();
+  cookieJar.set.length = 0;
+  cookieJar.headers = new Headers();
   vi.spyOn(console, "error").mockImplementation(() => {});
   mockServiceClient();
 });
@@ -370,6 +390,70 @@ describe("signInUser", () => {
     await expect(signInUser(loginForm("learner@example.com", "abc123"))).resolves.toEqual({
       error: "Sai email hoặc mật khẩu!",
     });
+    expect(cookieJar.set).toEqual([]);
+  });
+
+  it("returns the stored return path, clears it and records the email method", async () => {
+    mockSessionClient();
+    cookieJar.values.set("vs_return_to", "/profile/orders");
+    cookieJar.headers = new Headers({ "x-forwarded-proto": "https" });
+
+    await expect(signInUser(loginForm("learner@example.com", "abc123"))).resolves.toEqual({
+      success: true,
+      redirectTo: "/profile/orders",
+    });
+    expect(cookieJar.set).toEqual([
+      { name: "vs_return_to", value: "", options: { httpOnly: true, sameSite: "lax", path: "/", secure: true, maxAge: 0 } },
+      {
+        name: "vs_last_sign_in",
+        value: "email",
+        options: { httpOnly: true, sameSite: "lax", path: "/", secure: true, maxAge: 180 * 24 * 60 * 60 },
+      },
+    ]);
+  });
+
+  it.each([
+    ["no stored path", undefined],
+    ["an external URL", "https://evil.example"],
+    ["a protocol-relative URL", "//evil.example"],
+    ["a non-allowlisted page", "/learn/x"],
+  ])("returns the home page for %s", async (_label, stored) => {
+    mockSessionClient();
+    if (stored !== undefined) cookieJar.values.set("vs_return_to", stored);
+
+    await expect(signInUser(loginForm("learner@example.com", "abc123"))).resolves.toEqual({
+      success: true,
+      redirectTo: "/",
+    });
+    expect(cookieJar.set.map((cookie) => cookie.name)).toEqual(["vs_return_to", "vs_last_sign_in"]);
+  });
+
+  it("ignores client-sent next, redirect_to and redirectTo fields", async () => {
+    mockSessionClient();
+    const form = loginForm("learner@example.com", "abc123");
+    form.append("next", "/admin");
+    form.append("redirect_to", "https://evil.example");
+    form.append("redirectTo", "//evil.example");
+
+    await expect(signInUser(form)).resolves.toEqual({ success: true, redirectTo: "/" });
+  });
+
+  it("omits Secure without an HTTPS forwarded protocol or origin", async () => {
+    mockSessionClient();
+    cookieJar.headers = new Headers({ origin: "http://127.0.0.1:3100" });
+
+    await signInUser(loginForm("learner@example.com", "abc123"));
+
+    expect(cookieJar.set.every((cookie) => cookie.options.secure === false)).toBe(true);
+  });
+
+  it("leaves both cookies untouched when the input is invalid", async () => {
+    mockSessionClient();
+    cookieJar.values.set("vs_return_to", "/profile");
+
+    await signInUser(loginForm("nope", ""));
+
+    expect(cookieJar.set).toEqual([]);
   });
 });
 

@@ -2,15 +2,21 @@
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import ForgotPasswordPage from "@/app/(client)/forgot-password/page";
+import { AuthShell } from "@/components/auth/auth-shell";
+import ForgotPasswordPage from "@/app/(client)/(auth)/forgot-password/page";
 
-const { request, success } = vi.hoisted(() => ({ request: vi.fn(), success: vi.fn() }));
+const { request } = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock("@/app/actions/auth", () => ({ requestPasswordRecovery: request }));
-vi.mock("sonner", () => ({ toast: { success } }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/forgot-password",
+}));
 
 // Test plan:
 // - Mục tiêu: chặn gửi trùng, giữ cooldown và thông báo đồng nhất khi action lỗi.
-// - Loại test: form thật trong jsdom, thay action và toast tại ranh giới.
+// - Loại test: form thật trong jsdom (trang U3 trong AuthShell), thay action tại ranh giới; thông báo là role=status
+//   ngay trong trang (U3 AC10) thay cho toast của trang cũ.
 // - Resilience: submit lại sau cooldown mà không gửi email thật.
 
 afterEach(() => {
@@ -25,7 +31,11 @@ it("deduplicates pending recovery and permits retry after a rejected request and
   request.mockImplementationOnce(() => new Promise((_, reject) => { rejectRequest = reject; }));
   request.mockResolvedValueOnce(undefined);
 
-  render(<ForgotPasswordPage />);
+  render(
+    <AuthShell lastSignInMethod={null}>
+      <ForgotPasswordPage />
+    </AuthShell>,
+  );
   const email = screen.getByRole("textbox", { name: "Email" });
   fireEvent.change(email, { target: { value: "learner@example.test" } });
   const form = email.closest("form")!;
@@ -37,7 +47,7 @@ it("deduplicates pending recovery and permits retry after a rejected request and
   expect(request).toHaveBeenCalledWith("learner@example.test");
 
   await act(async () => rejectRequest(new Error("network")));
-  const message = success.mock.calls[0][0];
+  const message = screen.getByRole("status").textContent;
   expect(message).toContain("Bạn kiểm tra hộp thư");
   expect((screen.getByRole("button", { name: /60s/ }) as HTMLButtonElement).disabled).toBe(true);
   await act(async () => { fireEvent.submit(form); });
@@ -48,5 +58,5 @@ it("deduplicates pending recovery and permits retry after a rejected request and
   }
   await act(async () => { fireEvent.submit(form); });
   expect(request).toHaveBeenCalledTimes(2);
-  expect(success).toHaveBeenLastCalledWith(message);
+  expect(screen.getByRole("status").textContent).toBe(message);
 });

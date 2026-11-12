@@ -4,16 +4,17 @@ import { GET } from "@/app/auth/callback/route";
 import { createClient } from "@/utils/supabase/server";
 
 // Test plan:
-// - Mục tiêu: callback Google chỉ đổi code lấy session bằng exchangeCodeForSession và chỉ chuyển tới hai path cố định.
+// - Mục tiêu: callback Google chỉ đổi code lấy session bằng exchangeCodeForSession; thất bại về path cố định, thành công về `/`
+//   hoặc trang đích nội bộ mà proxy đã ghi vào cookie (U3 AC7), rồi xoá cookie đó và ghi cách đăng nhập `google` (U3 AC6).
 // - Loại test: Route Handler unit test với Supabase boundary mock.
 // - Đối tượng: GET /auth/callback.
 // - Case thành công: code hợp lệ, exchange ok → 303 `/` và exchange được gọi đúng một lần với code đó.
 // - Case thất bại: thiếu code, `error`/`error_description` từ nhà cung cấp (có hoặc không có code), exchange lỗi hoặc
 //   throw (code giả, thiếu PKCE verifier) → /login?auth_error=oauth; các case không có code hợp lệ không gọi Supabase.
-// - Bảo mật/phân quyền: G1 — `next`/`redirect_to` từ query bị bỏ qua cả khi thành công lẫn thất bại, không có open redirect.
+// - Bảo mật/phân quyền: G1 — `next`/`redirect_to` từ query bị bỏ qua cả khi thành công lẫn thất bại, không có open redirect;
+//   cookie trang đích sai allowlist về `/`; thất bại không đụng cookie nào.
 // - Ổn định/resilience: lỗi bất ngờ khi tạo client hoặc đổi code vẫn ra đường thất bại cố định.
 // - Invariant cần giữ: Location luôn là path nội bộ tương đối (giữ host gốc và cookie session vừa đặt).
-// - Kết quả verify gần nhất: passed (14 test) bằng `npx vitest run __tests__/actions/auth-callback-route.test.ts`.
 
 vi.mock("@/utils/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -119,5 +120,77 @@ describe("GET /auth/callback", () => {
     const response = await callback("error=access_denied&next=https://evil.example");
 
     expect(response.headers.get("location")).toBe(FAILURE);
+  });
+});
+
+describe("GET /auth/callback return path and last method (U3)", () => {
+  function callbackWithCookie(query: string, cookie: string, origin = ORIGIN) {
+    return GET(new NextRequest(`${origin}/auth/callback?${query}`, { headers: { cookie } }));
+  }
+
+  function setCookies(response: Response) {
+    return (response.headers.get("set-cookie") ?? "").split(/,(?=\s*\w+=)/).map((cookie) => cookie.trim());
+  }
+
+  it("redirects to a valid stored return path, deletes it and records google", async () => {
+    mockExchange();
+
+    const response = await callbackWithCookie("code=good-code", "vs_return_to=%2Fprofile%2Forders");
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/profile/orders");
+    const cookies = setCookies(response);
+    const cleared = cookies.find((cookie) => cookie.startsWith("vs_return_to="));
+    expect(cleared).toMatch(/^vs_return_to=;/);
+    expect(cleared).toMatch(/Max-Age=0/);
+    const method = cookies.find((cookie) => cookie.startsWith("vs_last_sign_in="));
+    expect(method).toMatch(/^vs_last_sign_in=google;/);
+    expect(method).toMatch(/HttpOnly/i);
+    expect(method).toMatch(/SameSite=lax/i);
+    expect(method).toMatch(/Max-Age=15552000/);
+    expect(method).not.toMatch(/Secure/i);
+  });
+
+  it("marks the cookies Secure when the callback arrives over HTTPS", async () => {
+    mockExchange();
+
+    const response = await callbackWithCookie("code=good-code", "vs_return_to=%2Fadmin", "https://vocaspace.test");
+
+    expect(response.headers.get("location")).toBe("/admin");
+    for (const cookie of setCookies(response)) expect(cookie).toMatch(/Secure/i);
+  });
+
+  it.each([
+    ["an external URL", "vs_return_to=https%3A%2F%2Fevil.example"],
+    ["a protocol-relative URL", "vs_return_to=%2F%2Fevil.example"],
+    ["a non-allowlisted page", "vs_return_to=%2Flearn%2Fx"],
+    ["an empty value", "vs_return_to="],
+  ])("falls back to the home page for %s and still clears the cookie", async (_label, cookie) => {
+    mockExchange();
+
+    const response = await callbackWithCookie("code=good-code", cookie);
+
+    expect(response.headers.get("location")).toBe("/");
+    expect(setCookies(response).find((value) => value.startsWith("vs_return_to="))).toMatch(/Max-Age=0/);
+  });
+
+  it("ignores next and redirect_to even when a valid return path is stored", async () => {
+    mockExchange();
+
+    const response = await callbackWithCookie(
+      "code=good-code&next=https://evil.example&redirect_to=//evil.example",
+      "vs_return_to=%2Fteacher",
+    );
+
+    expect(response.headers.get("location")).toBe("/teacher");
+  });
+
+  it("leaves both cookies untouched when the exchange fails", async () => {
+    mockExchange({ code: "validation_failed", status: 400 });
+
+    const response = await callbackWithCookie("code=bogus", "vs_return_to=%2Fprofile");
+
+    expect(response.headers.get("location")).toBe(FAILURE);
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });

@@ -24,7 +24,8 @@ async function isGoogleEnabled(): Promise<boolean> {
   }
 }
 
-export function GoogleSignInButton() {
+// U3 AC6: `lastUsed` gắn nhãn "Lần trước" khi lần đăng nhập gần nhất trên trình duyệt này dùng Google.
+export function GoogleSignInButton({ lastUsed = false }: { lastUsed?: boolean }) {
   const [pending, setPending] = useState(false);
 
   const handleClick = async () => {
@@ -53,12 +54,22 @@ export function GoogleSignInButton() {
     <Button
       type="button"
       variant="outline"
-      size="sm"
+      size="lg"
       disabled={pending}
       onClick={handleClick}
-      className="w-full h-11 cursor-pointer font-medium"
+      className="h-11 w-full cursor-pointer rounded-[8px] border-slate-500 bg-white text-sm font-semibold text-slate-900 hover:bg-slate-100"
     >
-      <FcGoogle className="mr-2 h-5 w-5" /> Đăng nhập bằng Google
+      <FcGoogle aria-hidden="true" className="size-5" />
+      Tiếp tục với Google
+      {lastUsed ? <LastUsedTag /> : null}
     </Button>
+  );
+}
+
+export function LastUsedTag() {
+  return (
+    <span className="inline-flex items-center rounded-full border border-recall-line bg-recall-quiet px-2 py-0.5 font-[family-name:var(--font-geist-sans)] text-xs leading-4 font-semibold text-recall">
+      Lần trước
+    </span>
   );
 }
