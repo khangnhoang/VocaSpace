@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VocaSpace Auth Small-Screen Deck Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* Demo for U3 small screens (< 960px): the memory curve is replaced by a deck of word cards.
+     Tokens are copied from sources/index.html (Product Language). The purple demo bar is not part of the design. */
+  :root {
+    --canvas: #F8FAFC; --surface: #FFFFFF; --subtle: #F1F5F9; --border: #CBD5E1; --muted-border: #E2E8F0;
+    --ink: #0F172A; --text-2: #475569; --text-3: #64748B; --control-line: #64748B;
+    --route: #2563EB; --route-quiet: #EFF6FF; --route-line: #93C5FD;
+    --action: #2B6CED;
+    --recall: #0E7490; --recall-quiet: #ECFEFF;
+    --growth: #15803D; --growth-quiet: #F0FDF4;
+    --attention: #A16207; --attention-quiet: #FFFBEB;
+    --l1: 0 1px 2px rgba(15, 23, 42, 0.06); --l2: 0 8px 24px rgba(15, 23, 42, 0.10);
+    --ease: cubic-bezier(0.2, 0, 0, 1); --ease-earned: cubic-bezier(0.16, 1, 0.3, 1);
+    --font: "Plus Jakarta Sans", system-ui, sans-serif; --font-utility: "Geist", "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E2E8F0; color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 22px; -webkit-font-smoothing: antialiased; }
+  html.rm *, html.rm *::before, html.rm *::after { transition: none !important; animation: none !important; }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--route); outline-offset: 2px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  svg.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Demo bar (not part of the design) */
+  .demo { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 10px 16px; background: #4C1D95; color: #fff; font-size: 13px; }
+  .demo b { font-weight: 700; margin-right: 4px; }
+  .demo .grp { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  .demo button { border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .demo button[aria-pressed="true"] { background: #fff; color: #4C1D95; font-weight: 700; }
+
+  .stage { display: flex; justify-content: center; padding: 24px 12px 60px; }
+  .frame { width: 375px; min-height: 780px; background: var(--canvas); border: 1px solid #94A3B8; border-radius: 28px; overflow: hidden; box-shadow: var(--l2); transition: width 300ms var(--ease); }
+  .frame.tablet { width: 768px; min-height: 1024px; border-radius: 20px; }
+
+  /* Site header (mobile form) */
+  .hdr { height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: #fff; border-bottom: 1px solid var(--muted-border); }
+  .logo { font-weight: 800; font-size: 20px; color: var(--route); letter-spacing: -0.01em; }
+  .menu { width: 44px; height: 44px; border: 1px solid var(--muted-border); border-radius: 8px; background: #fff; display: grid; place-items: center; }
+
+  .main { padding: 16px 16px 40px; }
+  .frame.tablet .main { min-height: calc(1024px - 65px); display: flex; flex-direction: column; justify-content: center; }
+  .card-shell { width: 100%; max-width: 480px; margin: 0 auto; background: var(--surface); border: 1px solid var(--muted-border); border-radius: 20px; box-shadow: var(--l1); padding: 8px; }
+
+  /* Deck band: the small-screen signature. Phone: deck centred over one title line. Tablet: deck beside its copy. */
+  .band { border-radius: 16px; background: var(--subtle); padding: 14px 16px 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .frame.tablet .band { flex-direction: row; align-items: center; gap: 20px; padding: 18px 20px; }
+  .eyebrow { margin: 0; font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.04em; color: var(--recall); text-transform: uppercase; }
+  .band-copy { text-align: center; }
+  .frame.tablet .band-copy { text-align: left; flex: 1; }
+  .band-title { margin: 2px 0 0; font-weight: 700; font-size: 16px; line-height: 24px; }
+  .band-text { display: none; margin: 4px 0 0; color: var(--text-2); font-size: 14px; line-height: 22px; }
+  .frame.tablet .band-text { display: block; }
+  .frame.tablet .band-title { font-size: 18px; line-height: 26px; }
+
+  .deck { position: relative; width: 208px; height: 116px; flex: none; cursor: pointer; perspective: 900px; -webkit-tap-highlight-color: transparent; }
+  .wcard { position: absolute; left: 0; top: 0; width: 208px; height: 96px; transform-origin: 50% 100%; transition: transform 520ms var(--ease-earned), opacity 420ms var(--ease); }
+  .wcard .inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 620ms var(--ease); }
+  .wcard.flipped .inner { transform: rotateY(180deg); }
+  .face { position: absolute; inset: 0; border-radius: 14px; backface-visibility: hidden; -webkit-backface-visibility: hidden; padding: 10px 14px; display: flex; flex-direction: column; justify-content: space-between; }
+  .front { background: #fff; border: 1px solid var(--border); box-shadow: var(--l1); }
+  .back { background: var(--ink); color: #fff; transform: rotateY(180deg); justify-content: center; gap: 4px; }
+  .back b { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .back span { font-size: 12px; line-height: 18px; color: #CBD5E1; }
+  .row { display: flex; justify-content: space-between; align-items: center; }
+  .tag { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.04em; color: var(--recall); }
+  .state { font-family: var(--font-utility); font-size: 12px; line-height: 16px; font-weight: 600; border-radius: 9999px; padding: 1px 8px; }
+  .state.due { color: var(--route); background: var(--route-quiet); }
+  .state.fade { color: var(--attention); background: var(--attention-quiet); }
+  .state.ok { color: var(--growth); background: var(--growth-quiet); }
+  .word { font-weight: 800; font-size: 22px; line-height: 28px; letter-spacing: -0.01em; }
+  .mean { font-family: var(--font-utility); font-size: 13px; line-height: 16px; font-weight: 500; color: var(--text-2); }
+  .wcard.forgetting .word, .wcard.forgetting .mean { opacity: .35; filter: blur(1.5px); transition: opacity 2400ms linear, filter 2400ms linear; }
+  .wcard.relearned .word, .wcard.relearned .mean { opacity: 1; filter: none; transition: opacity 300ms var(--ease), filter 300ms var(--ease); }
+  .wcard.entering { opacity: 0; transform: translateY(-28px) scale(1.04); }
+  .wcard.leaving { opacity: 0; transform: translate(-30px, -14px) rotate(-8deg); }
+
+  /* Form column (simplified accepted form grammar) */
+  .form { width: 100%; max-width: 408px; margin: 0 auto; padding: 20px 12px 16px; }
+  .tabs { display: flex; border-bottom: 1px solid var(--muted-border); margin-bottom: 22px; }
+  .tab { flex: 1; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: none; font-weight: 600; color: var(--text-2); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+  .tab[aria-current="page"] { color: var(--route); border-bottom-color: var(--route); }
+  h1 { margin: 0; font-size: 26px; line-height: 34px; font-weight: 800; letter-spacing: -0.01em; }
+  .lead { margin: 6px 0 20px; color: var(--text-2); font-size: 15px; line-height: 24px; }
+  .field { margin-bottom: 14px; }
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  input { width: 100%; height: 44px; border: 1px solid var(--control-line); border-radius: 12px; padding: 0 14px; font-size: 16px; background: #fff; }
+  input:focus-visible { outline: 2px solid var(--route); outline-offset: 2px; }
+  .btn { width: 100%; height: 44px; border: 0; border-radius: 8px; background: var(--action); color: #fff; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn.outline { background: #fff; color: var(--ink); border: 1px solid var(--border); }
+  .divider { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 12px; margin: 14px 0; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--muted-border); }
+  .link { color: var(--route); font-weight: 600; text-decoration: none; }
+  .right { text-align: right; margin: -4px 0 16px; }
+  .rail-meta { display: flex; justify-content: space-between; font-family: var(--font-utility); font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 16px; letter-spacing: 0.04em; }
+  .rail-meta b { color: var(--route); }
+  .notice { border-radius: 12px; padding: 10px 12px; margin-bottom: 16px; font-size: 14px; }
+  .notice.ok { background: var(--growth-quiet); color: var(--growth); border: 1px solid #86EFAC; }
+  .avatar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .avatar span { width: 64px; height: 64px; border-radius: 9999px; background: var(--subtle); border: 1px dashed var(--control-line); }
+</style>
+</head>
+<body>
+<div class="demo" role="toolbar" aria-label="Điều khiển demo">
+  <div class="grp"><b>Màn:</b>
+    <button data-screen="login" aria-pressed="true">Đăng nhập</button>
+    <button data-screen="register">Đăng ký</button>
+    <button data-screen="forgot">Quên mật khẩu</button>
+    <button data-screen="set">Đặt mật khẩu</button>
+  </div>
+  <div class="grp"><b>Khung:</b>
+    <button data-frame="phone" aria-pressed="true">Điện thoại 375</button>
+    <button data-frame="tablet">Tablet 768</button>
+  </div>
+  <div class="grp"><button id="rm" aria-pressed="false">Giảm chuyển động</button></div>
+</div>
+
+<div class="stage">
+  <div class="frame" id="frame">
+    <div class="hdr"><span class="logo">VocaSpace</span><span class="menu" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span></div>
+    <div class="main">
+      <div class="card-shell">
+        <section class="band" aria-label="Minh hoạ cách VocaSpace ôn thẻ">
+          <div class="deck" id="deck" aria-hidden="true" title="Chạm để ôn thẻ tiếp theo"></div>
+          <div class="band-copy">
+            <p class="eyebrow">Minh hoạ</p>
+            <p class="band-title" id="bandTitle" aria-live="polite"></p>
+            <p class="band-text" id="bandText"></p>
+          </div>
+        </section>
+        <div class="form" id="form"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const LOCK = '<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  const UNLOCK = '<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>';
+  const LOGIN_WORDS = [["remember", "/rɪˈmem.bər/ · ghi nhớ"], ["review", "/rɪˈvjuː/ · ôn lại"], ["vivid", "/ˈvɪv.ɪd/ · sống động"]];
+  const STEP_WORDS = [["hello", "xin chào", "Tài khoản"], ["profile", "hồ sơ", "Thông tin"], ["picture", "ảnh", "Ảnh"], ["verify", "xác minh", "Xác minh"], ["secure", "bảo mật", "Mật khẩu"]];
+  const deckEl = document.getElementById("deck");
+  const formEl = document.getElementById("form");
+  const bandTitle = document.getElementById("bandTitle");
+  const bandText = document.getElementById("bandText");
+  const reduce = () => document.documentElement.classList.contains("rm") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let cards = [];      // DOM cards, index 0 = top of the deck
+  let cycleTimer = null;
+  let flipped = false;
+
+  function cardHtml({ word, mean, state, stateClass }) {
+    return `<div class="inner"><div class="face front"><div class="row"><span class="tag">THẺ TỪ</span>${state ? `<span class="state ${stateClass}">${state}</span>` : ""}</div><span class="word">${word}</span><span class="mean">${mean}</span></div>` +
+      `<div class="face back"><b>${LOCK} Không nhìn trộm đâu</b><span>Thẻ úp mặt khi bạn gõ mật khẩu.</span></div></div>`;
+  }
+  // Cards behind the top one fan out slightly so the stack reads as a deck, not as a single card.
+  const FAN = ["translate(0, 0)", "translate(7px, 8px) rotate(3deg) scale(0.97)", "translate(-7px, 14px) rotate(-3deg) scale(0.94)"];
+  function layout() {
+    cards.forEach((card, pos) => {
+      card.classList.remove("entering", "leaving");
+      card.style.zIndex = String(10 - pos);
+      card.style.opacity = pos < 3 ? "1" : "0";
+      card.style.transform = FAN[Math.min(pos, 2)];
+    });
+  }
+  function setDeck(list, { animateTop = false } = {}) {
+    deckEl.innerHTML = "";
+    cards = list.map((data) => {
+      const el = document.createElement("div");
+      el.className = "wcard";
+      el.innerHTML = cardHtml(data);
+      return el;
+    });
+    [...cards].reverse().forEach((el) => deckEl.appendChild(el));
+    layout();
+    if (animateTop && cards[0] && !reduce()) {
+      const top = cards[0];
+      top.classList.add("entering");
+      top.style.transform = "";
+      top.style.opacity = "";
+      requestAnimationFrame(() => requestAnimationFrame(layout));
+    }
+  }
+  // One review: the top card leaves and returns at the back of the deck.
+  function reviewNext() {
+    if (cards.length < 2 || flipped) return;
+    const top = cards[0];
+    if (reduce()) { cards.push(cards.shift()); restack(); return; }
+    top.style.transform = ""; top.style.opacity = "";
+    top.classList.add("leaving");
+    setTimeout(() => { cards.push(cards.shift()); restack(); }, 360);
+  }
+  function restack() {
+    cards.forEach((el) => deckEl.removeChild(el));
+    [...cards].reverse().forEach((el) => deckEl.appendChild(el));
+    layout();
+  }
+  // Auto-review runs a short burst (under 5 s, WCAG 2.2.2) and stops; a tap reviews the next card.
+  function burst(times) {
+    clearInterval(cycleTimer);
+    if (reduce()) return;
+    let left = times;
+    cycleTimer = setInterval(() => { if (--left < 0) return clearInterval(cycleTimer); reviewNext(); }, 1500);
+  }
+  deckEl.addEventListener("click", reviewNext);
+
+  function setBand(title, text) { bandTitle.textContent = title; bandText.textContent = text; }
+  function setFlip(on) { flipped = on; if (cards[0]) cards[0].classList.toggle("flipped", on); }
+
+  const tabs = (current) => `<nav class="tabs" aria-label="Đăng nhập hoặc đăng ký"><button class="tab" data-go="login" ${current === "login" ? 'aria-current="page"' : ""}>Đăng nhập</button><button class="tab" data-go="register" ${current === "register" ? 'aria-current="page"' : ""}>Đăng ký</button></nav>`;
+
+  const screens = {
+    login() {
+      setBand("Ôn đúng lúc sắp quên.", "Thẻ đến hạn quay lại đầu chồng; VocaSpace dùng FSRS để chọn lúc ôn. Chạm vào chồng thẻ để ôn thẻ tiếp theo.");
+      setDeck(LOGIN_WORDS.map(([word, mean], i) => ({ word, mean, state: i === 0 ? "Đến hạn" : "", stateClass: "due" })));
+      formEl.innerHTML = tabs("login") + `<h1>Chào mừng trở lại</h1><p class="lead">Đăng nhập để học tiếp đúng chỗ bạn đã dừng.</p>
+        <div class="field"><label for="e">Email</label><input id="e" type="email" placeholder="ban@example.com"></div>
+        <div class="field"><label for="p">Mật khẩu</label><input id="p" type="password" data-peek></div>
+        <p class="right"><a class="link" href="#" data-go="forgot">Quên mật khẩu?</a></p>
+        <button class="btn">Đăng nhập</button><div class="divider">hoặc</div><button class="btn outline">Tiếp tục với Google</button>`;
+      burst(2);
+    },
+    register(step = 1) {
+      const [word, mean, name] = STEP_WORDS[Math.min(step, 4) - 1];
+      const done = step === 4;
+      setBand(done ? "Còn một bước: xác minh email." : "Mỗi bước, thêm một thẻ vào chồng.",
+        done ? "Thẻ \"verify\" chờ bạn mở email. Sau khi xác minh, bạn đặt mật khẩu để hoàn tất." : `Bước ${step}/5 thêm thẻ "${word}". Đủ 5 thẻ là tài khoản sẵn sàng.`);
+      // Newest step card on top; earlier step cards stay behind it.
+      setDeck(STEP_WORDS.slice(0, step).map(([w, m], i) => ({ word: w, mean: m, state: i === step - 1 ? (done ? "Chờ email" : "Mới") : "Đã xong", stateClass: i === step - 1 ? "due" : "ok" })).reverse(), { animateTop: step > 1 });
+      const meta = `<div class="rail-meta"><span>Bước ${step}/5</span><b>${name}</b></div>`;
+      const bodies = {
+        1: `<h1>Tạo tài khoản</h1><p class="lead">Chỉ khoảng một phút. Mật khẩu sẽ được đặt sau khi bạn xác minh email.</p><div class="field"><label for="u">Tên tài khoản</label><input id="u"></div><div class="field"><label for="m">Email</label><input id="m" type="email" placeholder="ban@example.com"></div><button class="btn" data-step="2">Tiếp tục</button><div class="divider">hoặc</div><button class="btn outline">Tiếp tục với Google</button>`,
+        2: `<h1>Thông tin của bạn</h1><p class="lead">Giúp giáo viên nhận ra bạn.</p><div class="field"><label for="n">Họ và tên</label><input id="n"></div><div class="field"><label for="t">Số điện thoại</label><input id="t" inputmode="tel"></div><button class="btn" data-step="3">Tiếp tục</button>`,
+        3: `<h1>Ảnh đại diện</h1><p class="lead">Không bắt buộc, bạn đổi được sau.</p><div class="avatar"><span></span><button class="btn outline" style="width:auto;padding:0 16px">Chọn ảnh</button></div><button class="btn" data-step="4">Tạo tài khoản</button>`,
+        4: `<h1>Kiểm tra email của bạn</h1><p class="lead">Chúng tôi đã gửi link xác minh tới <b>lan@gmail.com</b>.</p><button class="btn">Mở Gmail</button><div class="divider">chưa thấy email?</div><button class="btn outline">Gửi lại email</button>`,
+      };
+      formEl.innerHTML = (step === 1 ? tabs("register") : "") + meta + bodies[step];
+    },
+    forgot(sent = false) {
+      setBand(sent ? "Ôn lại là nhớ lại." : "Quên là chuyện bình thường.", sent ? "Mở link trong email để đặt mật khẩu mới, như một lần ôn kéo thẻ về rõ nét." : "Lâu không ôn, thẻ mờ dần. Một link đặt lại sẽ giúp bạn quay lại.");
+      setDeck([{ word: "remember", mean: "/rɪˈmem.bər/ · ghi nhớ", state: sent ? "Ôn lại" : "Quên dần", stateClass: sent ? "ok" : "fade" }]);
+      const card = cards[0];
+      if (sent) { card.classList.add("forgetting"); requestAnimationFrame(() => requestAnimationFrame(() => { card.classList.remove("forgetting"); card.classList.add("relearned"); })); }
+      else requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add("forgetting")));
+      formEl.innerHTML = `<p style="margin:0 0 16px"><a class="link" href="#" data-go="login">← Quay lại đăng nhập</a></p><h1>Quên mật khẩu?</h1><p class="lead">Nhập email tài khoản VocaSpace, chúng tôi sẽ gửi link để bạn đặt mật khẩu mới.</p>` +
+        (sent ? `<div class="notice ok" role="status">Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé.</div>` : "") +
+        `<div class="field"><label for="f">Email</label><input id="f" type="email" placeholder="ban@example.com"></div><button class="btn" data-sent="1">${sent ? "Gửi lại link (58s)" : "Gửi link đặt lại"}</button>`;
+    },
+    set(saved = false) {
+      setBand(saved ? "Tài khoản đã sẵn sàng." : "Thẻ cuối: bảo mật tài khoản.", saved ? "Thẻ mở khoá; bạn được chuyển về trang chủ." : "Đặt mật khẩu để mở khoá chồng thẻ của bạn.");
+      setDeck(STEP_WORDS.map(([w, m], i) => ({ word: w, mean: m, state: i === 4 ? (saved ? "Đã mở" : "Khoá") : "Đã xong", stateClass: i === 4 && !saved ? "due" : "ok" })).reverse());
+      const tag = cards[0].querySelector(".state");
+      tag.innerHTML = (saved ? UNLOCK : LOCK) + " " + tag.textContent;
+      tag.style.display = "inline-flex"; tag.style.alignItems = "center"; tag.style.gap = "4px";
+      formEl.innerHTML = `<div class="rail-meta"><span>Bước 5/5</span><b>Đặt mật khẩu</b></div><h1>Đặt mật khẩu</h1><p class="lead">Mật khẩu dùng cho những lần đăng nhập sau.</p><div class="field"><label for="s1">Mật khẩu mới</label><input id="s1" type="password" data-peek></div><div class="field"><label for="s2">Nhập lại mật khẩu</label><input id="s2" type="password" data-peek></div><button class="btn" data-saved="1">${saved ? "Đã lưu" : "Lưu mật khẩu"}</button>`;
+    },
+  };
+
+  let current = "login";
+  function show(name, arg) {
+    current = name; flipped = false; clearInterval(cycleTimer);
+    document.querySelectorAll("[data-screen]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.screen === name)));
+    screens[name](arg);
+  }
+  formEl.addEventListener("click", (event) => {
+    const t = event.target.closest("[data-go],[data-step],[data-sent],[data-saved]");
+    if (!t) return;
+    event.preventDefault();
+    if (t.dataset.go) show(t.dataset.go);
+    else if (t.dataset.step) show("register", Number(t.dataset.step));
+    else if (t.dataset.sent) show("forgot", true);
+    else if (t.dataset.saved) show("set", true);
+  });
+  // The top card turns face down while any password field has focus (same idea as the desktop flashcard).
+  formEl.addEventListener("focusin", (e) => { if (e.target.matches("[data-peek]")) { clearInterval(cycleTimer); setFlip(true); } });
+  formEl.addEventListener("focusout", (e) => { if (e.target.matches("[data-peek]")) setFlip(false); });
+
+  document.querySelectorAll("[data-screen]").forEach((b) => b.addEventListener("click", () => show(b.dataset.screen)));
+  document.querySelectorAll("[data-frame]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-frame]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    document.getElementById("frame").classList.toggle("tablet", b.dataset.frame === "tablet");
+  }));
+  document.getElementById("rm").addEventListener("click", (e) => {
+    const on = document.documentElement.classList.toggle("rm");
+    e.currentTarget.setAttribute("aria-pressed", String(on));
+    show(current);
+  });
+  show("login");
+</script>
+</body>
+</html>

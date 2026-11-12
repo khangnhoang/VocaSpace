@@ -1,0 +1,57 @@
+/* U3 quyết định 17: hiệu ứng của chồng thẻ màn nhỏ. Dùng CSS để chạy ngay khi phần tử xuất hiện, không ẩn nội dung
+   trước khi hydrate (G10). `backwards` chỉ áp trạng thái đầu, không giữ trạng thái cuối, để transform nội tuyến của vị
+   trí trong chồng vẫn có hiệu lực sau khi thẻ vào xong. */
+.enter {
+  animation: deck-enter 520ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.fading {
+  animation: forget 2400ms linear 300ms both;
+}
+
+.relearned {
+  animation: relearn 420ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes deck-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-28px) scale(1.04);
+  }
+}
+
+@keyframes forget {
+  from {
+    opacity: 1;
+    filter: blur(0);
+  }
+  to {
+    opacity: 0.35;
+    filter: blur(1.5px);
+  }
+}
+
+@keyframes relearn {
+  from {
+    opacity: 0.35;
+    filter: blur(1.5px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter,
+  .relearned {
+    animation: none;
+  }
+
+  /* Giữ đúng trạng thái cuối "đã mờ" nhưng không có chuyển động. */
+  .fading {
+    animation: none;
+    opacity: 0.35;
+    filter: blur(1.5px);
+  }
+}

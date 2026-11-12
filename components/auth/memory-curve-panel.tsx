@@ -20,12 +20,6 @@ import styles from "./memory-curve-panel.module.css";
 const SEGMENT_MS = 520;
 const LAPSE_MS = 1100;
 const JUMP_MS = 380;
-// Dải dưới 960px (đơn vị viewBox): từ ngay trên mốc 100% (chừa vòng sáng r=13) tới dưới điểm "Quên dần" của
-// /forgot-password, điểm thấp nhất trong mọi biến thể. Cùng một dải cho mọi trang để panel không đổi chiều cao.
-const STRIP_BAND = {
-  top: 6,
-  bottom: Math.ceil(Math.max(...curveGeometry({ kind: "forgot", sent: false }).nodes.map((node) => node.y)) + 14),
-};
 
 type Timing = { className: string; style: CSSProperties; kind: "draw" | "pop" | "fade" };
 
@@ -102,7 +96,8 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
   return (
     <aside
       aria-label="Minh hoạ cách VocaSpace xếp lịch ôn"
-      className="order-first mx-auto flex w-[calc(100%-24px)] max-w-[408px] flex-col gap-1.5 rounded-[16px] bg-slate-100 px-4 pt-3.5 pb-3 min-[960px]:order-none min-[960px]:mx-0 min-[960px]:w-auto min-[960px]:max-w-none min-[960px]:gap-3 min-[960px]:px-7 min-[960px]:pt-7 min-[960px]:pb-6"
+      // Chỉ hiện từ 960px; màn nhỏ hơn dùng chồng thẻ WordDeck (U3 quyết định 17).
+      className="hidden flex-col gap-1.5 rounded-[16px] bg-slate-100 px-4 pt-3.5 pb-3 min-[960px]:flex min-[960px]:gap-3 min-[960px]:px-7 min-[960px]:pt-7 min-[960px]:pb-6"
     >
       <div className="flex items-center justify-between gap-3">
         <p className={cn(UTILITY, "tracking-[0.04em] text-recall uppercase")}>Đường cong ghi nhớ</p>
@@ -151,16 +146,6 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
         ) : null}
 
         <div className="relative">
-          {/* Dưới 960px (max-[960px] là width < 960px) chỉ hiện dải từ 100% tới điểm thấp nhất mọi biến thể cần (U3 quyết định 16): khung cắt theo tỉ
-              lệ cố định nên dải thấp, cùng chiều cao ở mọi trang và form không bị đẩy xuống. */}
-          <div
-            className="max-[960px]:aspect-[var(--strip-ratio)] max-[960px]:overflow-hidden"
-            style={{ "--strip-ratio": `${width} / ${STRIP_BAND.bottom - STRIP_BAND.top}` } as CSSProperties}
-          >
-          <div
-            className="relative max-[960px]:mt-[var(--strip-offset)]"
-            style={{ "--strip-offset": `-${pct(STRIP_BAND.top, width)}` } as CSSProperties}
-          >
           <svg
             viewBox={`0 0 ${width} ${height - 30}`}
             role="img"
@@ -236,10 +221,10 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
             ))}
           </svg>
           {/* Nhãn chữ là HTML để giữ cỡ chữ thật (tối thiểu 12px) dù SVG co giãn theo chiều rộng panel. */}
-          <span aria-hidden="true" className={cn(UTILITY, "absolute left-0 text-slate-600 max-[960px]:hidden")} style={{ top: `calc(${pct(yForRecall(1), height - 30)} - 8px)` }}>
+          <span aria-hidden="true" className={cn(UTILITY, "absolute left-0 text-slate-600 max-[959px]:hidden")} style={{ top: `calc(${pct(yForRecall(1), height - 30)} - 8px)` }}>
             100%
           </span>
-          <span aria-hidden="true" className={cn(UTILITY, "absolute left-1.5 text-slate-600 max-[960px]:hidden")} style={{ top: `calc(${pct(yForRecall(0.6), height - 30)} - 8px)` }}>
+          <span aria-hidden="true" className={cn(UTILITY, "absolute left-1.5 text-slate-600 max-[959px]:hidden")} style={{ top: `calc(${pct(yForRecall(0.6), height - 30)} - 8px)` }}>
             60%
           </span>
           {geometry.nodes
@@ -250,7 +235,7 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
                 aria-hidden="true"
                 className={cn(
                   UTILITY,
-                  "absolute -translate-x-[calc(100%+12px)] whitespace-nowrap rounded-[4px] bg-white px-1 max-[960px]:hidden",
+                  "absolute -translate-x-[calc(100%+12px)] whitespace-nowrap rounded-[4px] bg-white px-1",
                   node.tone === "low" ? "text-attention" : "text-route",
                 )}
                 style={{
@@ -261,8 +246,6 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
                 {node.label}
               </span>
             ))}
-          </div>
-          </div>
           <div aria-hidden="true" className="relative mt-1 h-4">
             {TICK_LABELS.map((label, index) => (
               <span

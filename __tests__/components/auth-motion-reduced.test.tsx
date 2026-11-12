@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // Test plan:
 // - Mục tiêu: U3 AC13 — khi hệ điều hành bật giảm chuyển động, bước đăng ký mới hiện ngay (không mờ, không dịch) với
-//   cùng tiêu đề, focus và nút; thẻ từ đổi mặt không có transition.
+//   cùng tiêu đề, focus và nút; thẻ từ đổi mặt không có transition; chồng thẻ màn nhỏ không tự ôn (quyết định 17).
 // - Loại test: component trong jsdom; Motion đọc `prefers-reduced-motion` một lần cho cả module nên file này stub
 //   matchMedia trước khi import component.
 // - Giới hạn: jsdom không tính CSS media query; lớp `motion-reduce:` của Tailwind được kiểm tra trên trình duyệt.
@@ -37,6 +37,7 @@ vi.mock("next/navigation", () => ({
 
 const { AuthShell } = await import("@/components/auth/auth-shell");
 const { default: RegisterPage } = await import("@/app/(client)/(auth)/register/page");
+const { WordDeck } = await import("@/components/auth/word-deck");
 
 describe("auth motion under reduced motion", () => {
   it("shows the next registration step at once with focus on its title (AC13)", async () => {
@@ -56,5 +57,18 @@ describe("auth motion under reduced motion", () => {
     expect(step.style.transform === "" || step.style.transform === "none").toBe(true);
     await waitFor(() => expect(document.activeElement?.textContent).toBe("Thông tin của bạn"));
     expect(screen.getByRole("button", { name: "Tiếp tục" })).toBeTruthy();
+  });
+
+  it("keeps the small-screen word deck still: no automatic review (decision 17)", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<WordDeck variant={{ kind: "login" }} flipped={false} />);
+      act(() => vi.advanceTimersByTime(10_000));
+      const top = container.querySelector<HTMLElement>('[data-deck-card="remember"]')!;
+      expect(top.dataset.deckPosition).toBe("0");
+      expect(top.style.opacity).toBe("1");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

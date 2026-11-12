@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { LastSignInMethod } from "@/lib/schemas/auth";
 import { AuthShellContext, type AuthPanelState } from "./auth-shell-context";
 import { MemoryCurvePanel } from "./memory-curve-panel";
+import { WordDeck } from "./word-deck";
 import { AutoHeight, SlideIn } from "./auth-motion";
 
 // Thứ tự để chọn hướng trượt khi đổi trang: quên mật khẩu ← đăng nhập → đăng ký.
@@ -86,7 +87,7 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
     <AuthShellContext.Provider value={context}>
       <LazyMotion features={domMax} strict>
       <MotionConfig reducedMotion="user">
-      {/* Còn thừa chiều cao (ví dụ tablet dọc) thì card nằm giữa theo chiều dọc, không dồn lên trên (U3 quyết định 16).
+      {/* Còn thừa chiều cao (ví dụ tablet dọc) thì card nằm giữa theo chiều dọc, không dồn lên trên (U3 quyết định 16, 17).
           65px là header site h-16 cộng viền dưới. */}
       <div className="mx-auto flex min-h-[calc(100dvh-65px)] w-full max-w-[1200px] flex-col justify-center px-4 pt-4 pb-10 sm:px-6 sm:pt-8 sm:pb-16">
         <div className="mx-auto grid w-full max-w-[480px] gap-1 rounded-[20px] border border-slate-200 bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,0.06)] min-[960px]:max-w-none min-[960px]:min-h-[660px] min-[960px]:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] min-[960px]:gap-3 min-[960px]:rounded-[24px] min-[960px]:p-3">
@@ -129,6 +130,7 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
               </AutoHeight>
             </div>
           </section>
+          <WordDeck variant={panel.variant} flipped={passwordFocused} />
           <MemoryCurvePanel
             variant={panel.variant}
             copy={panel.copy}
