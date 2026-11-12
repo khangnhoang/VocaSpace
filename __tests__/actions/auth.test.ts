@@ -20,6 +20,9 @@ import { getPasswordSetupEligibility } from "@/lib/auth/password-setup";
 //   chưa có marker đặt được mật khẩu, sau đó bảng user_password_setups được ghi; app không còn đọc/ghi cờ d7_password_set (A5 AUTH-015).
 // - Case thất bại: mọi lỗi createUser/resend trả cùng kết quả trung tính; username trùng hoặc đọc lỗi không tạo user;
 //   công tắc đăng ký tắt/không đọc được thì không tạo user; input sai không gọi Supabase.
+// - Ảnh đại diện (sign-up): ảnh hợp lệ được lưu với tên do server đặt, đuôi và content-type theo loại đã kiểm (không theo
+//   tên tệp client); ảnh quá 900 KB, sai loại hoặc không phải tệp bị từ chối trước mọi truy vấn, upload và tạo user;
+//   tệp rỗng coi như không có ảnh. Giới hạn: chỉ kiểm loại khai báo và kích thước, không kiểm nội dung tệp thật.
 // - Bảo mật/phân quyền: G4, G5 (recovery trung tính cả 429/input sai/lỗi, không redirectTo/log email), G8/G8-R:
 //   ma trận amr × marker × bằng chứng chỉ cho otp chưa đặt hoặc khớp session qua cả action và page.
 // - Ổn định/resilience: đọc marker lỗi thì từ chối; ghi bảng lỗi chỉ log rồi redirect; trùng khóa không sửa marker;
@@ -147,6 +150,22 @@ function registrationForm(overrides: Record<string, string> = {}) {
   return formData;
 }
 
+function mockAvatarStorage() {
+  const auth = mockSessionClient();
+  const bucket = {
+    upload: vi.fn().mockResolvedValue({ data: {}, error: null }),
+    getPublicUrl: vi.fn((path: string) => ({ data: { publicUrl: `https://storage.test/avatars/${path}` } })),
+  };
+  const storage = { from: vi.fn(() => bucket) };
+  mockedCreateClient.mockResolvedValue({ auth, storage } as never);
+  return { auth, storage, bucket };
+}
+
+function withAvatar(formData: FormData, avatar: File | string) {
+  formData.append("avatar", avatar);
+  return formData;
+}
+
 function passwordForm(password = "abc123", confirmPassword = password) {
   const formData = new FormData();
   formData.append("password", password);
@@ -194,6 +213,55 @@ describe("signUpUser", () => {
     expect(admin.createUser.mock.invocationCallOrder[0]).toBeLessThan(
       auth.resend.mock.invocationCallOrder[0],
     );
+  });
+
+  it("stores a valid avatar under a server-chosen name whose extension and content type come from its checked type", async () => {
+    mockSignupSettings({ disable_signup: false });
+    const { storage, bucket } = mockAvatarStorage();
+    const { admin } = mockServiceClient();
+    const avatar = new File([new Uint8Array(2048)], "shell.php", { type: "image/webp" });
+
+    await expect(signUpUser(withAvatar(registrationForm(), avatar))).resolves.toEqual(NEUTRAL_SIGNUP_RESULT);
+
+    expect(storage.from).toHaveBeenCalledWith("avatars");
+    const [path, uploaded, options] = bucket.upload.mock.calls[0];
+    expect(path).toMatch(/^\d+-[a-z0-9]+\.webp$/);
+    expect(uploaded).toBeInstanceOf(File);
+    expect((uploaded as File).size).toBe(2048);
+    expect(options).toEqual({ contentType: "image/webp" });
+    expect(admin.createUser.mock.calls[0][0].user_metadata.avatar_url).toBe(`https://storage.test/avatars/${path}`);
+  });
+
+  it.each([
+    ["larger than 900 KB", new File([new Uint8Array(900 * 1024 + 1)], "big.webp", { type: "image/webp" })],
+    ["not an image type", new File(["<script>"], "avatar.html", { type: "text/html" })],
+    ["a text field instead of a file", "not-a-file"],
+  ])("rejects an avatar that is %s before any lookup, upload or account creation", async (_label, avatar) => {
+    mockSignupSettings({ disable_signup: false });
+    const { auth, bucket } = mockAvatarStorage();
+    const { from, admin } = mockServiceClient();
+
+    await expect(signUpUser(withAvatar(registrationForm(), avatar))).resolves.toEqual({
+      error: "Ảnh đại diện chưa hợp lệ. Hãy chọn ảnh JPG, PNG hoặc WebP khác.",
+    });
+
+    expect(from).not.toHaveBeenCalled();
+    expect(bucket.upload).not.toHaveBeenCalled();
+    expect(admin.createUser).not.toHaveBeenCalled();
+    expect(auth.resend).not.toHaveBeenCalled();
+  });
+
+  it("treats an empty file as no avatar", async () => {
+    mockSignupSettings({ disable_signup: false });
+    const { bucket } = mockAvatarStorage();
+    const { admin } = mockServiceClient();
+
+    await expect(
+      signUpUser(withAvatar(registrationForm(), new File([], "", { type: "application/octet-stream" }))),
+    ).resolves.toEqual(NEUTRAL_SIGNUP_RESULT);
+
+    expect(bucket.upload).not.toHaveBeenCalled();
+    expect(admin.createUser.mock.calls[0][0].user_metadata.avatar_url).toBeNull();
   });
 
   it("uses a different random password on every call", async () => {

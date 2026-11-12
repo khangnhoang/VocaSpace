@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  prepareAvatar: vi.fn(),
 }));
 
 vi.mock("@/app/actions/auth", () => ({
@@ -49,7 +50,9 @@ vi.mock("sonner", () => ({
 // - Loại test: component interaction trong jsdom (RTL), server action được mock.
 // - Đối tượng: /register, CheckEmailPanel, /login, /forgot-password, SetPasswordForm.
 // - Case thành công: đăng ký xong hiện chặng kiểm tra email (rail 4/5) với email đã nhập; "Sửa thông tin đăng ký" mở lại
-//   form với dữ liệu cũ và gửi lại đúng dữ liệu, kể cả file avatar; gửi lại email hiện thông điệp trung tính ngay trong trang.
+//   form với dữ liệu cũ và gửi lại đúng dữ liệu, kể cả file avatar đã thu nhỏ (không gửi ảnh gốc); gửi lại email hiện
+//   thông điệp trung tính ngay trong trang. Ảnh không đọc được báo cạnh ô ảnh (aria-describedby) và vẫn đăng ký được
+//   không kèm ảnh. Bước thu nhỏ ảnh (canvas) được mock tại ranh giới module vì jsdom không có canvas.
 // - Case thất bại: action trả lỗi → báo ngay trong trang (role=alert), vẫn ở form; mật khẩu ngắn/không khớp chặn submit;
 //   lỗi server hoặc lỗi mạng khi đặt mật khẩu → câu cố định ngay trong trang, thử lại được; recovery lỗi provider/transport
 //   vẫn cùng notice và giữ input.
@@ -75,6 +78,11 @@ window.HTMLElement.prototype.scrollIntoView = vi.fn();
 window.HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
 window.HTMLElement.prototype.releasePointerCapture = vi.fn();
 URL.createObjectURL = vi.fn(() => "blob:avatar-preview");
+URL.revokeObjectURL = vi.fn();
+
+// jsdom không có createImageBitmap/canvas: thay bước thu nhỏ ảnh tại ranh giới module, kiểm tra trang gửi đúng tệp nó trả.
+vi.mock("@/lib/auth/avatar-image", () => ({ prepareAvatar: mocks.prepareAvatar }));
+const preparedAvatar = (name = "avatar.webp") => new File(["prepared"], name, { type: "image/webp" });
 
 // Dòng đồng ý gồm cả hai link nên so khớp theo toàn bộ textContent của thẻ <p>.
 const CONSENT_TEXT = (_: string, element: Element | null) =>
@@ -114,6 +122,7 @@ async function completeRegistration(container: HTMLElement, avatar?: File) {
     const fileInput = container.querySelector<HTMLInputElement>("#avatar-upload");
     if (!fileInput) throw new Error("Missing avatar input");
     fireEvent.change(fileInput, { target: { files: [avatar] } });
+    await screen.findByRole("img", { name: "Ảnh đại diện đã chọn" });
   }
   fireEvent.click(submit);
 }
@@ -130,6 +139,7 @@ beforeEach(() => {
   mocks.searchParams = new URLSearchParams();
   mocks.pathname = "/login";
   mocks.resendSignupConfirmation.mockResolvedValue({ success: true, message: RESEND_MESSAGE });
+  mocks.prepareAvatar.mockImplementation(async () => preparedAvatar());
 });
 
 afterEach(() => {
@@ -235,8 +245,11 @@ describe("/register", () => {
     mocks.signUpUser.mockResolvedValue({ success: true, needsEmailConfirmation: true });
     const { container } = renderRegister();
     const avatar = new File(["avatar"], "avatar.png", { type: "image/png" });
+    const prepared = preparedAvatar();
+    mocks.prepareAvatar.mockResolvedValueOnce(prepared);
 
     await completeRegistration(container, avatar);
+    expect(mocks.prepareAvatar).toHaveBeenCalledWith(avatar);
 
     expect(await screen.findByText("Kiểm tra email của bạn")).toBeTruthy();
     expect(screen.getByText("learner@example.com")).toBeTruthy();
@@ -264,8 +277,9 @@ describe("/register", () => {
     await waitFor(() => expect(mocks.signUpUser).toHaveBeenCalledTimes(2));
     expect(submittedFields(1)).toEqual(firstSubmission);
     const submittedAvatar = (call: number) => (mocks.signUpUser.mock.calls[call][0] as FormData).get("avatar");
-    expect(submittedAvatar(0)).toBe(avatar);
-    expect(submittedAvatar(1)).toBe(avatar);
+    // Gửi đúng ảnh đã thu nhỏ, không gửi ảnh gốc (body Server Action giới hạn 1 MB).
+    expect(submittedAvatar(0)).toBe(prepared);
+    expect(submittedAvatar(1)).toBe(prepared);
     expect(await screen.findByText("Kiểm tra email của bạn")).toBeTruthy();
   });
 
@@ -311,13 +325,45 @@ describe("/register", () => {
     fireEvent.change(container.querySelector("#avatar-upload")!, {
       target: { files: [new File(["a"], "a.png", { type: "image/png" })] },
     });
-    expect(screen.getByText("Đổi ảnh")).toBeTruthy();
+    expect(await screen.findByText("Đổi ảnh")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Bỏ ảnh" }));
     expect(screen.queryByRole("img", { name: "Ảnh đại diện đã chọn" })).toBeNull();
     expect(screen.getByText("Chọn ảnh")).toBeTruthy();
     const fileInput = container.querySelector<HTMLInputElement>("#avatar-upload")!;
     expect(fileInput.value).toBe("");
     expect(document.activeElement).toBe(fileInput);
+  });
+
+  it("explains an unreadable avatar beside the picker and still lets the learner sign up without it", async () => {
+    mocks.signUpUser.mockResolvedValue({ success: true, needsEmailConfirmation: true });
+    mocks.prepareAvatar.mockRejectedValueOnce(new Error("undecodable image"));
+    const { container } = renderRegister();
+    fillById(container, "username", "learner01");
+    fillById(container, "email", "learner@example.com");
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    await waitFor(() => expect(container.querySelector("#phone")).not.toBeNull());
+    fillById(container, "phone", "0912345678");
+    fillById(container, "full_name", "Nguyễn Văn A");
+    fireEvent.click(container.querySelector("#dob")!);
+    const grid = await screen.findByRole("grid");
+    fireEvent.click(within(grid).getAllByRole("button").find((button) => !button.hasAttribute("disabled"))!);
+    fireEvent.click(screen.getByRole("radio", { name: "Nam" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    const submit = await screen.findByRole("button", { name: "Tạo tài khoản" });
+
+    const fileInput = container.querySelector<HTMLInputElement>("#avatar-upload")!;
+    fireEvent.change(fileInput, { target: { files: [new File(["heic"], "photo.heic", { type: "image/heic" })] } });
+
+    const error = await screen.findByText("Ảnh đại diện chưa hợp lệ. Hãy chọn ảnh JPG, PNG hoặc WebP khác.");
+    expect(error.id).toBe("avatar-error");
+    expect(fileInput.getAttribute("aria-describedby")).toBe("avatar-error");
+    expect(fileInput.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.queryByRole("img", { name: "Ảnh đại diện đã chọn" })).toBeNull();
+    expect(submit.hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(submit);
+    await waitFor(() => expect(mocks.signUpUser).toHaveBeenCalledTimes(1));
+    expect((mocks.signUpUser.mock.calls[0][0] as FormData).get("avatar")).toBeNull();
   });
 });
 

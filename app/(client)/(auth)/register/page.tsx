@@ -7,7 +7,8 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { AlertCircle, CalendarIcon, Camera, ChevronRight, Loader2 } from "lucide-react";
 import { signUpUser } from "@/app/actions/auth";
-import { registerSchema, type RegisterInput } from "@/lib/schemas/auth";
+import { AVATAR_INVALID_MESSAGE, registerSchema, type RegisterInput } from "@/lib/schemas/auth";
+import { prepareAvatar } from "@/lib/auth/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -82,6 +83,9 @@ export default function RegisterPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarProcessing, setAvatarProcessing] = useState(false);
+  const avatarRequest = useRef(0);
   // Email vừa gửi đăng ký; có giá trị thì hiện chặng "kiểm tra email" thay cho form.
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -126,18 +130,40 @@ export default function RegisterPage() {
     if (valid) goTo(current === 1 ? 2 : 3);
   };
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  // Ảnh gốc có thể vượt 1 MB, giới hạn body của Server Action, nên luôn thu nhỏ trước khi xem trước và gửi. Ảnh không
+  // đọc được thì giữ ảnh đang chọn (nếu có) và báo lỗi cạnh ô ảnh; lần chọn mới hơn thắng lần chọn cũ còn đang xử lý.
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
-    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
+    const request = ++avatarRequest.current;
+    setAvatarError(null);
+    setAvatarProcessing(true);
+    try {
+      const prepared = await prepareAvatar(file);
+      if (request !== avatarRequest.current) return;
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+      setAvatarFile(prepared);
+      setAvatarPreview(URL.createObjectURL(prepared));
+    } catch {
+      if (request !== avatarRequest.current) return;
+      setAvatarError(AVATAR_INVALID_MESSAGE);
+    } finally {
+      if (request === avatarRequest.current) {
+        setAvatarProcessing(false);
+        // Cho phép chọn lại đúng tệp đó và vẫn kích hoạt onChange.
+        input.value = "";
+      }
+    }
   };
 
   // Xoá cả giá trị của ô chọn tệp để chọn lại đúng tệp đó vẫn kích hoạt onChange, và trả focus về ô chọn ảnh vì nút
   // "Bỏ ảnh" sắp biến mất.
   const clearAvatar = () => {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    avatarRequest.current += 1;
+    setAvatarProcessing(false);
+    setAvatarError(null);
     setAvatarFile(null);
     setAvatarPreview(null);
     const input = document.getElementById("avatar-upload") as HTMLInputElement | null;
@@ -364,7 +390,15 @@ export default function RegisterPage() {
                 )}
               </div>
               <div className="flex gap-2">
-                <input id="avatar-upload" type="file" accept="image/*" className="peer sr-only" onChange={handleImageChange} />
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  className="peer sr-only"
+                  aria-invalid={avatarError ? true : undefined}
+                  aria-describedby={avatarError ? "avatar-error" : undefined}
+                  onChange={(event) => void handleImageChange(event)}
+                />
                 <label
                   htmlFor="avatar-upload"
                   className="inline-flex min-h-11 cursor-pointer items-center rounded-[8px] border border-slate-500 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-100 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-route"
@@ -377,6 +411,12 @@ export default function RegisterPage() {
                   </Button>
                 ) : null}
               </div>
+              {avatarProcessing ? (
+                <p role="status" className="text-[13px] leading-[18px] text-slate-600">
+                  Đang chuẩn bị ảnh…
+                </p>
+              ) : null}
+              <FieldError id="avatar-error" message={avatarError ?? undefined} />
             </div>
             {serverError ? (
               <AuthNotice tone="error" role="alert" icon={<AlertCircle />}>
@@ -387,7 +427,7 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 size="lg"
-                disabled={isLoading}
+                disabled={isLoading || avatarProcessing}
                 aria-busy={isLoading}
                 className="h-11 w-full rounded-[8px] text-sm font-semibold disabled:opacity-100"
               >
