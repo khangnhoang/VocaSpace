@@ -504,7 +504,11 @@ describe("/login", () => {
 
   it("turns the flashcard away while the password field has focus (AC12)", () => {
     const { container } = renderInShell(<LoginPage />);
-    const flipped = () => container.querySelector('[class*="preserve-3d"]')?.className.includes("rotateY(180deg)");
+    // Thẻ của panel đường cong (desktop); chồng thẻ màn nhỏ có test riêng trong auth-word-deck.test.tsx.
+    const flipped = () =>
+      container
+        .querySelector('aside[aria-label="Minh hoạ cách VocaSpace xếp lịch ôn"] [class*="preserve-3d"]')
+        ?.className.includes("rotateY(180deg)");
 
     expect(flipped()).toBe(false);
     fireEvent.focus(screen.getByLabelText("Mật khẩu"));

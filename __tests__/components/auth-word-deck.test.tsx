@@ -105,4 +105,27 @@ describe("WordDeck", () => {
     act(() => vi.advanceTimersByTime(5000));
     expect(position("profile")).toBe(0);
   });
+
+  it("does not replay the drop-in when going back to an earlier stage", () => {
+    const { rerender } = render(<WordDeck variant={{ kind: "register", stage: 2 }} flipped={false} />);
+    rerender(<WordDeck variant={{ kind: "register", stage: 3 }} flipped={false} />);
+    expect(card("picture").className).toContain("enter");
+
+    rerender(<WordDeck variant={{ kind: "register", stage: 2 }} flipped={false} />);
+
+    expect(position("profile")).toBe(0);
+    expect(card("profile").className).not.toContain("enter");
+  });
+
+  it("shows the next screen's card at once when the page changes mid-review", () => {
+    const { rerender } = render(<WordDeck variant={{ kind: "login" }} flipped={false} />);
+    act(() => vi.advanceTimersByTime(1500));
+    expect(card("remember").style.opacity).toBe("0");
+
+    rerender(<WordDeck variant={{ kind: "forgot", sent: false }} flipped={false} />);
+
+    expect(card("remember").style.opacity).toBe("1");
+    act(() => vi.advanceTimersByTime(1000));
+    expect(position("remember")).toBe(0);
+  });
 });

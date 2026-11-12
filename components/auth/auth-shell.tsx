@@ -88,8 +88,13 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
       <LazyMotion features={domMax} strict>
       <MotionConfig reducedMotion="user">
       {/* Còn thừa chiều cao (ví dụ tablet dọc) thì card nằm giữa theo chiều dọc, không dồn lên trên (U3 quyết định 16, 17).
-          65px là header site h-16 cộng viền dưới. */}
-      <div className="mx-auto flex min-h-[calc(100dvh-65px)] w-full max-w-[1200px] flex-col justify-center px-4 pt-4 pb-10 sm:px-6 sm:pt-8 sm:pb-16">
+          65px là header site h-16 cộng viền dưới; /auth/set-password (fixedPanel) không có header. */}
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-[1200px] flex-col justify-center px-4 pt-4 pb-10 sm:px-6 sm:pt-8 sm:pb-16",
+          fixedPanel ? "min-h-dvh" : "min-h-[calc(100dvh-65px)]",
+        )}
+      >
         <div className="mx-auto grid w-full max-w-[480px] gap-1 rounded-[20px] border border-slate-200 bg-white p-2 shadow-[0_1px_2px_rgba(15,23,42,0.06)] min-[960px]:max-w-none min-[960px]:min-h-[660px] min-[960px]:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] min-[960px]:gap-3 min-[960px]:rounded-[24px] min-[960px]:p-3">
           <section className="flex justify-center px-3 pt-5 pb-4 min-[960px]:px-9 min-[960px]:pt-7">
             <div className="flex w-full max-w-[408px] flex-col">

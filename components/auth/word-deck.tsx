@@ -34,18 +34,26 @@ export function WordDeck({ variant, flipped }: WordDeckProps) {
 
   // Thứ tự trong chồng (từ trên xuống); đặt lại khi biến thể đổi bộ thẻ.
   const [deck, setDeck] = useState({ key: sceneKey, order: scene.cards.map((card) => card.word) });
+  const [leaving, setLeaving] = useState<string | null>(null);
   let order = deck.order;
   if (deck.key !== sceneKey) {
     order = scene.cards.map((card) => card.word);
     setDeck({ key: sceneKey, order });
+    // Lượt ôn dở của bộ thẻ cũ không được giấu thẻ của bộ mới (ví dụ "remember" khi sang /forgot-password).
+    if (leaving) setLeaving(null);
   }
-  const [leaving, setLeaving] = useState<string | null>(null);
+  const leaveTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), [sceneKey]);
 
-  // Thẻ có từ lần vẽ đầu đứng yên; thẻ thêm vào sau (chặng đăng ký mới) rơi xuống đầu chồng. Bảng sống cùng component
-  // như bảng timing của đường cong, nên render lại không chạy lại hiệu ứng vào.
+  // Thẻ có từ lần vẽ đầu đứng yên; chỉ thẻ vừa thêm (chặng đăng ký mới) rơi xuống đầu chồng. Khi có thẻ mới, cờ của thẻ
+  // cũ được xoá để "Quay lại" không chạy lại hiệu ứng vào. Bảng sống cùng component như bảng timing của đường cong.
   const [entering] = useState(() => new Map(scene.cards.map((card) => [card.word, false])));
   for (const word of [...entering.keys()]) if (!order.includes(word)) entering.delete(word);
-  for (const word of order) if (!entering.has(word)) entering.set(word, true);
+  const added = order.filter((word) => !entering.has(word));
+  if (added.length > 0) {
+    for (const word of entering.keys()) entering.set(word, false);
+    for (const word of added) entering.set(word, true);
+  }
 
   const canReview = scene.cycles && !flipped && !leaving && order.length > 1;
   const reviewNext = () => {
@@ -53,7 +61,7 @@ export function WordDeck({ variant, flipped }: WordDeckProps) {
     const rotate = () => setDeck((current) => (current.key === sceneKey ? { ...current, order: [...current.order.slice(1), current.order[0]] } : current));
     if (reduceMotion) return rotate();
     setLeaving(order[0]);
-    window.setTimeout(() => {
+    leaveTimer.current = window.setTimeout(() => {
       rotate();
       setLeaving(null);
     }, LEAVE_MS);

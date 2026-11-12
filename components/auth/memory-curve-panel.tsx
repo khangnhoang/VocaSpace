@@ -221,10 +221,10 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
             ))}
           </svg>
           {/* Nhãn chữ là HTML để giữ cỡ chữ thật (tối thiểu 12px) dù SVG co giãn theo chiều rộng panel. */}
-          <span aria-hidden="true" className={cn(UTILITY, "absolute left-0 text-slate-600 max-[959px]:hidden")} style={{ top: `calc(${pct(yForRecall(1), height - 30)} - 8px)` }}>
+          <span aria-hidden="true" className={cn(UTILITY, "absolute left-0 text-slate-600")} style={{ top: `calc(${pct(yForRecall(1), height - 30)} - 8px)` }}>
             100%
           </span>
-          <span aria-hidden="true" className={cn(UTILITY, "absolute left-1.5 text-slate-600 max-[959px]:hidden")} style={{ top: `calc(${pct(yForRecall(0.6), height - 30)} - 8px)` }}>
+          <span aria-hidden="true" className={cn(UTILITY, "absolute left-1.5 text-slate-600")} style={{ top: `calc(${pct(yForRecall(0.6), height - 30)} - 8px)` }}>
             60%
           </span>
           {geometry.nodes
@@ -254,7 +254,6 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
                   UTILITY,
                   "absolute whitespace-nowrap",
                   index === 0 ? "" : "-translate-x-1/2",
-                  (index === 1 || index === 2) && "max-[479px]:hidden",
                   index <= geometry.reachedTick ? "text-slate-900" : "text-slate-600",
                 )}
                 style={{ left: pct(REVIEW_X[index], width) }}
