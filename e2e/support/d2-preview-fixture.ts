@@ -314,7 +314,7 @@ export async function createD2PreviewBrowserFixture() {
     });
     throwIfError("seed D2 learner answer state", learnerAnswerError);
 
-    const { error: learnerProgressError } = await supabase.from("user_topic_progress").insert({
+    const { error: learnerProgressError } = await supabase.from("user_topic_progress").upsert({
       user_id: STUDENT_ID,
       topic_id: topicIds[0],
       is_flashcard_completed: true,
@@ -323,7 +323,7 @@ export async function createD2PreviewBrowserFixture() {
       completed_at: null,
       created_at: learnerStateTimestamp,
       updated_at: learnerStateTimestamp,
-    });
+    }, { onConflict: "user_id,topic_id" });
     throwIfError("seed D2 learner topic progress", learnerProgressError);
 
     chapterCases = await createD2ChapterCasesFixture(supabase, suffix);

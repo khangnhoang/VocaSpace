@@ -91,6 +91,7 @@ export default function QuestionResponse({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
   const attemptRef = useRef(0);
+  const submittingRef = useRef(false);
   const aliveRef = useRef(true);
   const [, startTransition] = useTransition();
   // A request started before this view mounted (the learner left and came back) is
@@ -151,7 +152,8 @@ export default function QuestionResponse({
   const heading = question.content.trim() || "Chọn đáp án đúng";
 
   const submit = () => {
-    if (!selectedId || isPending || isCorrect) return;
+    if (!selectedId || isPending || isCorrect || submittingRef.current) return;
+    submittingRef.current = true;
     const attemptNumber = ++attemptRef.current;
     const chosenId = selectedId;
     inheritedPendingRef.current = false;
@@ -169,6 +171,8 @@ export default function QuestionResponse({
           setPhase({ kind: "error", message });
         }
         return;
+      } finally {
+        submittingRef.current = false;
       }
       // Leaving this question makes this view history only; a view that replaced it
       // takes the outcome from the workspace.
@@ -221,15 +225,14 @@ export default function QuestionResponse({
   const primary =
     phase.kind === "correct"
       ? hasNext
-        ? { label: "Câu tiếp theo", onClick: onNext, icon: null, trailingIcon: <ChevronRight aria-hidden="true" /> }
+        ? { label: "Câu tiếp theo", icon: null, trailingIcon: <ChevronRight aria-hidden="true" /> }
         : "href" in endAction
           ? null
-          : { label: endAction.label, onClick: endAction.onClick, icon: null, trailingIcon: null }
+          : { label: endAction.label, icon: null, trailingIcon: null }
       : phase.kind === "incorrect"
-        ? { label: "Thử lại", onClick: retry, icon: null, trailingIcon: null }
+        ? { label: "Thử lại", icon: null, trailingIcon: null }
         : {
             label: isPending ? "Đang kiểm tra…" : "Xác nhận đáp án",
-            onClick: submit,
             icon: isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null,
             trailingIcon: null,
           };
@@ -289,7 +292,13 @@ export default function QuestionResponse({
             disabled={
               isPending || ((phase.kind === "choosing" || phase.kind === "error") && !selectedId)
             }
-            onClick={primary.onClick}
+            onClick={() => {
+              if (phase.kind === "correct") {
+                if (hasNext) onNext();
+                else if ("onClick" in endAction) endAction.onClick();
+              } else if (phase.kind === "incorrect") retry();
+              else submit();
+            }}
           >
             {primary.icon}
             {primary.label}

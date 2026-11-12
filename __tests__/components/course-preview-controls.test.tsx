@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type {
   ChapterHidePreviewProjection,
@@ -11,6 +11,7 @@ import {
   CoursePreviewAllocationCard,
   CoursePreviewOverviewNotice,
   PreviewSuspensionNotice,
+  useCoursePreviewAllocation,
 } from "@/app/(teacher)/teacher/courses/[id]/_components/course-preview-controls";
 import PreviewQuotaResolutionDialog from "@/app/(teacher)/teacher/courses/[id]/_components/PreviewQuotaResolutionDialog";
 
@@ -28,6 +29,7 @@ vi.mock("@/app/actions/course-preview", () => ({
 // - Thất bại/biên: quota đầy khóa lựa chọn mới; thiếu quyền không thấy audit detail hoặc không thể gỡ nhãn ngoài mục; hủy dialog không chạy mutation.
 // - Bảo mật/phân quyền: `canManage` quyết định chi tiết kiểm duyệt và thao tác marker; action vẫn nhận đúng ID đã chọn.
 // - Ổn định/resilience: projected count phản ánh lựa chọn trước khi xác nhận; không có mutation trước thao tác xác nhận.
+// - Resilience: phản hồi cũ không hiện lại quota khi mất quyền hoặc đã mở mục khác.
 // - Invariant cần giữ: UI gửi đúng danh sách chọn, còn RPC là authority cuối cùng cho quota và quyền.
 
 const courseId = "11111111-1111-4111-8111-111111111111";
@@ -102,6 +104,58 @@ function chapterProjection(): ChapterHidePreviewProjection {
 }
 
 describe("course preview controls", () => {
+  it.each(["success", "failure"] as const)("ignores an old marker %s after access is disabled and re-enabled", async (outcome) => {
+    const oldAllocation = suspendedAllocation();
+    const freshAllocation = { ...oldAllocation, cause: { ...oldAllocation.cause!, reason: "Kết quả mới" } };
+    const getAllocation = actionMocks.getCoursePreviewAllocation;
+    getAllocation.mockReset()
+      .mockResolvedValueOnce({ data: oldAllocation })
+      .mockResolvedValueOnce({ data: freshAllocation });
+    let completeChange!: (value: { success: true; allocation: CoursePreviewAllocation } | { error: string }) => void;
+    actionMocks.setCourseTopicPreviewMarkers.mockImplementationOnce(
+      () => new Promise((resolve) => { completeChange = resolve; }),
+    );
+
+    const { result, rerender } = renderHook(
+      (enabled) => useCoursePreviewAllocation(courseId, enabled),
+      { initialProps: true },
+    );
+    await waitFor(() => expect(result.current.allocation).toEqual(oldAllocation));
+    await act(async () => { void result.current.changeMarkers({ unmarkTopicIds: [topicIds[0]] }); });
+    expect(result.current.isUpdating).toBe(true);
+
+    rerender(false);
+    expect(result.current).toMatchObject({ allocation: null, error: null, isLoading: false, isUpdating: false });
+    rerender(true);
+    await waitFor(() => expect(result.current.allocation).toEqual(freshAllocation));
+    await act(async () => completeChange(outcome === "success"
+      ? { success: true, allocation: oldAllocation }
+      : { error: "Lỗi từ lượt cũ" }));
+    expect(result.current).toMatchObject({ allocation: freshAllocation, error: null, isLoading: false, isUpdating: false });
+    expect(getAllocation).toHaveBeenCalledTimes(2);
+    getAllocation.mockClear();
+  });
+
+  it("drops an old allocation when access is disabled and a newer request succeeds", async () => {
+    actionMocks.getCoursePreviewAllocation.mockClear();
+    let resolveOld!: (value: { data: CoursePreviewAllocation }) => void;
+    const old = new Promise<{ data: CoursePreviewAllocation }>((resolve) => { resolveOld = resolve; });
+    const fresh = suspendedAllocation();
+    actionMocks.getCoursePreviewAllocation
+      .mockReturnValueOnce(old)
+      .mockResolvedValueOnce({ data: { ...fresh, cause: { ...fresh.cause!, reason: "Kết quả mới" } } });
+    const { container, rerender } = render(<CoursePreviewOverviewNotice courseId={courseId} canManage />);
+
+    rerender(<CoursePreviewOverviewNotice courseId={courseId} canManage={false} />);
+    expect(container.firstChild).toBeNull();
+    rerender(<CoursePreviewOverviewNotice courseId={courseId} canManage />);
+    expect(await screen.findByText(/Kết quả mới/)).toBeTruthy();
+    await act(async () => resolveOld({ data: fresh }));
+    expect(screen.getByText(/Kết quả mới/)).toBeTruthy();
+    expect(screen.queryByText(/Nội dung cần được rà soát/)).toBeNull();
+    actionMocks.getCoursePreviewAllocation.mockClear();
+  });
+
   it("does not fetch moderation details for a previewer and loads the authorized overview warning", async () => {
     actionMocks.getCoursePreviewAllocation.mockResolvedValue({ data: suspendedAllocation() });
     const { container, rerender } = render(
@@ -220,6 +274,34 @@ describe("course preview controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ẩn bài học" }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledWith([topicIds[0], topicIds[1]]));
+  });
+
+  it("ignores an old projection after the dialog closes and opens for a different target", async () => {
+    let resolveOld!: (value: { error: string }) => void;
+    const old = new Promise<{ error: string }>((resolve) => { resolveOld = resolve; });
+    const getProjection = vi.fn()
+      .mockReturnValueOnce(old)
+      .mockResolvedValueOnce({ data: deleteProjection(true) });
+    const props = {
+      setOpen: vi.fn(),
+      targetType: "topic" as const,
+      targetTitle: "Bài học cần ẩn",
+      description: "Nội dung sẽ được giữ lại.",
+      confirmText: "Ẩn bài học",
+      loadingText: "Đang ẩn…",
+      getProjection,
+      onConfirm: vi.fn(),
+    };
+    const { rerender } = render(<PreviewQuotaResolutionDialog {...props} open targetId={deleteTargetId} />);
+    rerender(<PreviewQuotaResolutionDialog {...props} open={false} targetId={deleteTargetId} />);
+    rerender(<PreviewQuotaResolutionDialog {...props} open targetId={topicIds[4]} />);
+    const first = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Bỏ nhãn xem thử cho Bài học 1" });
+    expect(first.checked).toBe(false);
+    expect(document.activeElement).toBe(first);
+    await act(async () => resolveOld({ error: "Lỗi từ mục cũ" }));
+    expect(screen.queryByText("Lỗi từ mục cũ")).toBeNull();
+    expect(first.isConnected).toBe(true);
+    expect(props.onConfirm).not.toHaveBeenCalled();
   });
 
   it("explains automatic internal marker cleanup and cancellation does not mutate", async () => {

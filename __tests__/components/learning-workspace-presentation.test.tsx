@@ -24,6 +24,7 @@ import type { LearningWorkspaceData, TopicProgress } from "@/lib/schemas/learnin
 // - Case thành công: lật thẻ chỉ lộ mặt sau đang active; sau khi chấm thành công thẻ lật về với đáp án vừa xem cho tới lần hiện đáp án kế; Part 1 có ảnh phóng to; audio giữ nguyên node khi đổi câu cùng nhóm.
 // - Case thất bại: chấm thẻ lỗi (sau một lần thử lại) thì thẻ quay lại hàng đợi kèm toast nêu từ của thẻ (LF8 AC4); media thiếu hiện thông báo thay vì ô trống; ảnh lỗi cho tải lại cục bộ.
 // - Bảo mật/phân quyền: lựa chọn chưa chấm không mang trạng thái đúng/sai; DOM không có đáp án đúng trước khi server trả kết quả.
+// - DM-U4: gửi đáp án một lần khi đang chờ, cô lập kết quả đến muộn và thử lại sau lỗi lưu.
 // - Ổn định/resilience: bàn phím mũi tên đổi lựa chọn trong radiogroup; Again/Hard xếp lại cuối hàng đợi, ba thẻ cùng chấm Lại/Khó vẫn còn đủ ba thẻ (không báo xong).
 // - Mặt sau thẻ: chọn bố cục căn giữa (giống thẻ ôn D6) khi vừa khung cố định, bố cục đọc cuộn khi tràn; đo lại khi đổi kích thước; mặt active và nội dung đọc được giống nhau ở cả hai.
 // - LF1 (AC3): bước "Từ vựng" theo kết quả server cả hai chiều; sau một lần Lại, lối tắt "Tới Bài tập" vẫn còn (điều hướng không đổi) và, khi rời giai đoạn mà server vẫn báo chưa xong, dòng các bước không còn ghi "đã xong".
@@ -579,6 +580,38 @@ describe("D8-LUI learning workspace presentation", () => {
 
   describe("choosing an answer", () => {
     const items = () => [exercise("part5", {}, [question(q(1), "Câu một", 1, 4)])];
+
+    it("isolates a late response, deduplicates a pending answer and retries a failed save", async () => {
+      let settleFirst!: (value: Awaited<ReturnType<typeof submitQuestionAnswer>>) => void;
+      mockedSubmit.mockImplementationOnce(() => new Promise((resolve) => { settleFirst = resolve; }));
+      mockedSubmit.mockResolvedValueOnce({ error: "Chưa lưu được đáp án" });
+      mockedSubmit.mockResolvedValueOnce({ success: true, isCorrect: false, explanation: "Kết quả câu hai" });
+      render(<LearningWorkspace data={data({ exercises: [
+        exercise("part5", {}, [question(q(1), "Câu một", 1), question(q(2), "Câu hai", 2)]),
+      ] })} />);
+      fireEvent.click(screen.getByRole("radio", { name: /Câu một lựa chọn 1/ }));
+      const submit = screen.getByRole("button", { name: "Xác nhận đáp án" });
+      act(() => {
+        fireEvent.click(submit);
+        fireEvent.click(submit);
+      });
+      expect(mockedSubmit).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole("button", { name: "Danh sách câu hỏi" }));
+      fireEvent.click(screen.getByRole("button", { name: /Câu 2: Câu hai/ }));
+      const current = screen.getByRole("radio", { name: /Câu hai lựa chọn 1/ });
+      fireEvent.click(current);
+      await act(async () => settleFirst({ success: true, isCorrect: false, explanation: "Kết quả câu một" }));
+      expect(screen.getByRole("heading", { name: "Câu hai" })).toBeTruthy();
+      expect(current.getAttribute("aria-checked")).toBe("true");
+      expect(screen.queryByText("Kết quả câu một")).toBeNull();
+
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" })); });
+      expect(screen.getByRole("alert").textContent).toContain("Chưa lưu được đáp án");
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Xác nhận đáp án" })); });
+      expect(mockedSubmit).toHaveBeenCalledTimes(3);
+      expect(screen.getByText("Kết quả câu hai")).toBeTruthy();
+    });
 
     it("lets the arrow keys move the single choice without grading it", () => {
       render(<LearningWorkspace data={data({ exercises: items() })} />);
