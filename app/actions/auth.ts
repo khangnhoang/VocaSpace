@@ -6,6 +6,9 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { consumePasswordRecovery, getPasswordSetupEligibility } from "@/lib/auth/password-setup";
 import { SAME_PASSWORD_MESSAGE, WEAK_PASSWORD_MESSAGE } from "@/lib/auth/password-update-messages";
 import {
+  AVATAR_FILE_EXTENSIONS,
+  AVATAR_INVALID_MESSAGE,
+  avatarFileSchema,
   loginSchema,
   passwordRecoveryRequestSchema,
   registerSchema,
@@ -84,6 +87,12 @@ export async function signUpUser(formData: FormData) {
     return { error: validated.error.issues[0].message };
   }
 
+  // Ảnh là tuỳ chọn: không gửi hoặc gửi tệp rỗng thì bỏ qua; có thì phải hợp lệ trước mọi truy vấn và upload.
+  const rawAvatar = formData.get("avatar");
+  const hasAvatar = rawAvatar instanceof File ? rawAvatar.size > 0 : rawAvatar !== null;
+  const parsedAvatar = hasAvatar ? avatarFileSchema.safeParse(rawAvatar) : null;
+  if (parsedAvatar && !parsedAvatar.success) return { error: AVATAR_INVALID_MESSAGE };
+
   // 3. Destructuring dữ liệu sạch
   const { email, username, full_name, phone, dob, gender } = validated.data;
 
@@ -100,18 +109,16 @@ export async function signUpUser(formData: FormData) {
   if (existingProfile) return { error: USERNAME_TAKEN_MESSAGE };
 
   let avatar_url = null;
-  const avatarFile = formData.get("avatar") as File | null;
 
-  // Nếu có file được gửi lên
-  if (avatarFile && avatarFile.size > 0) {
-    // Tạo tên file ngẫu nhiên để không bị trùng (vd: 1711234567-abc12.jpg)
-    const fileExt = avatarFile.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+  if (parsedAvatar?.success) {
+    // Tên tệp ngẫu nhiên (vd: 1711234567-abc12.webp); đuôi và content-type lấy từ loại đã kiểm, không từ tên tệp client.
+    const { file, type } = parsedAvatar.data;
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${AVATAR_FILE_EXTENSIONS[type]}`;
 
     // Đẩy ảnh lên bucket tên là 'avatars' trong Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(fileName, avatarFile);
+      .upload(fileName, file, { contentType: type });
 
     // Nếu đẩy thành công, lấy đường link public của tấm ảnh đó
     if (!uploadError) {

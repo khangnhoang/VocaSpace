@@ -22,6 +22,22 @@ const step2Schema = z.object({
 // --- GOM LẠI THÀNH 1 SCHEMA TỔNG CHO TOÀN BỘ FORM ---
 export const registerSchema = z.intersection(step1Schema, step2Schema);
 
+// --- ẢNH ĐẠI DIỆN KHI ĐĂNG KÝ ---
+// Server Action của Next.js chặn request trên 1 MB (bodySizeLimit mặc định) trước khi action chạy, nên trình duyệt thu
+// ảnh về 512×512 rồi mới gửi (lib/auth/avatar-image.ts). Giới hạn 900 KB chừa chỗ cho các trường khác trong FormData;
+// server vẫn kiểm lại vì client có thể bị bỏ qua. Loại khai báo không chứng minh nội dung tệp thật.
+export const AVATAR_MAX_DIMENSION = 512;
+export const AVATAR_MAX_BYTES = 900 * 1024;
+export const AVATAR_FILE_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
+const AVATAR_TYPES: readonly string[] = Object.keys(AVATAR_FILE_EXTENSIONS);
+export const AVATAR_INVALID_MESSAGE = "Ảnh đại diện chưa hợp lệ. Hãy chọn ảnh JPG, PNG hoặc WebP khác.";
+
+export const avatarFileSchema = z
+  .instanceof(File, { message: AVATAR_INVALID_MESSAGE })
+  .refine((file) => file.size > 0 && file.size <= AVATAR_MAX_BYTES, AVATAR_INVALID_MESSAGE)
+  .refine((file) => AVATAR_TYPES.includes(file.type), AVATAR_INVALID_MESSAGE)
+  .transform((file) => ({ file, type: file.type as keyof typeof AVATAR_FILE_EXTENSIONS }));
+
 // --- ĐẶT MẬT KHẨU SAU KHI XÁC MINH EMAIL (A1) — giữ luật mật khẩu cũ của form đăng ký ---
 export const setPasswordSchema = z.object({
   password: z.string().min(6, "Mật khẩu ít nhất 6 ký tự cho an toàn"),
