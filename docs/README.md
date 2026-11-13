@@ -28,6 +28,7 @@ One row per program: a folder under `docs/` that contains a `progress.md`. Kind 
 | `programs/admin-console` | delivery | active |
 | `programs/agent-rules` | delivery | active |
 | `programs/auth-onboarding` | delivery | active |
+| `programs/dependency-modernization` | delivery | active |
 | `programs/doc-system-optimization` | delivery | closed |
 | `programs/docs-model-migration` | delivery | active |
 | `programs/student-user-flow-route` | delivery | active |
