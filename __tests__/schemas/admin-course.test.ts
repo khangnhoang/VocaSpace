@@ -15,7 +15,7 @@ import {
 // - Case thành công: UUID hợp lệ, filter được trim/coerce, rejection reason được trim.
 // - Case thất bại: UUID sai, rejection reason quá ngắn, query vượt giới hạn.
 // - Invariant cần giữ: UI chỉ gửi payload review đã validate theo schema SSOT.
-// - Kết quả verify gần nhất: passed bằng `npx vitest run __tests__\schemas\admin-course.test.ts __tests__\components\admin-course-table.test.tsx`.
+// - Lý do moderation dùng chung giới hạn UTF-16 với platform moderation.
 const validCourseId = "11111111-1111-4111-8111-111111111111";
 
 describe("admin course validation", () => {
@@ -89,6 +89,7 @@ describe("admin course validation", () => {
     expect(adminCourseFilterSchema.parse({ status: "archived" }).status).toBe("pending");
     expect(adminCourseFilterSchema.parse({ status: ["all", "draft"] }).status).toBe("pending");
     expect(adminCourseFilterSchema.parse({ q: "a".repeat(101) }).q).toBe("");
+    expect(adminCourseFilterSchema.parse({ q: "😀".repeat(51) }).q).toBe("");
     for (const page of ["0", "-3", "abc", "1.5", "", ["2", "3"], "99999999999999999999"]) {
       expect(adminCourseFilterSchema.parse({ page }).page).toBe(1);
     }
@@ -143,6 +144,18 @@ describe("admin course validation", () => {
       expect(parse("a".repeat(2000)).success).toBe(true);
       expect(parse(`  ${"a".repeat(2000)}  `).success).toBe(true);
       expect(parse("a".repeat(2001)).success).toBe(false);
+    });
+
+    it("keeps the UTF-16 reason bounds shared with platform moderation", () => {
+      const parse = (reason: string) =>
+        moderateCourseSchema.safeParse({ courseId: validCourseId, action: "takedown", reason: `  ${reason}  ` });
+      const minimum = "😀".repeat(5);
+      const maximum = "😀".repeat(1000);
+
+      expect(parse(`${"😀".repeat(4)}a`).success).toBe(false);
+      expect(parse(minimum)).toMatchObject({ success: true, data: { reason: minimum } });
+      expect(parse(maximum)).toMatchObject({ success: true, data: { reason: maximum } });
+      expect(parse(`${maximum}a`).success).toBe(false);
     });
 
     it("ignores a client-sent target type instead of passing it through", () => {

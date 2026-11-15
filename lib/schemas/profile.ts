@@ -1,5 +1,6 @@
 // lib/schemas/profile.ts
 import { z } from "zod";
+import { minUtf16Length } from "./utf16-length";
 import { FlashcardDTO } from "./learn"; // Tái sử dụng triệt để DTO cốt lõi
 import { GENDER_VALUES, type Gender } from "./gender";
 
@@ -10,13 +11,13 @@ const blankToNull = (value: string | null | undefined) =>
 
 // 1. Schema kiểm tra dữ liệu cập nhật thông tin
 export const profileSchema = z.object({
-  full_name: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
+  full_name: z.string().check(minUtf16Length(2, "Họ tên phải có ít nhất 2 ký tự")),
   // Username không bị trim khi có giá trị (giống luật đăng ký); chỉ giá trị rỗng/khoảng trắng thành null.
   username: z
     .string()
     .nullish()
     .transform(blankToNull)
-    .pipe(z.string().min(3, "Username phải từ 3 ký tự trở lên").nullable()),
+    .pipe(z.string().check(minUtf16Length(3, "Username phải từ 3 ký tự trở lên")).nullable()),
   dob: z.string().nullish().transform(blankToNull),
   gender: z
     .string({ error: "Giới tính không hợp lệ." })
@@ -29,8 +30,8 @@ export const profileSchema = z.object({
 // 2. Schema kiểm tra dữ liệu đổi mật khẩu
 export const passwordSchema = z
   .object({
-    currentPassword: z.string().min(6, "Mật khẩu hiện tại quá ngắn"),
-    newPassword: z.string().min(6, "Mật khẩu mới phải từ 6 ký tự"),
+    currentPassword: z.string().check(minUtf16Length(6, "Mật khẩu hiện tại quá ngắn")),
+    newPassword: z.string().check(minUtf16Length(6, "Mật khẩu mới phải từ 6 ký tự")),
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {

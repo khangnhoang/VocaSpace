@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { minUtf16Length } from "./utf16-length";
 
 const rawPostgresPriceSchema = z.union([
   z.number(),
@@ -21,7 +22,7 @@ const publicEnrollmentCountSchema = rawPostgresEnrollmentCountSchema
 export const publicCourseSlugSchema = z
   .string()
   .trim()
-  .min(3)
+  .check(minUtf16Length(3))
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 const publicInstructorSchema = z

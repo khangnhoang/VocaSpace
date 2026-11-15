@@ -1,15 +1,16 @@
 import { z } from "zod";
+import { minUtf16Length } from "./utf16-length";
 import { GENDER_VALUES } from "./gender";
 
 // --- BƯỚC 1: Tài khoản. Mật khẩu được đặt sau khi xác minh email (A1, setPasswordSchema). ---
 const step1Schema = z.object({
-  username: z.string().min(3, "Tên tài khoản phải từ 3 ký tự trở lên"),
+  username: z.string().check(minUtf16Length(3, "Tên tài khoản phải từ 3 ký tự trở lên")),
   email: z.email("Email này không đúng định dạng"),
 });
 
 // --- BƯỚC 2: Các trường thông tin cá nhân ---
 const step2Schema = z.object({
-  full_name: z.string().min(2, "Vui lòng nhập họ và tên"),
+  full_name: z.string().check(minUtf16Length(2, "Vui lòng nhập họ và tên")),
   phone: z.string().regex(/^[0-9]+$/, "Số điện thoại chỉ được chứa số").min(10, "Số điện thoại không hợp lệ").max(11, "Số điện thoại quá dài"),
   dob: z.date({
     message: "Vui lòng chọn ngày sinh hợp lệ",
@@ -40,7 +41,7 @@ export const avatarFileSchema = z
 
 // --- ĐẶT MẬT KHẨU SAU KHI XÁC MINH EMAIL (A1) — giữ luật mật khẩu cũ của form đăng ký ---
 export const setPasswordSchema = z.object({
-  password: z.string().min(6, "Mật khẩu ít nhất 6 ký tự cho an toàn"),
+  password: z.string().check(minUtf16Length(6, "Mật khẩu ít nhất 6 ký tự cho an toàn")),
   confirmPassword: z.string().min(1, "Vui lòng xác nhận lại mật khẩu"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Mật khẩu xác nhận không khớp",
@@ -86,8 +87,8 @@ export const loginSchema = z.object({
 
 export const adminUserSchema = z.object({
   email: z.email("Email không đúng định dạng"),
-  username: z.string().min(3, "Username ít nhất 3 ký tự"),
-  full_name: z.string().min(2, "Vui lòng nhập họ và tên"),
+  username: z.string().check(minUtf16Length(3, "Username ít nhất 3 ký tự")),
+  full_name: z.string().check(minUtf16Length(2, "Vui lòng nhập họ và tên")),
   phone: z.string()
   .regex(/^[0-9]+$/, "Số điện thoại chỉ được chứa số")
   .min(10, "SĐT không hợp lệ")

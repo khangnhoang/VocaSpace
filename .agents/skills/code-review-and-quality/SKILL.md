@@ -38,6 +38,8 @@ For one committed checkpoint use git show --stat HEAD and git diff HEAD^..HEAD; 
 
 Check fidelity to Owner intent; current repository/ownership; assumptions and dependencies; scope/exclusions; implementability without a material decision being invented downstream; observable acceptance tied to evidence; permission, rollout/rollback and stop routes; and that every required behavior has an owner and reachable verification. A plan verdict does not approve an Owner-controlled choice or grant implementation.
 
+For multi-unit plans, apply the planning skill's Order and slice and Acceptance and verification guidance. Check each unit's size against its outcome, risk, verification, fault isolation and recovery. Check the order against actual prerequisites and urgency, including trial versus release order where relevant. Identify the first checkpoint that can demonstrate the core behavior. Also identify where each material feasibility assumption is tested. The same checkpoint may supply both kinds of evidence. Flag scope or sequencing that materially delays evidence, obscures a blocking failure or leaves downstream work relying on an unverified prerequisite.
+
 ## Findings and verdicts
 
 Critical blocks: exploitable security, data loss/corruption, authorization bypass, broad RLS exposure, broken migration/destructive production behavior, core failure or exposed secrets.

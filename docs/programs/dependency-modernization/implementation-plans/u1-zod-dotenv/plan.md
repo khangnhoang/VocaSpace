@@ -1,0 +1,82 @@
+# U1 detail plan — Declare Zod and dotenv directly
+
+Revision: r4, 2026-11-15. Owner approved: 2026-11-16. Master plan: [r9](../../plan.md).
+
+## 1. Binding Spec
+
+### 1.1 Outcome and acceptance
+
+After U1 ships, VocaSpace owns the Zod version its app imports and the dotenv version its Vitest configs import. Size is medium for the Zod dependency and its existing string-length contracts, and small for dotenv. Keep one release batch while the fixes stay bounded and each dependency change can be verified and reverted independently.
+
+| ID | Observable result |
+| --- | --- |
+| AC1 | A clean install from the final manifest and lockfile resolves an approved, patched root `zod` from `dependencies` and an explicit `dotenv` from `devDependencies`. Both Vitest configs load, retain their separate local env-file paths and retain the CI skip for local file loading. |
+| AC2 | The signup form still submits the prepared avatar, the Server Action accepts a valid avatar at the mocked upload boundary, and invalid avatar inputs stop before upload or account creation. Schema, React Hook Form and PayOS Route Handler validation keep the existing accepted inputs, rejection behavior and side-effect order. At string-length boundaries changed by Zod, preserve baseline acceptance and normalized output, existing caller-visible errors and the length units required by adjacent UI or RPC contracts. |
+| AC3 | Full and omit-dev audits on the final lockfile show that `GHSA-mrhx-c7xc-m3w5` no longer affects the root Zod path. Record residual paths separately, including the nested shadcn Zod if it remains. Record security and version-lag disposition for both direct declarations. |
+
+### 1.2 Scope and non-goals
+
+- Change `package.json`, `package-lock.json`, the owning program State and only the app-owned Zod declarations where a baseline comparison demonstrates a string-length regression. Add or extend focused tests only where existing tests miss a proven boundary. Preserve product validation rules, shared schema ownership, environment loading policy, provider integrations and database behavior.
+- Keep shadcn, its nested Zod, Node, npm, CI/CD settings and unrelated dependencies outside U1. U1 can be tried on the existing supported CI runtime without U2 or U3. No hosted tests that submit signups or payment events.
+
+### 1.3 Execution guardrails
+
+| Guardrail | Failure if omitted |
+| --- | --- |
+| G1. Refresh the Git and audit baseline before the first authorized batch. Trial in a disposable worktree with a fresh install, synthetic placeholders and the current CI Node 20 major and npm 11.6.2. Record actual versions. | A different runtime, cached dependencies or an old advisory snapshot can hide a CI or dependency regression. |
+| G2. Compare manifest and lockfile after each direct declaration. Explain every resolution change and preserve other package versions and dependency paths outside the necessary graph. Use exact trial targets and the reviewed lockfile for clean reproduction. | Hoisting or a broad refresh can hide incidental changes or wrongly attribute a failure. |
+| G3. Reuse existing coverage first. Use invented local inputs. Keep real Zod parsing in all boundary checks, with no PayOS, Supabase or hosted user-data calls in the webhook check. | Mocking parsing would erase the relevant guarantee, and live events could mutate payment state. |
+
+### 1.4 Owner decisions that bind this unit
+
+- Follow master plan decisions 4, 5 and 7. Audit first, batch the related ownership changes only while they stay bounded, and stop on the first blocking result for dependent work.
+- The Owner authorized the initial CP1 trial, this plan correction and independent re-review. On 2026-11-16, the Owner approved R4 and authorized the corrective trial, implementation and local commits. Implementation, commit, push, PR, merge and hosted actions remain separate.
+
+## 2. Repository facts
+
+Baseline: `7617f6c6` on `docs/dependency-modernization-u1`, checked 2026-11-15. Refresh before implementation and retain the exact original and trial revisions in the evidence.
+
+- The [audit snapshot](../../sources/2026-11-13-audit.md) shows root Zod `4.3.6`, `node_modules/shadcn/node_modules/zod` `3.25.76`, and dotenv `17.3.1`. Neither root package is declared. [The advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) reports affected versions `<4.6.6`. `npm audit` can group both installed Zod paths under one package entry.
+- [Unit Vitest config](../../../../../vitest.config.ts) and [integration Vitest config](../../../../../vitest.integration.config.ts) import dotenv even when `CI` skips `dotenv.config`. Local paths are `.env.local` and `.env.test.local` respectively. Loading either config alone proves resolution, not that a test used its intended env file.
+- PR #188 added a real `File` boundary to the [auth schema](../../../../../lib/schemas/auth.ts) and signup action. Existing signup component tests mock avatar preparation and the Server Action. The action tests execute the real validation and mock Supabase. The avatar helper has its own coverage. The PayOS route has inline Zod validation ahead of signature verification and payment RPC, with an earlier handshake branch.
+
+- The initial CP1 trial on Node 20.20.2/npm 11.6.2 cleared the root Zod advisory path and passed 187 signup tests, both Vitest config probes in local and CI modes and four PayOS route cases. The combined candidate failed the existing [admin course boundary test](../../../../../__tests__/schemas/admin-course.test.ts) with 205 passes and one failure in the schema/form suite. Lint, type check and build did not run. A direct package comparison confirmed Zod 4.6.6 and 4.6.7 count code points where 4.3.6 counted UTF-16 units. See [Zod's checks](https://github.com/colinhacks/zod/blob/v4.6.7/packages/zod/src/v4/core/checks.ts).
+- Course rejection already has a UTF-16 contract across the dialog counter, shared schema and [RPC migration](../../../../../supabase/migrations/20261014120000_ad2_course_listing_approval.sql). At 9 and 1001 units it rejects, and at 10 and 1000 it accepts after trim. The [chapter title schema](../../../../../lib/schemas/chapter.ts) is shared by the form, create and update actions. Its two-emoji input clears the old minimum, and the existing [rename RPC test](../../../../../__tests__/integration/chapter-rename-rpc.test.ts) asserts exact persistence of such a title when supplied directly. The [review reason schema](../../../../../lib/schemas/topic-review.ts) is shared by topic rejection and platform moderation and has a length bound consumed by the course moderation dialog's UTF-16 counter.
+
+## 3. Bounded implementation hypotheses
+
+- Start with `zod@4.6.7`, the [published stable Zod 4 candidate](https://www.npmjs.com/package/zod/v/4.6.7). Start with `dotenv@17.4.2`, a [published same-major dotenv update](https://github.com/motdotla/dotenv/blob/master/CHANGELOG.md). Dotenv 18 is a separate major. If the same-major update regresses config loading, trial a direct declaration at the existing `17.3.1` only after refreshing security evidence, and record the newer target and reason for deferral. Refresh registry metadata, engine/peer ranges and advisory evidence at CP1. Revisit the patch choice within the accepted major if evidence changes. A major migration or validation behavior change requires a revised plan and Owner decision. Zod 4.6.6 has the same string-length incompatibility as 4.6.7, so downgrading to 4.6.6 does not resolve the CP1 finding.
+- Generate the lockfile with the current CI npm. Use `npm install --package-lock-only --save-prod --save-exact zod@4.6.7` for the Zod-only trial. After it passes, use `npm install --package-lock-only --save-dev --save-exact dotenv@17.4.2` for the combined trial. Inspect each diff before installation. Reproduce the accepted exact resolutions with `npm ci`.
+- Prefer explicit UTF-16 length checks using JavaScript string length after the existing normalization in affected schema definitions. Compare actual consumed error messages, issue paths and any issue metadata or schema introspection used by callers. Keep server and client consumers on the same shared schema. Reuse a small field-level helper only if the affected contracts share the same semantics and it reduces duplication. Keep Zod internals, the database, UI counters, min/max values and normalization outside the fix.
+
+## 4. Checkpoints
+
+| CP | Outcome | Verification |
+| --- | --- | --- |
+| CP1 — Corrective trial | The patched Zod candidate preserves existing string-length contracts and the pair installs cleanly. | Use the sequence below. Capture the initial mismatch, scoped fix, dependent tests and findings by path. Stop dependent work on a blocker. |
+| CP2 — Implementation candidate | A minimal reviewed diff reproduces the successful trial on the authorized implementation base. | Run `npm ci`, the PR #188 checks, affected string-length regressions and both audits on the final candidate. Reuse the temporary dotenv and PayOS probe results only after verifying equivalent base, manifest, lockfile, relevant code/config and runtime/environment inputs. Otherwise rerun each affected probe before push. Retain reproducible probe definitions in trial evidence outside the delivery diff. Repeat wider checks when their inputs or base changed. Review the implementation before delivery. |
+
+CP1 sequence:
+
+1. At the refreshed baseline, record `node --version`, `npm --version`, `npm ls zod dotenv --all --package-lock-only` and both `npm audit --package-lock-only --json` and `npm audit --package-lock-only --omit=dev --json`. Capture JSON and exit status. A findings exit with valid JSON differs from registry or audit execution failure. Check engines, peers, expected lockfile scope and release notes. Use the same Node/npm and `npm ci` for the baseline, Zod-only and combined trial states. Reconcile install warnings against baseline and verify actual installed resolutions as well as lockfile paths in each state.
+2. Before combining package changes, inventory root-Zod string `.min`, `.max` and `.length` constraints across app code, including shared or inline schemas and their callers. Separate numeric, array and unchanged non-empty checks from length-sensitive strings. Compare actual parse/consumer behavior on the baseline and unmodified patched Zod for length-sensitive constraints with synthetic boundary inputs, including supplementary Unicode characters. Check accepted/rejected input, transforms and caller-visible error behavior. Start with course rejection, moderation and chapter titles. Follow other auth, authoring and validation callers where their input permits a changed boundary. Keep a compact list of affected fields and relevant consumers in trial evidence. Preserve behavior with the smallest schema-local change and confirm the affected boundary tests on the corrected Zod-only candidate. Use the existing admin course cases for 9/10 and 1000/1001 UTF-16 units and targeted schema coverage for chapter create/update and shared moderation bounds if uncovered. If the fix crosses product policy or cannot stay bounded, stop and return the scope decision to the Owner.
+3. On the baseline and then on the corrected Zod-only candidate, load both existing Vitest configs and run `npm run test:run -- __tests__/schemas/auth.test.ts __tests__/components/auth-onboarding.test.tsx __tests__/actions/auth.test.ts __tests__/utils/avatar-image.test.ts`. Verify that the prepared file reaches the form submission, valid metadata reaches the action's mocked upload boundary, and invalid metadata is rejected before downstream calls. Only after these checks pass, add dotenv. Before completing CP1, repeat the config checks, PR #188 checks and every affected string-length boundary check from step 2 on the combined candidate, including focused action or route tests outside the schema suite. Use distinct synthetic values in the two expected env files and a temporary assertion per config to prove local loading and CI skip. Run each in a fresh process with the sentinel absent from the parent environment. Keep reproducible probe definitions in trial evidence and remove only trial-owned probe files from the worktree afterward. Config verification needs no database fixture or reset.
+4. Cover the broader schema and form contracts with `npm run test:run -- __tests__/schemas __tests__/components/edit-profile-form.test.tsx`. No dedicated PayOS webhook route test was found. Use a focused Vitest route check with the real handler, Zod and NextResponse, first on the baseline and then the combined candidate. Mock the PayOS service module and Supabase client factory before importing the route, so neither client initializes against live configuration. Cover the existing handshake path, a non-handshake JSON payload with a reference and one invalid schema field that returns `400` before verification or RPC, a valid shape rejected by the verifier with `401` and no RPC, and a valid shape with a successful verifier and mocked RPC result reaching the existing `200` response. Match baseline responses and call order. This proves route validation and sequencing, with provider authenticity and database effects outside the observation. Keep a durable regression test only if trial evidence shows one is needed.
+5. Run `npm run lint`, `npm run build` with the placeholder environment from [CI](../../../../../.github/workflows/ci.yml), and `npm exec --no -- tsc --noEmit` using the locally installed compiler. Compare both audits by advisory ID and resolved paths. Document why any nested finding remains and point to U2 for shadcn. Check `git diff --check` and the intended file list before promoting the candidate. Reuse the required CI and Preview gates in the master plan for platform-specific verification. Before release, require the existing admin course approval and chapter rename integration cases on an isolated authorized stack or in the existing required integration CI job for the exact candidate. Confirm cases actually ran. Those RPC tests establish database behavior, while schema/form/action evidence establishes app behavior. Do not reset or repurpose a shared local stack to obtain that evidence.
+
+## 5. Risks, rollout and rollback
+
+| Risk | Mitigation |
+| --- | --- |
+| Direct ownership changes hoisting or a shared resolver | Compare all changed paths and actual installed resolutions, then exercise the affected form, action, config and route before broader rollout. Split Zod and dotenv if a regression cannot be isolated within the batch. |
+| Audit total stays unchanged because nested Zod remains | Record root and nested paths separately. Keep the nested finding open with U2 ownership and revisit it when the shadcn graph changes. |
+| Zod counts code points while adjacent contracts count UTF-16 units | Preserve the baseline at the owning schema and compare boundary cases against both versions before adding dotenv. Use the existing RPC cases for downstream evidence before release. |
+| Trial cannot reproduce CI or an affected boundary | Preserve the exact command, error, baseline, candidate and blocked checks. Classify as candidate-caused, baseline or inconclusive. Hold only the affected batch and proven dependents until required evidence exists. |
+
+- Rollout: Follow the master plan and [production release SOP](../../../../../docs/sop/production-release-gate.md). Before merge, verify required CI and Preview on the reviewed revision, confirm required `production-gate`, automatic domain assignment and recovery target, and obtain merge authority covering the automatic release. After domain assignment, confirm serving revision and bounded read-only smoke. A trial or plan verdict does not authorize delivery.
+- Stop when a required path still resolves affected root Zod, a compatibility check fails or cannot run, lockfile scope cannot be justified, or preserving the existing contract would require a wider change. Missing hosted evidence blocks only the rollout stage that needs it.
+- Rollback: Discard the isolated trial or revert the authorized U1 implementation change as a coherent unit. For production recovery, follow the SOP and verify the domain, revision and smoke afterward. Obtain the Owner's decision before restoring a revision with the affected Zod version. No database rollback is expected.
+
+## 6. Progress
+
+Current State and milestones: [program progress](../../progress.md).

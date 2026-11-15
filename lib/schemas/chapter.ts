@@ -1,11 +1,12 @@
 // File: lib/schemas/chapter.ts
 import { z } from "zod";
+import { minUtf16Length, maxUtf16Length } from "./utf16-length";
 
 const chapterTitleSchema = z
   .string()
   .trim()
-  .min(3, "Tên chương phải có ít nhất 3 ký tự")
-  .max(100, "Tên chương không được quá 100 ký tự");
+  .check(minUtf16Length(3, "Tên chương phải có ít nhất 3 ký tự"))
+  .check(maxUtf16Length(100, "Tên chương không được quá 100 ký tự"));
 
 export const chapterFormSchema = z.object({
   title: chapterTitleSchema,
@@ -47,8 +48,8 @@ export const chapterMoveSchema = z.object({
 export const chapterSchema = z.object({
   title: z
     .string()
-    .min(3, "Tên chương phải có ít nhất 3 ký tự")
-    .max(100, "Tên chương không được quá 100 ký tự"),
+    .check(minUtf16Length(3, "Tên chương phải có ít nhất 3 ký tự"))
+    .check(maxUtf16Length(100, "Tên chương không được quá 100 ký tự")),
   order_index: z
     .number({
       message: "Vui lòng nhập số thứ tự hợp lệ",
