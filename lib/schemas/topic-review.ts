@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { minUtf16Length, maxUtf16Length } from "./utf16-length";
 
 const topicIdSchema = z.uuid("ID bài học không hợp lệ.");
 const submissionIdSchema = z.uuid("ID yêu cầu duyệt không hợp lệ.");
 const reviewReasonSchema = z
   .string()
   .trim()
-  .min(10, "Lý do phải có ít nhất 10 ký tự.")
-  .max(2000, "Lý do không được vượt quá 2000 ký tự.");
+  .check(minUtf16Length(10, "Lý do phải có ít nhất 10 ký tự."))
+  .check(maxUtf16Length(2000, "Lý do không được vượt quá 2000 ký tự."));
 
 export const requestTopicReviewSchema = z.object({ topicId: topicIdSchema });
 export const topicReviewSubmissionSchema = z.object({

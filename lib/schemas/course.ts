@@ -1,5 +1,6 @@
 // File: lib/schemas/course.ts
 import { z } from "zod";
+import { minUtf16Length } from "./utf16-length";
 import type {
   CourseMemberRole as DatabaseCourseMemberRole,
   ItemStatus,
@@ -20,12 +21,12 @@ export const courseMemberRoleSchema = z.enum(COURSE_MEMBER_ROLES);
 export const courseIdSchema = z.uuid("ID khóa học không hợp lệ.");
 
 export const courseSchema = z.object({
-  title: z.string().trim().min(5, "Tên khóa học phải có ít nhất 5 ký tự"),
+  title: z.string().trim().check(minUtf16Length(5, "Tên khóa học phải có ít nhất 5 ký tự")),
   slug: z.string()
     .trim()
-    .min(3, "Đường dẫn ít nhất 3 ký tự")
+    .check(minUtf16Length(3, "Đường dẫn ít nhất 3 ký tự"))
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Đường dẫn chỉ được chứa chữ cái thường, số và dấu gạch ngang (VD: toeic-800)"),
-  description: z.string().trim().min(10, "Mô tả khóa học ít nhất 10 ký tự"),
+  description: z.string().trim().check(minUtf16Length(10, "Mô tả khóa học ít nhất 10 ký tự")),
   price: z.string()
     .trim()
     .refine((val) => !isNaN(Number(val)) && Number(val) >= 0, "Giá tiền phải là một số hợp lệ lớn hơn hoặc bằng 0")

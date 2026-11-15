@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { minUtf16Length, maxUtf16Length } from "./utf16-length";
 import { platformModerationSchema } from "@/lib/schemas/topic-review";
 
 export const ADMIN_COURSE_PAGE_SIZE = 20;
@@ -14,7 +15,7 @@ export const adminCourseStatusFilters = [
 // nên parse() không bao giờ ném. Cỡ trang và thứ tự sắp xếp cố định ở server, không nhận từ URL.
 export const adminCourseFilterSchema = z.object({
   status: z.enum(adminCourseStatusFilters).catch("pending"),
-  q: z.string().trim().max(100).catch(""),
+  q: z.string().trim().check(maxUtf16Length(100)).catch(""),
   page: z.coerce.number().int().min(1).catch(1),
 });
 
@@ -29,8 +30,8 @@ export const rejectCourseSchema = z.object({
   rejectMessage: z
     .string()
     .trim()
-    .min(10, "Lý do từ chối phải có ít nhất 10 ký tự.")
-    .max(1000, "Lý do từ chối không được vượt quá 1000 ký tự."),
+    .check(minUtf16Length(10, "Lý do từ chối phải có ít nhất 10 ký tự."))
+    .check(maxUtf16Length(1000, "Lý do từ chối không được vượt quá 1000 ký tự.")),
 });
 
 export const submitCourseReviewSchema = z.object({

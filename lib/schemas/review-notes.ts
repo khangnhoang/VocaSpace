@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { maxUtf16Length } from "./utf16-length";
 import { topicAuthorIdentitySchema } from "@/lib/schemas/topic-workflow";
 
 const topicIdSchema = z.uuid("ID bài học không hợp lệ.");
@@ -9,7 +10,7 @@ export const reviewNoteBodySchema = z
   .string()
   .trim()
   .min(1, "Nội dung ghi chú không được để trống.")
-  .max(2000, "Ghi chú không được vượt quá 2000 ký tự.");
+  .check(maxUtf16Length(2000, "Ghi chú không được vượt quá 2000 ký tự."));
 
 // Cố ý KHÔNG có `authorUserId`: đây là field server-owned, lấy từ auth.uid()
 // (cột có default auth.uid() và policy WITH CHECK ép lại).

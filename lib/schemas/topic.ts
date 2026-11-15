@@ -1,11 +1,12 @@
 // File: lib/schemas/topic.ts
 import { z } from "zod";
+import { minUtf16Length, maxUtf16Length } from "./utf16-length";
 
 const topicTitleSchema = z
   .string()
   .trim()
-  .min(4, { message: "Tên bài học phải dài hơn 3 ký tự" })
-  .max(120, { message: "Tên bài học không được quá 120 ký tự" });
+  .check(minUtf16Length(4, "Tên bài học phải dài hơn 3 ký tự"))
+  .check(maxUtf16Length(120, "Tên bài học không được quá 120 ký tự"));
 
 export const topicStatusSchema = z.enum(["draft", "pending", "published"], {
   message: "Vui lòng chọn trạng thái",

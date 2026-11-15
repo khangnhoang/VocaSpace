@@ -1,5 +1,6 @@
 // lib/schemas/exercise.ts
 import { z } from "zod";
+import { minUtf16Length } from "./utf16-length";
 
 export const QUESTION_GROUP_IMAGE_BUCKET = "question_group_images";
 export const QUESTION_GROUP_AUDIO_BUCKET = "question_group_audios";
@@ -429,7 +430,7 @@ export const questionGroupSchema = z.object({
 
 export const exerciseSchema = z
   .object({
-    title: z.string().min(4, "Tên bài tập phải dài hơn 3 ký tự"),
+    title: z.string().check(minUtf16Length(4, "Tên bài tập phải dài hơn 3 ký tự")),
     part_type: z.string().min(1, "Vui lòng chọn Part (VD: part7)"),
     order_index: z.number().optional(),
     groups: z.array(questionGroupSchema).optional(),

@@ -24,7 +24,7 @@ import {
 // - Bảo mật/phân quyền: không áp dụng ở schema; Server Action kiểm tra auth/permission riêng.
 // - Ổn định/resilience: client không thể gửi order_index; move chỉ nhận id + direction.
 // - Invariant cần giữ: Server Action/RPC là nơi duy nhất tính hoặc đổi order_index.
-// - Kết quả verify gần nhất: passed bằng `npm.cmd run test:run -- __tests__/schemas/course-structure.test.ts __tests__/actions/course-structure.test.ts`.
+// - Tên chương dùng giới hạn UTF-16 sau khi trim ở cả tạo và đổi tên.
 
 describe("course structure schemas", () => {
   it("accepts trimmed chapter metadata without order input", () => {
@@ -58,6 +58,20 @@ describe("course structure schemas", () => {
         title: "Foundations",
       }).success,
     ).toBe(false);
+  });
+
+  it.each([
+    { kind: "create", schema: chapterCreateSchema, ids: { courseId: "11111111-1111-4111-8111-111111111111" } },
+    { kind: "rename", schema: chapterUpdateSchema, ids: { chapterId: "22222222-2222-4222-8222-222222222222" } },
+  ])("preserves UTF-16 title bounds on chapter $kind after trimming", ({ schema, ids }) => {
+    const parse = (title: string) => schema.safeParse({ ...ids, title: `  ${title}  ` });
+    const minimum = "😀a";
+    const maximum = "😀".repeat(50);
+
+    expect(parse("😀").success).toBe(false);
+    expect(parse(minimum)).toMatchObject({ success: true, data: { title: minimum } });
+    expect(parse(maximum)).toMatchObject({ success: true, data: { title: maximum } });
+    expect(parse(`${maximum}a`).success).toBe(false);
   });
 
   it("accepts topic metadata without client-owned lifecycle input", () => {
