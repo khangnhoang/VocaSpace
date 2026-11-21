@@ -51,6 +51,8 @@ Small work may use two lines with concrete evidence. This is a report section, n
 
 ## Checkpoint and delivery
 
+Verification timing: run focused checks while implementing and verify the affected area at each checkpoint; complete the final regression after the whole-diff self-review corrections and before reporting ready for review or delivery. Commands, scope, evidence reuse and CI-job reporting belong to [test-quality-strategy, Verification stages](../.agents/skills/test-quality-strategy/SKILL.md#verification-stages); an intermediate checkpoint is not final verification.
+
 Before completing implementation, use git-checkpoint-workflow: inspect staged/unstaged/untracked content, intended scope, encoding/EOL, conflicts, secrets/debug artifacts, evidence and pending QA. Report changed files and why, actual checks, skipped/failed checks, limitations, self-review and exact Git/remote state. Without a commit grant, propose an English Conventional Commit; with a grant, report the resulting hash/message.
 
 Local commits, push, PR, merge, deployment, database mutation and branch deletion remain separate. A checkpoint is not automatic Git authority.

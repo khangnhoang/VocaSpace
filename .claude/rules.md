@@ -11,7 +11,16 @@ Standing platform permissions below cover Explore fan-out on Haiku and foregroun
 
 ## Preflight reading
 
-- `.claude/skills/<name>` exposes each shared `.agents/skills/<name>` through a relative directory symlink so Claude Code can discover its name and description. Edit the canonical target. Discovery does not load the whole skill: before acting, invoke the skill or read its whole `SKILL.md` whenever the `AGENTS.md` routing matches the task. Apply the shared preflight in `docs/agent-loops.md`, already imported by `CLAUDE.md`.
+- `.claude/skills/<name>` exposes each shared `.agents/skills/<name>` through a relative directory symlink so Claude Code can discover its name and description. Edit the canonical target. Discovery does not load the whole skill: before acting, load it whenever the `AGENTS.md` routing matches the task. Apply the shared preflight in `docs/agent-loops.md`, already imported by `CLAUDE.md`.
+- Read a skill completely by loading it with the `Skill` tool, which loads the whole `SKILL.md`. Read a file under its `references/` with `Read`, completely, because the `Skill` tool does not load references. Do not read a skill or reference through Bash or a partial `Read`.
+
+## Node commands
+
+- Run Node, npm and npx commands with the PowerShell tool. In Git Bash, `~/.bashrc` runs `fnm env --use-on-cd`, so a `cd` in a non-interactive Bash call prints a Node-version error; avoid `cd` there and use `git -C <path>` for Git. VocaSpace has no `.node-version`; CI uses Node 20 ([FEAT-027](../docs/programs/infrastructure/future-features.md#feat-027-pin-the-local-node-version-to-ci) records aligning them).
+
+## Desktop app file virtualization
+
+- On Windows the Claude desktop app runs as an MSIX package, so a file a Claude process (Main, an implementor or a tool they start) writes under `%APPDATA%` or `%LOCALAPPDATA%` can land in `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache` and be invisible to the Owner's own shells and programs. Put anything the Owner also uses (a runtime, a version manager, a shared cache) in a folder outside `AppData`, such as `%USERPROFILE%\.<tool>`, and confirm it from the Owner's own shell before relying on it. Files only Claude processes read, such as the scratchpad, may stay under `AppData`.
 
 ## Implementation through Sonnet
 
@@ -21,6 +30,7 @@ Standing platform permissions below cover Explore fan-out on Haiku and foregroun
 - When the session ends a turn, Main is called to handle the next step. That note quotes only the start of the report, so read the full report and check the diff and commits before trusting it.
 - Send corrections and later checkpoints to the same session with SendMessage; do not start a new session, a subagent or an independent review per checkpoint. Reviews or evidence that the plan or a skill requires (for example a fresh-reader round) still run at their checkpoint.
 - While an implementor owns the plan, Main does not edit product code or tests, even for small QA fixes.
+- Shared writer rule (`AGENTS.md`): Main reads the implementor's state from the app's "Linked sessions now" note or `list_sessions` with `linked: true`. A session that is running a turn is active; an open session that ended its turn is idle. When the state is unclear, treat it as running and edit nothing.
 
 ## Discovery
 

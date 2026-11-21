@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     ".next-e2e/**",
     "test-results/**",
     ".playwright-cli/**",
+    // Git worktrees of other sessions hold their own checkouts; they are not part of this one.
+    ".claude/worktrees/**",
   ]),
 ]);
 

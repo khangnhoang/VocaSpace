@@ -43,6 +43,28 @@ Before writing: identify the invariant and layer, inspect setup/helpers, choose 
 
 Focused UI/CSS changes normally need directly related interaction tests, relevant type/lint checks, diff hygiene and proportionate visual QA, not every suite/build/reset. Local logic changes need affected unit/action/component checks. Broaden for shared routing/schema/build/config boundaries, a discovered regression risk, a final required PR gate or explicit Owner request; state why first. Reuse unchanged current passing evidence.
 
+## Verification stages
+
+docs/agent-loops.md owns when a checkpoint, self-review and final review happen; this section owns which checks each stage runs. An intermediate checkpoint is never final verification.
+
+| Stage | Checks |
+| --- | --- |
+| Implementation | Add or extend the regression test with the behavior and run the affected files at the smallest sufficient layer, including callers and shared dependencies, not only files named in the diff. |
+| Checkpoint | Verify the whole affected area plus the static checks that apply (`npx tsc --noEmit`, `npm run lint`). Widen early for shared schemas, fixtures, test tooling or config whose reach is uncertain. A checkpoint does not require every suite. |
+| Final regression | After the whole-diff self-review corrections, for a code, test, dependency or executable-config change run once: `npx tsc --noEmit`, `npm run lint`, `npm run test:ci`, the affected `npm run test:integration -- <file>` files and E2E specs, and `npm run build` when build-affecting config changed. This is not a command to repeat at every checkpoint. |
+| Correction after verification | Rerun what the correction can invalidate. Reuse earlier passing evidence only with a concrete dependency-based reason; a change to shared behavior, tooling or uncertain reach reruns the relevant full checks. A later prose-only correction reruns no application suite. |
+| Docs-only | `npm run docs:check`, plus `node .agents/scripts/validate-skill.mjs` when a skill changed. Application suites, typecheck and build are not required locally. |
+
+A focused pass is checkpoint evidence, not evidence that a full suite passed. Final regression needs current passing evidence before work is reported ready for review or delivery; a missing prerequisite or a failed check stays pending or blocked.
+
+### Intermittent failures
+
+Preserve the first failure's log and trace before anything else. Repeat the relevant scenario under the suspected conditions. A passing rerun neither erases the failure nor proves its cause, and two green runs do not prove isolation or resolve a flake. A new flake in a changed area blocks the report until it is explained or recorded in the owning problems.md.
+
+### Reporting evidence by CI job
+
+CI runs the lint/skills/docs, unit, build, integration, learner-integrity and E2E jobs on a pull request. The final report names the revision and, per CI job, whether it ran and passed on that revision. CI E2E proves only `e2e/smoke`; an affected executable Playwright spec outside it (today `e2e/admin/*.spec.ts` and `e2e/d2/*.spec.ts`) must be run locally with `npm run test:e2e -- <spec>`. A skipped job, an unpushed revision or missing push/PR authority leaves that evidence pending, never passed. Local checks are not CI evidence.
+
 ## Local runtimes
 
 Local project IDs are voca_space (root supabase/, API 45321) for dev/manual QA and voca_space_e2e (.e2e-runtime, API 45441) for isolated tests. Do not infer a project is unused from one process ending.

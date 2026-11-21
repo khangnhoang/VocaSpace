@@ -133,6 +133,9 @@ jobs:
       - name: Check docs structure and links
         run: npm run docs:check
 
+      - name: Run E2E reset decision tests
+        run: node --test scripts/e2e/reset-decision.test.mjs
+
   unit:
     name: Unit, form and component tests
     runs-on: ubuntu-latest
@@ -250,31 +253,139 @@ jobs:
     # public.ecr.aws often rejects this job's image pulls with "Data limit exceeded"; job-level so `db reset` resolves the same images.
     env:
       SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
+      # The one service list of this job: the start below and its log line read it. It keeps `realtime`, which the local runner starts.
+      E2E_SUPABASE_EXCLUDES: studio,imgproxy,realtime,mailpit,edge-runtime,logflare,vector,postgres-meta
+      # Data volume of the isolated project (supabase_db_<project_id>); evidence of a fresh stack is read from it.
+      E2E_DATA_VOLUME: supabase_db_voca_space_e2e
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Setup dependencies
-        uses: ./.github/actions/setup-deps
+      # Both versions come from package-lock.json, which is available before `npm ci`, so the CLI and Chromium cache match the pinned packages.
+      - name: Resolve pinned tool versions
+        id: versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase_version="$(node -p "require('./package-lock.json').packages['node_modules/supabase'].version")"
+          playwright_version="$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")"
+          echo "supabase=${supabase_version}" >> "$GITHUB_OUTPUT"
+          echo "playwright=${playwright_version}" >> "$GITHUB_OUTPUT"
+          echo "Supabase CLI ${supabase_version}, Playwright ${playwright_version} (package-lock.json)"
+          echo "Excluded Supabase services: ${E2E_SUPABASE_EXCLUDES}"
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: ${{ steps.versions.outputs.supabase }}
 
-      # run-e2e.mjs reuses a running runtime, so start it here without the services the smoke suite does not use.
-      - name: Start isolated Supabase
+      # The start runs in the background while dependencies and Chromium install; "Wait for isolated Supabase" joins it.
+      # prepare-supabase-workdir.mjs imports only node: modules, so it runs before `npm ci`.
+      - name: Start isolated Supabase in the background
         shell: bash
         run: |
           set -euo pipefail
           node --input-type=module -e "import { prepareSupabaseWorkdir } from './scripts/e2e/prepare-supabase-workdir.mjs'; prepareSupabaseWorkdir(process.cwd());"
-          npx supabase --workdir .e2e-runtime start -x studio,imgproxy,realtime,mailpit,edge-runtime,logflare,vector,postgres-meta > /dev/null
+
+          # Evidence for run-e2e.mjs: the data volume must not exist before this job's own start. A failed probe records "unknown".
+          volume_before=unknown
+          if volumes="$(docker volume ls --format '{{.Name}}')"; then
+            if grep -qx "${E2E_DATA_VOLUME}" <<< "${volumes}"; then volume_before=present; else volume_before=absent; fi
+          fi
+          echo "${volume_before}" > "${RUNNER_TEMP}/e2e-volume-before"
+          echo "Data volume ${E2E_DATA_VOLUME} before start: ${volume_before}"
+
+          rm -f "${RUNNER_TEMP}/supabase-start.exit"
+          nohup bash -c 'supabase --workdir .e2e-runtime start -x "${E2E_SUPABASE_EXCLUDES}" > "${RUNNER_TEMP}/supabase-start.log" 2>&1; echo $? > "${RUNNER_TEMP}/supabase-start.exit"' > /dev/null 2>&1 &
+          disown
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-deps
+
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.versions.outputs.playwright }}
+
+      # The cache holds the browser download only; the OS packages are installed on every run.
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]]; then
+            npx playwright install chromium
+          fi
+          npx playwright install-deps chromium
+
+      - name: Wait for isolated Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 600))
+          while [[ ! -f "${RUNNER_TEMP}/supabase-start.exit" ]]; do
+            if (( SECONDS > deadline )); then
+              echo "Supabase did not finish starting within 600 s."
+              tail -n 50 "${RUNNER_TEMP}/supabase-start.log" || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+          start_exit="$(cat "${RUNNER_TEMP}/supabase-start.exit")"
+          if [[ "${start_exit}" != "0" ]]; then
+            echo "supabase start exited with ${start_exit}."
+            tail -n 50 "${RUNNER_TEMP}/supabase-start.log" || true
+            exit 1
+          fi
+          supabase --workdir .e2e-runtime status > /dev/null
+
+          # One CLI version for the job: the one `npx supabase` resolves from the lockfile.
+          pinned="$(supabase --version)"
+          resolved="$(npx supabase --version)"
+          echo "supabase (setup-cli): ${pinned}; npx supabase: ${resolved}"
+          if [[ "${pinned}" != "${resolved}" ]]; then
+            echo "The setup-cli version differs from the one npx resolves."
+            exit 1
+          fi
+
+          # Evidence file for run-e2e.mjs, outside .e2e-runtime because prepareSupabaseWorkdir() deletes that folder.
+          # It is written only when the volume was absent before this job's start and present after it.
+          volume_before="$(cat "${RUNNER_TEMP}/e2e-volume-before")"
+          volume_after=unknown
+          if volumes="$(docker volume ls --format '{{.Name}}')"; then
+            if grep -qx "${E2E_DATA_VOLUME}" <<< "${volumes}"; then volume_after=present; else volume_after=absent; fi
+            echo "Supabase volumes after start:"
+            grep '^supabase_' <<< "${volumes}" || true
+          fi
+          echo "Data volume ${E2E_DATA_VOLUME}: before=${volume_before}, after=${volume_after}"
+          evidence="${RUNNER_TEMP}/e2e-fresh-stack-evidence.json"
+          rm -f "${evidence}"
+          if [[ "${volume_before}" == "absent" && "${volume_after}" == "present" ]]; then
+            printf '{"version":1,"projectId":"voca_space_e2e","dataVolume":"%s","volumeBeforeStart":"%s","volumeAfterStart":"%s","startExitCode":%s,"runId":"%s","runAttempt":"%s"}\n' \
+              "${E2E_DATA_VOLUME}" "${volume_before}" "${volume_after}" "${start_exit}" "${GITHUB_RUN_ID}" "${GITHUB_RUN_ATTEMPT}" > "${evidence}"
+            echo "Fresh-stack evidence written."
+          else
+            echo "No fresh-stack evidence; the database reset stays on."
+          fi
+
+      - name: Restore E2E Next.js build cache
+        id: next-cache
+        uses: actions/cache@v5
+        with:
+          path: .next-e2e/cache
+          key: nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx', '!node_modules/**', '!.next/**', '!.next-e2e/**', '!.e2e-runtime/**') }}
+          restore-keys: |
+            nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
 
       # NEXT_PUBLIC_* values are inlined at build time, so build against the isolated runtime that the tests use.
       - name: Build application for E2E
         shell: bash
         run: |
           set -euo pipefail
-          npx supabase --workdir .e2e-runtime status -o env > .e2e-runtime/supabase.env
+          supabase --workdir .e2e-runtime status -o env > .e2e-runtime/supabase.env
           source .e2e-runtime/supabase.env
           NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
           NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
@@ -282,10 +393,25 @@ jobs:
           NEXT_DIST_DIR=.next-e2e \
           npm run build
 
+      # Cache states next to the step durations of this job let a later report judge each cache separately.
+      - name: Record cache states
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### E2E shard ${{ matrix.shard }}/2 cache states"
+            echo "- Playwright browsers: hit=${{ steps.playwright-cache.outputs.cache-hit || 'false' }}"
+            echo "- Next.js E2E build cache: hit=${{ steps.next-cache.outputs.cache-hit || 'false' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The runner is discarded after the job, so the runtime is left running instead of being stopped.
       - name: Run E2E smoke tests
         run: npm run test:e2e:smoke -- --shard=${{ matrix.shard }}/2
         env:
           E2E_WEB_SERVER: start
+          E2E_KEEP_SUPABASE: "1"
+          # Opt-in to skipping `db reset`; run-e2e.mjs still resets unless the evidence file from "Wait for isolated Supabase" is valid.
+          E2E_SKIP_DB_RESET_EVIDENCE: ${{ runner.temp }}/e2e-fresh-stack-evidence.json
 
       - name: Upload Playwright traces
         if: failure()
