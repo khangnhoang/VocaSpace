@@ -14,10 +14,10 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ### ENLOC-002: Privacy wording for the locale cookie
 
-- Status: Open (2026-11-21, Owner decision needed before the U1 PR that adds the cookie).
+- Status: Open (2026-11-21). The Owner chose new wording on 2026-11-21 (U1 plan decision 6); it resolves when the U1 PR ships it.
 - Problem: The approved `/privacy` text requires a same-PR update when code changes cookies. Its section 3 says cookies keep the session and remember interface state, with the sidebar as the example. It is unclear whether that covers a language-preference cookie.
 - Evidence: `app/(client)/privacy/page.tsx` lines 9–10 and 86–89.
-- Direction: U1 asks the Owner whether the current sentence suffices. If it does not, the Owner approves the new Vietnamese wording, which lands in the same PR as the cookie.
+- Direction: The U1 PR that adds the cookie applies U1 plan decision 6 (the new example) and decision 10 (the shared legal date).
 - Exit condition: The Owner records that the current wording suffices, or the approved wording ships with the cookie.
 
 ## Resolved
