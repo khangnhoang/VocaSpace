@@ -410,6 +410,8 @@ jobs:
         env:
           E2E_WEB_SERVER: start
           E2E_KEEP_SUPABASE: "1"
+          # Opt-in to skipping `db reset`; run-e2e.mjs still resets unless the evidence file from "Wait for isolated Supabase" is valid.
+          E2E_SKIP_DB_RESET_EVIDENCE: ${{ runner.temp }}/e2e-fresh-stack-evidence.json
 
       - name: Upload Playwright traces
         if: failure()
