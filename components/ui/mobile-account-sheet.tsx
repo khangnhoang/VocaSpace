@@ -20,6 +20,7 @@ import { usePathname } from "next/navigation";
 import { signOutUser } from "@/app/actions/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import LanguageSwitcher from "@/components/ui/language-switcher";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import { isCurrentPath, PRIMARY_NAV_LABEL, PRIMARY_NAV_LINKS } from "@/components/ui/header-nav";
 import {
@@ -39,6 +40,8 @@ type MobileAccountSheetProps = {
   /** Quyền admin và nhãn link khóa học đến từ `getAccountMenuState` ở Header, cùng nguồn với menu desktop. */
   isAdmin?: boolean;
   courseWorkspaceLabel?: string | null;
+  /** English localization U1: Header bật khi cờ giao diện tiếng Anh bật. */
+  showLanguageSwitcher?: boolean;
 };
 
 const DESKTOP_BREAKPOINT_QUERY = "(min-width: 1024px)";
@@ -50,6 +53,7 @@ export default function MobileAccountSheet({
   isAuthenticated,
   isAdmin = false,
   courseWorkspaceLabel = null,
+  showLanguageSwitcher = false,
 }: MobileAccountSheetProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
@@ -227,6 +231,12 @@ export default function MobileAccountSheet({
               </div>
             )}
           </div>
+
+          {showLanguageSwitcher && (
+            <div className="border-t border-slate-100 px-4 py-2">
+              <LanguageSwitcher showLabel />
+            </div>
+          )}
 
           {isAuthenticated && (
             <>

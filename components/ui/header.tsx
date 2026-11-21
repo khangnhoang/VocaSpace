@@ -25,6 +25,8 @@ import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
 import MobileAccountSheet from "@/components/ui/mobile-account-sheet";
 import HeaderNav from "@/components/ui/header-nav";
 import { getAccountMenuState } from "@/lib/account-menu";
+import LanguageSwitcher from "@/components/ui/language-switcher";
+import { isEnglishUiEnabled } from "@/lib/i18n/config";
 
 export default async function Header() {
   const supabase = await createClient();
@@ -64,6 +66,9 @@ export default async function Header() {
     hasPendingInvitation: hasPendingCourseInvitation,
   });
 
+  // English localization U1 quyết định 7: bộ chọn ngôn ngữ chỉ xuất hiện khi cờ giao diện tiếng Anh bật.
+  const showLanguageSwitcher = isEnglishUiEnabled();
+
   return (
     <header className="w-full border-b border-slate-200 bg-white">
       <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center gap-8 px-4 sm:px-6">
@@ -83,6 +88,7 @@ export default async function Header() {
         <HeaderNav className="hidden flex-1 lg:block" />
         {/* CỤM NÚT BÊN PHẢI (DESKTOP) */}
         <div className="ml-auto hidden items-center gap-2 lg:flex">
+          {showLanguageSwitcher && <LanguageSwitcher className="mr-2" />}
           {user ? (
             // NẾU ĐÃ ĐĂNG NHẬP: HIỆN AVATAR DROPDOWN
             <DropdownMenu modal={false}>
@@ -205,6 +211,7 @@ export default async function Header() {
             isAuthenticated={Boolean(user)}
             isAdmin={accountMenu.isAdmin}
             courseWorkspaceLabel={accountMenu.courseWorkspaceLabel}
+            showLanguageSwitcher={showLanguageSwitcher}
           />
         </div>
       </div>

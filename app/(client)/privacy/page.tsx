@@ -85,8 +85,8 @@ export default function PrivacyPage() {
 
       <LegalSection title="3. Cookie">
         <p>
-          VocaSpace dùng cookie để giữ phiên đăng nhập và để ghi nhớ trạng thái giao diện (ví dụ thanh bên đang đóng
-          hay mở). Chúng tôi không dùng cookie quảng cáo hay công cụ phân tích hành vi.
+          VocaSpace dùng cookie để giữ phiên đăng nhập và để ghi nhớ trạng thái giao diện (ví dụ ngôn ngữ hiển thị, hay
+          thanh bên đang đóng hay mở). Chúng tôi không dùng cookie quảng cáo hay công cụ phân tích hành vi.
         </p>
       </LegalSection>
 
