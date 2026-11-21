@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { renderToString } from "react-dom/server";
+import { fireEvent, render, screen, waitFor } from "@/__tests__/support/intl";
+import { renderToString } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthShell } from "@/components/auth/auth-shell";
 import LoginPage from "@/app/(client)/(auth)/login/page";

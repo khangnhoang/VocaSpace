@@ -17,6 +17,7 @@ import {
 } from "@/lib/schemas/auth";
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
+import { getTranslations } from "next-intl/server";
 import {
   LAST_SIGN_IN_METHOD_COOKIE,
   RETURN_PATH_COOKIE,
@@ -84,7 +85,9 @@ export async function signUpUser(formData: FormData) {
   const validated = registerSchema.safeParse(rawData);
   if (!validated.success) {
     // Sửa chữ .errors thành .issues là TypeScript xanh mượt ngay
-    return { error: validated.error.issues[0].message };
+    // English localization U1: message là khóa trong namespace `validation`; trả bản dịch theo ngôn ngữ của request.
+    const tValidation = await getTranslations("validation");
+    return { error: tValidation(validated.error.issues[0].message as Parameters<typeof tValidation>[0]) };
   }
 
   // Ảnh là tuỳ chọn: không gửi hoặc gửi tệp rỗng thì bỏ qua; có thì phải hợp lệ trước mọi truy vấn và upload.

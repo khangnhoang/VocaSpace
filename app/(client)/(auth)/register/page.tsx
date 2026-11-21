@@ -2,6 +2,7 @@
 "use no memo";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -98,6 +99,10 @@ export default function RegisterPage() {
     defaultValues: { username: "", email: "", phone: "", full_name: "" },
   });
   const { errors } = form.formState;
+  // English localization U1: message của registerSchema là khóa trong namespace `validation`, dịch theo ngôn ngữ đang dùng.
+  const tValidation = useTranslations("validation");
+  const fieldError = (message: string | undefined) =>
+    message ? tValidation(message as Parameters<typeof tValidation>[0]) : undefined;
   const stage = submittedEmail ? 4 : step;
   const [stageMove, setStageMove] = useState({ stage, direction: 1 });
   if (stageMove.stage !== stage) setStageMove({ stage, direction: stage > stageMove.stage ? 1 : -1 });
@@ -236,13 +241,13 @@ export default function RegisterPage() {
               autoComplete="username"
               hint="Ít nhất 3 ký tự."
               registration={form.register("username")}
-              error={errors.username?.message}
+              error={fieldError(errors.username?.message)}
             />
             <EmailField
               id="email"
               hint="Link xác minh sẽ được gửi tới email này."
               registration={form.register("email")}
-              error={errors.email?.message}
+              error={fieldError(errors.email?.message)}
               onApplySuggestion={(value) => form.setValue("email", value, { shouldValidate: Boolean(errors.email) })}
             />
             <Button type="submit" size="lg" className="h-11 w-full rounded-[8px] text-sm font-semibold">
@@ -270,7 +275,7 @@ export default function RegisterPage() {
               label="Họ và tên"
               autoComplete="name"
               registration={form.register("full_name")}
-              error={errors.full_name?.message}
+              error={fieldError(errors.full_name?.message)}
             />
             <TextField
               id="phone"
@@ -280,7 +285,7 @@ export default function RegisterPage() {
               autoComplete="tel"
               placeholder="0901234567"
               registration={form.register("phone")}
-              error={errors.phone?.message}
+              error={fieldError(errors.phone?.message)}
             />
             <div className="grid gap-1.5">
               <label id="dob-label" htmlFor="dob" className="text-sm leading-5 font-semibold text-slate-900">
@@ -325,7 +330,7 @@ export default function RegisterPage() {
                   </Popover>
                 )}
               />
-              <FieldError id="dob-error" message={errors.dob?.message} />
+              <FieldError id="dob-error" message={fieldError(errors.dob?.message)} />
             </div>
             <fieldset
               className="grid gap-1.5"
@@ -353,7 +358,7 @@ export default function RegisterPage() {
                   </label>
                 ))}
               </div>
-              <FieldError id="gender-error" message={errors.gender?.message} />
+              <FieldError id="gender-error" message={fieldError(errors.gender?.message)} />
             </fieldset>
             <div className="grid gap-1">
               <Button type="submit" size="lg" className="h-11 w-full rounded-[8px] text-sm font-semibold">
