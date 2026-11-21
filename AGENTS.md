@@ -47,3 +47,21 @@ Read every matching SKILL.md in full before its action. This table owns activati
 | [code-review-and-quality](.agents/skills/code-review-and-quality/SKILL.md) | Author self-review, review of plans/briefs/code/checkpoints/branches/PRs, readiness or preparing a Codex review. Small self-review reads the method, not every formal-review reference. |
 
 Non-trivial UI implementation uses both frontend skills plus every affected domain skill. Playwright CLI owns browser-driving mechanics; test-quality-strategy owns required evidence and fixture readiness, and frontend skills own UI acceptance. Use a different driver only when explicitly requested or Playwright cannot reach the required surface; do not duplicate checks without a concrete reason.
+
+## Tool selection
+
+For an authorized operation, use an available CLI that supports it before MCP (for example `gh`, or the repository-pinned `npx supabase`). Before declaring a capability gap, inspect the installed help. Use MCP only for a confirmed CLI capability gap that MCP can fill, within the same role, target and grants.
+
+A missing executable, CLI error, expired authentication, unavailable network or sandbox/permission denial is a blocker, not a capability gap. Report the exact blocker and stop; do not install, log in, link a project or switch to MCP as a workaround. Isolate the root cause of an environment failure, in the Owner's own shell when the agent's environment may differ, before it becomes a rule or a workaround.
+
+## Finding triage
+
+Classify each issue found while working or during Owner QA:
+- **Related** (same contract, files or outcome as the current task): a correction in this task.
+- **Unrelated:** do not fix it now. Record it with evidence in the owning program's `problems.md` (or the backlog when no open program owns it); `future-features.md` holds feature ideas. Who fixes it is decided later by size and risk.
+
+Report the classification after each QA round.
+
+## Shared writer rule
+
+While an implementor session is running a turn, Main edits nothing in the checkout, program state records included, and sends every change to that session. An open session that is idle is not running a turn. While it is idle, Main may edit state records (`progress.md`, `problems.md`, `future-features.md`); plans, rules, skills, code and tests stay with the implementor under the ownership rule in `.claude/rules.md`. Before Main messages an idle implementor again, Main's uncommitted changes are committed under an existing commit grant; without one, Main asks the Owner. Commit and push remain separate grants.
