@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import { cn } from "@/lib/utils";
 
-export const PRIMARY_NAV_LABEL = "Điều hướng chính";
-
+// English localization U1: `key` là khóa trong `common.nav`; nhãn vùng điều hướng là `common.nav.label`.
 export const PRIMARY_NAV_LINKS = [
-  { label: "Trang chủ", href: "/" },
-  { label: "Khóa học", href: getPublicCourseCatalogPath() },
-  { label: "Học tập", href: "/learn" },
+  { key: "home", href: "/" },
+  { key: "courses", href: getPublicCourseCatalogPath() },
+  { key: "learn", href: "/learn" },
 ] as const;
 
 export function isCurrentPath(pathname: string | null, href: string) {
@@ -20,11 +20,12 @@ export function isCurrentPath(pathname: string | null, href: string) {
 
 export default function HeaderNav({ className }: { className?: string }) {
   const pathname = usePathname();
+  const t = useTranslations("common.nav");
 
   return (
-    <nav aria-label={PRIMARY_NAV_LABEL} className={className}>
+    <nav aria-label={t("label")} className={className}>
       <ul className="flex items-center gap-1">
-        {PRIMARY_NAV_LINKS.map(({ label, href }) => {
+        {PRIMARY_NAV_LINKS.map(({ key, href }) => {
           const isCurrent = isCurrentPath(pathname, href);
           return (
             <li key={href}>
@@ -36,7 +37,7 @@ export default function HeaderNav({ className }: { className?: string }) {
                   isCurrent ? "text-route" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                 )}
               >
-                {label}
+                {t(key)}
               </Link>
             </li>
           );

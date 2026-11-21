@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MobileAccountSheet from "@/components/ui/mobile-account-sheet";
 

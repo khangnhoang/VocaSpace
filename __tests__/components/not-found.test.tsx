@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@/__tests__/support/intl";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import NotFound, { metadata } from "@/app/not-found";
+import NotFound, { generateMetadata } from "@/app/not-found";
 
 vi.mock("@/components/ui/header", () => ({
   default: () => <header data-testid="site-header" />,
@@ -33,10 +33,11 @@ describe("root not-found page", () => {
     expect(Array.from(container.querySelectorAll("a[href]")).map((a) => a.getAttribute("href"))).toEqual(["/", "/courses"]);
   });
 
-  it("owns the absolute title through metadata only", () => {
+  it("owns the absolute title through metadata only", async () => {
     render(<NotFound />);
 
-    expect(metadata.title).toEqual({ absolute: EXPECTED_TITLE });
+    // English localization U1 quyết định 9: title dịch theo ngôn ngữ nên đọc qua generateMetadata(), giữ nguyên giá trị.
+    expect((await generateMetadata()).title).toEqual({ absolute: EXPECTED_TITLE });
     // React 19 đưa <title> trong cây lên <head>; không được có title thứ hai cạnh title từ metadata.
     expect(document.querySelectorAll("title")).toHaveLength(0);
   });

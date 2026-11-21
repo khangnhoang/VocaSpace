@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@/__tests__/support/intl";
+import { renderToStaticMarkup } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicCourseCatalogResult } from "@/app/actions/public-course";
 import HeroPractice, {

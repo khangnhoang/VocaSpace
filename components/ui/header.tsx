@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
+import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 import Link from "next/link";
 import { signOutUser } from "@/app/actions/auth";
@@ -30,6 +31,7 @@ import { isEnglishUiEnabled } from "@/lib/i18n/config";
 
 export default async function Header() {
   const supabase = await createClient();
+  const t = await getTranslations("common");
 
   const {
     data: { user },
@@ -66,6 +68,7 @@ export default async function Header() {
     hasPendingInvitation: hasPendingCourseInvitation,
   });
 
+  const courseWorkspaceLabel = accountMenu.courseWorkspaceLabel ? t(accountMenu.courseWorkspaceLabel) : null;
   // English localization U1 quyết định 7: bộ chọn ngôn ngữ chỉ xuất hiện khi cờ giao diện tiếng Anh bật.
   const showLanguageSwitcher = isEnglishUiEnabled();
 
@@ -95,7 +98,7 @@ export default async function Header() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  aria-label="Mở menu tài khoản"
+                  aria-label={t("account.openMenu")}
                   className="relative h-10 w-10 rounded-full cursor-pointer"
                 >
                   <Avatar className="h-10 w-10 border-2 border-slate-200 transition-colors hover:border-route-line">
@@ -122,7 +125,7 @@ export default async function Header() {
                     </Avatar>
                     <div className="min-w-0 space-y-1">
                       <p className="truncate text-sm font-semibold leading-none text-slate-900">
-                      {profile?.full_name || "Học viên VocaSpace"}
+                      {profile?.full_name || t("account.learnerFallbackName")}
                     </p>
                       <p className="truncate text-xs leading-none text-slate-500">
                       {user.email}
@@ -138,7 +141,7 @@ export default async function Header() {
                   >
                     <Link href="/learn">
                       <LibraryBig size={18} className="text-slate-400" />
-                      <span>Không gian học tập</span>
+                      <span>{t("account.learningSpace")}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -147,7 +150,7 @@ export default async function Header() {
                   >
                     <Link href="/profile">
                       <UserIcon size={18} className="text-slate-400" />
-                      <span>Hồ sơ cá nhân</span>
+                      <span>{t("account.profile")}</span>
                     </Link>
                   </DropdownMenuItem>
 
@@ -162,20 +165,20 @@ export default async function Header() {
                           size={18}
                           className="text-emerald-600"
                         />
-                        <span>Quản trị hệ thống</span>
+                        <span>{t("account.admin")}</span>
                       </Link>
                     </DropdownMenuItem>
                   )}
 
                   {/* CHỈ RENDER NẾU LÀ TEACHER HOẶC ADMIN */}
-                  {accountMenu.courseWorkspaceLabel && (
+                  {courseWorkspaceLabel && (
                     <DropdownMenuItem
                       asChild
                       className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-600 focus:bg-blue-50 focus:text-blue-600"
                     >
                       <Link href={getTeacherCourseListPath()}>
                         <BookOpen size={18} className="text-slate-400" />
-                        <span>{accountMenu.courseWorkspaceLabel}</span>
+                        <span>{courseWorkspaceLabel}</span>
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -185,7 +188,7 @@ export default async function Header() {
                   <button type="submit" className="w-full text-left">
                     <DropdownMenuItem className="h-11 cursor-pointer gap-3 rounded-xl px-3 font-medium text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 focus:bg-rose-50 focus:text-rose-700">
                       <LogOut size={18} />
-                      Đăng xuất
+                      {t("account.signOut")}
                     </DropdownMenuItem>
                   </button>
                 </form>
@@ -195,10 +198,10 @@ export default async function Header() {
             // NẾU CHƯA ĐĂNG NHẬP: HIỆN NÚT LOGIN/REGISTER
             <div className="flex items-center gap-2">
               <Button asChild variant="link" className="px-2">
-                <Link href="/login">Đăng nhập</Link>
+                <Link href="/login">{t("account.signIn")}</Link>
               </Button>
               <Button asChild>
-                <Link href="/register">Đăng ký ngay</Link>
+                <Link href="/register">{t("account.signUp")}</Link>
               </Button>
             </div>
           )}
@@ -210,7 +213,7 @@ export default async function Header() {
             email={user?.email}
             isAuthenticated={Boolean(user)}
             isAdmin={accountMenu.isAdmin}
-            courseWorkspaceLabel={accountMenu.courseWorkspaceLabel}
+            courseWorkspaceLabel={courseWorkspaceLabel}
             showLanguageSwitcher={showLanguageSwitcher}
           />
         </div>

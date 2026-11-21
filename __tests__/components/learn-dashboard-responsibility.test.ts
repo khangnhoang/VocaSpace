@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import viCommon from "@/messages/vi/common.json";
 
 describe("learner dashboard responsibility", () => {
   it("removes the learner dashboard from profile and adds authenticated /learn navigation", () => {
@@ -15,6 +16,9 @@ describe("learner dashboard responsibility", () => {
 
     expect(profileSource).not.toContain("CoursesPlaceholder");
     expect(headerSource).toContain('href="/learn"');
-    expect(headerSource).toContain("Không gian học tập");
+    // English localization U1 (Owner chấp nhận ngoại lệ G7, 2026-11-22): nhãn nằm trong catalog; kiểm khóa trong mã nguồn
+    // và giá trị tiếng Việt đúng nguyên văn cũ.
+    expect(headerSource).toContain('t("account.learningSpace")');
+    expect(viCommon.account.learningSpace).toBe("Không gian học tập");
   });
 });

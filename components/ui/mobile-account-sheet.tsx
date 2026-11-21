@@ -16,13 +16,14 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { signOutUser } from "@/app/actions/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import LanguageSwitcher from "@/components/ui/language-switcher";
 import { getTeacherCourseListPath } from "@/lib/course-authoring/routes";
-import { isCurrentPath, PRIMARY_NAV_LABEL, PRIMARY_NAV_LINKS } from "@/components/ui/header-nav";
+import { isCurrentPath, PRIMARY_NAV_LINKS } from "@/components/ui/header-nav";
 import {
   Sheet,
   SheetClose,
@@ -37,7 +38,7 @@ type MobileAccountSheetProps = {
   fullName?: string | null;
   email?: string | null;
   isAuthenticated: boolean;
-  /** Quyền admin và nhãn link khóa học đến từ `getAccountMenuState` ở Header, cùng nguồn với menu desktop. */
+  /** Quyền admin và nhãn link khóa học (đã dịch) đến từ `getAccountMenuState` ở Header, cùng nguồn với menu desktop. */
   isAdmin?: boolean;
   courseWorkspaceLabel?: string | null;
   /** English localization U1: Header bật khi cờ giao diện tiếng Anh bật. */
@@ -57,6 +58,7 @@ export default function MobileAccountSheet({
 }: MobileAccountSheetProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
+  const t = useTranslations("common");
 
   React.useEffect(() => {
     const desktopMediaQuery = window.matchMedia(DESKTOP_BREAKPOINT_QUERY);
@@ -74,7 +76,7 @@ export default function MobileAccountSheet({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
-        aria-label="Mở điều hướng tài khoản"
+        aria-label={t("mobileMenu.open")}
         className="flex size-11 items-center justify-center rounded-[8px] border border-slate-300 bg-white text-slate-700 transition-colors duration-[120ms] hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 motion-reduce:transition-none"
       >
         <Menu aria-hidden="true" className="size-5" />
@@ -83,9 +85,9 @@ export default function MobileAccountSheet({
         showCloseButton={false}
         className="gap-0 overflow-y-auto border-slate-200 bg-white p-0 data-[side=right]:w-[90vw] data-[side=right]:max-w-[360px] sm:data-[side=right]:max-w-[360px]"
       >
-        <SheetTitle className="sr-only">Điều hướng tài khoản</SheetTitle>
+        <SheetTitle className="sr-only">{t("mobileMenu.title")}</SheetTitle>
         <SheetDescription className="sr-only">
-          Các tùy chọn tài khoản và điều hướng học tập.
+          {t("mobileMenu.description")}
         </SheetDescription>
         <div className="flex min-h-full flex-col">
           <div className="flex items-center justify-between px-5 pt-5">
@@ -101,7 +103,7 @@ export default function MobileAccountSheet({
                 variant="ghost"
                 size="icon"
                 className="h-11 w-11 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Đóng điều hướng tài khoản"
+                aria-label={t("mobileMenu.close")}
               >
                 <span className="text-2xl leading-none" aria-hidden="true">
                   ×
@@ -120,18 +122,18 @@ export default function MobileAccountSheet({
               </Avatar>
               <div className="min-w-0 space-y-1">
                 <p className="truncate font-semibold text-slate-900">
-                  {fullName || "Khách VocaSpace"}
+                  {fullName || t("mobileMenu.guestName")}
                 </p>
                 <p className="truncate text-sm text-slate-500">
-                  {email || "Chưa đăng nhập"}
+                  {email || t("mobileMenu.notSignedIn")}
                 </p>
               </div>
             </div>
           </div>
 
-          <nav aria-label={PRIMARY_NAV_LABEL} className="border-t border-slate-100 px-4 py-3">
+          <nav aria-label={t("nav.label")} className="border-t border-slate-100 px-4 py-3">
             <ul className="space-y-1">
-              {PRIMARY_NAV_LINKS.slice(0, 2).map(({ label, href }) => {
+              {PRIMARY_NAV_LINKS.slice(0, 2).map(({ key, href }) => {
                 const Icon = href === "/" ? House : BookMarked;
                 const isCurrent = isCurrentPath(pathname, href);
                 return (
@@ -146,7 +148,7 @@ export default function MobileAccountSheet({
                           size={20}
                           className="text-slate-500 transition-colors group-hover:text-blue-600 group-focus-visible:text-blue-600 group-aria-[current=page]:text-route"
                         />
-                        <span>{label}</span>
+                        <span>{t(`nav.${key}`)}</span>
                       </Link>
                     </SheetClose>
                   </li>
@@ -160,12 +162,12 @@ export default function MobileAccountSheet({
               <div className="space-y-2">
                 <SheetClose asChild>
                   <Button asChild size="lg" className="w-full">
-                    <Link href="/login">Đăng nhập</Link>
+                    <Link href="/login">{t("account.signIn")}</Link>
                   </Button>
                 </SheetClose>
                 <SheetClose asChild>
                   <Button asChild size="lg" variant="outline" className="w-full">
-                    <Link href="/register">Đăng ký ngay</Link>
+                    <Link href="/register">{t("account.signUp")}</Link>
                   </Button>
                 </SheetClose>
               </div>
@@ -181,7 +183,7 @@ export default function MobileAccountSheet({
                       size={20}
                       className="text-slate-500 transition-colors group-hover:text-blue-600 group-focus-visible:text-blue-600"
                     />
-                    <span>Không gian học tập</span>
+                    <span>{t("account.learningSpace")}</span>
                     <ChevronRight
                       size={18}
                       className="ml-auto text-slate-400 transition-colors group-hover:text-blue-600 group-focus-visible:text-blue-600"
@@ -197,7 +199,7 @@ export default function MobileAccountSheet({
                       size={20}
                       className="text-slate-500 transition-colors group-hover:text-blue-600 group-focus-visible:text-blue-600"
                     />
-                    <span>Hồ sơ cá nhân</span>
+                    <span>{t("account.profile")}</span>
                     <ChevronRight
                       size={18}
                       className="ml-auto text-slate-400 transition-colors group-hover:text-blue-600 group-focus-visible:text-blue-600"
@@ -211,7 +213,7 @@ export default function MobileAccountSheet({
                       className="group flex h-12 items-center gap-3 rounded-xl bg-emerald-50 px-3 font-medium text-emerald-700 transition-colors hover:bg-emerald-100 focus-visible:bg-emerald-100 focus-visible:outline-none"
                     >
                       <LayoutDashboard size={20} className="text-emerald-600" />
-                      <span>Quản trị hệ thống</span>
+                      <span>{t("account.admin")}</span>
                       <ChevronRight size={18} className="ml-auto text-emerald-600" />
                     </Link>
                   </SheetClose>
@@ -247,7 +249,7 @@ export default function MobileAccountSheet({
                   className="flex h-12 w-full items-center gap-3 rounded-xl bg-rose-50 px-3 font-semibold text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 focus-visible:bg-rose-100 focus-visible:outline-none"
                 >
                   <LogOut size={20} />
-                  Đăng xuất
+                  {t("account.signOut")}
                 </button>
               </form>
               <div className="mt-auto px-4 pb-5">
@@ -256,10 +258,8 @@ export default function MobileAccountSheet({
                     <GraduationCap size={22} />
                   </div>
                   <div>
-                    <p className="font-semibold text-blue-700">Học mỗi ngày</p>
-                    <p className="text-sm leading-5 text-slate-500">
-                      Tiến gần hơn đến mục tiêu của bạn.
-                    </p>
+                    <p className="font-semibold text-blue-700">{t("mobileMenu.dailyTitle")}</p>
+                    <p className="text-sm leading-5 text-slate-500">{t("mobileMenu.dailyBody")}</p>
                   </div>
                 </div>
               </div>

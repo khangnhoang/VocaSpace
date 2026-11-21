@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { isValidElement, type ReactElement, type ReactNode } from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Header from "@/components/ui/header";
 import MobileAccountSheet from "@/components/ui/mobile-account-sheet";
