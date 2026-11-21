@@ -23,6 +23,7 @@ Read [progress.md](./progress.md) for the current initiative. Keep closed initia
 
 | Initiative | Plan | Branch | Outcome | Dependencies | Gate to open |
 | --- | --- | --- | --- | --- | --- |
+| INFRA-U1 test runtime, agent rules and CI E2E speed | [plan](./implementation-plans/u1-test-runtime/plan.md) | `docs/infra-u1-test-runtime` | Local tests read only this checkout, DevSpace working rules adapted, E2E critical path shortened with unchanged coverage. | None | Owner approval of the Codex-reviewed revision. Owner decision 1 in the plan routes the agent-rule edits here as an exception to section 1; the edited rule files and skills stay canonical. |
 
 ## 5. Opening an initiative
 
