@@ -16,6 +16,7 @@ export default defineConfig({
       "**/node_modules/**",
       "**/.next/**",
       "**/dist/**",
+      ".claude/worktrees/**",
       "**/__tests__/integration/**",
       ".agents/scripts/**/*.test.mjs",
       "scripts/docs/**/*.test.mjs",
