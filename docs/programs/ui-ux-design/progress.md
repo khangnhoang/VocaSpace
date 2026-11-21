@@ -8,12 +8,12 @@ Charter: [README.md](./README.md). Problems: [problems.md](./problems.md).
 | --- | --- |
 | Spec revision | [U4 plan](./implementation-plans/u4-motion-consistency/plan.md) r1, approved by the Owner on 2026-11-21. |
 | Current unit / checkpoint | U4 PR1 (course detail) on `feat/course-detail-motion` from `eca348a7`. U3 merged in PR 187 (`fba8c133`); its detailed evidence is in `git show 3f19ac3f:docs/programs/ui-ux-design/progress.md`. |
-| Status | PR1 committed locally; awaiting Owner QA of the running screen. |
+| Status | PR1 passed Owner QA on 2026-11-21; pushed for review. |
 | Completed evidence | U4 discovery on `eca348a7`, recorded in the U4 plan section 2. PR1: course-detail and enrollment-dialog component tests, the full Vitest suite, eslint on changed files, `tsc`, and a local browser pass (free and paid dialogs portaled to `body`, avatar under the backdrop, focus/Esc/focus return, no horizontal scroll at 320/768/1440px, scroll reveal limited to below-the-fold items). |
 | Accepted deviations | None. |
 | Blockers / Owner decisions | None for PR1. U3 follow-ups: the Owner's production Google sign-in check and closing [AUTH-012](./problems.md#auth-012-auth-screens-have-no-accepted-design-yet) remain open. |
-| Next action | Owner QA of PR1 on the running course detail page; then push and PR only on an explicit grant. |
-| Current authority | Owner approved U4 plan r1 on 2026-11-21 and granted PR1 implementation by Main with local commits on `feat/course-detail-motion`. Push, PR and merge are not granted; PR2 and PR3 need plan r2 and r3 approval. |
+| Next action | CI and review of the PR1 pull request; merge needs an explicit grant. Then plan r2 for PR2 (`/learn`). |
+| Current authority | Owner approved U4 plan r1 on 2026-11-21 and granted PR1 implementation by Main with local commits on `feat/course-detail-motion`. On 2026-11-21 the Owner passed QA and granted push and PR for PR1; merge is not granted. PR2 and PR3 need plan r2 and r3 approval. |
 
 ## Milestones
 
@@ -54,4 +54,5 @@ Charter: [README.md](./README.md). Problems: [problems.md](./problems.md).
 - 2026-11-12 U3 review round 5 PASS; deck drop-in no longer replays on Quay lại, mid-review page changes keep the card visible, set-password centring and plan AC pointers (`5dbccce`).
 - 2026-11-12 U3 Owner QA of the running screens passed against the checklist (desktop, curve, word deck below 960px, sign-in, registration, recovery, keyboard and reduced motion); real devices and Safari as tested by the Owner (`13f2c4ae`).
 - 2026-11-12 U3 merged (PR 187, `fba8c133`).
-- 2026-11-21 Owner approved the U4 motion consistency plan r1 (this commit).
+- 2026-11-21 Owner approved the U4 motion consistency plan r1 (`0bbf1df2`).
+- 2026-11-21 U4 PR1 course detail motion and free enrollment dialog committed (`0bbf1df2`); Owner QA passed (this commit).
