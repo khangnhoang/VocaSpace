@@ -1,12 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { AlertCircle, BookOpen, CheckCircle2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { PublicCourseContentSummary } from "./PublicCoursePaymentModal";
 
 interface PaymentStageDiscountProps {
   coursePrice: number;
   courseTitle?: string;
   thumbnailUrl?: string | null;
+  contentSummary?: PublicCourseContentSummary;
+  // Nút "Để sau" của hộp thoại miễn phí đóng hộp thoại, giống nút X.
+  onDismiss?: () => void;
   couponCode: string;
   discountAmount: number;
   finalAmount: number;
@@ -23,6 +28,8 @@ export default function PublicCoursePaymentStageDiscount({
   coursePrice,
   courseTitle,
   thumbnailUrl,
+  contentSummary,
+  onDismiss,
   couponCode,
   discountAmount,
   finalAmount,
@@ -36,6 +43,19 @@ export default function PublicCoursePaymentStageDiscount({
 }: PaymentStageDiscountProps) {
   const isFreeCourse = coursePrice === 0;
 
+  if (isFreeCourse) {
+    return (
+      <FreeEnrollmentStage
+        courseTitle={courseTitle}
+        thumbnailUrl={thumbnailUrl}
+        contentSummary={contentSummary}
+        isGenerating={isGenerating}
+        onDismiss={onDismiss}
+        onEnroll={onProceedToPayment}
+      />
+    );
+  }
+
   return (
     <div className="w-full shrink-0 flex flex-col md:flex-row bg-slate-50">
       <div className="w-full md:w-[45%] bg-slate-100 p-8 flex flex-col justify-center border-r border-slate-200">
@@ -44,9 +64,7 @@ export default function PublicCoursePaymentStageDiscount({
         </h2>
 
         <p className="text-slate-500 mb-6 text-sm">
-          {isFreeCourse
-            ? "Xác nhận khóa học trước khi đăng ký miễn phí."
-            : "Vui lòng kiểm tra lại thông tin và áp dụng ưu đãi nếu có."}
+          Vui lòng kiểm tra lại thông tin và áp dụng ưu đãi nếu có.
         </p>
 
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -84,23 +102,7 @@ export default function PublicCoursePaymentStageDiscount({
       </div>
 
       <div className="w-full md:w-[55%] bg-white p-8 flex flex-col justify-center">
-        {isFreeCourse ? (
-          <>
-            <p className="text-sm font-semibold text-slate-600">Học phí</p>
-            <p className="mt-2 text-3xl font-extrabold text-emerald-600">
-              Miễn phí
-            </p>
-            <button
-              type="button"
-              onClick={onProceedToPayment}
-              disabled={isGenerating}
-              className="mt-6 flex w-full cursor-pointer items-center justify-center rounded-xl bg-blue-500 py-4 text-lg font-bold text-white shadow-lg shadow-blue-500/30 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-blue-500"
-            >
-              {isGenerating ? "Đang đăng ký..." : "Đăng ký miễn phí"}
-            </button>
-          </>
-        ) : (
-          <>
+        <>
             <label className="text-sm font-semibold text-slate-700 mb-2 block">
               Mã giảm giá
             </label>
@@ -181,8 +183,88 @@ export default function PublicCoursePaymentStageDiscount({
                 "TIẾN HÀNH THANH TOÁN"
               )}
             </button>
-          </>
-        )}
+        </>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * U4 AC3: hộp thoại đăng ký khóa miễn phí là một cột gọn (khóa học, nội dung, quyền lợi, học phí, hai nút) thay vì bố cục
+ * hai cột của khóa trả phí, vốn để trống nửa bên phải khi không có mã giảm giá hay số tiền.
+ */
+function FreeEnrollmentStage({
+  courseTitle,
+  thumbnailUrl,
+  contentSummary,
+  isGenerating,
+  onDismiss,
+  onEnroll,
+}: {
+  courseTitle?: string;
+  thumbnailUrl?: string | null;
+  contentSummary?: PublicCourseContentSummary;
+  isGenerating: boolean;
+  onDismiss?: () => void;
+  onEnroll: () => void;
+}) {
+  return (
+    <div className="w-full p-6 sm:p-8">
+      <h2 className="pr-10 text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+        Đăng ký khóa học miễn phí
+      </h2>
+      <p className="mt-1.5 text-sm leading-6 text-slate-500">
+        Đăng ký xong là bạn có thể bắt đầu học ngay.
+      </p>
+
+      <div className="mt-6 flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+        <div className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-xl bg-route-quiet sm:w-28">
+          {thumbnailUrl ? (
+            <Image src={thumbnailUrl} alt="" fill sizes="112px" className="object-cover" />
+          ) : (
+            <BookOpen aria-hidden="true" className="absolute inset-0 m-auto size-6 text-route" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="line-clamp-2 break-words font-bold leading-snug text-slate-900">
+            {courseTitle || "Khóa học VocaSpace"}
+          </p>
+          {contentSummary && contentSummary.chapterCount > 0 && (
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              {contentSummary.chapterCount} chương · {contentSummary.topicCount} chủ đề
+            </p>
+          )}
+        </div>
+      </div>
+
+      <ul className="mt-5 space-y-2.5">
+        {["Truy cập trọn đời", "Hệ thống Flashcard FSRS"].map((benefit) => (
+          <li key={benefit} className="flex items-center gap-2.5 text-sm text-slate-700">
+            <CheckCircle2 aria-hidden="true" className="size-4 shrink-0 text-growth" />
+            {benefit}
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-6 flex items-baseline justify-between border-t border-slate-100 pt-5">
+        <span className="text-sm font-semibold text-slate-600">Học phí</span>
+        <span className="text-2xl font-extrabold text-growth">Miễn phí</span>
+      </div>
+
+      <div className="mt-6 flex flex-col gap-2">
+        <Button
+          type="button"
+          size="lg"
+          className="w-full"
+          onClick={onEnroll}
+          disabled={isGenerating}
+          data-dialog-initial-focus=""
+        >
+          {isGenerating ? "Đang đăng ký..." : "Đăng ký miễn phí"}
+        </Button>
+        <Button type="button" variant="ghost" className="w-full text-slate-600" onClick={onDismiss} disabled={isGenerating}>
+          Để sau
+        </Button>
       </div>
     </div>
   );

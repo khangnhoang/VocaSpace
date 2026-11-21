@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import confetti from "canvas-confetti";
 import { X } from "lucide-react";
+import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
+import * as m from "motion/react-m";
 import {
   CheckoutResponse,
   PaymentRealtimePayload,
@@ -19,6 +22,13 @@ import { validateDiscountPreview } from "@/app/actions/discount";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
+const EASE = [0.2, 0, 0, 1] as const;
+
+export type PublicCourseContentSummary = {
+  chapterCount: number;
+  topicCount: number;
+};
+
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,6 +38,7 @@ interface PaymentModalProps {
   coursePrice: number;
   courseTitle?: string;
   thumbnailUrl?: string | null;
+  contentSummary?: PublicCourseContentSummary;
   onGeneratePayment: (couponCode?: string) => Promise<boolean>;
   onSuccess: () => void | Promise<void>;
   // FEAT6 AC11: mở thẳng bước QR khi đã có sẵn phiên thanh toán (chỉ đọc lúc mount); bước đếm ngược dùng lại nguyên cách cũ.
@@ -36,10 +47,12 @@ interface PaymentModalProps {
 
 type PublicCoursePaymentModalCloseButtonProps = {
   onClose: () => void;
+  disabled?: boolean;
 };
 
 export function PublicCoursePaymentModalCloseButton({
   onClose,
+  disabled = false,
 }: PublicCoursePaymentModalCloseButtonProps) {
   return (
     <Button
@@ -47,6 +60,7 @@ export function PublicCoursePaymentModalCloseButton({
       variant="ghost"
       size="icon"
       onClick={onClose}
+      disabled={disabled}
       aria-label="Đóng cửa sổ đăng ký"
       className="absolute right-4 top-4 z-20 text-slate-400 hover:text-slate-700"
     >
@@ -64,10 +78,17 @@ export default function PublicCoursePaymentModal({
   coursePrice,
   courseTitle,
   thumbnailUrl,
+  contentSummary,
   onGeneratePayment,
   onSuccess,
   openAtQr = false,
 }: PaymentModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const portalTarget = useSyncExternalStore(
+    subscribeToNothing,
+    () => document.body,
+    () => null,
+  );
   // STATE CỦA STAGE 1 (DISCOUNT)
   const [stage, setStage] = useState<1 | 2>(openAtQr && paymentData ? 2 : 1);
   const [couponCode, setCouponCode] = useState("");
@@ -309,9 +330,13 @@ export default function PublicCoursePaymentModal({
   };
 
   const isExpired = timeLeft <= 0;
+  // Đang tạo đơn/đăng ký hoặc đang hủy đơn thì không cho đóng, để kết quả của yêu cầu đang chạy không bị bỏ dở (U4 AC2).
+  const isBusy = isGenerating || isCancelling;
 
-  return (
-    <div
+  useDialogFocus({ isOpen, panelRef, onEscape: isBusy ? undefined : handleCloseModal });
+
+  const dialog = (
+    <m.div
       role="dialog"
       aria-modal={isOpen ? true : undefined}
       aria-label={
@@ -321,18 +346,29 @@ export default function PublicCoursePaymentModal({
       }
       aria-hidden={!isOpen}
       inert={!isOpen}
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-300 ${
-        isOpen
-          ? "opacity-100 pointer-events-auto bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.55),rgba(15,23,42,0.78))]"
-          : "opacity-0 pointer-events-none"
+      initial={false}
+      animate={{ opacity: isOpen ? 1 : 0 }}
+      transition={{ duration: 0.24, ease: EASE }}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.55),rgba(15,23,42,0.78))] p-4 ${
+        isOpen ? "pointer-events-auto" : "pointer-events-none"
       }`}
     >
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl relative overflow-hidden">
-        <PublicCoursePaymentModalCloseButton onClose={handleCloseModal} />
+      <m.div
+        ref={panelRef}
+        initial={false}
+        animate={{ scale: isOpen ? 1 : 0.96 }}
+        transition={{ duration: 0.28, ease: EASE }}
+        className={`relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto overflow-x-hidden rounded-3xl bg-white shadow-2xl ${
+          isFreeCourse ? "max-w-lg" : "max-w-4xl"
+        }`}
+      >
+        <PublicCoursePaymentModalCloseButton onClose={handleCloseModal} disabled={isBusy} />
 
-        <div
-          className="flex w-full transition-transform duration-500 ease-in-out"
-          style={{ transform: `translateX(${stage === 1 ? "0%" : "-100%"})` }}
+        <m.div
+          className="flex w-full"
+          initial={false}
+          animate={{ x: stage === 1 ? "0%" : "-100%" }}
+          transition={{ duration: 0.42, ease: EASE }}
         >
           <div
             className="w-full shrink-0"
@@ -343,6 +379,8 @@ export default function PublicCoursePaymentModal({
               coursePrice={coursePrice}
               courseTitle={courseTitle}
               thumbnailUrl={thumbnailUrl}
+              contentSummary={contentSummary}
+              onDismiss={handleCloseModal}
               couponCode={couponCode}
               discountAmount={discountAmount}
               finalAmount={finalAmount}
@@ -375,8 +413,85 @@ export default function PublicCoursePaymentModal({
               />
             </div>
           )}
-        </div>
-      </div>
-    </div>
+        </m.div>
+      </m.div>
+    </m.div>
   );
+
+  return (
+    <LazyMotion features={domAnimation} strict>
+      <MotionConfig reducedMotion="user">
+        {/* U4 AC1: sau khi hydrate, hộp thoại ra thẳng `document.body`. Nếu ở lại trong cột `lg:sticky` của trang chi tiết thì
+            nó bị nhốt trong stacking context của cột đó, và phần tử `relative` nằm sau trong DOM (ảnh giảng viên) vẽ đè lên lớp phủ. */}
+        {portalTarget ? createPortal(dialog, portalTarget) : dialog}
+      </MotionConfig>
+    </LazyMotion>
+  );
+}
+
+const subscribeToNothing = () => () => {};
+
+/**
+ * Giữ focus trong hộp thoại khi mở (U4 AC2): đưa focus vào phần tử thao tác được đầu tiên của bước hiện tại, Tab và
+ * Shift+Tab xoay vòng trong hộp thoại, Esc đóng khi được phép, và khi đóng thì trả focus về nút đã mở hộp thoại.
+ * Phần tử nằm trong bước bị `inert` không được tính.
+ */
+function useDialogFocus({
+  isOpen,
+  panelRef,
+  onEscape,
+}: {
+  isOpen: boolean;
+  panelRef: RefObject<HTMLDivElement | null>;
+  onEscape?: () => void;
+}) {
+  const onEscapeRef = useRef(onEscape);
+  useEffect(() => {
+    onEscapeRef.current = onEscape;
+  });
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!isOpen || !panel) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusables = () =>
+      Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.closest("[inert]"));
+    const primary = panel.querySelector<HTMLElement>("[data-dialog-initial-focus]");
+    (primary && !primary.closest("[inert]") ? primary : focusables()[0])?.focus({ preventScroll: true });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (!onEscapeRef.current) return;
+        event.preventDefault();
+        onEscapeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      // Sau khi chuyển bước, nút vừa bấm nằm trong bước đã bị `inert` nên focus rơi ra ngoài; Tab kéo nó về lại hộp thoại.
+      if (!items.includes(document.activeElement as HTMLElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [isOpen, panelRef]);
 }
