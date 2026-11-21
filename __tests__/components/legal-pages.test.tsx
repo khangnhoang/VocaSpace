@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@/__tests__/support/intl";
 import { describe, expect, it } from "vitest";
 import HomeFooter from "@/app/(client)/_components/home/HomeFooter";
 import PrivacyPage, { metadata as privacyMetadata } from "@/app/(client)/privacy/page";

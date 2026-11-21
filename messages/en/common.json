@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "title": "VocaSpace",
+    "description": "A smart learning platform"
+  },
+  "languageSwitcher": {
+    "label": "Language"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "home": "Home",
+    "courses": "Courses",
+    "learn": "Learn"
+  },
+  "account": {
+    "openMenu": "Open account menu",
+    "learnerFallbackName": "VocaSpace learner",
+    "learningSpace": "Learning space",
+    "profile": "Profile",
+    "admin": "Administration",
+    "courseWorkspace": "My courses",
+    "courseInvitation": "Collaboration invitations",
+    "signOut": "Sign out",
+    "signIn": "Sign in",
+    "signUp": "Sign up"
+  },
+  "mobileMenu": {
+    "open": "Open account navigation",
+    "title": "Account navigation",
+    "description": "Account options and learning navigation.",
+    "close": "Close account navigation",
+    "guestName": "VocaSpace guest",
+    "notSignedIn": "Not signed in",
+    "dailyTitle": "Learn every day",
+    "dailyBody": "Get a little closer to your goal."
+  },
+  "notFound": {
+    "metaTitle": "Page not found | VocaSpace",
+    "heading": "Page not found",
+    "body": "The link you opened doesn't exist, or this content is no longer available. You can go back to the home page or browse the open courses.",
+    "home": "Back to home",
+    "courses": "Browse courses"
+  },
+  "footer": {
+    "tagline": "A vocabulary platform with flashcards and personal review schedules, for English learners and teachers.",
+    "socialLabel": "VocaSpace on social media",
+    "socialLink": "VocaSpace on {network} (opens in a new tab)",
+    "explore": "Explore",
+    "forTeachers": "For teachers",
+    "legal": "Legal",
+    "privacy": "Privacy policy",
+    "terms": "Terms of use",
+    "copyright": "© 2026 VocaSpace. All rights reserved."
+  }
+}

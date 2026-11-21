@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Compass } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 
 import Header from "@/components/ui/header";
 import { Button } from "@/components/ui/button";
@@ -9,13 +11,15 @@ import { Button } from "@/components/ui/button";
 // Title dùng `absolute` để không bị ghép vào template của khu vực học tập (`%s | Vocaspace Learn`).
 // Đây là nguồn title duy nhất: các route khóa học/learner gọi notFound() ngay trong generateMetadata khi `not_found`,
 // nên Next dùng metadata này thay cho title của route. Next tự chèn `noindex` cho mọi phản hồi not-found.
-const NOT_FOUND_TITLE = "Không tìm thấy trang | VocaSpace";
-
-export const metadata: Metadata = {
-  title: { absolute: NOT_FOUND_TITLE },
-};
+// English localization U1 (H9): title dịch theo ngôn ngữ của request nên dùng generateMetadata thay cho metadata tĩnh.
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common.notFound");
+  return { title: { absolute: t("metaTitle") } };
+}
 
 export default function NotFound() {
+  const t = useTranslations("common.notFound");
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Header />
@@ -27,18 +31,15 @@ export default function NotFound() {
           <Compass className="size-7" aria-hidden="true" />
         </span>
         <h1 id="not-found-heading" className="mt-6 text-2xl font-bold text-slate-900 sm:text-3xl">
-          Không tìm thấy trang
+          {t("heading")}
         </h1>
-        <p className="mt-3 text-base leading-7 text-slate-600">
-          Đường dẫn bạn mở không tồn tại hoặc nội dung này không còn khả dụng. Bạn có thể quay về trang chủ hoặc xem
-          các khóa học đang mở.
-        </p>
+        <p className="mt-3 text-base leading-7 text-slate-600">{t("body")}</p>
         <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           <Button asChild size="lg">
-            <Link href="/">Về trang chủ</Link>
+            <Link href="/">{t("home")}</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/courses">Xem khóa học</Link>
+            <Link href="/courses">{t("courses")}</Link>
           </Button>
         </div>
       </section>

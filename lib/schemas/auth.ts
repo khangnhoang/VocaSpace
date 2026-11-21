@@ -3,20 +3,27 @@ import { minUtf16Length } from "./utf16-length";
 import { GENDER_VALUES } from "./gender";
 
 // --- BƯỚC 1: Tài khoản. Mật khẩu được đặt sau khi xác minh email (A1, setPasswordSchema). ---
+// English localization U1 (H3): message của registerSchema là khóa trong namespace `validation`; form và `signUpUser` dịch
+// theo ngôn ngữ đang dùng. Mỗi trường khai báo `error` cho cả lỗi sai kiểu (ví dụ FormData thiếu trường trả `null`) và
+// dùng lại khóa sẵn có của trường đó, để không lộ khóa thô hay text mặc định tiếng Anh của Zod (G3).
 const step1Schema = z.object({
-  username: z.string().check(minUtf16Length(3, "Tên tài khoản phải từ 3 ký tự trở lên")),
-  email: z.email("Email này không đúng định dạng"),
+  username: z.string({ error: "register.usernameMin" }).check(minUtf16Length(3, "register.usernameMin")),
+  email: z.email("register.emailInvalid"),
 });
 
 // --- BƯỚC 2: Các trường thông tin cá nhân ---
 const step2Schema = z.object({
-  full_name: z.string().check(minUtf16Length(2, "Vui lòng nhập họ và tên")),
-  phone: z.string().regex(/^[0-9]+$/, "Số điện thoại chỉ được chứa số").min(10, "Số điện thoại không hợp lệ").max(11, "Số điện thoại quá dài"),
+  full_name: z.string({ error: "register.fullNameRequired" }).check(minUtf16Length(2, "register.fullNameRequired")),
+  phone: z
+    .string({ error: "register.phoneInvalid" })
+    .regex(/^[0-9]+$/, "register.phoneDigitsOnly")
+    .min(10, "register.phoneInvalid")
+    .max(11, "register.phoneTooLong"),
   dob: z.date({
-    message: "Vui lòng chọn ngày sinh hợp lệ",
+    message: "register.dobInvalid",
   }),
   gender: z.enum(GENDER_VALUES, {
-    message: "Vui lòng chọn giới tính",
+    message: "register.genderRequired",
   }),
 });
 

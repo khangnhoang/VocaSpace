@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RegisterPage from "@/app/(client)/(auth)/register/page";
 import LoginPage from "@/app/(client)/(auth)/login/page";
 import ForgotPasswordPage from "@/app/(client)/(auth)/forgot-password/page";
-import { renderToString } from "react-dom/server";
+import { renderToString } from "@/__tests__/support/intl";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { CheckEmailPanel } from "@/app/(client)/(auth)/register/_components/CheckEmailPanel";
 import { SetPasswordForm } from "@/app/auth/set-password/_components/SetPasswordForm";

@@ -1,7 +1,9 @@
 // Nguồn duy nhất cho phần điều hướng tài khoản phụ thuộc quyền: Header (desktop) và MobileAccountSheet cùng dùng
 // kết quả này, tránh hai menu lệch nhau về link khóa học, nhãn và link quản trị (F1 G3).
-export const COURSE_WORKSPACE_LABEL = "Khóa học của tôi";
-export const COURSE_INVITATION_LABEL = "Lời mời cộng tác";
+// English localization U1: nhãn là khóa dịch trong namespace `common`; Header dịch một lần rồi truyền nhãn đã dịch cho
+// cả hai menu.
+export const COURSE_WORKSPACE_LABEL = "account.courseWorkspace";
+export const COURSE_INVITATION_LABEL = "account.courseInvitation";
 
 export type AccountMenuInput = {
   role?: string | null;
@@ -11,8 +13,8 @@ export type AccountMenuInput = {
 
 export type AccountMenuState = {
   isAdmin: boolean;
-  /** Nhãn link không gian khóa học; `null` nghĩa là ẩn link. */
-  courseWorkspaceLabel: string | null;
+  /** Khóa dịch nhãn link không gian khóa học; `null` nghĩa là ẩn link. */
+  courseWorkspaceLabel: typeof COURSE_WORKSPACE_LABEL | typeof COURSE_INVITATION_LABEL | null;
 };
 
 export function getAccountMenuState({

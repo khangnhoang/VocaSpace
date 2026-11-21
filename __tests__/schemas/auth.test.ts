@@ -59,12 +59,13 @@ describe("auth schemas", () => {
   );
 
   it.each(["nam", "nữ", "MALE", "", undefined, 1])(
-    "rejects registration gender %j with the Vietnamese choose-gender message",
+    "rejects registration gender %j with the choose-gender message key",
     (gender) => {
       const parsed = registerSchema.safeParse({ ...validRegistration, gender });
       expect(parsed.success).toBe(false);
       if (!parsed.success) {
-        expect(parsed.error.issues[0]).toMatchObject({ path: ["gender"], message: "Vui lòng chọn giới tính" });
+        // English localization U1 G7: schema trả khóa dịch; câu tiếng Việt đúng nguyên văn được kiểm ở test render form đăng ký.
+        expect(parsed.error.issues[0]).toMatchObject({ path: ["gender"], message: "register.genderRequired" });
       }
     },
   );

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@/__tests__/support/intl";
 import { describe, expect, it, vi } from "vitest";
 
 // Test plan:

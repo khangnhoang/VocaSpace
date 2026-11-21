@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, Facebook, Instagram, Youtube, type LucideIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { HomeSocialLink, HomeSocialNetwork } from "@/lib/homepage/content";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,8 @@ type HomeFooterProps = {
 };
 
 export default function HomeFooter({ socialLinks }: HomeFooterProps) {
+  const t = useTranslations("common");
+
   return (
     <footer className="bg-slate-900 text-slate-300">
       <div className={`${HOME_CONTAINER} grid grid-cols-1 gap-8 pb-8 pt-12 md:grid-cols-[2fr_1fr_1fr]`}>
@@ -46,10 +49,10 @@ export default function HomeFooter({ socialLinks }: HomeFooterProps) {
             className="h-7 w-auto"
           />
           <p className="mt-4 max-w-[28em] text-sm leading-[22px] text-slate-400">
-            Nền tảng học từ vựng bằng thẻ và lịch ôn tập cá nhân, cho người học và giáo viên tiếng Anh.
+            {t("footer.tagline")}
           </p>
           {socialLinks.length > 0 && (
-            <ul aria-label="VocaSpace trên mạng xã hội" className="mt-5 flex gap-2">
+            <ul aria-label={t("footer.socialLabel")} className="mt-5 flex gap-2">
               {socialLinks.map(({ network, href }) => {
                 const { name, Icon, hover } = SOCIAL_NETWORKS[network];
                 return (
@@ -58,7 +61,7 @@ export default function HomeFooter({ socialLinks }: HomeFooterProps) {
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      aria-label={`VocaSpace trên ${name} (mở tab mới)`}
+                      aria-label={t("footer.socialLink", { network: name })}
                       className={cn(
                         "flex size-11 items-center justify-center rounded-[8px] border border-slate-300/20 text-slate-300 transition-[background-color,border-color,color,translate] duration-[450ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:border-transparent hover:text-white focus-visible:border-transparent focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
                         hover,
@@ -74,37 +77,37 @@ export default function HomeFooter({ socialLinks }: HomeFooterProps) {
         </div>
         <nav aria-labelledby="home-footer-explore">
           <h2 id="home-footer-explore" className="mb-3 text-sm font-bold leading-5 text-white">
-            Khám phá
+            {t("footer.explore")}
           </h2>
           <ul className="grid gap-2 text-sm">
             <li>
-              <FooterLink href={getPublicCourseCatalogPath()}>Khóa học</FooterLink>
+              <FooterLink href={getPublicCourseCatalogPath()}>{t("nav.courses")}</FooterLink>
             </li>
             <li>
-              <FooterLink href="/learn">Học tập</FooterLink>
+              <FooterLink href="/learn">{t("nav.learn")}</FooterLink>
             </li>
             <li>
-              <FooterLink href={`#${TEACHER_SECTION_ID}`}>Dành cho giáo viên</FooterLink>
+              <FooterLink href={`#${TEACHER_SECTION_ID}`}>{t("footer.forTeachers")}</FooterLink>
             </li>
           </ul>
         </nav>
         <nav aria-labelledby="home-footer-legal">
           <h2 id="home-footer-legal" className="mb-3 text-sm font-bold leading-5 text-white">
-            Pháp lý
+            {t("footer.legal")}
           </h2>
           <ul className="grid gap-2 text-sm">
             <li>
-              <FooterLink href="/privacy">Chính sách quyền riêng tư</FooterLink>
+              <FooterLink href="/privacy">{t("footer.privacy")}</FooterLink>
             </li>
             <li>
-              <FooterLink href="/terms">Điều khoản sử dụng</FooterLink>
+              <FooterLink href="/terms">{t("footer.terms")}</FooterLink>
             </li>
           </ul>
         </nav>
       </div>
       <div className={HOME_CONTAINER}>
         <p className="border-t border-slate-300/15 py-5 text-xs leading-4 text-slate-400">
-          © 2026 VocaSpace. Bảo lưu mọi quyền.
+          {t("footer.copyright")}
         </p>
       </div>
     </footer>

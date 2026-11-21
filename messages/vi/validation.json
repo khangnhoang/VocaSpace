@@ -1,0 +1,12 @@
+{
+  "register": {
+    "usernameMin": "Tên tài khoản phải từ 3 ký tự trở lên",
+    "emailInvalid": "Email này không đúng định dạng",
+    "fullNameRequired": "Vui lòng nhập họ và tên",
+    "phoneDigitsOnly": "Số điện thoại chỉ được chứa số",
+    "phoneInvalid": "Số điện thoại không hợp lệ",
+    "phoneTooLong": "Số điện thoại quá dài",
+    "dobInvalid": "Vui lòng chọn ngày sinh hợp lệ",
+    "genderRequired": "Vui lòng chọn giới tính"
+  }
+}

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 // Ngày cập nhật dùng chung cho /privacy và /terms. Commit cuối trước khi merge đặt lại thành ngày merge (A4b G3).
-export const LEGAL_LAST_UPDATED = "23/10/2026";
+export const LEGAL_LAST_UPDATED = "22/11/2026";
 
 export function LegalDocument({ title, children }: { title: string; children: ReactNode }) {
   return (

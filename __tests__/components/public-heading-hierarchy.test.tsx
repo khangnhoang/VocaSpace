@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import viCommon from "@/messages/vi/common.json";
 
 function readSource(path: string) {
   return readFileSync(join(process.cwd(), path), "utf8");
@@ -19,20 +20,25 @@ describe("public page heading hierarchy", () => {
 
     expect(countTag(headerSource, "h1")).toBe(0);
     expect(countTag(mobileAccountSheetSource, "h1")).toBe(0);
+    // English localization U1 (Owner chấp nhận ngoại lệ G7, 2026-11-22): chữ nằm trong catalog; kiểm khóa trong mã nguồn
+    // và giá trị tiếng Việt đúng nguyên văn cũ.
     expect(mobileAccountSheetSource).toContain(
-      '<SheetTitle className="sr-only">Điều hướng tài khoản</SheetTitle>',
+      '<SheetTitle className="sr-only">{t("mobileMenu.title")}</SheetTitle>',
     );
+    expect(viCommon.mobileMenu.title).toBe("Điều hướng tài khoản");
     expect(mobileAccountSheetSource).toContain(
-      'aria-label="Mở điều hướng tài khoản"',
+      'aria-label={t("mobileMenu.open")}',
     );
+    expect(viCommon.mobileMenu.open).toBe("Mở điều hướng tài khoản");
     expect(headerSource).toContain('src="/brand/vocaspace-logo.svg"');
     expect(headerSource).toContain('alt="VocaSpace"');
     expect(mobileAccountSheetSource).toContain(
       '<p className="truncate font-semibold text-slate-900">',
     );
     expect(mobileAccountSheetSource).toContain(
-      '{fullName || "Khách VocaSpace"}',
+      '{fullName || t("mobileMenu.guestName")}',
     );
+    expect(viCommon.mobileMenu.guestName).toBe("Khách VocaSpace");
   });
 
   it("keeps exactly one homepage h1, in the hero", () => {

@@ -15,6 +15,8 @@ export default defineConfig({
   outputDir: "test-results/e2e",
   use: {
     baseURL,
+    // English localization U1: E2E chạy bằng tiếng Việt; Chromium mặc định gửi Accept-Language tiếng Anh.
+    locale: "vi-VN",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

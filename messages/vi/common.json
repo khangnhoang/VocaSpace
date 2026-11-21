@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "title": "VocaSpace",
+    "description": "Nền tảng học tập thông minh"
+  },
+  "languageSwitcher": {
+    "label": "Ngôn ngữ"
+  },
+  "nav": {
+    "label": "Điều hướng chính",
+    "home": "Trang chủ",
+    "courses": "Khóa học",
+    "learn": "Học tập"
+  },
+  "account": {
+    "openMenu": "Mở menu tài khoản",
+    "learnerFallbackName": "Học viên VocaSpace",
+    "learningSpace": "Không gian học tập",
+    "profile": "Hồ sơ cá nhân",
+    "admin": "Quản trị hệ thống",
+    "courseWorkspace": "Khóa học của tôi",
+    "courseInvitation": "Lời mời cộng tác",
+    "signOut": "Đăng xuất",
+    "signIn": "Đăng nhập",
+    "signUp": "Đăng ký ngay"
+  },
+  "mobileMenu": {
+    "open": "Mở điều hướng tài khoản",
+    "title": "Điều hướng tài khoản",
+    "description": "Các tùy chọn tài khoản và điều hướng học tập.",
+    "close": "Đóng điều hướng tài khoản",
+    "guestName": "Khách VocaSpace",
+    "notSignedIn": "Chưa đăng nhập",
+    "dailyTitle": "Học mỗi ngày",
+    "dailyBody": "Tiến gần hơn đến mục tiêu của bạn."
+  },
+  "notFound": {
+    "metaTitle": "Không tìm thấy trang | VocaSpace",
+    "heading": "Không tìm thấy trang",
+    "body": "Đường dẫn bạn mở không tồn tại hoặc nội dung này không còn khả dụng. Bạn có thể quay về trang chủ hoặc xem các khóa học đang mở.",
+    "home": "Về trang chủ",
+    "courses": "Xem khóa học"
+  },
+  "footer": {
+    "tagline": "Nền tảng học từ vựng bằng thẻ và lịch ôn tập cá nhân, cho người học và giáo viên tiếng Anh.",
+    "socialLabel": "VocaSpace trên mạng xã hội",
+    "socialLink": "VocaSpace trên {network} (mở tab mới)",
+    "explore": "Khám phá",
+    "forTeachers": "Dành cho giáo viên",
+    "legal": "Pháp lý",
+    "privacy": "Chính sách quyền riêng tư",
+    "terms": "Điều khoản sử dụng",
+    "copyright": "© 2026 VocaSpace. Bảo lưu mọi quyền."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "register": {
+    "usernameMin": "Username must be at least 3 characters",
+    "emailInvalid": "This email address isn't valid",
+    "fullNameRequired": "Please enter your full name",
+    "phoneDigitsOnly": "Phone number can only contain digits",
+    "phoneInvalid": "Phone number isn't valid",
+    "phoneTooLong": "Phone number is too long",
+    "dobInvalid": "Please choose a valid date of birth",
+    "genderRequired": "Please choose a gender"
+  }
+}
