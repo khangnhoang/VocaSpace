@@ -22,3 +22,9 @@ Charter: [README.md](./README.md). Directions below are not implementation autho
 - Status: Deferred (Owner direction, 2026-11-22).
 - Direction: VocaSpace has no `.node-version`; CI runs Node 20 while the Owner's machine defaults to Node 24 through fnm. Add a `.node-version` that matches CI and an agent command rule (DevSpace uses `fnm exec -- <command>`), once the Owner wants local and CI runtimes aligned.
 - Target program: [Infrastructure and reliability](./README.md).
+
+## FEAT-028: Balance E2E shards and measure 3 and 4 shards
+
+- Status: Deferred (Owner direction, 2026-11-22; INFRA-U1 CP4 dropped because the GitHub Actions quota is nearly used up).
+- Direction: shorten the slowest CI E2E shard further. Playwright's `--shard` splits the smoke files by test count in file order, so one shard's test time varies from 4.9 to 6.8 min on the same revision; `fullyParallel` does not move that boundary while the four serial spec files keep their groups. Options: an explicit duration-balanced file list per shard with a test that no smoke spec is left out (a replay on the `9b343dcd` logs put the two shards at about 304/314 s and 351/342 s of test time against 332/287 s and 395/298 s), or splitting the longest serial specs. Then measure 3 and 4 shards, which cost more runner minutes. The Supabase start still outlasts `npm ci` plus Chromium by about 37 s, so a start that is not the critical path, or `H2` of the INFRA-U1 plan (build without waiting for the stack), is the other open lever. The repeatable identity check is `scripts/e2e/shard-ids.mjs`.
+- Target program: [Infrastructure and reliability](./README.md).
