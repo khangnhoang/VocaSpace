@@ -34,6 +34,14 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Direction: find the timing dependency if it recurs, or if it appears on CI.
 - Exit condition: the test passes reliably under a full parallel run.
 
+### E2E-LOCAL-001: `topic-builder-sheet-layout:58` times out in local multi-spec smoke runs
+
+- Status: Open (2026-11-22, found during INFRA-U1 CP3 and CP4; not investigated, unrelated to INFRA-U1).
+- Problem: `opening a dialog on the course portfolio does not shift the page` waits 60 s for the button "Đưa vào thùng rác" and fails with a test timeout.
+- Evidence: a local `npm run test:e2e:smoke` on 2026-11-22 ended 85 passed and 1 failed here (a hydration-mismatch warning appeared in the log); the same spec alone then passed 2 of 2. A local run of the second CI shard's file list failed here again (37 passed, 1 failed). All four CI shard runs of `9b343dcd` (PR 194) passed it. The first failure's trace and screenshot were kept outside the repo; the cause is not established.
+- Direction: reproduce with the preceding spec files of the failing local runs, then look at the portfolio fixture and the hydration warning.
+- Exit condition: a local full smoke run passes this spec.
+
 ## Resolved
 
 One line each.
