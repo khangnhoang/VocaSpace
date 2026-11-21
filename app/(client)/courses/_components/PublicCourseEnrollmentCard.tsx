@@ -17,7 +17,7 @@ import { getPublicCourseDetailPath, RESUME_PAYMENT_PARAM } from "@/lib/public-co
 import type { CheckoutResponse, ResumeCheckoutResult } from "@/lib/schemas/payment";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { PublicCourseCover } from "./PublicCourseCover";
-import PublicCoursePaymentModal from "./PublicCoursePaymentModal";
+import PublicCoursePaymentModal, { type PublicCourseContentSummary } from "./PublicCoursePaymentModal";
 
 /**
  * FEAT3 AC6a: dữ liệu cho thẻ "đang học" của học viên đã ghi danh. Tính ở server từ dữ liệu công khai đã có (đề cương, tiến độ) nên
@@ -42,6 +42,8 @@ type PublicCourseEnrollmentCardProps = {
     | "learner_progress"
   >;
   learnerCard?: PublicCourseLearnerCard;
+  // U4 AC3: số chương và chủ đề công khai cho hộp thoại đăng ký miễn phí, tính sẵn từ đề cương ở trang chi tiết.
+  contentSummary?: PublicCourseContentSummary;
   // FEAT6 AC11: kết quả mở lại mã QR khi vào bằng link "Tiếp tục thanh toán"; chỉ được đọc một lần lúc mount.
   resume?: ResumeCheckoutResult;
 };
@@ -49,6 +51,7 @@ type PublicCourseEnrollmentCardProps = {
 export function PublicCourseEnrollmentCard({
   course,
   learnerCard,
+  contentSummary,
   resume,
 }: PublicCourseEnrollmentCardProps) {
   const router = useRouter();
@@ -249,6 +252,7 @@ export function PublicCourseEnrollmentCard({
         coursePrice={course.price}
         thumbnailUrl={course.thumbnail_url}
         courseTitle={course.title}
+        contentSummary={contentSummary}
         onGeneratePayment={createPayment}
         onSuccess={async () => {
           setIsModalOpen(false);

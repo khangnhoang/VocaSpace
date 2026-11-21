@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AlertCircle, ChevronRight } from "lucide-react";
+import { revealItemProps } from "@/components/motion/reveal-item";
+import { ScrollRevealGroup } from "@/components/motion/scroll-reveal";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type { ResumeCheckoutResult } from "@/lib/schemas/payment";
@@ -110,12 +112,19 @@ export function PublicCourseDetailView({ course, learningSummary, resumeCheckout
                 learner_progress: course.learner_progress,
               }}
               learnerCard={course.is_enrolled ? buildLearnerCard(course, learningSummary) : undefined}
+              contentSummary={{
+                chapterCount: course.syllabus.length,
+                topicCount: course.syllabus.reduce((total, chapter) => total + chapter.topics.length, 0),
+              }}
               resume={resumeCheckout}
             />
           </aside>
 
-          <div className="min-w-0 space-y-9 lg:col-start-1 lg:row-start-2">
-            <PublicCourseStats course={course} />
+          {/* U4 AC6: các phần dưới màn hình đầu hiện dần khi cuộn tới; thẻ đăng ký bên cạnh không bao giờ được hiệu ứng. */}
+          <ScrollRevealGroup className="min-w-0 space-y-9 lg:col-start-1 lg:row-start-2">
+            <div {...revealItemProps}>
+              <PublicCourseStats course={course} />
+            </div>
             {course.is_preview_suspended && (
               <p
                 role="status"
@@ -125,17 +134,19 @@ export function PublicCourseDetailView({ course, learningSummary, resumeCheckout
                 Tính năng xem trước nội dung của khóa học này đang tạm thời không khả dụng.
               </p>
             )}
-            <PublicCourseInstructors
-              owner={course.owner}
-              collaborators={course.collaborators}
-            />
+            <div {...revealItemProps}>
+              <PublicCourseInstructors
+                owner={course.owner}
+                collaborators={course.collaborators}
+              />
+            </div>
             <PublicCourseSyllabus
               courseSlug={course.slug}
               isPreviewSuspended={course.is_preview_suspended}
               learnerProgress={course.learner_progress}
               syllabus={course.syllabus}
             />
-          </div>
+          </ScrollRevealGroup>
         </div>
       </div>
     </article>

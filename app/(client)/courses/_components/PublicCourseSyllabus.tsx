@@ -59,7 +59,9 @@ export function PublicCourseSyllabus({
           {syllabus.map((chapter, chapterIndex) => (
             <li
               key={chapter.id}
-              className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs transition-all hover:border-slate-300 md:p-6"
+              data-reveal-item=""
+              // Hiện dần khi cuộn (opacity/transform, 600ms) và viền hover (phản hồi tức thì, 150ms) dùng thời lượng riêng.
+              className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs [transition-duration:600ms,600ms,150ms] [transition-property:opacity,transform,border-color] [transition-timing-function:cubic-bezier(0.2,0,0,1)] hover:border-slate-300 motion-reduce:transition-none data-[reveal=pending]:[transform:translateY(16px)] data-[reveal=pending]:opacity-0 md:p-6"
             >
               <div className="flex items-start gap-3">
                 <span className="flex h-7 px-2.5 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-slate-100 text-xs font-semibold tracking-tight text-slate-700">
@@ -103,7 +105,7 @@ export function PublicCourseSyllabus({
                         <li key={topic.id}>
                           <Link
                             href={`/learn/${courseSlug}/${topic.slug}`}
-                            className={`group flex min-h-11 min-w-0 items-center gap-3 rounded-xl border px-4 py-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 ${
+                            className={`group flex min-h-11 min-w-0 items-center gap-3 rounded-xl border px-4 py-3 transition-[background-color,border-color] duration-150 ease-[cubic-bezier(0.2,0,0,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 ${
                               isCurrent
                                 ? "border-route-line bg-route-quiet"
                                 : isCompleted
@@ -143,7 +145,7 @@ export function PublicCourseSyllabus({
                     return (
                       <li
                         key={topic.id}
-                        className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 transition-colors hover:bg-slate-50"
+                        className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3 transition-colors duration-150 ease-[cubic-bezier(0.2,0,0,1)] hover:bg-slate-50"
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <span className="break-words text-sm font-semibold text-slate-800">
