@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { prepareSupabaseWorkdir } from "./prepare-supabase-workdir.mjs";
+import { decideDatabaseReset, skipResetEvidenceEnv } from "./reset-decision.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..", "..");
 const forwardedArgs = process.argv.slice(2);
@@ -32,7 +33,13 @@ async function main() {
 
     const supabaseEnv = getSupabaseEnv(workdir);
     assertLocalSupabaseEnv(supabaseEnv.NEXT_PUBLIC_SUPABASE_URL);
-    resetSupabaseDatabase(workdir);
+    const resetDecision = decideDatabaseReset(readResetEvidence());
+    if (resetDecision.reset) {
+      console.log(`Resetting the database: ${resetDecision.reason}.`);
+      resetSupabaseDatabase(workdir);
+    } else {
+      console.log(`Skipping the database reset: ${resetDecision.reason}.`);
+    }
     await ensureKongReachesServices(supabaseEnv);
 
     const playwright = commandInvocation(npxCommand(), [
@@ -77,6 +84,23 @@ function loadLocalEnv() {
       process.env[match[1]] = stripEnvQuotes(match[2]);
     }
   }
+}
+
+function readResetEvidence() {
+  const evidencePath = process.env[skipResetEvidenceEnv];
+  let evidenceText = null;
+  if (evidencePath) {
+    try {
+      evidenceText = readFileSync(evidencePath, "utf8");
+    } catch {
+      // Unreadable evidence means reset; the decision names it.
+    }
+  }
+  return {
+    evidencePath,
+    evidenceText,
+    job: { GITHUB_RUN_ID: process.env.GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT: process.env.GITHUB_RUN_ATTEMPT },
+  };
 }
 
 function stripEnvQuotes(value) {

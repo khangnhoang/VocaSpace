@@ -20,6 +20,7 @@ export default defineConfig({
       "**/__tests__/integration/**",
       ".agents/scripts/**/*.test.mjs",
       "scripts/docs/**/*.test.mjs",
+      "scripts/e2e/**/*.test.mjs",
       "scripts/content/apply-free-toeic-vocab-course.test.mjs",
       "e2e/**",
     ],
