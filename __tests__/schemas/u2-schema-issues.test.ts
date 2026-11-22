@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { passwordSchema, profileSchema } from "@/lib/schemas/profile";
 import baseIssues from "@/__tests__/fixtures/u2-base-schema-issues.json";
 import { runProbe, type ProbeRecord } from "@/__tests__/support/schema-issue-probe";
 import enValidation from "@/messages/en/validation.json";
@@ -67,5 +69,49 @@ describe("U2 auth and profile schema issues keep their Vietnamese output", () =>
     for (const record of pick(runProbe((message) => translateIssueMessage(enTranslate, message), U2_SCHEMAS))) {
       for (const issue of record.issues) expect(vietnamese.test(issue.message), `${record.schema} ${record.input}: ${issue.message}`).toBe(false);
     }
+  });
+});
+
+// Kiểu nhận được ngoài null/undefined: Zod mặc định ghi File, Date, NaN, Infinity theo bộ định dạng riêng của nó, khác getParsedType.
+describe("wrong-type issues quote Zod's default text for every received type", () => {
+  function translatedIssues(result: { error?: { issues: { message: string; path: PropertyKey[] }[] } }) {
+    return (result.error?.issues ?? []).map((issue) => ({
+      path: issue.path.join("."),
+      message: translateIssueMessage(viTranslate, issue.message),
+    }));
+  }
+
+  it.each([
+    ["a File", new File(["x"], "a.txt"), "File"],
+    ["a Date", new Date(0), "Date"],
+    ["NaN", Number.NaN, "NaN"],
+    ["Infinity", Number.POSITIVE_INFINITY, "Infinity"],
+    ["a Map", new Map(), "Map"],
+    ["an array", [], "array"],
+    ["a number", 12, "number"],
+  ] as const)("keeps the base text for %s sent as a string field", (_label, input, received) => {
+    const text = `Invalid input: expected string, received ${received}`;
+    // Văn bản gốc chính là message mặc định của Zod khi chưa có khóa catalog.
+    expect(z.string().safeParse(input).error?.issues[0]?.message).toBe(text);
+
+    const profile = translatedIssues(profileSchema.safeParse({ full_name: input, gender: "male" }));
+    expect(profile).toContainEqual({ path: "full_name", message: text });
+
+    const password = translatedIssues(
+      passwordSchema.safeParse({ currentPassword: input, newPassword: "abcdef", confirmPassword: "abcdef" }),
+    );
+    expect(password).toContainEqual({ path: "currentPassword", message: text });
+  });
+
+  it.each([
+    ["NaN", Number.NaN, "NaN"],
+    ["Infinity", Number.POSITIVE_INFINITY, "Infinity"],
+    ["a number", 12, "number"],
+    ["an array", [], "array"],
+  ] as const)("keeps the base text for %s sent as the whole object", (_label, input, received) => {
+    const text = `Invalid input: expected object, received ${received}`;
+    expect(z.object({}).safeParse(input).error?.issues[0]?.message).toBe(text);
+    expect(translatedIssues(profileSchema.safeParse(input))).toEqual([{ path: "", message: text }]);
+    expect(translatedIssues(passwordSchema.safeParse(input))).toEqual([{ path: "", message: text }]);
   });
 });

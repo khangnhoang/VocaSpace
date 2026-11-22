@@ -81,6 +81,8 @@ const TEXT = {
   mismatch: { vi: "Mật khẩu xác nhận không khớp", en: "The passwords don't match" },
   // Văn bản Zod cũ, giữ làm giá trị tiếng Việt (U2 G2); tiếng Anh dùng cùng câu vì người dùng không thể gửi trường thiếu từ UI.
   nullString: { vi: "Invalid input: expected string, received null", en: "Invalid input: expected string, received null" },
+  // Zod mặc định ghi tên lớp File, không phải "file" như getParsedType.
+  fileString: { vi: "Invalid input: expected string, received File", en: "Invalid input: expected string, received File" },
 } satisfies Record<string, Record<Locale, string>>;
 
 function authError(code: string) {
@@ -204,6 +206,17 @@ describe.each(["vi", "en"] as const)("auth action messages in %s", (locale) => {
     await expect(setPasswordAfterConfirmation(passwordForm({ password: "abc123", confirmPassword: "abc124" }))).resolves.toEqual({
       error: t("mismatch"),
     });
+    expect(mockedEligibility).not.toHaveBeenCalled();
+    expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it("setPasswordAfterConfirmation: a File sent as the password keeps Zod's text, naming File", async () => {
+    const auth = sessionClient();
+    const formData = new FormData();
+    formData.append("password", new File(["x"], "password.txt"));
+    formData.append("confirmPassword", "abc123");
+
+    await expect(setPasswordAfterConfirmation(formData)).resolves.toEqual({ error: t("fileString") });
     expect(mockedEligibility).not.toHaveBeenCalled();
     expect(auth.updateUser).not.toHaveBeenCalled();
   });
