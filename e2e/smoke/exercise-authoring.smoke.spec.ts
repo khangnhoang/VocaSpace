@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import {
   assertExerciseAuthoringSmokePersisted,
-  exerciseAuthoringFixture,
   prepareExerciseAuthoringFixture,
 } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 import { expectTopicBuilder } from "../support/structure-ui";
@@ -20,10 +20,12 @@ import { expectTopicBuilder } from "../support/structure-ui";
 test("teacher creates and persists a TOEIC Part 7 exercise through the browser UI", async ({
   page,
 }) => {
-  const fixture = await prepareExerciseAuthoringFixture();
+  // Worker-scoped: giáo viên, khóa học và topic riêng của worker này (parallelIndex).
+  const scope = getWorkerScope(test.info().parallelIndex);
+  const fixture = await prepareExerciseAuthoringFixture(scope);
   const title = fixture.E2E_EXERCISE_TITLE;
-  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
-  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  const courseId = fixture.E2E_COURSE_ID;
+  const topicId = fixture.E2E_TOPIC_ID;
 
   await loginAsTeacher(page, fixture);
 
@@ -43,6 +45,6 @@ test("teacher creates and persists a TOEIC Part 7 exercise through the browser U
 
   await expect(page.getByRole("button", { name: new RegExp(`^${title}`) })).toBeVisible();
 
-  const persisted = await assertExerciseAuthoringSmokePersisted(title);
+  const persisted = await assertExerciseAuthoringSmokePersisted(scope, title);
   expect(persisted.exerciseId).toEqual(expect.any(String));
 });

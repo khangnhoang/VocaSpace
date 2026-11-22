@@ -82,7 +82,9 @@ test("admin opens the dashboard from the account menu and reaches user managemen
   await sidebarLinks.nth(1).click();
   await expect(page).toHaveURL(/\/admin\/user-management$/);
   await expect(page.getByText("Thông tin người dùng")).toBeVisible();
-  await expect(page.getByText("student@gmail.com")).toBeVisible();
+  // Danh sách phân trang ở client và các worker E2E thêm tài khoản riêng, nên lọc theo email thay vì dựa vào trang đầu.
+  await page.getByPlaceholder("Tìm kiếm theo tên, email...").fill("student@gmail.com");
+  await expect(page.getByText("student@gmail.com", { exact: true })).toBeVisible();
   await expect(sidebarLinks.nth(0)).toHaveAttribute("data-active", "false");
   await expect(sidebarLinks.nth(1)).toHaveAttribute("data-active", "true");
 

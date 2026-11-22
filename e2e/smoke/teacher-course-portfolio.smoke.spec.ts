@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { portfolioFixture, preparePortfolioFixture } from "../../scripts/e2e/teacher-course-portfolio-fixture.mjs";
+import { preparePortfolioFixture } from "../../scripts/e2e/teacher-course-portfolio-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { loginAsTeacher } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
 
@@ -16,7 +17,8 @@ import { watchBrowserConsole } from "../support/console";
 
 test("teacher resumes correction and sees an authoritative portfolio refresh after editing", async ({ page }) => {
   test.setTimeout(180_000);
-  const { supabase } = await preparePortfolioFixture();
+  // Worker-scoped: giáo viên portfolio và khóa học riêng của worker này.
+  const { supabase, fixture: portfolioFixture } = await preparePortfolioFixture(getWorkerScope(test.info().parallelIndex));
   await loginAsTeacher(page, { E2E_TEACHER_EMAIL: portfolioFixture.teacherEmail, E2E_TEACHER_PASSWORD: portfolioFixture.teacherPassword });
   await page.goto("/teacher/courses");
   const consoleGuard = watchBrowserConsole(page, { failOn: [/.*/] });

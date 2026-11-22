@@ -24,6 +24,7 @@ Read [progress.md](./progress.md) for the current initiative. Keep closed initia
 | Initiative | Plan | Branch | Outcome | Dependencies | Gate to open |
 | --- | --- | --- | --- | --- | --- |
 | INFRA-U1 test runtime, agent rules and CI E2E speed | [plan](./implementation-plans/u1-test-runtime/plan.md) | `docs/infra-u1-test-runtime` | Local tests read only this checkout, DevSpace working rules adapted, E2E critical path shortened with unchanged coverage. | None | Owner approval of the Codex-reviewed revision. Owner decision 1 in the plan routes the agent-rule edits here as an exception to section 1; the edited rule files and skills stay canonical. |
+| INFRA-U2 parallel E2E workers and balanced shards | [plan](./implementation-plans/u2-e2e-parallel-workers/plan.md) | `infra/u2-e2e-parallel` | Each CI E2E shard runs several Playwright workers on worker-scoped fixture data, shards balanced by duration, coverage unchanged. | INFRA-U1 merged (PR 194) | Owner approval of the Codex-reviewed revision. |
 
 ## 5. Opening an initiative
 

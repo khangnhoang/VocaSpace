@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
-  exerciseAuthoringFixture,
+  exerciseAuthoringFixtureFor,
   prepareExerciseAuthoringFixture,
 } from "./exercise-authoring-fixture.mjs";
 import {
@@ -9,15 +9,17 @@ import {
   deleteExerciseTreeByIds,
 } from "./support/cleanup-learning-content.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
 const flashcardWordPrefix = "E2E Return Freshness Flashcard";
 
-export async function prepareDashboardReturnFreshnessFixture(env = process.env) {
-  const base = await prepareExerciseAuthoringFixture(env);
+export async function prepareDashboardReturnFreshnessFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
+  const base = await prepareExerciseAuthoringFixture(scope, env);
   const supabase = createSupabaseAdmin(env);
   const word = `${flashcardWordPrefix} ${new Date().toISOString()} ${randomUUID()}`;
 
-  await removeLearningContentFromFixtureTopic(supabase);
+  await removeLearningContentFromFixtureTopic(supabase, scope);
 
   return {
     ...base,
@@ -27,12 +29,13 @@ export async function prepareDashboardReturnFreshnessFixture(env = process.env) 
   };
 }
 
-export async function getActiveFixtureFlashcardCount(env = process.env) {
+export async function getActiveFixtureFlashcardCount(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const supabase = createSupabaseAdmin(env);
   const { count, error } = await supabase
     .from("cards")
     .select("id", { count: "exact", head: true })
-    .eq("topic_id", exerciseAuthoringFixture.topicId)
+    .eq("topic_id", exerciseAuthoringFixtureFor(scope).topicId)
     .is("removed_at", null);
 
   if (error) {
@@ -42,12 +45,13 @@ export async function getActiveFixtureFlashcardCount(env = process.env) {
   return count ?? 0;
 }
 
-export async function cleanupDashboardReturnFreshnessFixture(env = process.env) {
+export async function cleanupDashboardReturnFreshnessFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const supabase = createSupabaseAdmin(env);
   const { data: cards, error } = await supabase
     .from("cards")
     .select("id, front_content")
-    .eq("topic_id", exerciseAuthoringFixture.topicId);
+    .eq("topic_id", exerciseAuthoringFixtureFor(scope).topicId);
 
   if (error) {
     throw new Error(`Cannot find dashboard freshness flashcards: ${error.message}`);
@@ -63,8 +67,9 @@ export async function cleanupDashboardReturnFreshnessFixture(env = process.env) 
   await deleteCardsByIds(supabase, cardIds, "Cannot clean dashboard freshness flashcards");
 }
 
-async function removeLearningContentFromFixtureTopic(supabase) {
-  const topicId = exerciseAuthoringFixture.topicId;
+async function removeLearningContentFromFixtureTopic(supabase, scope) {
+  // Topic này thuộc riêng worker nên xóa toàn bộ nội dung của nó không ảnh hưởng file đang chạy ở worker khác.
+  const topicId = exerciseAuthoringFixtureFor(scope).topicId;
 
   // Fixture phải bắt đầu từ topic không có nội dung học tập để dashboard tự sinh lỗi thật từ database.
   await deleteCardsByTopicId(supabase, topicId, "Cannot clear fixture flashcards");

@@ -1,20 +1,27 @@
 import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
-import { ensureAuthUser } from "./support/auth-users.mjs";
+import { ensureAuthUserOnce } from "./support/auth-users.mjs";
 import { upsertRow } from "./support/db-write.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
-export const courseLeaveNavigationFixture = {
-  adminId: "11111111-1111-4111-8111-111111111111",
-  teacherId: "22222222-2222-4222-8222-222222222222",
-  studentId: "33333333-3333-4333-8333-333333333333",
-  teacherEmail: "teacher@gmail.com",
-  studentEmail: "student@gmail.com",
-  password: "123123",
-  teacherPassword: "123123",
-  courseId: "abababab-abab-4aba-8aba-abababababab",
-  collaboratorId: "44444444-4444-4444-8444-444444444444",
-};
+// Giáo viên, học viên cộng tác và khóa học đều riêng của worker; không đụng student@gmail.com của seed.
+export function courseLeaveNavigationFixtureFor(scope) {
+  return {
+    adminId: "11111111-1111-4111-8111-111111111111",
+    teacherId: scope.teacher.id,
+    teacherEmail: scope.teacher.email,
+    teacherPassword: scope.teacher.password,
+    teacherFullName: scope.teacher.fullName,
+    teacherUsername: scope.teacher.username,
+    student: scope.extraStudent("leave"),
+    courseId: scope.id("leave-course"),
+    collaboratorId: scope.id("leave-collaborator"),
+    courseSlug: scope.slug("d1-course-leave-navigation-smoke-course"),
+  };
+}
 
-export async function prepareCourseLeaveNavigationFixture(env = process.env) {
+export async function prepareCourseLeaveNavigationFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
+  const courseLeaveNavigationFixture = courseLeaveNavigationFixtureFor(scope);
   const { supabase } = await createBaseAuthoringFixture({
     env,
     fixture: courseLeaveNavigationFixture,
@@ -24,8 +31,8 @@ export async function prepareCourseLeaveNavigationFixture(env = process.env) {
       certifications: "D1 bounded smoke",
     },
     course: {
-      title: "D1 Course Leave Navigation Smoke Course",
-      slug: "d1-course-leave-navigation-smoke-course",
+      title: `D1 Course Leave Navigation Smoke Course ${scope.tag}`,
+      slug: courseLeaveNavigationFixture.courseSlug,
       description: "Bounded D1 student collaborator leave navigation fixture.",
       price: 0,
       status: "draft",
@@ -36,33 +43,28 @@ export async function prepareCourseLeaveNavigationFixture(env = process.env) {
       id: courseLeaveNavigationFixture.collaboratorId,
     },
   });
+  const { student } = courseLeaveNavigationFixture;
 
-  await ensureAuthUser(supabase, {
-    id: courseLeaveNavigationFixture.studentId,
-    email: courseLeaveNavigationFixture.studentEmail,
-    password: courseLeaveNavigationFixture.password,
-    fullName: "Local Student",
-    username: "local_student",
-  });
+  await ensureAuthUserOnce(supabase, student);
   await upsertRow(supabase, "profiles", {
-    id: courseLeaveNavigationFixture.studentId,
-    email: courseLeaveNavigationFixture.studentEmail,
-    full_name: "Local Student",
-    username: "local_student",
+    id: student.id,
+    email: student.email,
+    full_name: student.fullName,
+    username: student.username,
     role: "student",
     removed_at: null,
   });
   await upsertRow(supabase, "course_collaborators", {
     course_id: courseLeaveNavigationFixture.courseId,
-    user_id: courseLeaveNavigationFixture.studentId,
+    user_id: student.id,
     role: "editor",
     can_review_topics: false,
     added_by: courseLeaveNavigationFixture.teacherId,
   }, "course_id,user_id");
 
   return {
-    E2E_STUDENT_EMAIL: courseLeaveNavigationFixture.studentEmail,
-    E2E_STUDENT_PASSWORD: courseLeaveNavigationFixture.password,
+    E2E_STUDENT_EMAIL: student.email,
+    E2E_STUDENT_PASSWORD: student.password,
     E2E_COURSE_ID: courseLeaveNavigationFixture.courseId,
   };
 }

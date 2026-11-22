@@ -1,22 +1,24 @@
 import { randomUUID } from "node:crypto";
 import {
-  exerciseAuthoringFixture,
+  exerciseAuthoringFixtureFor,
   prepareExerciseAuthoringFixture,
 } from "./exercise-authoring-fixture.mjs";
 import { deleteCardsByIds } from "./support/cleanup-learning-content.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
-export async function prepareFlashcardDeleteFixture(env = process.env) {
-  const base = await prepareExerciseAuthoringFixture(env);
+export async function prepareFlashcardDeleteFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
+  const base = await prepareExerciseAuthoringFixture(scope, env);
   const supabase = createSupabaseAdmin(env);
   const word = `E2E Delete Flashcard ${new Date().toISOString()} ${randomUUID()}`;
 
-  await cleanupOldFlashcards(supabase);
+  await cleanupOldFlashcards(supabase, scope);
 
   const { data, error } = await supabase
     .from("cards")
     .insert({
-      topic_id: exerciseAuthoringFixture.topicId,
+      topic_id: exerciseAuthoringFixtureFor(scope).topicId,
       front_content: { word, pos: "n", phonetic: "" },
       back_content: { translation: "disposable flashcard", explanation: "" },
       order_index: 1,
@@ -51,16 +53,18 @@ export async function getFlashcardRemovedAt(cardId, env = process.env) {
   return data.removed_at;
 }
 
-export async function cleanupFlashcardDeleteFixtures(env = process.env) {
+export async function cleanupFlashcardDeleteFixtures(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const supabase = createSupabaseAdmin(env);
-  await cleanupOldFlashcards(supabase);
+  await cleanupOldFlashcards(supabase, scope);
 }
 
-async function cleanupOldFlashcards(supabase) {
+// Chỉ dọn thẻ của topic thuộc worker này; worker khác có topic riêng nên không bị ảnh hưởng.
+async function cleanupOldFlashcards(supabase, scope) {
   const { data: cards, error } = await supabase
     .from("cards")
     .select("id, front_content")
-    .eq("topic_id", exerciseAuthoringFixture.topicId);
+    .eq("topic_id", exerciseAuthoringFixtureFor(scope).topicId);
 
   if (error) throw new Error(`Cannot find old flashcard delete fixtures: ${error.message}`);
 

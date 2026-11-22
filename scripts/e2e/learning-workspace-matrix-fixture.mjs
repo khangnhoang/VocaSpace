@@ -1,13 +1,13 @@
 import { deflateSync, crc32 } from "node:zlib";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
+import { ensureWorkerAccount } from "./support/worker-accounts.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
 // D8-LUI: synthetic content matrix (vocabulary, TOEIC Part 1-7, memory check, media
 // faults) for reviewing the learning workspace. All ids, slugs and storage paths are
 // deterministic, so seeding twice replaces the previous rows and cleanup needs no state.
 // Nothing here is personal data. The learner is the canonical seeded student.
 
-const TEACHER_ID = "22222222-2222-4222-8222-222222222222";
-const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 const ADMIN_ID = "11111111-1111-4111-8111-111111111111";
 const IMAGE_BUCKET = "question_group_images";
 const AUDIO_BUCKET = "question_group_audios";
@@ -25,11 +25,45 @@ export const MATRIX_TOPICS = {
   memoryOnly: { slug: "d8-matrix-memory-only", title: "D8 Từ vựng và memory check không bài tập" },
 };
 
-const COURSE_ID = id(1);
-const CHAPTER_ID = id(2);
-
-function id(n) {
+function legacyId(n) {
   return `d8a00000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+}
+
+/**
+ * Định danh của ma trận. Không có `scope`: bộ ID cố định cũ, học viên và giáo viên seed (dùng cho CLI QA thủ công).
+ * Có `scope` (worker Playwright): course, chương, topic, slug, card, giáo viên và học viên đều riêng của worker, nên
+ * nhiều worker seed/dọn ma trận song song mà không chạm nhau hay chạm học viên seed.
+ */
+export function matrixFor(scope) {
+  if (!scope) {
+    return {
+      scoped: false,
+      id: legacyId,
+      courseId: legacyId(1),
+      chapterId: legacyId(2),
+      courseSlug: MATRIX_COURSE_SLUG,
+      topics: MATRIX_TOPICS,
+      teacher: { id: "22222222-2222-4222-8222-222222222222" },
+      student: {
+        id: "33333333-3333-4333-8333-333333333333",
+        email: "student@gmail.com",
+        password: "123123",
+      },
+    };
+  }
+  const id = (n) => scope.id(`matrix:${n}`);
+  return {
+    scoped: true,
+    id,
+    courseId: id(1),
+    chapterId: id(2),
+    courseSlug: scope.slug(MATRIX_COURSE_SLUG),
+    topics: Object.fromEntries(
+      Object.entries(MATRIX_TOPICS).map(([key, topic]) => [key, { ...topic, slug: scope.slug(topic.slug) }]),
+    ),
+    teacher: scope.extraTeacher("matrix"),
+    student: scope.student,
+  };
 }
 
 function assertSyntheticTarget(env, { allowDevDatabase }) {
@@ -43,6 +77,19 @@ function assertSyntheticTarget(env, { allowDevDatabase }) {
         "or to the root local dev database (45321) when the Owner passes --allow-dev-db.",
     );
   }
+}
+
+// Chế độ worker-scoped (có `scope`) chỉ chạy trên runtime E2E cô lập và không bao giờ nhận cờ ghi vào DB dev;
+// chế độ cũ không có `scope` giữ nguyên quyền ghi vào DB dev khi Owner truyền --allow-dev-db.
+function assertMatrixTarget(env, options) {
+  if (options.scope) {
+    if (options.allowDevDatabase === true) {
+      throw new Error("A worker-scoped matrix never writes to the dev database; drop allowDevDatabase.");
+    }
+    assertIsolatedRuntime(env);
+    return;
+  }
+  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
 }
 
 function checked(result, label) {
@@ -117,17 +164,22 @@ const LONG_PASSAGE = Array.from(
 ).join("\n\n");
 
 export async function seedLearningWorkspaceMatrix(env = process.env, options = {}) {
-  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
+  assertMatrixTarget(env, options);
+  const m = matrixFor(options.scope);
   const supabase = createSupabaseAdmin(env);
+  if (m.scoped) {
+    await ensureWorkerAccount(supabase, m.teacher, "teacher");
+    await ensureWorkerAccount(supabase, m.student, "student");
+  }
   await cleanupLearningWorkspaceMatrix(env, options);
 
   let counter = 100;
-  const next = () => id(++counter);
+  const next = () => m.id(++counter);
   const uploaded = [];
-  const topicIds = Object.fromEntries(Object.keys(MATRIX_TOPICS).map((key, index) => [key, id(10 + index)]));
+  const topicIds = Object.fromEntries(Object.keys(m.topics).map((key, index) => [key, m.id(10 + index)]));
 
   async function upload(bucket, name, bytes, contentType, topicKey) {
-    const path = `${COURSE_ID}/${topicIds[topicKey]}/${TEACHER_ID}/${name}`;
+    const path = `${m.courseId}/${topicIds[topicKey]}/${m.teacher.id}/${name}`;
     // The storage gateway can answer 502 right after a database reset, so retry for up to a minute.
     let result;
     for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -145,9 +197,9 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
 
   checked(
     await supabase.from("courses").insert({
-      id: COURSE_ID,
+      id: m.courseId,
       title: "D8 Learning matrix (synthetic)",
-      slug: MATRIX_COURSE_SLUG,
+      slug: m.courseSlug,
       description: "Synthetic content for reviewing the learning workspace layouts.",
       price: 0,
       status: "published",
@@ -157,8 +209,8 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
   );
   checked(
     await supabase.from("course_collaborators").insert({
-      course_id: COURSE_ID,
-      user_id: TEACHER_ID,
+      course_id: m.courseId,
+      user_id: m.teacher.id,
       role: "owner",
       added_by: ADMIN_ID,
       can_review_topics: false,
@@ -167,9 +219,9 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
   );
   checked(
     await supabase.from("chapters").insert({
-      id: CHAPTER_ID,
-      course_id: COURSE_ID,
-      created_by_user_id: TEACHER_ID,
+      id: m.chapterId,
+      course_id: m.courseId,
+      created_by_user_id: m.teacher.id,
       title: "D8 Ma trận nội dung",
       order_index: 1,
       removed_at: null,
@@ -178,16 +230,16 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
   );
   checked(
     await supabase.from("topics").insert(
-      Object.entries(MATRIX_TOPICS).map(([key, topic], index) => ({
+      Object.entries(m.topics).map(([key, topic], index) => ({
         id: topicIds[key],
-        course_id: COURSE_ID,
-        chapter_id: CHAPTER_ID,
+        course_id: m.courseId,
+        chapter_id: m.chapterId,
         title: topic.title,
         slug: topic.slug,
         status: "published",
         order_index: key === "full" ? 0 : index + 1,
-        original_creator_user_id: TEACHER_ID,
-        responsible_author_user_id: TEACHER_ID,
+        original_creator_user_id: m.teacher.id,
+        responsible_author_user_id: m.teacher.id,
         first_approved_at: "2026-01-10T12:00:00.000Z",
         removed_at: null,
         is_preview: key === "full",
@@ -196,7 +248,7 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
     "Create topics",
   );
   checked(
-    await supabase.from("enrollments").insert({ user_id: STUDENT_ID, course_id: COURSE_ID }),
+    await supabase.from("enrollments").insert({ user_id: m.student.id, course_id: m.courseId }),
     "Enroll learner",
   );
 
@@ -241,7 +293,7 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
     checked(
       await supabase.from("exercises").insert({
         id: exerciseId,
-        course_id: COURSE_ID,
+        course_id: m.courseId,
         topic_id: topicIds[topicKey],
         title,
         part_type: partType,
@@ -277,7 +329,7 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
     checked(
       await supabase.from("questions").insert({
         id: questionId,
-        course_id: COURSE_ID,
+        course_id: m.courseId,
         exercise_id: exerciseId,
         group_id: groupId,
         content,
@@ -422,7 +474,7 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
   // Media faults: a missing object behind a valid reference, and a group without required audio.
   const faultPart1 = await addExercise("faults", 1, "Part 1 - Ảnh không tải được", "part1");
   const faultGroup = await addGroup(faultPart1, 0, {
-    image: `storage://${IMAGE_BUCKET}/${COURSE_ID}/${topicIds.faults}/${TEACHER_ID}/does-not-exist.png`,
+    image: `storage://${IMAGE_BUCKET}/${m.courseId}/${topicIds.faults}/${m.teacher.id}/does-not-exist.png`,
     audio: await upload(AUDIO_BUCKET, "fault-part1.wav", wav, "audio/wav", "faults"),
   });
   await addQuestion(faultPart1, faultGroup, 0, "Câu hỏi vẫn làm được khi ảnh lỗi.", shortOptions.slice(0, 3));
@@ -430,7 +482,7 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
   const faultGroup2 = await addGroup(faultPart2, 0, {});
   await addQuestion(faultPart2, faultGroup2, 0, "Nhóm này thiếu âm thanh bắt buộc.", shortOptions.slice(0, 3));
 
-  return { courseSlug: MATRIX_COURSE_SLUG, topics: MATRIX_TOPICS, uploaded };
+  return { courseSlug: m.courseSlug, topics: m.topics, uploaded, student: m.student };
 }
 
 /**
@@ -440,12 +492,13 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
 export const FULL_FLOW_ADDED_CARD = { word: "negotiate", translation: "đàm phán" };
 
 export async function addFullFlowCard(env = process.env, options = {}) {
-  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
+  assertMatrixTarget(env, options);
+  const m = matrixFor(options.scope);
   const supabase = createSupabaseAdmin(env);
   checked(
     await supabase.from("cards").insert({
-      id: id(900),
-      topic_id: id(10 + Object.keys(MATRIX_TOPICS).indexOf("full")),
+      id: m.id(900),
+      topic_id: m.id(10 + Object.keys(m.topics).indexOf("full")),
       front_content: { word: FULL_FLOW_ADDED_CARD.word, pos: "verb", phonetic: "/nɪˈɡoʊʃieɪt/" },
       back_content: { translation: FULL_FLOW_ADDED_CARD.translation, example: "They negotiate the price.", exampleTranslation: "Họ thương lượng giá." },
       order_index: 4,
@@ -456,14 +509,15 @@ export async function addFullFlowCard(env = process.env, options = {}) {
 }
 
 export async function cleanupLearningWorkspaceMatrix(env = process.env, options = {}) {
-  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
+  assertMatrixTarget(env, options);
+  const m = matrixFor(options.scope);
   const supabase = createSupabaseAdmin(env);
 
-  const topics = checked(await supabase.from("topics").select("id").eq("course_id", COURSE_ID), "Read topics");
+  const topics = checked(await supabase.from("topics").select("id").eq("course_id", m.courseId), "Read topics");
   const topicIds = topics.map((row) => row.id);
-  const questions = checked(await supabase.from("questions").select("id").eq("course_id", COURSE_ID), "Read questions");
+  const questions = checked(await supabase.from("questions").select("id").eq("course_id", m.courseId), "Read questions");
   const questionIds = questions.map((row) => row.id);
-  const exercises = checked(await supabase.from("exercises").select("id").eq("course_id", COURSE_ID), "Read exercises");
+  const exercises = checked(await supabase.from("exercises").select("id").eq("course_id", m.courseId), "Read exercises");
   const exerciseIds = exercises.map((row) => row.id);
   const cards = topicIds.length
     ? checked(await supabase.from("cards").select("id").in("topic_id", topicIds), "Read cards")
@@ -473,7 +527,7 @@ export async function cleanupLearningWorkspaceMatrix(env = process.env, options 
   // Gỡ ghi danh trước tiên: trang học vừa đóng vẫn có thể còn request đang chạy (sync tiến độ khi mở bài, lưu thẻ/đáp án).
   // Các RPC đó đều đòi ghi danh, nên sau bước này chúng bị từ chối thay vì tạo lại user_topic_progress giữa lúc dọn,
   // làm bước xóa topics hỏng vì khóa ngoại utp_topic_id_fkey.
-  checked(await supabase.from("enrollments").delete().eq("course_id", COURSE_ID), "Clean enrollment");
+  checked(await supabase.from("enrollments").delete().eq("course_id", m.courseId), "Clean enrollment");
   if (questionIds.length) {
     checked(await supabase.from("user_question_answers").delete().in("question_id", questionIds), "Clean answers");
     checked(await supabase.from("question_options").delete().in("question_id", questionIds), "Clean options");
@@ -486,15 +540,15 @@ export async function cleanupLearningWorkspaceMatrix(env = process.env, options 
     checked(await supabase.from("exercises").delete().in("id", exerciseIds), "Clean exercises");
   }
   if (cardIds.length) checked(await supabase.from("cards").delete().in("id", cardIds), "Clean cards");
-  checked(await supabase.from("topics").delete().eq("course_id", COURSE_ID), "Clean topics");
-  checked(await supabase.from("chapters").delete().eq("course_id", COURSE_ID), "Clean chapter");
-  checked(await supabase.from("course_collaborators").delete().eq("course_id", COURSE_ID), "Clean owner");
-  checked(await supabase.from("courses").delete().eq("id", COURSE_ID), "Clean course");
+  checked(await supabase.from("topics").delete().eq("course_id", m.courseId), "Clean topics");
+  checked(await supabase.from("chapters").delete().eq("course_id", m.courseId), "Clean chapter");
+  checked(await supabase.from("course_collaborators").delete().eq("course_id", m.courseId), "Clean owner");
+  checked(await supabase.from("courses").delete().eq("id", m.courseId), "Clean course");
 
   for (const bucket of [IMAGE_BUCKET, AUDIO_BUCKET]) {
-    for (const topicKey of Object.keys(MATRIX_TOPICS)) {
-      const topicId = id(10 + Object.keys(MATRIX_TOPICS).indexOf(topicKey));
-      const folder = `${COURSE_ID}/${topicId}/${TEACHER_ID}`;
+    for (const topicKey of Object.keys(m.topics)) {
+      const topicId = m.id(10 + Object.keys(m.topics).indexOf(topicKey));
+      const folder = `${m.courseId}/${topicId}/${m.teacher.id}`;
       const { data } = await supabase.storage.from(bucket).list(folder);
       if (data?.length) {
         checked(await supabase.storage.from(bucket).remove(data.map((file) => `${folder}/${file.name}`)), "Clean media");

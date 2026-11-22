@@ -1,19 +1,28 @@
 import { randomUUID } from "node:crypto";
 import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
-export const courseStructureFixture = {
-  adminId: "11111111-1111-4111-8111-111111111111",
-  teacherId: "22222222-2222-4222-8222-222222222222",
-  teacherEmail: "teacher@gmail.com",
-  teacherPassword: "123123",
-  courseId: "44444444-4444-4444-8444-444444444445",
-  collaboratorId: "77777777-7777-4777-8777-7777777777b3",
-  chapterTitlePrefix: "E2E Structure Chapter",
-  topicTitlePrefix: "E2E Structure Topic",
-};
+// Khóa học cấu trúc riêng của từng worker; khóa học seed/cố định `44444444-…-445` không bị ghi nữa.
+export function courseStructureFixtureFor(scope) {
+  return {
+    adminId: "11111111-1111-4111-8111-111111111111",
+    teacherId: scope.teacher.id,
+    teacherEmail: scope.teacher.email,
+    teacherPassword: scope.teacher.password,
+    teacherFullName: scope.teacher.fullName,
+    teacherUsername: scope.teacher.username,
+    courseId: scope.id("structure-course"),
+    collaboratorId: scope.id("structure-collaborator"),
+    courseSlug: scope.slug("local-structure-test-course"),
+    chapterTitlePrefix: scope.prefix("E2E Structure Chapter"),
+    topicTitlePrefix: scope.prefix("E2E Structure Topic"),
+  };
+}
 
-export async function prepareCourseStructureFixture(env = process.env) {
+export async function prepareCourseStructureFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
+  const courseStructureFixture = courseStructureFixtureFor(scope);
   const { supabase } = await createBaseAuthoringFixture({
     env,
     fixture: courseStructureFixture,
@@ -23,8 +32,8 @@ export async function prepareCourseStructureFixture(env = process.env) {
       certifications: "Local smoke fixture",
     },
     course: {
-      title: "Local Structure Test Course",
-      slug: "local-structure-test-course",
+      title: `Local Structure Test Course ${scope.tag}`,
+      slug: courseStructureFixture.courseSlug,
       description: "Local seed course for course structure smoke tests.",
       price: 0,
       status: "published",
@@ -37,7 +46,7 @@ export async function prepareCourseStructureFixture(env = process.env) {
   });
   const suffix = `${new Date().toISOString()} ${randomUUID()}`;
 
-  await cleanupStructureRows(supabase);
+  await cleanupStructureRows(supabase, courseStructureFixture);
 
   return {
     E2E_TEACHER_EMAIL: courseStructureFixture.teacherEmail,
@@ -54,9 +63,12 @@ export async function prepareCourseStructureFixture(env = process.env) {
 }
 
 export async function assertCourseStructureOrderPersisted(
+  scope,
   { chapterTitles, topicChapterTitle, topicTitles },
   env = process.env,
 ) {
+  assertIsolatedRuntime(env);
+  const courseStructureFixture = courseStructureFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data: chapters, error: chaptersError } = await supabase
     .from("chapters")
@@ -110,7 +122,9 @@ export async function assertCourseStructureOrderPersisted(
   };
 }
 
-export async function findCourseStructureTopicByTitle(title, env = process.env) {
+export async function findCourseStructureTopicByTitle(scope, title, env = process.env) {
+  assertIsolatedRuntime(env);
+  const courseStructureFixture = courseStructureFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data, error } = await supabase
     .from("topics")
@@ -128,9 +142,12 @@ export async function findCourseStructureTopicByTitle(title, env = process.env) 
 }
 
 export async function assertCourseStructureSmokePersisted(
+  scope,
   { chapterTitle, hiddenTopicTitle, activeTopicTitle },
   env = process.env,
 ) {
+  assertIsolatedRuntime(env);
+  const courseStructureFixture = courseStructureFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data: chapter, error: chapterError } = await supabase
     .from("chapters")
@@ -193,7 +210,7 @@ export async function assertCourseStructureSmokePersisted(
   };
 }
 
-async function cleanupStructureRows(supabase) {
+async function cleanupStructureRows(supabase, courseStructureFixture) {
   const { data: chapters, error } = await supabase
     .from("chapters")
     .select("id")

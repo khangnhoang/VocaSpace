@@ -2,10 +2,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   assertCourseStructureOrderPersisted,
   assertCourseStructureSmokePersisted,
-  courseStructureFixture,
   findCourseStructureTopicByTitle,
   prepareCourseStructureFixture,
 } from "../../scripts/e2e/course-structure-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { loginAsTeacher } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
 import {
@@ -71,8 +71,10 @@ test("teacher manages structure and deletes without leaving the workspace broken
 }) => {
   // Mỗi lần tạo bài học đi qua Topic Builder (dev server biên dịch lần đầu) rồi quay lại.
   test.setTimeout(180_000);
-  const fixture = await prepareCourseStructureFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? courseStructureFixture.courseId;
+  // Worker-scoped: giáo viên và khóa học riêng của worker này (parallelIndex).
+  const scope = getWorkerScope(test.info().parallelIndex);
+  const fixture = await prepareCourseStructureFixture(scope);
+  const courseId = fixture.E2E_COURSE_ID;
   const chapterTitle = fixture.E2E_STRUCTURE_CHAPTER_TITLE;
   const secondChapterTitle = fixture.E2E_STRUCTURE_CHAPTER_SECOND_TITLE;
   const thirdChapterTitle = fixture.E2E_STRUCTURE_CHAPTER_THIRD_TITLE;
@@ -159,7 +161,7 @@ test("teacher manages structure and deletes without leaving the workspace broken
   await page.keyboard.press("Space");
   await expectListOrder(topicList, [hiddenTopicTitle, activeTopicTitle, orderTopicTitle]);
 
-  await assertCourseStructureOrderPersisted({
+  await assertCourseStructureOrderPersisted(scope, {
     chapterTitles: [chapterTitle, secondChapterTitle, thirdChapterTitle],
     topicChapterTitle: chapterTitle,
     topicTitles: [hiddenTopicTitle, activeTopicTitle, orderTopicTitle],
@@ -170,7 +172,7 @@ test("teacher manages structure and deletes without leaving the workspace broken
   await expectListOrder(topicList, [orderTopicTitle, hiddenTopicTitle, activeTopicTitle]);
   // Giao diện đặt dòng ngay (R4); thông báo "Đã chuyển" chỉ có sau khi server xác nhận.
   await expect(page.getByRole("status").filter({ hasText: /Đã chuyển .* tới vị trí 1$/ })).toBeAttached();
-  await assertCourseStructureOrderPersisted({
+  await assertCourseStructureOrderPersisted(scope, {
     chapterTitles: [chapterTitle, secondChapterTitle, thirdChapterTitle],
     topicChapterTitle: chapterTitle,
     topicTitles: [orderTopicTitle, hiddenTopicTitle, activeTopicTitle],
@@ -194,7 +196,7 @@ test("teacher manages structure and deletes without leaving the workspace broken
   await page.getByRole("button", { name: "Thử lại" }).click();
   await expectListOrder(topicList, [hiddenTopicTitle, activeTopicTitle, orderTopicTitle]);
   await expect(page.getByRole("status").filter({ hasText: /Đã chuyển .* tới vị trí 3$/ })).toBeAttached();
-  await assertCourseStructureOrderPersisted({
+  await assertCourseStructureOrderPersisted(scope, {
     chapterTitles: [chapterTitle, secondChapterTitle, thirdChapterTitle],
     topicChapterTitle: chapterTitle,
     topicTitles: [hiddenTopicTitle, activeTopicTitle, orderTopicTitle],
@@ -210,7 +212,7 @@ test("teacher manages structure and deletes without leaving the workspace broken
     page.getByRole("button", { name: `Thao tác khác cho bài học ${updatedTopicTitle}` }),
   ).toBeFocused();
 
-  const activeTopic = await findCourseStructureTopicByTitle(activeTopicTitle);
+  const activeTopic = await findCourseStructureTopicByTitle(scope, activeTopicTitle);
 
   await openTopicAction(page, updatedTopicTitle, /Xóa bài học/);
   await submitActiveDialog(page, /^Xóa bài học$/);
@@ -232,7 +234,7 @@ test("teacher manages structure and deletes without leaving the workspace broken
   await expect(page).toHaveURL(new RegExp(`/teacher/courses/${courseId}/structure`));
   await consoleGuard.expectNoErrors();
 
-  const persisted = await assertCourseStructureSmokePersisted({
+  const persisted = await assertCourseStructureSmokePersisted(scope, {
     chapterTitle,
     hiddenTopicTitle: updatedTopicTitle,
     activeTopicTitle,

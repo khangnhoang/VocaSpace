@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { prepareCourseLeaveNavigationFixture } from "../../scripts/e2e/course-leave-navigation-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { loginAsStudent } from "../support/auth";
 import { getCourseOverviewPath } from "../../lib/course-authoring/routes";
 
@@ -12,7 +13,7 @@ import { getCourseOverviewPath } from "../../lib/course-authoring/routes";
 // - Invariant cần giữ: global student không bị điều hướng vào teacher course list rỗng sau khi rời collaborator course.
 
 test("takes a student collaborator to the public catalog after leaving a course", async ({ page }) => {
-  const fixture = await prepareCourseLeaveNavigationFixture();
+  const fixture = await prepareCourseLeaveNavigationFixture(getWorkerScope(test.info().parallelIndex));
   const courseId = fixture.E2E_COURSE_ID;
 
   await loginAsStudent(page, fixture);

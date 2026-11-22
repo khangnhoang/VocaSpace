@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 import {
-  MATRIX_COURSE_SLUG,
-  MATRIX_TOPICS,
   cleanupLearningWorkspaceMatrix,
+  matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsStudent, loginAsTeacher } from "../support/auth";
@@ -23,26 +23,31 @@ import { expectTopicBuilder } from "../support/structure-ui";
 // - Chưa kiểm chứng: cảnh báo xóa/đổi đáp án (đã có component test), cảm nhận UX do Owner kiểm tra bằng tay.
 // - Kết quả verify gần nhất: passed (1/1) ngày 2026-10-18 (chạy `npm run test:e2e -- e2e/smoke/published-topic-live-edit.smoke.spec.ts`).
 
-const TEACHER = { E2E_TEACHER_EMAIL: "teacher@gmail.com", E2E_TEACHER_PASSWORD: "123123" };
-const STUDENT = { E2E_STUDENT_EMAIL: "student@gmail.com", E2E_STUDENT_PASSWORD: "123123" };
 const OLD_WORD = "schedule";
 const NEW_WORD = "timetable";
 
+// Worker-scoped: ma trận, học viên và giáo viên riêng của worker này (parallelIndex); gán trong beforeAll.
+let scope: ReturnType<typeof getWorkerScope>;
+let matrix: ReturnType<typeof matrixFor>;
+
 test.beforeAll(async () => {
+  scope = getWorkerScope(test.info().parallelIndex);
+  matrix = matrixFor(scope);
   test.setTimeout(240_000);
-  await seedLearningWorkspaceMatrix();
+  await seedLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.afterAll(async () => {
-  await cleanupLearningWorkspaceMatrix();
+  await cleanupLearningWorkspaceMatrix(process.env, { scope });
 });
 
 async function readTopic() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const topic = await admin
     .from("topics")
     .select("id, course_id, status")
-    .eq("slug", MATRIX_TOPICS.full.slug)
+    .eq("slug", matrix.topics.full.slug)
     .single();
   if (topic.error) throw new Error(topic.error.message);
   return topic.data;
@@ -62,7 +67,7 @@ test("teacher edits a card of a published topic in place and the learner sees it
     await dialog.dismiss();
   });
 
-  await loginAsTeacher(page, TEACHER);
+  await loginAsTeacher(page, { E2E_TEACHER_EMAIL: matrix.teacher.email, E2E_TEACHER_PASSWORD: matrix.teacher.password });
   await page.goto(getTopicBuilderPath(topic.course_id, topic.id, "flashcards"));
   await expectTopicBuilder(page);
   await expect(page.getByText("Đã xuất bản").first()).toBeVisible();
@@ -84,8 +89,8 @@ test("teacher edits a card of a published topic in place and the learner sees it
   const learnerContext = await browser.newContext();
   try {
     const learner = await learnerContext.newPage();
-    await loginAsStudent(learner, STUDENT);
-    await learner.goto(`/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS.full.slug}`);
+    await loginAsStudent(learner, { E2E_STUDENT_EMAIL: matrix.student.email, E2E_STUDENT_PASSWORD: matrix.student.password });
+    await learner.goto(`/learn/${matrix.courseSlug}/${matrix.topics.full.slug}`);
     await expect(learner.getByText(NEW_WORD, { exact: true })).toBeVisible();
     await expect(learner.getByText(OLD_WORD, { exact: true })).toHaveCount(0);
   } finally {

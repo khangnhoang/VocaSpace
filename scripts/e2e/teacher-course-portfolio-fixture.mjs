@@ -1,27 +1,34 @@
 import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
-export const portfolioFixture = {
-  adminId: "11111111-1111-4111-8111-111111111111",
-  teacherId: "22222222-2222-4222-8222-222222222222",
-  teacherEmail: "teacher@gmail.com",
-  teacherPassword: "123123",
-  courseId: "f8100000-0000-4000-8000-000000000001",
-  collaboratorId: "f8100000-0000-4000-8000-000000000002",
-  title: "Portfolio QA — Phản hồi khóa học",
-};
+// Giáo viên riêng của nhóm portfolio (mỗi worker một tài khoản): trang `/teacher/courses` chỉ có đúng khóa học này,
+// nên nút "Đưa vào thùng rác" và "Cài đặt thông tin" là duy nhất và danh sách không rơi vào chế độ dày (từ 5 khóa học).
+export function portfolioFixtureFor(scope) {
+  const teacher = scope.extraTeacher("portfolio");
+  return {
+    adminId: "11111111-1111-4111-8111-111111111111",
+    teacherId: teacher.id,
+    teacherEmail: teacher.email,
+    teacherPassword: teacher.password,
+    teacherFullName: teacher.fullName,
+    teacherUsername: teacher.username,
+    courseId: scope.id("portfolio-course"),
+    collaboratorId: scope.id("portfolio-collaborator"),
+    courseSlug: scope.slug("portfolio-qa-feedback"),
+    title: "Portfolio QA — Phản hồi khóa học",
+  };
+}
 
-export async function preparePortfolioFixture(env = process.env) {
-  const target = new URL(env.NEXT_PUBLIC_SUPABASE_URL ?? "");
-  if (target.origin !== "http://127.0.0.1:45441") {
-    throw new Error("Portfolio smoke fixture only runs on isolated E2E API 45441.");
-  }
+export async function preparePortfolioFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
+  const fixture = portfolioFixtureFor(scope);
   const { supabase } = await createBaseAuthoringFixture({
     env,
-    fixture: portfolioFixture,
+    fixture,
     teacherProfile: { bio: "Portfolio smoke", experience_years: 1, certifications: "Local QA" },
     course: {
-      title: portfolioFixture.title,
-      slug: "portfolio-qa-feedback",
+      title: fixture.title,
+      slug: fixture.courseSlug,
       description: "Khóa học cần bổ sung mô tả và lộ trình theo phản hồi duyệt.",
       status: "draft",
       price: 0,
@@ -30,7 +37,7 @@ export async function preparePortfolioFixture(env = process.env) {
       reject_message: "Bổ sung mục tiêu đầu ra cho khóa học.",
       reviewed_at: "2026-10-10T00:00:00Z",
     },
-    collaborator: { id: portfolioFixture.collaboratorId },
+    collaborator: { id: fixture.collaboratorId },
   });
-  return { supabase };
+  return { supabase, fixture };
 }

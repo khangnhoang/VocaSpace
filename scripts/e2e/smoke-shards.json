@@ -1,0 +1,35 @@
+{
+  "_comment": "Smoke spec files per CI shard for two Playwright workers per shard, balanced on per-file durations measured in one local two-worker run on the production build (both shards sum to about 236 s; the seed project's serial files are 20 s in shard 1 and 61 s in shard 2, far below half of that). Playwright's own --shard splits by test count. CI timing differs from local, so CP4 re-measures. A new smoke spec must be added to one shard; smoke-shards.test.mjs fails otherwise.",
+  "shards": [
+    [
+      "admin-gate",
+      "auth-return-path",
+      "course-structure",
+      "dashboard-return-freshness",
+      "exercise-authoring",
+      "learning-workspace-matrix",
+      "public-course-detail-progress",
+      "public-course-discovery",
+      "public-course-free-enrollment",
+      "published-topic-live-edit",
+      "teacher-course-portfolio",
+      "topic-builder-tabs",
+      "topic-create-navigation"
+    ],
+    [
+      "account-menu",
+      "course-leave-navigation",
+      "enrolled-course-overview",
+      "flashcard-delete",
+      "issue-deep-links",
+      "learning-fast-rating",
+      "learning-memory-cards-gate",
+      "learning-topic-completion",
+      "learning-workspace",
+      "profile-username-once",
+      "review-session",
+      "review-session-recovery",
+      "topic-builder-sheet-layout"
+    ]
+  ]
+}

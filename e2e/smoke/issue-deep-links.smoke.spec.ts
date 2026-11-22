@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  courseStructureFixture,
   findCourseStructureTopicByTitle,
   prepareCourseStructureFixture,
 } from "../../scripts/e2e/course-structure-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { loginAsTeacher } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
 import {
@@ -29,8 +29,10 @@ test("dashboard issue links survive stale target redirects without hydration err
 }) => {
   const consoleGuard = watchBrowserConsole(page);
 
-  const fixture = await prepareCourseStructureFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? courseStructureFixture.courseId;
+  // Worker-scoped: giáo viên và khóa học riêng của worker này (parallelIndex).
+  const scope = getWorkerScope(test.info().parallelIndex);
+  const fixture = await prepareCourseStructureFixture(scope);
+  const courseId = fixture.E2E_COURSE_ID;
   const chapterTitle = fixture.E2E_STRUCTURE_CHAPTER_TITLE;
   const topicTitle = fixture.E2E_STRUCTURE_TOPIC_ACTIVE_TITLE;
 
@@ -54,7 +56,7 @@ test("dashboard issue links survive stale target redirects without hydration err
   await expect(page).not.toHaveURL(/from=dashboard/);
   await expect(page.getByText(/1 chương · 1 bài học/)).toBeVisible();
 
-  const topic = await findCourseStructureTopicByTitle(topicTitle);
+  const topic = await findCourseStructureTopicByTitle(scope, topicTitle);
   const validIssueUrl =
     getTopicBuilderPath(courseId, topic.id) +
     `?from=dashboard&issue=topic_has_no_learning_content` +

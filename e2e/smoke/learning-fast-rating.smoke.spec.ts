@@ -1,10 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  MATRIX_COURSE_SLUG,
-  MATRIX_TOPICS,
   cleanupLearningWorkspaceMatrix,
+  matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf8/plan.md
@@ -20,35 +20,41 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - Kết quả verify gần nhất: xem State LF8 trong progress.md (chạy `npm run test:e2e -- e2e/smoke/learning-fast-rating.smoke.spec.ts`).
 test.describe.configure({ mode: "serial" });
 
+// Worker-scoped: ma trận, học viên và giáo viên riêng của worker này (parallelIndex); gán trong beforeAll.
+let scope: ReturnType<typeof getWorkerScope>;
+let matrix: ReturnType<typeof matrixFor>;
+
 test.beforeAll(async () => {
+  scope = getWorkerScope(test.info().parallelIndex);
+  matrix = matrixFor(scope);
   test.setTimeout(240_000);
-  await seedLearningWorkspaceMatrix();
+  await seedLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.afterAll(async () => {
-  await cleanupLearningWorkspaceMatrix();
+  await cleanupLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("student@gmail.com");
-  await page.getByLabel("Mật khẩu", { exact: true }).fill("123123");
+  await page.getByLabel("Email").fill(matrix.student.email);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(matrix.student.password);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 
-const topicPath = `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS.full.slug}`;
-const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
+const topicPath = () => `/learn/${matrix.courseSlug}/${matrix.topics.full.slug}`;
 const FIRST_QUESTION = 'Nghĩa của "deadline" là gì?';
 
 /** Last rating stored for each card word of the topic; a card without a row is left out. */
 async function lastRatingsByWord() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
-  const topic = await admin.from("topics").select("id").eq("slug", MATRIX_TOPICS.full.slug).limit(1).single();
+  const topic = await admin.from("topics").select("id").eq("slug", matrix.topics.full.slug).limit(1).single();
   if (topic.error) throw new Error(topic.error.message);
   const cards = await admin.from("cards").select("id, front_content").eq("topic_id", topic.data.id);
   if (cards.error) throw new Error(cards.error.message);
-  const rows = await admin.from("user_flashcards").select("card_id, last_rating").eq("user_id", STUDENT_ID);
+  const rows = await admin.from("user_flashcards").select("card_id, last_rating").eq("user_id", matrix.student.id);
   if (rows.error) throw new Error(rows.error.message);
   const byCard = new Map(rows.data.map((row) => [row.card_id, row.last_rating]));
   const result: Record<string, number> = {};
@@ -71,7 +77,7 @@ test("rating Again, Easy and Good with no wait stores each card's last rating, t
 }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(topicPath);
+  await page.goto(topicPath());
   await expect(page.getByText("4 / 4", { exact: true })).toBeVisible();
 
   await rateNow(page, "schedule", "Lại");
@@ -89,18 +95,19 @@ test("rating Again, Easy and Good with no wait stores each card's last rating, t
 
 // Xoá trạng thái thẻ và tiến độ của học viên seed để chủ đề lại có 4 thẻ chưa xem, rồi lật thẻ đầu ("schedule").
 async function startFreshReview(page: Page) {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
-  const topic = await admin.from("topics").select("id").eq("slug", MATRIX_TOPICS.full.slug).limit(1).single();
+  const topic = await admin.from("topics").select("id").eq("slug", matrix.topics.full.slug).limit(1).single();
   if (topic.error) throw new Error(topic.error.message);
   const cards = await admin.from("cards").select("id").eq("topic_id", topic.data.id);
   if (cards.error) throw new Error(cards.error.message);
   const cardIds = cards.data.map((card) => card.id);
-  const flashcards = await admin.from("user_flashcards").delete().eq("user_id", STUDENT_ID).in("card_id", cardIds);
+  const flashcards = await admin.from("user_flashcards").delete().eq("user_id", matrix.student.id).in("card_id", cardIds);
   if (flashcards.error) throw new Error(flashcards.error.message);
-  const progress = await admin.from("user_topic_progress").delete().eq("user_id", STUDENT_ID).eq("topic_id", topic.data.id);
+  const progress = await admin.from("user_topic_progress").delete().eq("user_id", matrix.student.id).eq("topic_id", topic.data.id);
   if (progress.error) throw new Error(progress.error.message);
 
-  await page.goto(topicPath);
+  await page.goto(topicPath());
   await expect(page.getByText("4 / 4", { exact: true })).toBeVisible();
   await expect(page.getByText("schedule", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Hiện đáp án" }).click();

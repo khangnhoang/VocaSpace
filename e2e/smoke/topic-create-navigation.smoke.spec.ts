@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import {
   findCreatedTopicByTitle,
   prepareTopicCreateNavigationFixture,
-  topicCreateNavigationFixture,
 } from "../../scripts/e2e/topic-create-navigation-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { loginAsTeacher } from "../support/auth";
 import { selectStructureChapter } from "../support/structure-ui";
 import {
@@ -24,8 +24,10 @@ import {
 test("creates a topic into the exact Builder target with zero, one, or multiple existing drafts", async ({
   browser,
 }) => {
-  const fixture = await prepareTopicCreateNavigationFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? topicCreateNavigationFixture.courseId;
+  // Worker-scoped: giáo viên và khóa học riêng của worker này (parallelIndex).
+  const scope = getWorkerScope(test.info().parallelIndex);
+  const fixture = await prepareTopicCreateNavigationFixture(scope);
+  const courseId = fixture.E2E_COURSE_ID;
   const baseURL =
     process.env.E2E_BASE_URL ??
     `http://${process.env.E2E_HOST ?? "127.0.0.1"}:${process.env.E2E_PORT ?? "3100"}`;
@@ -49,7 +51,7 @@ test("creates a topic into the exact Builder target with zero, one, or multiple 
         new RegExp(`/teacher/courses/${courseId}/topics/[0-9a-f-]{36}$`),
         { timeout: 15_000 },
       );
-      const createdTopic = await findCreatedTopicByTitle(chapter.createTitle);
+      const createdTopic = await findCreatedTopicByTitle(scope, chapter.createTitle);
       expect(createdTopic.chapter_id).toBe(chapter.id);
       expect(createdTopic.status).toBe("draft");
       await expect(page).toHaveURL(getTopicBuilderPath(courseId, createdTopic.id), {

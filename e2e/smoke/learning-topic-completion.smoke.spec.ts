@@ -1,10 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  MATRIX_COURSE_SLUG,
   MATRIX_TOPICS,
   cleanupLearningWorkspaceMatrix,
+  matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf9/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf6/plan.md
@@ -28,36 +29,42 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 
 test.describe.configure({ mode: "serial" });
 
-const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 const WIDTHS = [375, 1280];
 
+// Worker-scoped: ma trận, học viên và giáo viên riêng của worker này (parallelIndex); gán trong beforeAll.
+let scope: ReturnType<typeof getWorkerScope>;
+let matrix: ReturnType<typeof matrixFor>;
+
 test.beforeAll(async () => {
+  scope = getWorkerScope(test.info().parallelIndex);
+  matrix = matrixFor(scope);
   test.setTimeout(240_000);
-  await seedLearningWorkspaceMatrix();
+  await seedLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.afterAll(async () => {
-  await cleanupLearningWorkspaceMatrix();
+  await cleanupLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.beforeEach(async ({ page }) => {
   await resetLearner();
   await page.goto("/login");
-  await page.getByLabel("Email").fill("student@gmail.com");
-  await page.getByLabel("Mật khẩu", { exact: true }).fill("123123");
+  await page.getByLabel("Email").fill(matrix.student.email);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(matrix.student.password);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 
 const topicPath = (key: keyof typeof MATRIX_TOPICS) =>
-  `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS[key].slug}`;
+  `/learn/${matrix.courseSlug}/${matrix.topics[key].slug}`;
 const completionTitle = (key: keyof typeof MATRIX_TOPICS) =>
-  `Đã hoàn thành chủ đề “${MATRIX_TOPICS[key].title}”`;
+  `Đã hoàn thành chủ đề “${matrix.topics[key].title}”`;
 
 /** Xóa mọi dấu vết học của học viên seed trong khóa fixture, để mỗi test bắt đầu từ chủ đề chưa học. */
 async function resetLearner() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
-  const course = await admin.from("courses").select("id").eq("slug", MATRIX_COURSE_SLUG).single();
+  const course = await admin.from("courses").select("id").eq("slug", matrix.courseSlug).single();
   if (course.error) throw new Error(course.error.message);
   const topics = await admin.from("topics").select("id").eq("course_id", course.data.id);
   if (topics.error) throw new Error(topics.error.message);
@@ -70,19 +77,19 @@ async function resetLearner() {
   const answers = await admin
     .from("user_question_answers")
     .delete()
-    .eq("user_id", STUDENT_ID)
+    .eq("user_id", matrix.student.id)
     .in("question_id", questions.data.map((question) => question.id));
   if (answers.error) throw new Error(answers.error.message);
   const flashcards = await admin
     .from("user_flashcards")
     .delete()
-    .eq("user_id", STUDENT_ID)
+    .eq("user_id", matrix.student.id)
     .in("card_id", cards.data.map((card) => card.id));
   if (flashcards.error) throw new Error(flashcards.error.message);
   const progress = await admin
     .from("user_topic_progress")
     .delete()
-    .eq("user_id", STUDENT_ID)
+    .eq("user_id", matrix.student.id)
     .in("topic_id", topicIds);
   if (progress.error) throw new Error(progress.error.message);
 }
@@ -331,7 +338,7 @@ for (const width of WIDTHS) {
     await expect(page.getByRole("button", { name: /^Ôn ngay/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Chủ đề tiếp theo" })).toHaveAttribute(
       "href",
-      `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS.vocabulary.slug}`,
+      `/learn/${matrix.courseSlug}/${matrix.topics.vocabulary.slug}`,
     );
     // Q8: a one-line action with no second line; the next topic is named in the hint instead.
     await expect(page.getByRole("link", { name: "Chủ đề tiếp theo" })).toHaveText("Chủ đề tiếp theo");
@@ -658,7 +665,7 @@ for (const width of WIDTHS) {
     // Chủ đề cuối của khóa: hành động chính dẫn về tổng quan khóa học.
     await expect(page.getByRole("link", { name: "Về tổng quan khóa học" }).first()).toHaveAttribute(
       "href",
-      `/learn/${MATRIX_COURSE_SLUG}`,
+      `/learn/${matrix.courseSlug}`,
     );
     await expectNoHorizontalOverflow(page);
   });

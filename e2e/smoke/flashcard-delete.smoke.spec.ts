@@ -4,7 +4,7 @@ import {
   getFlashcardRemovedAt,
   prepareFlashcardDeleteFixture,
 } from "../../scripts/e2e/flashcard-delete-fixture.mjs";
-import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 import { expectTopicBuilder } from "../support/structure-ui";
@@ -20,15 +20,16 @@ import { expectTopicBuilder } from "../support/structure-ui";
 // - Kết quả verify: scenario passed trong lượt focused bốn spec E2E-001 bằng `npm run test:e2e`.
 
 test.afterEach(async () => {
-  await cleanupFlashcardDeleteFixtures();
+  await cleanupFlashcardDeleteFixtures(getWorkerScope(test.info().parallelIndex));
 });
 
 test("teacher soft-deletes a flashcard and it stays absent after reload", async ({
   page,
 }) => {
-  const fixture = await prepareFlashcardDeleteFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
-  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  // Worker-scoped: giáo viên, khóa học và topic riêng của worker này (parallelIndex).
+  const fixture = await prepareFlashcardDeleteFixture(getWorkerScope(test.info().parallelIndex));
+  const courseId = fixture.E2E_COURSE_ID;
+  const topicId = fixture.E2E_TOPIC_ID;
   const cardId = fixture.E2E_FLASHCARD_ID;
   const word = fixture.E2E_FLASHCARD_WORD;
 
