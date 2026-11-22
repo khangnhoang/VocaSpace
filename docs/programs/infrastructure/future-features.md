@@ -13,7 +13,7 @@ Charter: [README.md](./README.md). Directions below are not implementation autho
 
 ## FEAT-026: Parallel Playwright workers per E2E shard
 
-- Status: Deferred (Owner direction, 2026-11-22), outside [INFRA-U1](./implementation-plans/u1-test-runtime/plan.md).
+- Status: Planned in [INFRA-U2](./implementation-plans/u2-e2e-parallel-workers/plan.md) (Owner direction, 2026-11-22); deferred from INFRA-U1.
 - Direction: run more than one Playwright worker per shard. Today every smoke file shares one isolated database with `workers: 1`. This needs an audit of each spec's fixture ownership (per-worker data, no shared seed mutation) first. Revisit after INFRA-U1 CP4 measures shard timing.
 - Target program: [Infrastructure and reliability](./README.md).
 
@@ -25,6 +25,6 @@ Charter: [README.md](./README.md). Directions below are not implementation autho
 
 ## FEAT-028: Balance E2E shards and measure 3 and 4 shards
 
-- Status: Deferred (Owner direction, 2026-11-22; INFRA-U1 CP4 dropped because the GitHub Actions quota is nearly used up).
+- Status: Partly planned (Owner direction, 2026-11-22): balancing the 2 shards is in [INFRA-U2](./implementation-plans/u2-e2e-parallel-workers/plan.md); measuring 3 and 4 shards stays deferred, since INFRA-U1 CP4 was dropped because the GitHub Actions quota is nearly used up.
 - Direction: shorten the slowest CI E2E shard further. Playwright's `--shard` splits the smoke files by test count in file order, so one shard's test time varies from 4.9 to 6.8 min on the same revision; `fullyParallel` does not move that boundary while the four serial spec files keep their groups. Options: an explicit duration-balanced file list per shard with a test that no smoke spec is left out (a replay on the `9b343dcd` logs put the two shards at about 304/314 s and 351/342 s of test time against 332/287 s and 395/298 s), or splitting the longest serial specs. Then measure 3 and 4 shards, which cost more runner minutes. The Supabase start still outlasts `npm ci` plus Chromium by about 37 s, so a start that is not the critical path, or `H2` of the INFRA-U1 plan (build without waiting for the stack), is the other open lever. The repeatable identity check is `scripts/e2e/shard-ids.mjs`.
 - Target program: [Infrastructure and reliability](./README.md).
