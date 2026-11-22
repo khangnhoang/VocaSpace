@@ -7,8 +7,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const suffix = ".smoke.spec.ts";
 // The ci.yml E2E matrix runs shards 1 and 2; a third array would never run and an empty one would run the whole E2E tree.
 export const shardCount = 2;
-// Playwright's default test-file pattern (`**/*.@(spec|test).?(c|m)[jt]s?(x)`): the check must see every file it collects.
-const collectedPattern = /\.(spec|test)\.[cm]?[jt]sx?$/;
+// Playwright's default test-file pattern (`**/*.@(spec|test).?(c|m)[jt]s?(x)`), matched without case like its glob matcher:
+// the check must see every file it collects.
+const collectedPattern = /\.(spec|test)\.[cm]?[jt]sx?$/i;
+// The CLI joins the paths with spaces, bash splits the unquoted list and Playwright reads each argument as a regex, so a
+// name is `/`-separated segments of lowercase letters, digits and hyphens.
+const safeName = /^[a-z0-9-]+(\/[a-z0-9-]+)*$/;
 
 export function readSmokeShards() {
   return JSON.parse(readFileSync(join(here, "smoke-shards.json"), "utf8")).shards;
@@ -37,6 +41,8 @@ export function shardFilePaths(shards, shardNumber) {
   const names = shards[shardNumber - 1];
   if (!names) throw new Error(`There is no smoke shard ${shardNumber}; the manifest has ${shards.length}.`);
   if (names.length === 0) throw new Error(`Smoke shard ${shardNumber} is empty; an empty file list would run the whole E2E tree.`);
+  const unsafe = names.filter((name) => !safeName.test(name));
+  if (unsafe.length > 0) throw new Error(`Smoke shard ${shardNumber} has unsafe names: ${unsafe.join(", ")}.`);
   return names.map((name) => `e2e/smoke/${name}${suffix}`);
 }
 
@@ -47,13 +53,21 @@ export function validateShards(shards, specNames) {
   shards.forEach((names, index) => {
     if (names.length === 0) problems.push(`shard ${index + 1} is empty`);
   });
+  const unsafe = new Set();
   for (const name of specNames) {
     if (collectedPattern.test(name)) problems.push(`${name} is collected by Playwright but is not named *${suffix}`);
+    else if (!safeName.test(name)) unsafe.add(name);
   }
   const seen = new Map();
   shards.forEach((names, index) => {
-    for (const name of names) seen.set(name, [...(seen.get(name) ?? []), index + 1]);
+    for (const name of names) {
+      seen.set(name, [...(seen.get(name) ?? []), index + 1]);
+      if (!collectedPattern.test(name) && !safeName.test(name)) unsafe.add(name);
+    }
   });
+  for (const name of unsafe) {
+    problems.push(`${name} is not a safe name: use /-separated segments of lowercase letters, digits and hyphens`);
+  }
   for (const [name, where] of seen) {
     if (where.length > 1) problems.push(`${name} is listed in shards ${where.join(" and ")}`);
     if (!specNames.includes(name)) problems.push(`${name} is listed but e2e/smoke/${name}${suffix} does not exist`);

@@ -35,16 +35,36 @@ test("collects spec files in sub-folders and files without the smoke suffix", ()
   const root = mkdtempSync(join(tmpdir(), "smoke-shards-"));
   try {
     mkdirSync(join(root, "e2e", "smoke", "sub"), { recursive: true });
-    for (const file of ["a.smoke.spec.ts", "sub/x.smoke.spec.ts", "new-flow.spec.ts", "helper.ts", "other.test.mjs"]) {
+    for (const file of ["a.smoke.spec.ts", "sub/x.smoke.spec.ts", "new-flow.spec.ts", "loud.SPEC.ts", "helper.ts", "other.test.mjs"]) {
       writeFileSync(join(root, "e2e", "smoke", file), "");
     }
     const names = smokeSpecNames(root);
-    assert.deepEqual(names, ["a", "new-flow.spec.ts", "other.test.mjs", "sub/x"]);
+    assert.deepEqual(names, ["a", "loud.SPEC.ts", "new-flow.spec.ts", "other.test.mjs", "sub/x"]);
     assert.deepEqual(validateShards([["a", "sub/x"], ["new-flow.spec.ts"]], names).sort(), [
+      "loud.SPEC.ts is collected by Playwright but is not named *.smoke.spec.ts",
+      "loud.SPEC.ts is in no shard",
       "new-flow.spec.ts is collected by Playwright but is not named *.smoke.spec.ts",
       "other.test.mjs is collected by Playwright but is not named *.smoke.spec.ts",
       "other.test.mjs is in no shard",
     ].sort());
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects names with whitespace, regex characters or capitals", () => {
+  const root = mkdtempSync(join(tmpdir(), "smoke-shards-"));
+  try {
+    mkdirSync(join(root, "e2e", "smoke", "mobile flows"), { recursive: true });
+    writeFileSync(join(root, "e2e", "smoke", "mobile flows", "login.smoke.spec.ts"), "");
+    writeFileSync(join(root, "e2e", "smoke", "a+b.smoke.spec.ts"), "");
+    writeFileSync(join(root, "e2e", "smoke", "Upper.smoke.spec.ts"), "");
+    const names = smokeSpecNames(root);
+    assert.deepEqual(names, ["Upper", "a+b", "mobile flows/login"]);
+    const unsafe = (name) => `${name} is not a safe name: use /-separated segments of lowercase letters, digits and hyphens`;
+    assert.deepEqual(validateShards([["mobile flows/login", "a+b"], ["Upper"]], names).sort(), names.map(unsafe).sort());
+    assert.throws(() => shardFilePaths([["mobile flows/login"], ["a"]], 1), /unsafe names: mobile flows\/login/);
+    assert.deepEqual(shardFilePaths([["sub/x-1"], ["a"]], 1), ["e2e/smoke/sub/x-1.smoke.spec.ts"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
