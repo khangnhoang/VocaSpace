@@ -1,0 +1,18 @@
+{
+  "rating": {
+    "again": "Lại",
+    "hard": "Khó",
+    "good": "Ổn",
+    "easy": "Dễ"
+  },
+  "stage": {
+    "reveal": "Hiện đáp án",
+    "meaning": "Nghĩa:",
+    "example": "VD:",
+    "translation": "Dịch:",
+    "explanation": "Giải thích chi tiết",
+    "hint": "Mẹo: {hint}",
+    "progressLabel": "Tiến độ từ vựng",
+    "progressValue": "Còn {left} trên {total} thẻ"
+  }
+}

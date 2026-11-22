@@ -5,6 +5,7 @@ import { domMax, LayoutGroup, LazyMotion, MotionConfig, useReducedMotion } from 
 import { useAnimate } from "motion/react-mini";
 import * as m from "motion/react-m";
 import { BriefcaseBusiness, CircleCheck, GraduationCap, Plane, RotateCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Rating } from "ts-fsrs";
 import FlashcardStage from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/FlashcardStage";
 import type { FlashcardDTO } from "@/lib/schemas/learn";
@@ -21,11 +22,12 @@ type DemoCard = {
   example: readonly [string, string, string];
 };
 
+// Từ, phiên âm, loại từ và nghĩa của thẻ mẫu giữ nguyên là nội dung minh họa (U2 quyết định 1); tên bộ thẻ và chữ giao diện đi theo catalog `home`.
 export const DEMO_DECKS = [
   {
     id: "toeic",
-    tab: "TOEIC",
-    title: "TOEIC Part 1",
+    tabKey: "practice.deckToeicTab",
+    titleKey: "practice.deckToeicTitle",
     Icon: Plane,
     cards: [
       {
@@ -50,8 +52,8 @@ export const DEMO_DECKS = [
   },
   {
     id: "ielts",
-    tab: "IELTS",
-    title: "IELTS Academic",
+    tabKey: "practice.deckIeltsTab",
+    titleKey: "practice.deckIeltsTitle",
     Icon: GraduationCap,
     cards: [
       {
@@ -76,8 +78,8 @@ export const DEMO_DECKS = [
   },
   {
     id: "office",
-    tab: "Công sở",
-    title: "Giao tiếp công sở",
+    tabKey: "practice.deckOfficeTab",
+    titleKey: "practice.deckOfficeTitle",
     Icon: BriefcaseBusiness,
     cards: [
       {
@@ -102,8 +104,8 @@ export const DEMO_DECKS = [
   },
 ] as const satisfies readonly {
   id: string;
-  tab: string;
-  title: string;
+  tabKey: string;
+  titleKey: string;
   Icon: typeof Plane;
   cards: readonly DemoCard[];
 }[];
@@ -112,13 +114,20 @@ type DeckId = (typeof DEMO_DECKS)[number]["id"];
 
 // Mốc minh họa cho khách xem, không phải lịch FSRS thật: trong app, khoảng ôn do FSRS tính riêng cho từng thẻ.
 // Thứ tự khớp FLASHCARD_RATINGS: Lại, Khó, Ổn, Dễ.
-export const DEMO_RAIL_MARKS = ["Hôm nay", "1 ngày", "3 ngày", "1 tuần", "1 tháng"] as const;
-const RATING_OUTCOMES = [
-  { mark: 0, when: "trong hôm nay" },
-  { mark: 1, when: "sau khoảng 1 ngày" },
-  { mark: 2, when: "sau khoảng 3 ngày" },
-  { mark: 3, when: "sau khoảng 1 tuần" },
+export const DEMO_RAIL_MARKS = [
+  "practice.markToday",
+  "practice.markDay1",
+  "practice.markDay3",
+  "practice.markWeek1",
+  "practice.markMonth1",
 ] as const;
+const RATING_OUTCOMES = [
+  { mark: 0, whenKey: "practice.whenToday" },
+  { mark: 1, whenKey: "practice.whenDay1" },
+  { mark: 2, whenKey: "practice.whenDay3" },
+  { mark: 3, whenKey: "practice.whenWeek1" },
+] as const;
+const STEP_KEYS = ["practice.stepMeet", "practice.stepRecall", "practice.stepSchedule"] as const;
 
 // Màn mở đầu: thẻ đầu tiên tự lật một lần rồi úp lại, để khách thấy cơ chế mà chưa cần bấm. Chỉ bắt đầu khi phần lớn thẻ
 // đã nằm trong màn hình (trên mobile thẻ thường ở dưới mép lúc tải trang), chạy một lần, và bỏ qua khi người dùng giảm
@@ -183,6 +192,8 @@ export default function HeroPractice() {
 }
 
 function PracticeDemo() {
+  const t = useTranslations("home");
+  const flashcardText = useTranslations("flashcard");
   const [deckId, setDeckId] = useState<DeckId>("toeic");
   const [session, setSession] = useState<DemoSession>(() => newSession(PRACTICE_DECKS[0].cards.length));
   const [hasChangedDeck, setHasChangedDeck] = useState(false);
@@ -253,10 +264,13 @@ function PracticeDemo() {
 
   const lastOutcome = session.lastRating && RATING_OUTCOMES[session.lastRating.outcome];
   const status = session.isRevealed
-    ? "Bạn nhớ từ này ở mức nào?"
+    ? t("practice.ratingPrompt")
     : session.lastRating && lastOutcome
-      ? `${session.lastRating.word}: ${session.lastRating.outcome < 2 ? "sẽ gặp lại trong bộ thử. " : ""}Ôn lại ${lastOutcome.when}.`
-      : "Hiện đáp án rồi chọn mức nhớ để xem lần ôn tiếp theo.";
+      ? t(session.lastRating.outcome < 2 ? "practice.statusRatedRequeue" : "practice.statusRated", {
+          word: session.lastRating.word,
+          when: t(lastOutcome.whenKey),
+        })
+      : t("practice.statusIdle");
 
   return (
     <section
@@ -266,23 +280,23 @@ function PracticeDemo() {
       onKeyDownCapture={stopIntro}
       className="min-w-0 rounded-3xl border border-slate-300 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.10)] sm:max-lg:p-6 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-4 motion-safe:duration-[1200ms] motion-safe:delay-[250ms] motion-safe:ease-[cubic-bezier(0.4,0,0.2,1)] motion-safe:fill-mode-both"
     >
-      <ol aria-label="Các bước học thử" className="mb-6 flex items-center gap-2 border-b border-slate-200 pb-5 text-xs font-semibold leading-4 text-slate-500 sm:gap-3 sm:text-sm lg:mb-3 lg:pb-3">
-        {["Gặp từ", "Nhớ lại", "Hẹn ôn"].map((label, index) => (
-          <li key={label} aria-current={index === currentStep ? "step" : undefined} className={cn("flex min-w-0 flex-1 items-center gap-2 transition-colors duration-[450ms] motion-reduce:transition-none", index === currentStep && "text-route", index < currentStep && "text-recall")}>
+      <ol aria-label={t("practice.stepsLabel")} className="mb-6 flex items-center gap-2 border-b border-slate-200 pb-5 text-xs font-semibold leading-4 text-slate-500 sm:gap-3 sm:text-sm lg:mb-3 lg:pb-3">
+        {STEP_KEYS.map((labelKey, index) => (
+          <li key={labelKey} aria-current={index === currentStep ? "step" : undefined} className={cn("flex min-w-0 flex-1 items-center gap-2 transition-colors duration-[450ms] motion-reduce:transition-none", index === currentStep && "text-route", index < currentStep && "text-recall")}>
             <span aria-hidden="true" className={cn("flex size-6 shrink-0 items-center justify-center rounded-full border transition-colors duration-[450ms] motion-reduce:transition-none", index === currentStep ? "border-route bg-route-quiet" : index < currentStep ? "border-recall bg-recall-quiet" : "border-slate-300")}>
               {index < currentStep ? <CircleCheck className="size-3.5" /> : index + 1}
             </span>
-            <span>{label}</span>
+            <span>{t(labelKey)}</span>
             {index < 2 && <span aria-hidden="true" className="ml-auto hidden h-px flex-1 bg-slate-300 sm:block" />}
           </li>
         ))}
       </ol>
       <div className="flex min-h-8 items-center justify-between gap-3 sm:min-h-0">
         <h2 id="hero-practice-title" className="font-[family-name:var(--font-geist-sans)] text-xs font-semibold uppercase leading-4 tracking-[0.04em] text-recall">
-          Thử ngay · {deck.title}
+          {t("practice.heading", { deck: t(deck.titleKey) })}
         </h2>
         <p className="shrink-0 font-[family-name:var(--font-geist-sans)] text-xs font-medium leading-4 text-slate-500">
-          Còn {session.queue.length}/{deck.cards.length} thẻ
+          {t("practice.remaining", { left: session.queue.length, total: deck.cards.length })}
         </p>
       </div>
       <Tabs
@@ -300,14 +314,14 @@ function PracticeDemo() {
         <LayoutGroup id={indicatorGroup}>
           <TabsList
             variant="line"
-            aria-label="Chọn bộ thẻ"
+            aria-label={t("practice.decksLabel")}
             className="w-full justify-start gap-0 rounded-none border-b border-slate-200 p-0 group-data-horizontal/tabs:h-11"
           >
-            {DEMO_DECKS.map(({ id, tab, Icon }) => (
+            {DEMO_DECKS.map(({ id, tabKey, Icon }) => (
               <TabsTrigger key={id} value={id} className="h-11 min-w-0 flex-none select-none rounded-none px-2.5 py-0 text-xs font-semibold text-slate-600 transition-colors duration-[250ms] after:hidden hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-route data-active:text-route motion-reduce:transition-none sm:px-3 sm:text-sm">
                 <span data-deck-label="" className="relative inline-flex h-full items-center gap-1.5">
                   <Icon aria-hidden="true" className="size-3.5 sm:size-4" />
-                  {tab}
+                  {t(tabKey)}
                   {deckId === id && (
                     <m.span
                       aria-hidden="true"
@@ -326,7 +340,7 @@ function PracticeDemo() {
             <div
               ref={stageRef}
               role={session.isRevealed ? "group" : undefined}
-              aria-label={session.isRevealed ? "Bạn nhớ từ này ở mức nào?" : undefined}
+              aria-label={session.isRevealed ? t("practice.ratingPrompt") : undefined}
             >
               <DemoLearningCard
                 enter={hasChangedDeck}
@@ -344,8 +358,8 @@ function PracticeDemo() {
           ) : (
             <div className="rounded-2xl border border-growth-line bg-growth-quiet p-5 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-[900ms] motion-safe:ease-[cubic-bezier(0.4,0,0.2,1)]">
               <CircleCheck aria-hidden="true" className="mb-3 size-6 text-growth" />
-              <p className="font-bold text-growth">Hoàn thành bộ thử</p>
-              <p className="mt-2 text-sm leading-[22px] text-slate-700">Bạn đã nhớ {deck.cards.length}/{deck.cards.length} thẻ. Trong app, mỗi thẻ có lịch ôn riêng.</p>
+              <p className="font-bold text-growth">{t("practice.completeTitle")}</p>
+              <p className="mt-2 text-sm leading-[22px] text-slate-700">{t("practice.completeText", { count: deck.cards.length })}</p>
               <Button
                 ref={restartRef}
                 type="button"
@@ -358,15 +372,15 @@ function PracticeDemo() {
                 }}
               >
                 <RotateCcw aria-hidden="true" />
-                Ôn lại bộ này
+                {t("practice.restart")}
               </Button>
-              <div role="progressbar" aria-label="Tiến độ từ vựng" aria-valuemin={0} aria-valuemax={deck.cards.length} aria-valuenow={completedCards} className="mt-4 h-1.5 rounded-full bg-recall" />
+              <div role="progressbar" aria-label={flashcardText("stage.progressLabel")} aria-valuemin={0} aria-valuemax={deck.cards.length} aria-valuenow={completedCards} className="mt-4 h-1.5 rounded-full bg-recall" />
             </div>
           )}
           <div className={cn("mt-5 rounded-2xl border border-recall-line bg-recall-quiet p-4 sm:max-lg:p-5 lg:mt-3", styles.reviewPanel)}>
             <div className="flex flex-wrap justify-between gap-2 font-[family-name:var(--font-geist-sans)] text-xs font-medium leading-4 text-recall">
-              <span>{session.lastRating ? `Lịch ôn của ${session.lastRating.word}` : "Lịch ôn của từ này"}</span>
-              <span>Ví dụ minh họa</span>
+              <span>{session.lastRating ? t("practice.scheduleOf", { word: session.lastRating.word }) : t("practice.scheduleDefault")}</span>
+              <span>{t("practice.illustration")}</span>
             </div>
             <ReviewRail currentMark={currentMark} />
             <p role="status" className="mt-4 min-h-[44px] text-sm font-semibold leading-[22px] text-slate-900 lg:mt-2">{status}</p>
@@ -401,6 +415,7 @@ function DemoLearningCard({ enter, ...props }: ComponentProps<typeof FlashcardSt
 const RAIL_STEP_MS = 250;
 
 function ReviewRail({ currentMark }: { currentMark: number }) {
+  const t = useTranslations("home");
   const reduceMotion = useReducedMotion();
   const timing = (step: number, isFilling: boolean) => ({
     transitionDuration: "550ms",
@@ -410,8 +425,8 @@ function ReviewRail({ currentMark }: { currentMark: number }) {
   return (
     <div aria-hidden="true" className={styles.reviewRail}>
       <div className={cn("mx-1 mt-3 flex items-center", styles.reviewTrack)}>
-        {DEMO_RAIL_MARKS.map((mark, index) => (
-          <div key={mark} className={cn("flex items-center", styles.reviewStop, index > 0 && "flex-1")}>
+        {DEMO_RAIL_MARKS.map((markKey, index) => (
+          <div key={markKey} className={cn("flex items-center", styles.reviewStop, index > 0 && "flex-1")}>
             {index > 0 && (
               <span className={cn("h-0.5 flex-1 overflow-hidden bg-slate-300", styles.reviewSegment)}>
                 <m.span
@@ -427,7 +442,7 @@ function ReviewRail({ currentMark }: { currentMark: number }) {
               </span>
             )}
             <span
-              data-rail-mark={mark}
+              data-rail-mark={t(markKey)}
               data-state={index < currentMark ? "done" : index === currentMark ? "current" : "next"}
               style={timing(index, index <= currentMark)}
               className={cn(
@@ -441,9 +456,9 @@ function ReviewRail({ currentMark }: { currentMark: number }) {
         ))}
       </div>
       <div className={cn("mt-2 flex justify-between text-xs leading-4 text-slate-500", styles.reviewLabels)}>
-        {DEMO_RAIL_MARKS.map((mark, index) => (
-          <span key={mark} className={cn(index === currentMark && "font-bold text-route")}>
-            {mark}
+        {DEMO_RAIL_MARKS.map((markKey, index) => (
+          <span key={markKey} className={cn(index === currentMark && "font-bold text-route")}>
+            {t(markKey)}
           </span>
         ))}
       </div>

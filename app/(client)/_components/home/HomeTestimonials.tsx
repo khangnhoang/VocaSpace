@@ -1,4 +1,5 @@
 import { CalendarCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { HomeTestimonial } from "@/lib/homepage/content";
 import { cn } from "@/lib/utils";
 import { HOME_CONTAINER, HOME_EYEBROW, HOME_SECTION_TITLE } from "./home-layout";
@@ -17,14 +18,15 @@ function initialsOf(name: string) {
 }
 
 export default function HomeTestimonials({ testimonials }: HomeTestimonialsProps) {
+  const t = useTranslations("home");
   if (testimonials.length === 0) return null;
 
   return (
     <section aria-labelledby="home-testimonials-title" className="pb-12 sm:pb-16">
       <div className={HOME_CONTAINER}>
-        <p className={HOME_EYEBROW}>Học viên</p>
+        <p className={HOME_EYEBROW}>{t("testimonials.eyebrow")}</p>
         <h2 id="home-testimonials-title" className={cn("mt-2", HOME_SECTION_TITLE)}>
-          Học viên nói gì về VocaSpace
+          {t("testimonials.title")}
         </h2>
         <ul className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
           {testimonials.map((item) => (
@@ -45,7 +47,7 @@ export default function HomeTestimonials({ testimonials }: HomeTestimonialsProps
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-bold leading-5 text-slate-900">{item.name}</span>
-                    <span className="block text-xs leading-4 text-slate-500">Học viên · {item.courseTitle}</span>
+                    <span className="block text-xs leading-4 text-slate-500">{t("testimonials.role", { course: item.courseTitle })}</span>
                   </span>
                 </figcaption>
                 {item.proof && (

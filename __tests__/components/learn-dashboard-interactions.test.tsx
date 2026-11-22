@@ -8,7 +8,7 @@ import {
   screen,
   waitFor,
   within,
-} from "@testing-library/react";
+} from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LearnDashboardClient from "@/app/(client)/learn/_components/LearnDashboardClient";
 import { getDeckReviewCards } from "@/app/actions/profile";

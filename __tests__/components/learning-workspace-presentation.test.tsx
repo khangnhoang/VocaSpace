@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Rating } from "ts-fsrs";
 import { toast } from "sonner";

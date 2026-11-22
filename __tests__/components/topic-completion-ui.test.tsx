@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@/__tests__/support/intl";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

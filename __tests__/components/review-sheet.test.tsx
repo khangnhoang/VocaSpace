@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React, { useState } from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDeckReviewCards } from "@/app/actions/profile";
 import { submitCardReview } from "@/app/actions/review";
