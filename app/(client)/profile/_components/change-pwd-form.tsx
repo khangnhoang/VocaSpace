@@ -6,10 +6,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { passwordSchema, PasswordFormValues } from "@/lib/schemas/profile";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
+import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
 import { updateUserPassword } from "@/app/actions/profile";
 
 export default function ChangePasswordForm() {
   const [isPending, startTransition] = useTransition();
+  const t = useTranslations("profile.passwordForm");
+  // Message của schema là khóa trong `validation` (U2 H3); form dịch khi hiển thị.
+  const tValidation = asTranslate(useTranslations("validation"));
 
   const form = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
@@ -31,7 +36,7 @@ export default function ChangePasswordForm() {
       }
 
       if (res.success) {
-        toast.success("Đổi mật khẩu tài khoản thành công!");
+        toast.success(t("changed"));
         form.reset(); // Dọn sạch form
       }
     });
@@ -41,51 +46,51 @@ export default function ChangePasswordForm() {
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 font-sans">
       <div>
         <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-          Mật khẩu hiện tại *
+          {t("current")}
         </label>
         <input
           type="password"
           {...form.register("currentPassword")}
-          placeholder="Nhập mật khẩu đang sử dụng"
+          placeholder={t("currentPlaceholder")}
           className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
         />
         {form.formState.errors.currentPassword && (
           <p className="mt-1 text-xs font-semibold text-correction">
-            {form.formState.errors.currentPassword.message}
+            {translateIssueMessage(tValidation, form.formState.errors.currentPassword.message ?? "")}
           </p>
         )}
       </div>
 
       <div>
         <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-          Mật khẩu mới *
+          {t("new")}
         </label>
         <input
           type="password"
           {...form.register("newPassword")}
-          placeholder="Mật khẩu từ 6 ký tự trở lên"
+          placeholder={t("newPlaceholder")}
           className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
         />
         {form.formState.errors.newPassword && (
           <p className="mt-1 text-xs font-semibold text-correction">
-            {form.formState.errors.newPassword.message}
+            {translateIssueMessage(tValidation, form.formState.errors.newPassword.message ?? "")}
           </p>
         )}
       </div>
 
       <div>
         <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-          Xác nhận mật khẩu mới *
+          {t("confirm")}
         </label>
         <input
           type="password"
           {...form.register("confirmPassword")}
-          placeholder="Gõ lại chính xác mật khẩu mới"
+          placeholder={t("confirmPlaceholder")}
           className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
         />
         {form.formState.errors.confirmPassword && (
           <p className="mt-1 text-xs font-semibold text-correction">
-            {form.formState.errors.confirmPassword.message}
+            {translateIssueMessage(tValidation, form.formState.errors.confirmPassword.message ?? "")}
           </p>
         )}
       </div>
@@ -95,7 +100,7 @@ export default function ChangePasswordForm() {
         disabled={isPending}
         className="mt-6 w-full rounded-xl bg-action px-4 py-3 text-sm font-bold text-action-foreground hover:bg-action/90 active:scale-95 transition-all shadow-md disabled:bg-slate-300 disabled:cursor-not-allowed"
       >
-        {isPending ? "Đang xác thực hệ thống..." : "Cập nhật mật khẩu"}
+        {isPending ? t("submitting") : t("submit")}
       </button>
     </form>
   );

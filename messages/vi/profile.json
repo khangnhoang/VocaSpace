@@ -1,0 +1,61 @@
+{
+  "page": {
+    "title": "Quản lý tài khoản"
+  },
+  "sidebar": {
+    "avatarAlt": "Avatar",
+    "uploadPhoto": "Tải ảnh",
+    "loading": "Đang tải...",
+    "defaultName": "Học viên",
+    "roleFallback": "Student",
+    "tabProfile": "Hồ sơ cá nhân",
+    "tabSecurity": "Bảo mật",
+    "tabPayments": "Thanh toán",
+    "avatarUpdated": "Cập nhật ảnh đại diện thành công!"
+  },
+  "editForm": {
+    "email": "Địa chỉ Email",
+    "phone": "Số điện thoại",
+    "notProvided": "Chưa cập nhật",
+    "fullName": "Họ và tên *",
+    "fullNamePlaceholder": "Nhập họ và tên đầy đủ",
+    "username": "Tên định danh (Username)",
+    "usernameHelp": "Bạn chỉ đặt được username một lần.",
+    "usernamePlaceholder": "Nhập username (từ 3 ký tự)",
+    "usernameUnset": "Chưa thiết lập",
+    "dob": "Ngày sinh",
+    "gender": "Giới tính",
+    "genderPlaceholder": "Chọn giới tính",
+    "genderMale": "Nam",
+    "genderFemale": "Nữ",
+    "genderOther": "Khác",
+    "submit": "Lưu thay đổi",
+    "submitting": "Đang đồng bộ dữ liệu...",
+    "saved": "Đã lưu thông tin hồ sơ thành công!"
+  },
+  "passwordForm": {
+    "current": "Mật khẩu hiện tại *",
+    "currentPlaceholder": "Nhập mật khẩu đang sử dụng",
+    "new": "Mật khẩu mới *",
+    "newPlaceholder": "Mật khẩu từ 6 ký tự trở lên",
+    "confirm": "Xác nhận mật khẩu mới *",
+    "confirmPlaceholder": "Gõ lại chính xác mật khẩu mới",
+    "submit": "Cập nhật mật khẩu",
+    "submitting": "Đang xác thực hệ thống...",
+    "changed": "Đổi mật khẩu tài khoản thành công!"
+  },
+  "actions": {
+    "signInRequired": "Vui lòng đăng nhập",
+    "profileNotFound": "Không tìm thấy hồ sơ người dùng",
+    "updateFailed": "Lỗi hệ thống khi cập nhật hồ sơ.",
+    "usernameTaken": "Tên người dùng (Username) đã tồn tại!",
+    "usernameAlreadySet": "Username đã được thiết lập, vui lòng tải lại trang.",
+    "noFile": "Không tìm thấy file tải lên",
+    "notImage": "Vui lòng tải lên định dạng hình ảnh hợp lệ",
+    "uploadFailed": "Lỗi tải ảnh lên hệ thống",
+    "avatarSyncFailed": "Lỗi đồng bộ ảnh đại diện vào hồ sơ",
+    "currentPasswordWrong": "Mật khẩu hiện tại không chính xác!",
+    "reauthNeeded": "Phiên đăng nhập đã cũ, bạn đăng nhập lại rồi thử nhé.",
+    "passwordUpdateFailed": "Chưa đổi được mật khẩu, vui lòng thử lại."
+  }
+}

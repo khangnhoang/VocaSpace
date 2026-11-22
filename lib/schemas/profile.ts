@@ -3,6 +3,7 @@ import { z } from "zod";
 import { minUtf16Length } from "./utf16-length";
 import { FlashcardDTO } from "./learn"; // Tái sử dụng triệt để DTO cốt lõi
 import { GENDER_VALUES, type Gender } from "./gender";
+import { wrongType } from "./issue-keys";
 
 // Chuỗi rỗng hoặc chỉ có khoảng trắng nghĩa là "không nhập": lưu null để cột `date` không nhận "" (G4).
 // Chuẩn hóa nằm trong schema mà server parse, không chỉ ở form, nên request tự chế cũng được xử lý giống UI.
@@ -10,32 +11,34 @@ const blankToNull = (value: string | null | undefined) =>
   value == null || value.trim() === "" ? null : value;
 
 // 1. Schema kiểm tra dữ liệu cập nhật thông tin
+// English localization U2 (H3): message là khóa trong namespace `validation`; form và `updateUserProfile` dịch theo ngôn ngữ đang dùng.
+// Lỗi sai kiểu (ví dụ FormData thiếu trường, object tự chế) giữ đúng văn bản Zod cũ qua `wrongType`, riêng giới tính giữ message riêng.
 export const profileSchema = z.object({
-  full_name: z.string().check(minUtf16Length(2, "Họ tên phải có ít nhất 2 ký tự")),
+  full_name: z.string({ error: wrongType("string") }).check(minUtf16Length(2, "profile.fullNameMin")),
   // Username không bị trim khi có giá trị (giống luật đăng ký); chỉ giá trị rỗng/khoảng trắng thành null.
   username: z
-    .string()
+    .string({ error: wrongType("string") })
     .nullish()
     .transform(blankToNull)
-    .pipe(z.string().check(minUtf16Length(3, "Username phải từ 3 ký tự trở lên")).nullable()),
-  dob: z.string().nullish().transform(blankToNull),
+    .pipe(z.string().check(minUtf16Length(3, "profile.usernameMin")).nullable()),
+  dob: z.string({ error: wrongType("string") }).nullish().transform(blankToNull),
   gender: z
-    .string({ error: "Giới tính không hợp lệ." })
+    .string({ error: "profile.genderInvalid" })
     .nullish()
     .transform(blankToNull)
-    .pipe(z.enum(GENDER_VALUES, { error: "Giới tính không hợp lệ." }).nullable()),
-  avatar_url: z.string().optional().nullable(),
-});
+    .pipe(z.enum(GENDER_VALUES, { error: "profile.genderInvalid" }).nullable()),
+  avatar_url: z.string({ error: wrongType("string") }).optional().nullable(),
+}, { error: wrongType("object") });
 
 // 2. Schema kiểm tra dữ liệu đổi mật khẩu
 export const passwordSchema = z
   .object({
-    currentPassword: z.string().check(minUtf16Length(6, "Mật khẩu hiện tại quá ngắn")),
-    newPassword: z.string().check(minUtf16Length(6, "Mật khẩu mới phải từ 6 ký tự")),
-    confirmPassword: z.string(),
-  })
+    currentPassword: z.string({ error: wrongType("string") }).check(minUtf16Length(6, "password.currentMin")),
+    newPassword: z.string({ error: wrongType("string") }).check(minUtf16Length(6, "password.newMin")),
+    confirmPassword: z.string({ error: wrongType("string") }),
+  }, { error: wrongType("object") })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Mật khẩu xác nhận không khớp",
+    message: "password.mismatch",
     path: ["confirmPassword"],
   });
 

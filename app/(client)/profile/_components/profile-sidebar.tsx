@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useTransition, useCallback, type Re
 import { Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { getUserProfile, uploadAvatar } from "@/app/actions/profile";
 import { UserProfileDTO } from "@/lib/schemas/profile";
 
@@ -23,6 +24,7 @@ export default function ProfileSidebar({
   isDesktop: boolean | null;
   paymentsPanel: ReactNode;
 }) {
+  const t = useTranslations("profile.sidebar");
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const visibleTab: ProfileTab =
     isDesktop === true && activeTab === "payments" ? "profile" : activeTab;
@@ -88,7 +90,7 @@ export default function ProfileSidebar({
       }
 
       if (res.success && res.avatarUrl) {
-        toast.success("Cập nhật ảnh đại diện thành công!");
+        toast.success(t("avatarUpdated"));
         setProfileData((prev) => prev ? { ...prev, avatar_url: res.avatarUrl } : null);
       }
     });
@@ -122,7 +124,7 @@ export default function ProfileSidebar({
           ) : profileData?.avatar_url ? (
             <Image 
               src={profileData.avatar_url} 
-              alt="Avatar" 
+              alt={t("avatarAlt")} 
               fill
               sizes="96px"
               className="object-cover" 
@@ -134,17 +136,17 @@ export default function ProfileSidebar({
           {!isLoading && !isUploadingAvatar && (
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white z-10">
               <Camera size={20} />
-              <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Tải ảnh</span>
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">{t("uploadPhoto")}</span>
             </div>
           )}
         </button>
 
         <h2 className="text-xl font-bold text-slate-800">
-          {isLoading ? "Đang tải..." : profileData?.full_name || "Học viên"}
+          {isLoading ? t("loading") : profileData?.full_name || t("defaultName")}
         </h2>
         
         <p className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full mt-2 uppercase tracking-wider">
-          {profileData?.role || "Student"}
+          {profileData?.role || t("roleFallback")}
         </p>
       </div>
 
@@ -158,7 +160,7 @@ export default function ProfileSidebar({
               : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          Hồ sơ cá nhân
+          {t("tabProfile")}
         </button>
         <button
           aria-current={visibleTab === "security" ? "true" : undefined}
@@ -169,7 +171,7 @@ export default function ProfileSidebar({
               : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          Bảo mật
+          {t("tabSecurity")}
         </button>
         {isDesktop !== true && (
           <button
@@ -181,7 +183,7 @@ export default function ProfileSidebar({
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            Thanh toán
+            {t("tabPayments")}
           </button>
         )}
       </div>

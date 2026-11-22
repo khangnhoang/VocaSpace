@@ -1,0 +1,61 @@
+{
+  "page": {
+    "title": "Account settings"
+  },
+  "sidebar": {
+    "avatarAlt": "Profile photo",
+    "uploadPhoto": "Upload photo",
+    "loading": "Loading...",
+    "defaultName": "Learner",
+    "roleFallback": "Student",
+    "tabProfile": "Profile",
+    "tabSecurity": "Security",
+    "tabPayments": "Payments",
+    "avatarUpdated": "Profile photo updated!"
+  },
+  "editForm": {
+    "email": "Email address",
+    "phone": "Phone number",
+    "notProvided": "Not provided",
+    "fullName": "Full name *",
+    "fullNamePlaceholder": "Enter your full name",
+    "username": "Username",
+    "usernameHelp": "You can only set your username once.",
+    "usernamePlaceholder": "Enter a username (at least 3 characters)",
+    "usernameUnset": "Not set",
+    "dob": "Date of birth",
+    "gender": "Gender",
+    "genderPlaceholder": "Select gender",
+    "genderMale": "Male",
+    "genderFemale": "Female",
+    "genderOther": "Other",
+    "submit": "Save changes",
+    "submitting": "Saving changes...",
+    "saved": "Profile saved!"
+  },
+  "passwordForm": {
+    "current": "Current password *",
+    "currentPlaceholder": "Enter your current password",
+    "new": "New password *",
+    "newPlaceholder": "At least 6 characters",
+    "confirm": "Confirm new password *",
+    "confirmPlaceholder": "Re-enter your new password",
+    "submit": "Update password",
+    "submitting": "Verifying...",
+    "changed": "Password changed!"
+  },
+  "actions": {
+    "signInRequired": "Please sign in",
+    "profileNotFound": "We couldn't find your profile",
+    "updateFailed": "Something went wrong while updating your profile.",
+    "usernameTaken": "That username is already taken!",
+    "usernameAlreadySet": "Your username is already set. Please reload the page.",
+    "noFile": "No file was uploaded",
+    "notImage": "Please upload a valid image file",
+    "uploadFailed": "Couldn't upload your photo",
+    "avatarSyncFailed": "Couldn't save your photo to your profile",
+    "currentPasswordWrong": "Your current password is incorrect!",
+    "reauthNeeded": "Your session is too old. Please sign in again and retry.",
+    "passwordUpdateFailed": "Couldn't change your password. Please try again."
+  }
+}

@@ -19,7 +19,14 @@
   "password": {
     "setMin": "Mật khẩu ít nhất 6 ký tự cho an toàn",
     "confirmRequired": "Vui lòng xác nhận lại mật khẩu",
-    "mismatch": "Mật khẩu xác nhận không khớp"
+    "mismatch": "Mật khẩu xác nhận không khớp",
+    "currentMin": "Mật khẩu hiện tại quá ngắn",
+    "newMin": "Mật khẩu mới phải từ 6 ký tự"
+  },
+  "profile": {
+    "fullNameMin": "Họ tên phải có ít nhất 2 ký tự",
+    "usernameMin": "Username phải từ 3 ký tự trở lên",
+    "genderInvalid": "Giới tính không hợp lệ."
   },
   "avatar": {
     "invalid": "Ảnh đại diện chưa hợp lệ. Hãy chọn ảnh JPG, PNG hoặc WebP khác."

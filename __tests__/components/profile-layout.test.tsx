@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { hydrateRoot } from "react-dom/client";
-import { renderToString } from "react-dom/server";
+import { act, cleanup, fireEvent, hydrateRoot, render, renderToString, screen, waitFor } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ProfilePage from "@/app/(client)/profile/page";
 import ProfileLayout from "@/app/(client)/profile/_components/profile-layout";
