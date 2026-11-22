@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 

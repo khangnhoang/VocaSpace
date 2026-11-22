@@ -8,5 +8,24 @@
     "phoneTooLong": "Số điện thoại quá dài",
     "dobInvalid": "Vui lòng chọn ngày sinh hợp lệ",
     "genderRequired": "Vui lòng chọn giới tính"
+  },
+  "login": {
+    "emailInvalid": "Email không đúng định dạng",
+    "passwordRequired": "Vui lòng nhập mật khẩu"
+  },
+  "email": {
+    "invalid": "Email này không đúng định dạng"
+  },
+  "password": {
+    "setMin": "Mật khẩu ít nhất 6 ký tự cho an toàn",
+    "confirmRequired": "Vui lòng xác nhận lại mật khẩu",
+    "mismatch": "Mật khẩu xác nhận không khớp"
+  },
+  "avatar": {
+    "invalid": "Ảnh đại diện chưa hợp lệ. Hãy chọn ảnh JPG, PNG hoặc WebP khác."
+  },
+  "zodType": {
+    "string": "Invalid input: expected string, received {received}",
+    "object": "Invalid input: expected object, received {received}"
   }
 }

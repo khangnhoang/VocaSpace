@@ -3,12 +3,15 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { LogIn, UserPlus } from "lucide-react";
 import { domMax, LazyMotion, MotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { cn } from "@/lib/utils";
+import { asTranslate, type Translate } from "@/lib/i18n/translate";
 import type { LastSignInMethod } from "@/lib/schemas/auth";
 import { AuthShellContext, type AuthPanelState } from "./auth-shell-context";
+import { forgotPanel, loginPanel, registerPanel } from "./auth-panels";
 import { MemoryCurvePanel } from "./memory-curve-panel";
 import { WordDeck } from "./word-deck";
 import { AutoHeight, SlideIn } from "./auth-motion";
@@ -16,41 +19,15 @@ import { AutoHeight, SlideIn } from "./auth-motion";
 // Thứ tự để chọn hướng trượt khi đổi trang: quên mật khẩu ← đăng nhập → đăng ký.
 const ROUTE_ORDER: Record<string, number> = { "/forgot-password": -1, "/login": 0, "/register": 1 };
 
-const LOGIN_PANEL: AuthPanelState = {
-  variant: { kind: "login" },
-  copy: {
-    title: "Ôn đúng lúc sắp quên.",
-    text: "VocaSpace dùng FSRS để tính lúc bạn sắp quên từng thẻ và xếp lịch ôn ngay trước đó. Ôn ít lần hơn mà nhớ lâu hơn.",
-  },
-  showFlashcard: true,
-};
-
-const FORGOT_PANEL: AuthPanelState = {
-  variant: { kind: "forgot", sent: false },
-  copy: {
-    title: "Quên là chuyện bình thường.",
-    text: "Lâu không ôn thì trí nhớ nào cũng tụt dần. Một lần ôn lại là kéo nó lên.",
-  },
-};
-
-const REGISTER_PANEL: AuthPanelState = {
-  variant: { kind: "register", stage: 1 },
-  copy: {
-    stage: "CHẶNG 1/5",
-    title: "Mỗi bước, một lần ghi nhớ.",
-    text: "Đường cong của bạn bắt đầu từ hôm nay. Xong mỗi chặng, nó lại vững thêm một nấc.",
-  },
-};
-
-function defaultPanelFor(pathname: string): AuthPanelState {
-  if (pathname.startsWith("/forgot-password")) return FORGOT_PANEL;
-  if (pathname.startsWith("/register")) return REGISTER_PANEL;
-  return LOGIN_PANEL;
+function defaultPanelFor(pathname: string, t: Translate): AuthPanelState {
+  if (pathname.startsWith("/forgot-password")) return forgotPanel(t, false);
+  if (pathname.startsWith("/register")) return registerPanel(t, 1);
+  return loginPanel(t);
 }
 
 const TABS = [
-  { href: "/login", label: "Đăng nhập", Icon: LogIn },
-  { href: "/register", label: "Đăng ký", Icon: UserPlus },
+  { href: "/login", labelKey: "shell.tabLogin", Icon: LogIn },
+  { href: "/register", labelKey: "shell.tabRegister", Icon: UserPlus },
 ] as const;
 
 type AuthShellProps = {
@@ -61,6 +38,7 @@ type AuthShellProps = {
 };
 
 export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellProps) {
+  const t = asTranslate(useTranslations("auth"));
   const pathname = usePathname() ?? "/login";
   const [panelOverride, setPanelOverride] = useState<AuthPanelState | null>(null);
   const [tabsOverride, setTabsOverride] = useState<boolean | null>(null);
@@ -74,7 +52,7 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
   const setShowTabs = useCallback((show: boolean | null) => setTabsOverride(show), []);
   const setPasswordFocused = useCallback((focused: boolean) => setPasswordFocusedState(focused), []);
 
-  const panel = panelOverride ?? fixedPanel ?? defaultPanelFor(pathname);
+  const panel = panelOverride ?? fixedPanel ?? defaultPanelFor(pathname, t);
   const onTabRoute = TABS.some((tab) => pathname === tab.href);
   const showTabs = !fixedPanel && (tabsOverride ?? onTabRoute);
 
@@ -99,8 +77,8 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
           <section className="flex justify-center px-3 pt-5 pb-4 min-[960px]:px-9 min-[960px]:pt-7">
             <div className="flex w-full max-w-[408px] flex-col">
               {showTabs ? (
-                <nav aria-label="Đăng nhập hoặc đăng ký" className="mb-7 flex border-b border-slate-200">
-                  {TABS.map(({ href, label, Icon }) => {
+                <nav aria-label={t("shell.tabsLabel")} className="mb-7 flex border-b border-slate-200">
+                  {TABS.map(({ href, labelKey, Icon }) => {
                     const current = pathname === href;
                     return (
                       <Link
@@ -113,7 +91,7 @@ export function AuthShell({ children, lastSignInMethod, fixedPanel }: AuthShellP
                         )}
                       >
                         <Icon aria-hidden="true" className="size-5" />
-                        {label}
+                        {t(labelKey)}
                         {current ? (
                           // Panel và thanh tab sống trong layout chung, nên vạch chỉ báo trượt sang tab mới (AC2).
                           <m.span

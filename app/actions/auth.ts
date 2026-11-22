@@ -4,10 +4,9 @@ import { randomBytes } from "node:crypto";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { consumePasswordRecovery, getPasswordSetupEligibility } from "@/lib/auth/password-setup";
-import { SAME_PASSWORD_MESSAGE, WEAK_PASSWORD_MESSAGE } from "@/lib/auth/password-update-messages";
 import {
   AVATAR_FILE_EXTENSIONS,
-  AVATAR_INVALID_MESSAGE,
+  AVATAR_INVALID_KEY,
   avatarFileSchema,
   loginSchema,
   passwordRecoveryRequestSchema,
@@ -18,6 +17,7 @@ import {
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
+import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
 import {
   LAST_SIGN_IN_METHOD_COOKIE,
   RETURN_PATH_COOKIE,
@@ -27,18 +27,11 @@ import {
   resolveReturnPath,
 } from "@/lib/auth/return-path";
 
-const SIGNUP_UNAVAILABLE_MESSAGE = "Đăng ký tạm thời chưa khả dụng";
-const SIGNUP_RETRY_MESSAGE = "Đăng ký chưa thành công, vui lòng thử lại.";
-const USERNAME_TAKEN_MESSAGE = "Username đã được dùng, hãy thử username khác.";
-const RESEND_MESSAGE = "Mail xác minh mới sẽ tới trong vài phút, bạn kiểm tra cả mục Spam nhé!";
-const RECOVERY_MESSAGE =
-  "Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé.";
-const SIGN_IN_FAILED_MESSAGE = "Sai email hoặc mật khẩu!";
-const SET_PASSWORD_NOT_ALLOWED_MESSAGE =
-  "Phiên xác minh không còn hợp lệ để đặt mật khẩu. Vui lòng đăng nhập lại.";
-const SET_PASSWORD_FAILED_MESSAGE = "Chưa đặt được mật khẩu, vui lòng thử lại.";
-const SET_PASSWORD_SESSION_EXPIRED_MESSAGE =
-  "Phiên xác minh đã quá 24 giờ. Bạn yêu cầu link mới ở trang Quên mật khẩu nhé.";
+// Thông báo của action nằm trong catalog `auth.actions` và `validation`, dịch theo ngôn ngữ của request lúc trả về (U2 H4).
+// Dạng trả về `{ error }` / `{ success, message }` giữ nguyên.
+async function authActionText() {
+  return asTranslate(await getTranslations("auth.actions"));
+}
 
 // G4: admin API bỏ qua công tắc "Allow new users to sign up" của Supabase, nên đọc công tắc đó
 // trước khi tạo user. Không cache để tắt đăng ký trên dashboard có hiệu lực ngay; đọc lỗi hoặc
@@ -86,20 +79,22 @@ export async function signUpUser(formData: FormData) {
   if (!validated.success) {
     // Sửa chữ .errors thành .issues là TypeScript xanh mượt ngay
     // English localization U1: message là khóa trong namespace `validation`; trả bản dịch theo ngôn ngữ của request.
-    const tValidation = await getTranslations("validation");
-    return { error: tValidation(validated.error.issues[0].message as Parameters<typeof tValidation>[0]) };
+    const tValidation = asTranslate(await getTranslations("validation"));
+    return { error: translateIssueMessage(tValidation, validated.error.issues[0].message) };
   }
 
   // Ảnh là tuỳ chọn: không gửi hoặc gửi tệp rỗng thì bỏ qua; có thì phải hợp lệ trước mọi truy vấn và upload.
   const rawAvatar = formData.get("avatar");
   const hasAvatar = rawAvatar instanceof File ? rawAvatar.size > 0 : rawAvatar !== null;
   const parsedAvatar = hasAvatar ? avatarFileSchema.safeParse(rawAvatar) : null;
-  if (parsedAvatar && !parsedAvatar.success) return { error: AVATAR_INVALID_MESSAGE };
+  if (parsedAvatar && !parsedAvatar.success) {
+    return { error: translateIssueMessage(asTranslate(await getTranslations("validation")), AVATAR_INVALID_KEY) };
+  }
 
   // 3. Destructuring dữ liệu sạch
   const { email, username, full_name, phone, dob, gender } = validated.data;
 
-  if (!(await isSignupOpen())) return { error: SIGNUP_UNAVAILABLE_MESSAGE };
+  if (!(await isSignupOpen())) return { error: (await authActionText())("signUpUnavailable") };
 
   // G5: lỗi username chỉ đến từ bước kiểm tra trước này, nên giống nhau với mọi trạng thái email.
   const service = createServiceRoleClient();
@@ -108,8 +103,8 @@ export async function signUpUser(formData: FormData) {
     .select("id")
     .eq("username", username)
     .maybeSingle();
-  if (usernameError) return { error: SIGNUP_RETRY_MESSAGE };
-  if (existingProfile) return { error: USERNAME_TAKEN_MESSAGE };
+  if (usernameError) return { error: (await authActionText())("signUpRetry") };
+  if (existingProfile) return { error: (await authActionText())("usernameTaken") };
 
   let avatar_url = null;
 
@@ -167,7 +162,7 @@ export async function resendSignupConfirmation(email: string) {
   }
 
   // G5: mọi kết quả đều trả cùng một thông điệp.
-  return { success: true, message: RESEND_MESSAGE };
+  return { success: true, message: (await authActionText())("resend") };
 }
 
 export async function requestPasswordRecovery(email: string) {
@@ -181,7 +176,7 @@ export async function requestPasswordRecovery(email: string) {
       console.error("requestPasswordRecovery failed:", "unexpected_failure");
     }
   }
-  return { success: true, message: RECOVERY_MESSAGE };
+  return { success: true, message: (await authActionText())("recovery") };
 }
 
 // Hàm Đăng nhập
@@ -190,12 +185,12 @@ export async function signInUser(formData: FormData) {
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!validated.success) return { error: SIGN_IN_FAILED_MESSAGE };
+  if (!validated.success) return { error: (await authActionText())("signInFailed") };
 
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword(validated.data);
-  if (error) return { error: SIGN_IN_FAILED_MESSAGE };
+  if (error) return { error: (await authActionText())("signInFailed") };
 
   // U3 G1/G2: trang đích chỉ lấy từ cookie proxy ghi và được kiểm tra lại ở đây; trường form nào (next,
   // redirectTo…) cũng không được đọc. Cookie bị xoá sau lần đăng nhập thành công này.
@@ -213,21 +208,25 @@ export async function setPasswordAfterConfirmation(formData: FormData) {
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
   });
-  if (!validated.success) return { error: validated.error.issues[0].message };
+  if (!validated.success) {
+    const tValidation = asTranslate(await getTranslations("validation"));
+    return { error: translateIssueMessage(tValidation, validated.error.issues[0].message) };
+  }
 
   const supabase = await createClient();
   const eligibility = await getPasswordSetupEligibility(supabase);
-  if (eligibility.status !== "eligible") return { error: SET_PASSWORD_NOT_ALLOWED_MESSAGE };
+  if (eligibility.status !== "eligible") return { error: (await authActionText())("setPasswordNotAllowed") };
 
   // Đổi bằng chính session vừa xác minh (không dùng admin), để Auth server kiểm session đó.
   const { error: updateError } = await supabase.auth.updateUser({ password: validated.data.password });
   if (updateError) {
     console.error("setPasswordAfterConfirmation updateUser failed:", updateError.code ?? updateError.status);
-    if (updateError.code === "same_password") return { error: SAME_PASSWORD_MESSAGE };
-    if (updateError.code === "weak_password") return { error: WEAK_PASSWORD_MESSAGE };
+    const text = await authActionText();
+    if (updateError.code === "same_password") return { error: text("samePassword") };
+    if (updateError.code === "weak_password") return { error: text("weakPassword") };
     // "Secure password change" đòi nonce khi session quá 24 giờ; app không có UI nonce nên gửi link mới.
-    if (updateError.code === "reauthentication_needed") return { error: SET_PASSWORD_SESSION_EXPIRED_MESSAGE };
-    return { error: SET_PASSWORD_FAILED_MESSAGE };
+    if (updateError.code === "reauthentication_needed") return { error: text("setPasswordSessionExpired") };
+    return { error: text("setPasswordFailed") };
   }
 
   const service = createServiceRoleClient();

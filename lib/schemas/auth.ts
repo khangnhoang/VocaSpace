@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { minUtf16Length } from "./utf16-length";
 import { GENDER_VALUES } from "./gender";
+import { wrongType } from "./issue-keys";
 
 // --- BƯỚC 1: Tài khoản. Mật khẩu được đặt sau khi xác minh email (A1, setPasswordSchema). ---
 // English localization U1 (H3): message của registerSchema là khóa trong namespace `validation`; form và `signUpUser` dịch
@@ -38,26 +39,28 @@ export const AVATAR_MAX_DIMENSION = 512;
 export const AVATAR_MAX_BYTES = 900 * 1024;
 export const AVATAR_FILE_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
 const AVATAR_TYPES: readonly string[] = Object.keys(AVATAR_FILE_EXTENSIONS);
-export const AVATAR_INVALID_MESSAGE = "Ảnh đại diện chưa hợp lệ. Hãy chọn ảnh JPG, PNG hoặc WebP khác.";
+// Khóa trong namespace `validation`; server và form dịch theo ngôn ngữ đang dùng (English localization U2).
+export const AVATAR_INVALID_KEY = "avatar.invalid";
 
 export const avatarFileSchema = z
-  .instanceof(File, { message: AVATAR_INVALID_MESSAGE })
-  .refine((file) => file.size > 0 && file.size <= AVATAR_MAX_BYTES, AVATAR_INVALID_MESSAGE)
-  .refine((file) => AVATAR_TYPES.includes(file.type), AVATAR_INVALID_MESSAGE)
+  .instanceof(File, { message: AVATAR_INVALID_KEY })
+  .refine((file) => file.size > 0 && file.size <= AVATAR_MAX_BYTES, AVATAR_INVALID_KEY)
+  .refine((file) => AVATAR_TYPES.includes(file.type), AVATAR_INVALID_KEY)
   .transform((file) => ({ file, type: file.type as keyof typeof AVATAR_FILE_EXTENSIONS }));
 
 // --- ĐẶT MẬT KHẨU SAU KHI XÁC MINH EMAIL (A1) — giữ luật mật khẩu cũ của form đăng ký ---
+// English localization U2 (H3): message là khóa trong namespace `validation`; lỗi sai kiểu giữ đúng văn bản Zod cũ qua `wrongType`.
 export const setPasswordSchema = z.object({
-  password: z.string().check(minUtf16Length(6, "Mật khẩu ít nhất 6 ký tự cho an toàn")),
-  confirmPassword: z.string().min(1, "Vui lòng xác nhận lại mật khẩu"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Mật khẩu xác nhận không khớp",
+  password: z.string({ error: wrongType("string") }).check(minUtf16Length(6, "password.setMin")),
+  confirmPassword: z.string({ error: wrongType("string") }).min(1, "password.confirmRequired"),
+}, { error: wrongType("object") }).refine((data) => data.password === data.confirmPassword, {
+  message: "password.mismatch",
   path: ["confirmPassword"],
 });
 
 export const resendSignupConfirmationSchema = z.object({
-  email: z.email("Email này không đúng định dạng"),
-});
+  email: z.email("email.invalid"),
+}, { error: wrongType("object") });
 
 export const passwordRecoveryRequestSchema = resendSignupConfirmationSchema;
 
@@ -88,9 +91,9 @@ export type LastSignInMethod = z.infer<typeof lastSignInMethodSchema>;
 
 // --- FORM LOGIN (Giữ nguyên) ---
 export const loginSchema = z.object({
-  email: z.email("Email không đúng định dạng"),
-  password: z.string().min(1, "Vui lòng nhập mật khẩu"),
-});
+  email: z.email("login.emailInvalid"),
+  password: z.string({ error: wrongType("string") }).min(1, "login.passwordRequired"),
+}, { error: wrongType("object") });
 
 export const adminUserSchema = z.object({
   email: z.email("Email không đúng định dạng"),

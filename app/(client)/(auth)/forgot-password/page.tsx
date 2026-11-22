@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,12 +12,15 @@ import { Button } from "@/components/ui/button";
 import { AuthNotice, EmailField } from "@/components/auth/auth-fields";
 import { useAuthPanel } from "@/components/auth/auth-shell-context";
 import { mailboxLinkFor } from "@/lib/auth/email-help";
+import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { forgotPanel } from "@/components/auth/auth-panels";
 
-const RECOVERY_MESSAGE =
-  "Đã gửi yêu cầu! Bạn kiểm tra hộp thư (cả mục Spam) trong vài phút nhé.";
 const COOLDOWN_SECONDS = 60;
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations("auth");
+  const tx = asTranslate(useTranslations("validation"));
+  const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tx, message) : undefined);
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -26,14 +30,7 @@ export default function ForgotPasswordPage() {
     defaultValues: { email: "" },
   });
 
-  useAuthPanel(
-    sentTo
-      ? {
-          variant: { kind: "forgot", sent: true },
-          copy: { title: "Một lần ôn lại là nhớ.", text: "Mở email, bấm link và đặt mật khẩu mới để học tiếp." },
-        }
-      : null,
-  );
+  useAuthPanel(sentTo ? forgotPanel(asTranslate(t), true) : null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -57,9 +54,9 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  const submitLabel = isSending ? "Đang gửi…"
-    : cooldown > 0 ? `Gửi lại link (${cooldown}s)` : sentTo ? "Gửi lại link" : "Gửi link đặt lại";
-  const mailbox = sentTo ? mailboxLinkFor(sentTo) : null;
+  const submitLabel = isSending ? t("forgot.sending")
+    : cooldown > 0 ? t("forgot.resendCooldown", { seconds: cooldown }) : sentTo ? t("forgot.resend") : t("forgot.submit");
+  const mailbox = sentTo ? mailboxLinkFor(sentTo, asTranslate(t)) : null;
 
   return (
     <>
@@ -68,18 +65,18 @@ export default function ForgotPasswordPage() {
         className="-mt-2 mb-3 inline-flex min-h-11 items-center gap-1.5 self-start rounded-[8px] text-sm font-semibold text-route hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route"
       >
         <ArrowLeft aria-hidden="true" className="size-4" />
-        Quay lại đăng nhập
+        {t("forgot.back")}
       </Link>
       <h1 className="text-[28px] leading-9 font-extrabold tracking-[-0.015em] text-slate-900 min-[960px]:text-[32px] min-[960px]:leading-10">
-        Quên mật khẩu?
+        {t("forgot.title")}
       </h1>
       <p className="mt-2 mb-6 text-base leading-[26px] text-slate-600">
-        Nhập email tài khoản VocaSpace, chúng tôi sẽ gửi link để bạn đặt mật khẩu mới.
+        {t("forgot.lead")}
       </p>
 
       {sentTo ? (
         <AuthNotice tone="recall" role="status" icon={<MailCheck />}>
-          {RECOVERY_MESSAGE}
+          {t("actions.recovery")}
         </AuthNotice>
       ) : null}
 
@@ -88,7 +85,7 @@ export default function ForgotPasswordPage() {
         <EmailField
           id="recovery-email"
           registration={form.register("email")}
-          error={form.formState.errors.email?.message}
+          error={fieldError(form.formState.errors.email?.message)}
           onApplySuggestion={(value) =>
             form.setValue("email", value, { shouldValidate: Boolean(form.formState.errors.email) })
           }

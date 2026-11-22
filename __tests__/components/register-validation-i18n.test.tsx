@@ -42,10 +42,11 @@ function fill(container: HTMLElement, id: string, value: string) {
   fireEvent.change(container.querySelector<HTMLInputElement>(`#${id}`)!, { target: { value } });
 }
 
-async function goToStepTwo(container: HTMLElement) {
+// U2 đã chuyển cả nút "Tiếp tục" sang catalog, nên tên nút theo ngôn ngữ của test.
+async function goToStepTwo(container: HTMLElement, next: string) {
   fill(container, "username", "learner01");
   fill(container, "email", "learner@example.com");
-  fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+  fireEvent.click(screen.getByRole("button", { name: next }));
   await waitFor(() => expect(container.querySelector("#phone")).not.toBeNull());
 }
 
@@ -53,6 +54,7 @@ const fieldMessage = (container: HTMLElement, id: string) => container.querySele
 
 const MESSAGES = {
   vi: {
+    next: "Tiếp tục",
     username: "Tên tài khoản phải từ 3 ký tự trở lên",
     email: "Email này không đúng định dạng",
     fullName: "Vui lòng nhập họ và tên",
@@ -63,6 +65,7 @@ const MESSAGES = {
     gender: "Vui lòng chọn giới tính",
   },
   en: {
+    next: "Continue",
     username: "Username must be at least 3 characters",
     email: "This email address isn't valid",
     fullName: "Please enter your full name",
@@ -79,7 +82,7 @@ describe.each(["vi", "en"] as const)("register validation messages in %s", (loca
 
   it("shows the account-step messages beside their fields", async () => {
     const { container } = renderRegister(locale);
-    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    fireEvent.click(screen.getByRole("button", { name: expected.next }));
 
     await waitFor(() => expect(fieldMessage(container, "username")).toBe(expected.username));
     expect(fieldMessage(container, "email")).toBe(expected.email);
@@ -87,8 +90,8 @@ describe.each(["vi", "en"] as const)("register validation messages in %s", (loca
 
   it("shows the profile-step messages beside their fields", async () => {
     const { container } = renderRegister(locale);
-    await goToStepTwo(container);
-    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    await goToStepTwo(container, expected.next);
+    fireEvent.click(screen.getByRole("button", { name: expected.next }));
 
     await waitFor(() => expect(fieldMessage(container, "full_name")).toBe(expected.fullName));
     expect(fieldMessage(container, "phone")).toBe(expected.phoneDigits);
@@ -102,9 +105,9 @@ describe.each(["vi", "en"] as const)("register validation messages in %s", (loca
     ["091234567890", "phoneLong"],
   ] as const)("explains the phone number %s", async (phone, key) => {
     const { container } = renderRegister(locale);
-    await goToStepTwo(container);
+    await goToStepTwo(container, expected.next);
     fill(container, "phone", phone);
-    fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
+    fireEvent.click(screen.getByRole("button", { name: expected.next }));
 
     await waitFor(() => expect(fieldMessage(container, "phone")).toBe(expected[key]));
   });

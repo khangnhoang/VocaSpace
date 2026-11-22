@@ -3,7 +3,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { SAME_PASSWORD_MESSAGE, WEAK_PASSWORD_MESSAGE } from "@/lib/auth/password-update-messages";
+import { getTranslations } from "next-intl/server";
 import {
   profileSchema,
   passwordSchema,
@@ -208,10 +208,11 @@ export async function updateUserPassword(rawData: unknown) {
       case "current_password_required":
       case "current_password_invalid":
         return { error: CURRENT_PASSWORD_WRONG_MESSAGE };
+      // Cùng khóa với setPasswordAfterConfirmation (catalog `auth.actions`), đổi ở một chỗ cho cả hai action (U2 H4).
       case "same_password":
-        return { error: SAME_PASSWORD_MESSAGE };
+        return { error: (await getTranslations("auth.actions"))("samePassword") };
       case "weak_password":
-        return { error: WEAK_PASSWORD_MESSAGE };
+        return { error: (await getTranslations("auth.actions"))("weakPassword") };
       case "reauthentication_needed":
         return { error: PASSWORD_REAUTH_MESSAGE };
       default:

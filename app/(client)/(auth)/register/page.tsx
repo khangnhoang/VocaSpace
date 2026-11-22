@@ -2,13 +2,15 @@
 "use no memo";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
+import { enUS, vi } from "date-fns/locale";
 import { AlertCircle, CalendarIcon, Camera, ChevronRight, Loader2 } from "lucide-react";
 import { signUpUser } from "@/app/actions/auth";
-import { AVATAR_INVALID_MESSAGE, registerSchema, type RegisterInput } from "@/lib/schemas/auth";
+import { AVATAR_INVALID_KEY, registerSchema, type RegisterInput } from "@/lib/schemas/auth";
+import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { registerPanel } from "@/components/auth/auth-panels";
 import { prepareAvatar } from "@/lib/auth/avatar-image";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,44 +27,15 @@ import {
   FieldError,
   TextField,
 } from "@/components/auth/auth-fields";
-import { useAuthPanel, useAuthShell, type AuthPanelState } from "@/components/auth/auth-shell-context";
+import { useAuthPanel, useAuthShell } from "@/components/auth/auth-shell-context";
 import { ProgressionRail } from "@/components/auth/progression-rail";
 import { cn } from "@/lib/utils";
 import { CheckEmailPanel } from "./_components/CheckEmailPanel";
 import { SlideIn } from "@/components/auth/auth-motion";
 
-const REGISTER_STAGES =["Tài khoản", "Thông tin", "Ảnh", "Xác minh", "Mật khẩu"] as const;
+const REGISTER_STAGE_KEYS = ["register.stage1", "register.stage2", "register.stage3", "register.stage4", "register.stage5"] as const;
 
-const STAGE_PANELS: Record<1 | 2 | 3 | 4, AuthPanelState> = {
-  1: {
-    variant: { kind: "register", stage: 1 },
-    copy: {
-      stage: "CHẶNG 1/5",
-      title: "Mỗi bước, một lần ghi nhớ.",
-      text: "Đường cong của bạn bắt đầu từ hôm nay. Xong mỗi chặng, nó lại vững thêm một nấc.",
-    },
-  },
-  2: {
-    variant: { kind: "register", stage: 2 },
-    copy: {
-      stage: "CHẶNG 2/5",
-      title: "Mỗi bước, một lần ghi nhớ.",
-      text: "Mỗi lần ôn đúng hạn, khoảng cách tới lần ôn sau lại dài hơn.",
-    },
-  },
-  3: {
-    variant: { kind: "register", stage: 3 },
-    copy: {
-      stage: "CHẶNG 3/5",
-      title: "Gần nửa chặng đường.",
-      text: "Ảnh đại diện không bắt buộc. Bạn có thể bỏ qua và thêm sau.",
-    },
-  },
-  4: {
-    variant: { kind: "register", stage: 4 },
-    copy: { stage: "CHẶNG 4/5", title: "Còn một lần xác minh.", text: "Mở email và bấm link để đi tiếp tới chặng đặt mật khẩu." },
-  },
-};
+const DATE_FNS_LOCALES = { vi, en: enUS } as const;
 
 const STEP_FIELDS: Record<1 | 2, (keyof RegisterInput)[]> = {
   1: ["username", "email"],
@@ -70,14 +43,14 @@ const STEP_FIELDS: Record<1 | 2, (keyof RegisterInput)[]> = {
 };
 
 const GENDER_OPTIONS = [
-  { value: "male", label: "Nam" },
-  { value: "female", label: "Nữ" },
-  { value: "other", label: "Khác" },
+  { value: "male", labelKey: "register.genderMale" },
+  { value: "female", labelKey: "register.genderFemale" },
+  { value: "other", labelKey: "register.genderOther" },
 ] as const;
 
-const SIGNUP_FAILED_FALLBACK = "Đăng ký chưa thành công, vui lòng thử lại.";
-
 export default function RegisterPage() {
+  const t = useTranslations("auth");
+  const locale = useLocale() === "en" ? "en" : "vi";
   const { setShowTabs } = useAuthShell();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,14 +73,13 @@ export default function RegisterPage() {
   });
   const { errors } = form.formState;
   // English localization U1: message của registerSchema là khóa trong namespace `validation`, dịch theo ngôn ngữ đang dùng.
-  const tValidation = useTranslations("validation");
-  const fieldError = (message: string | undefined) =>
-    message ? tValidation(message as Parameters<typeof tValidation>[0]) : undefined;
+  const tValidation = asTranslate(useTranslations("validation"));
+  const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tValidation, message) : undefined);
   const stage = submittedEmail ? 4 : step;
   const [stageMove, setStageMove] = useState({ stage, direction: 1 });
   if (stageMove.stage !== stage) setStageMove({ stage, direction: stage > stageMove.stage ? 1 : -1 });
 
-  useAuthPanel(STAGE_PANELS[stage]);
+  useAuthPanel(registerPanel(asTranslate(t), stage));
 
   useEffect(() => {
     setShowTabs(stage === 1);
@@ -152,7 +124,7 @@ export default function RegisterPage() {
       setAvatarPreview(URL.createObjectURL(prepared));
     } catch {
       if (request !== avatarRequest.current) return;
-      setAvatarError(AVATAR_INVALID_MESSAGE);
+      setAvatarError(translateIssueMessage(tValidation, AVATAR_INVALID_KEY));
     } finally {
       if (request === avatarRequest.current) {
         setAvatarProcessing(false);
@@ -195,14 +167,20 @@ export default function RegisterPage() {
       // Chưa có session: người dùng phải bấm link trong email để xác minh và đặt mật khẩu.
       else setSubmittedEmail(data.email);
     } catch {
-      setServerError(SIGNUP_FAILED_FALLBACK);
+      setServerError(t("actions.signUpRetry"));
     } finally {
       setIsLoading(false);
       submitting.current = false;
     }
   };
 
-  const rail = <ProgressionRail label="Tiến trình đăng ký" steps={REGISTER_STAGES} current={stage} />;
+  const rail = (
+    <ProgressionRail
+      label={t("register.railLabel")}
+      steps={REGISTER_STAGE_KEYS.map((key) => t(key))}
+      current={stage}
+    />
+  );
 
   if (submittedEmail) {
     return (
@@ -230,32 +208,32 @@ export default function RegisterPage() {
       {step === 1 ? (
         <section aria-labelledby="register-title">
           <h1 id="register-title" ref={titleRef} tabIndex={-1} className={AUTH_TITLE_CLASS}>
-            Tạo tài khoản
+            {t("register.title1")}
           </h1>
-          <p className={AUTH_LEAD_CLASS}>Chỉ khoảng một phút. Mật khẩu sẽ được đặt sau khi bạn xác minh email.</p>
+          <p className={AUTH_LEAD_CLASS}>{t("register.lead1")}</p>
           {/* U3 G10: method="post" để một lần submit trước khi hydrate không đưa dữ liệu lên URL. */}
           <form method="post" noValidate onSubmit={(event) => { event.preventDefault(); void nextStep(1); }} className="grid gap-[18px]">
             <TextField
               id="username"
-              label="Tên tài khoản"
+              label={t("register.username")}
               autoComplete="username"
-              hint="Ít nhất 3 ký tự."
+              hint={t("register.usernameHint")}
               registration={form.register("username")}
               error={fieldError(errors.username?.message)}
             />
             <EmailField
               id="email"
-              hint="Link xác minh sẽ được gửi tới email này."
+              hint={t("register.emailHint")}
               registration={form.register("email")}
               error={fieldError(errors.email?.message)}
               onApplySuggestion={(value) => form.setValue("email", value, { shouldValidate: Boolean(errors.email) })}
             />
             <Button type="submit" size="lg" className="h-11 w-full rounded-[8px] text-sm font-semibold">
-              Tiếp tục
+              {t("register.next")}
               <ChevronRight aria-hidden="true" />
             </Button>
           </form>
-          <AuthDivider label="hoặc" className="mt-5 mb-4" />
+          <AuthDivider label={t("register.divider")} className="mt-5 mb-4" />
           <GoogleSignInButton />
           <div className="mt-5">
             <LegalConsentNotice />
@@ -266,30 +244,30 @@ export default function RegisterPage() {
       {step === 2 ? (
         <section aria-labelledby="register-title">
           <h1 id="register-title" ref={titleRef} tabIndex={-1} className={AUTH_TITLE_CLASS}>
-            Thông tin của bạn
+            {t("register.title2")}
           </h1>
-          <p className={AUTH_LEAD_CLASS}>Dùng cho hồ sơ học viên của bạn.</p>
+          <p className={AUTH_LEAD_CLASS}>{t("register.lead2")}</p>
           <form method="post" noValidate onSubmit={(event) => { event.preventDefault(); void nextStep(2); }} className="grid gap-[18px]">
             <TextField
               id="full_name"
-              label="Họ và tên"
+              label={t("register.fullName")}
               autoComplete="name"
               registration={form.register("full_name")}
               error={fieldError(errors.full_name?.message)}
             />
             <TextField
               id="phone"
-              label="Số điện thoại"
+              label={t("register.phone")}
               type="tel"
               inputMode="numeric"
               autoComplete="tel"
-              placeholder="0901234567"
+              placeholder={t("register.phonePlaceholder")}
               registration={form.register("phone")}
               error={fieldError(errors.phone?.message)}
             />
             <div className="grid gap-1.5">
               <label id="dob-label" htmlFor="dob" className="text-sm leading-5 font-semibold text-slate-900">
-                Ngày sinh
+                {t("register.dob")}
               </label>
               <Controller
                 control={form.control}
@@ -311,7 +289,7 @@ export default function RegisterPage() {
                           field.value ? "text-slate-900" : "text-slate-500",
                         )}
                       >
-                        <span id="dob-value">{field.value ? format(field.value, "dd/MM/yyyy") : "Chọn ngày sinh"}</span>
+                        <span id="dob-value">{field.value ? format(field.value, t("register.dobFormat")) : t("register.dobPlaceholder")}</span>
                         <CalendarIcon aria-hidden="true" className="size-5 text-slate-600" />
                       </Button>
                     </PopoverTrigger>
@@ -320,7 +298,7 @@ export default function RegisterPage() {
                         mode="single"
                         selected={field.value}
                         onSelect={(date) => field.onChange(date)}
-                        locale={vi}
+                        locale={DATE_FNS_LOCALES[locale]}
                         disabled={(date) => date > new Date() || date < new Date("1900-1-1")}
                         captionLayout="dropdown"
                         fromYear={1950}
@@ -337,7 +315,7 @@ export default function RegisterPage() {
               aria-invalid={errors.gender ? true : undefined}
               aria-describedby={errors.gender ? "gender-error" : undefined}
             >
-              <legend className="mb-1.5 text-sm leading-5 font-semibold text-slate-900">Giới tính</legend>
+              <legend className="mb-1.5 text-sm leading-5 font-semibold text-slate-900">{t("register.gender")}</legend>
               <div className="grid grid-cols-3 gap-2">
                 {GENDER_OPTIONS.map((option) => (
                   <label key={option.value} className="relative">
@@ -353,7 +331,7 @@ export default function RegisterPage() {
                         errors.gender && "border-correction",
                       )}
                     >
-                      {option.label}
+                      {t(option.labelKey)}
                     </span>
                   </label>
                 ))}
@@ -362,11 +340,11 @@ export default function RegisterPage() {
             </fieldset>
             <div className="grid gap-1">
               <Button type="submit" size="lg" className="h-11 w-full rounded-[8px] text-sm font-semibold">
-                Tiếp tục
+                {t("register.next")}
                 <ChevronRight aria-hidden="true" />
               </Button>
               <button type="button" onClick={() => goTo(1)} className={AUTH_TEXT_ACTION_CLASS}>
-                Quay lại
+                {t("register.back")}
               </button>
             </div>
           </form>
@@ -376,9 +354,9 @@ export default function RegisterPage() {
       {step === 3 ? (
         <section aria-labelledby="register-title">
           <h1 id="register-title" ref={titleRef} tabIndex={-1} className={AUTH_TITLE_CLASS}>
-            Ảnh đại diện
+            {t("register.title3")}
           </h1>
-          <p className={AUTH_LEAD_CLASS}>Không bắt buộc. Bạn có thể thêm hoặc đổi sau trong hồ sơ.</p>
+          <p className={AUTH_LEAD_CLASS}>{t("register.lead3")}</p>
           <form method="post" noValidate onSubmit={(event) => void form.handleSubmit(onSubmit)(event)} className="grid gap-[18px]">
             <div className="flex flex-col items-center gap-3.5 pt-2 pb-1">
               <div
@@ -389,7 +367,7 @@ export default function RegisterPage() {
               >
                 {avatarPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element -- ảnh xem trước là blob URL cục bộ, không qua next/image.
-                  <img src={avatarPreview} alt="Ảnh đại diện đã chọn" className="size-full object-cover" />
+                  <img src={avatarPreview} alt={t("register.avatarSelected")} className="size-full object-cover" />
                 ) : (
                   <Camera aria-hidden="true" className="size-9" />
                 )}
@@ -408,17 +386,17 @@ export default function RegisterPage() {
                   htmlFor="avatar-upload"
                   className="inline-flex min-h-11 cursor-pointer items-center rounded-[8px] border border-slate-500 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-100 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-route"
                 >
-                  {avatarPreview ? "Đổi ảnh" : "Chọn ảnh"}
+                  {avatarPreview ? t("register.avatarChange") : t("register.avatarChoose")}
                 </label>
                 {avatarPreview ? (
                   <Button type="button" variant="outline" size="lg" onClick={clearAvatar} className="h-11 rounded-[8px] border-slate-500 text-sm font-semibold">
-                    Bỏ ảnh
+                    {t("register.avatarRemove")}
                   </Button>
                 ) : null}
               </div>
               {avatarProcessing ? (
                 <p role="status" className="text-[13px] leading-[18px] text-slate-600">
-                  Đang chuẩn bị ảnh…
+                  {t("register.avatarProcessing")}
                 </p>
               ) : null}
               <FieldError id="avatar-error" message={avatarError ?? undefined} />
@@ -439,14 +417,14 @@ export default function RegisterPage() {
                 {isLoading ? (
                   <>
                     <Loader2 aria-hidden="true" className="motion-safe:animate-spin" />
-                    Đang tạo tài khoản…
+                    {t("register.creating")}
                   </>
                 ) : (
-                  "Tạo tài khoản"
+                  t("register.create")
                 )}
               </Button>
               <button type="button" onClick={() => goTo(2)} className={AUTH_TEXT_ACTION_CLASS}>
-                Quay lại
+                {t("register.back")}
               </button>
             </div>
           </form>

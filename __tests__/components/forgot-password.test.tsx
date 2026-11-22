@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@/__tests__/support/intl";
 import { afterEach, expect, it, vi } from "vitest";
 import { AuthShell } from "@/components/auth/auth-shell";
 import ForgotPasswordPage from "@/app/(client)/(auth)/forgot-password/page";

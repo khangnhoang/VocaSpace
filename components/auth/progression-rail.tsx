@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type ProgressionRailProps = {
@@ -11,11 +12,12 @@ type ProgressionRailProps = {
 // U3 AC8/AC11: thanh tiến trình chỉ dùng cho thứ tự thật của luồng; chữ "Bước k/N", aria-current và nhãn
 // "đã xong" giữ nguyên ý nghĩa khi không nhìn thấy màu hay đường nối.
 export function ProgressionRail({ label, steps, current }: ProgressionRailProps) {
+  const t = useTranslations("auth.rail");
   const currentName = steps[current - 1];
   return (
     <div className="mb-6">
       <p className="mb-3 flex justify-between gap-3 font-[family-name:var(--font-geist-sans)] text-xs leading-4 font-semibold tracking-[0.04em] text-slate-600">
-        <span>{current > steps.length ? `Đã xong ${steps.length}/${steps.length}` : `Bước ${current}/${steps.length}`}</span>
+        <span>{current > steps.length ? t("done", { total: steps.length }) : t("step", { current, total: steps.length })}</span>
         {currentName ? <span className="text-route">{currentName}</span> : null}
       </p>
       <ol aria-label={label} className="grid" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
@@ -60,7 +62,7 @@ export function ProgressionRail({ label, steps, current }: ProgressionRailProps)
                 )}
               >
                 {step}
-                {done ? <span className="sr-only">, đã xong</span> : null}
+                {done ? <span className="sr-only">{t("stepDone")}</span> : null}
               </span>
             </li>
           );

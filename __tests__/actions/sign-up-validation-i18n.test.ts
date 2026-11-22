@@ -82,9 +82,12 @@ describe("signUpUser validation messages (English localization U1)", () => {
     expect(createServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it.each(["vi", "en"] as const)("still lets a missing date of birth past validation in %s (epoch date, as before U1)", async (locale) => {
+  it.each([
+    ["vi", "Đăng ký tạm thời chưa khả dụng"],
+    ["en", "Sign-up is temporarily unavailable"],
+  ] as const)("still lets a missing date of birth past validation in %s (epoch date, as before U1)", async (locale, unavailable) => {
     setServerTestLocale(locale);
-    await expect(signUpUser(formDataWith({ dob: null }))).resolves.toEqual({ error: "Đăng ký tạm thời chưa khả dụng" });
+    await expect(signUpUser(formDataWith({ dob: null }))).resolves.toEqual({ error: unavailable });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(createServiceRoleClient).not.toHaveBeenCalled();
   });
