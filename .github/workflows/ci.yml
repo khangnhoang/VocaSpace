@@ -134,7 +134,7 @@ jobs:
         run: npm run docs:check
 
       - name: Run E2E runner and shard tests
-        run: node --test scripts/e2e/reset-decision.test.mjs scripts/e2e/shard-ids.test.mjs
+        run: node --test scripts/e2e/reset-decision.test.mjs scripts/e2e/smoke-shards.test.mjs scripts/e2e/shard-ids.test.mjs scripts/e2e/worker-scope.test.mjs
 
   unit:
     name: Unit, form and component tests
@@ -405,11 +405,19 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # The runner is discarded after the job, so the runtime is left running instead of being stopped.
+      # Each shard runs the spec files that scripts/e2e/smoke-shards.json assigns to it, balanced on measured durations.
       - name: Run E2E smoke tests
-        run: npm run test:e2e:smoke -- --shard=${{ matrix.shard }}/2
+        shell: bash
+        run: |
+          set -euo pipefail
+          files="$(node scripts/e2e/smoke-shards.mjs ${{ matrix.shard }})"
+          echo "Shard ${{ matrix.shard }}/2 runs: ${files}"
+          npm run test:e2e -- ${files}
         env:
           E2E_WEB_SERVER: start
           E2E_KEEP_SUPABASE: "1"
+          # Two Playwright workers per shard on its single Supabase stack (INFRA-U2); worker-scoped specs own their data.
+          E2E_WORKERS: "2"
           # Opt-in to skipping `db reset`; run-e2e.mjs still resets unless the evidence file from "Wait for isolated Supabase" is valid.
           E2E_SKIP_DB_RESET_EVIDENCE: ${{ runner.temp }}/e2e-fresh-stack-evidence.json
 
