@@ -3,16 +3,16 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { retryLabels, viCoursesText, type RetryLabels } from "@/lib/i18n/courses-text";
+import type { RetryLabels } from "@/lib/i18n/courses-text";
 
-// Nhãn do người gọi truyền theo ngôn ngữ đang dùng; mặc định là tiếng Việt để nút vẫn gọi được như hàm thuần (test) và không
-// cần provider.
+// Nhãn bắt buộc do người gọi (Server Component) truyền theo ngôn ngữ đang dùng, để nút không phải kéo catalog `courses` về trình
+// duyệt và `/` không cần namespace đó (U2 G4, H2).
 export function PublicCourseRetryButton({
   className = "mt-6 min-h-10 px-4",
-  labels = retryLabels(viCoursesText),
+  labels,
 }: {
   className?: string;
-  labels?: RetryLabels;
+  labels: RetryLabels;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();

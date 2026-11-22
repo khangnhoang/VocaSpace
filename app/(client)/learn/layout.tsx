@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import { ReactNode } from "react";
-import { ClientNamespaces } from "@/components/i18n/client-namespaces";
 
 /**
  * METADATA CONFIGURATION
@@ -48,10 +47,8 @@ export default function LearnLayout({ children }: LearnLayoutProps) {
       {/* `overflow-clip`, not `overflow-hidden`: hidden makes this a scroll container, and a
           `position: sticky` descendant (the pinned exercise columns) then pins against it
           instead of the viewport, so it never moves. Clip hides overflow without that. */}
-      {/* `flashcard` cho FlashcardStage và ReviewSheet (U2 H2): provider lồng nhau thay thế message của cha nên phải liệt kê cả
-          namespace dùng chung; phần còn lại của khu học thuộc U3. */}
       <main className="flex-1 flex flex-col w-full overflow-clip">
-        <ClientNamespaces namespaces={["flashcard"]}>{children}</ClientNamespaces>
+        {children}
       </main>
 
       {/* 

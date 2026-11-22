@@ -17,9 +17,10 @@ export default async function Home() {
   const content = getHomeContent();
   const t = await getTranslations("home");
 
-  // `home` và `flashcard` chỉ cho HeroPractice (client); `flashcard` cho nhãn đánh giá (U2 H2).
+  // `home` và `flashcard` chỉ cho HeroPractice (client); `flashcard` cho nhãn đánh giá (U2 H2). Thẻ khóa học dịch ở server và nút
+  // "Thử lại" nhận nhãn qua props, nên `/` không cần `courses` ở trình duyệt.
   return (
-    <ClientNamespaces namespaces={["home", "flashcard", "courses"]}>
+    <ClientNamespaces namespaces={["home", "flashcard"]}>
       <div className="flex w-full flex-col bg-slate-50">
         <HomeHero isSignedIn={viewer.isSignedIn} />
         <HomeHowItWorks />

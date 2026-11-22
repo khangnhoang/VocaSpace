@@ -1,15 +1,20 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "@/__tests__/support/intl";
 import CoursesLayout from "@/app/(client)/courses/layout";
 import CourseSlugLayout from "@/app/(client)/courses/[course-slug]/layout";
 import CoursePreviewLayout from "@/app/(client)/courses/[course-slug]/preview/layout";
+import LearnLayout from "@/app/(client)/learn/layout";
+import LearnDashboardLayout from "@/app/(client)/learn/(dashboard)/layout";
+import LearnTopicLayout from "@/app/(client)/learn/[course-slug]/[topic-slug]/layout";
 import { PublicCourseDetailView } from "@/app/(client)/courses/_components/PublicCourseDetailView";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 
 // Test plan:
 // - Mục tiêu: giữ hai ranh giới của U2 trên /courses: (1) props từ Server Component sang thẻ ghi danh phải serialize được, (2) mỗi
-//   layout chỉ giao namespace subtree đó dùng (G4, H2).
+//   layout chỉ giao namespace subtree đó dùng (G4, H2), gồm /, /learn và trang bài học.
 // - Loại test: render tĩnh trang chi tiết với thẻ ghi danh được thay bằng bản ghi props; layout được gọi trực tiếp với
 //   ClientNamespaces thay bằng bản ghi namespace.
 // - Case thất bại đã gặp: bản đầu truyền hàm dịch `t` từ PublicCourseDetailView (server) xuống PublicCourseEnrollmentCard (client);
@@ -103,5 +108,23 @@ describe("courses layouts deliver only the namespaces their subtree renders", ()
 
   it("adds flashcard only for the public preview subtree", () => {
     expect(namespacesOf(<CoursePreviewLayout>x</CoursePreviewLayout>)).toBe("courses,learning,flashcard");
+  });
+});
+
+describe("learn and home deliver flashcard only where it renders", () => {
+  it("gives the learn root layout no provider of its own", () => {
+    expect(namespacesOf(<LearnLayout>x</LearnLayout>)).toBeUndefined();
+  });
+
+  it("gives the dashboard and the topic page flashcard", () => {
+    expect(namespacesOf(<LearnDashboardLayout>x</LearnDashboardLayout>)).toBe("flashcard");
+    expect(namespacesOf(<LearnTopicLayout>x</LearnTopicLayout>)).toBe("flashcard");
+  });
+
+  it("gives / home and flashcard only, never courses", () => {
+    // Trang chủ là Server Component bất đồng bộ nhiều phụ thuộc, nên đọc danh sách namespace từ mã nguồn.
+    const source = readFileSync(join(process.cwd(), "app/(client)/page.tsx"), "utf8");
+    const delivered = /<ClientNamespaces namespaces=\{\[([^\]]*)\]\}/.exec(source)?.[1].replace(/["\s]/g, "");
+    expect(delivered).toBe("home,flashcard");
   });
 });
