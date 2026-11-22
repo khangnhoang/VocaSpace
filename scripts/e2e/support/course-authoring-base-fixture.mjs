@@ -1,7 +1,11 @@
-import { ensureAuthUser } from "./auth-users.mjs";
+import { ensureAuthUserOnce } from "./auth-users.mjs";
 import { upsertRow } from "./db-write.mjs";
 import { createSupabaseAdmin } from "./supabase-admin.mjs";
+import { assertIsolatedRuntime } from "./worker-scope.mjs";
 
+// Fixture chỉ tạo/ghi lại giáo viên của chính nó. Admin dùng chung (`admin@gmail.com`) chỉ được tham chiếu
+// (added_by, created_by_user_id) và do `ensureSharedAccounts` dựng một lần trước khi test chạy (G3), nên không
+// có lời gọi `updateUserById` nào của fixture đụng vào phiên của admin khi worker khác đang đăng nhập.
 export async function createBaseAuthoringFixture({
   env = process.env,
   fixture,
@@ -9,36 +13,24 @@ export async function createBaseAuthoringFixture({
   course,
   collaborator,
 }) {
+  assertIsolatedRuntime(env);
   const supabase = createSupabaseAdmin(env);
+  const teacherFullName = fixture.teacherFullName ?? "Local Teacher";
+  const teacherUsername = fixture.teacherUsername ?? "local_teacher";
 
-  await ensureAuthUser(supabase, {
-    id: fixture.adminId,
-    email: "admin@gmail.com",
-    password: fixture.teacherPassword,
-    fullName: "Local Admin",
-    username: "local_admin",
-  });
-  await ensureAuthUser(supabase, {
+  await ensureAuthUserOnce(supabase, {
     id: fixture.teacherId,
     email: fixture.teacherEmail,
     password: fixture.teacherPassword,
-    fullName: "Local Teacher",
-    username: "local_teacher",
+    fullName: teacherFullName,
+    username: teacherUsername,
   });
 
   await upsertRow(supabase, "profiles", {
-    id: fixture.adminId,
-    email: "admin@gmail.com",
-    full_name: "Local Admin",
-    username: "local_admin",
-    role: "admin",
-    removed_at: null,
-  });
-  await upsertRow(supabase, "profiles", {
     id: fixture.teacherId,
     email: fixture.teacherEmail,
-    full_name: "Local Teacher",
-    username: "local_teacher",
+    full_name: teacherFullName,
+    username: teacherUsername,
     role: "teacher",
     removed_at: null,
   });

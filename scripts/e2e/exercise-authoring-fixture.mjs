@@ -3,29 +3,41 @@ import { deleteExerciseTreeByIds } from "./support/cleanup-learning-content.mjs"
 import { createBaseTopicAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 
-export const exerciseAuthoringFixture = {
-  adminId: "11111111-1111-4111-8111-111111111111",
-  teacherId: "22222222-2222-4222-8222-222222222222",
-  teacherEmail: "teacher@gmail.com",
-  teacherPassword: "123123",
-  courseId: "44444444-4444-4444-8444-444444444444",
-  chapterId: "55555555-5555-4555-8555-555555555555",
-  topicId: "66666666-6666-4666-8666-666666666666",
-  titlePrefix: "E2E Smoke Exercise",
-};
+const sharedAdminId = "11111111-1111-4111-8111-111111111111";
 
-export async function prepareExerciseAuthoringFixture(env = process.env) {
+// Mỗi worker có giáo viên, khóa học, chương và topic riêng (ID/slug suy ra từ `scope`, xem worker-scope.mjs);
+// topic seed `66666666-…` và khóa học `44444444-…-444` không bị ghi nữa.
+export function exerciseAuthoringFixtureFor(scope) {
+  return {
+    adminId: sharedAdminId,
+    teacherId: scope.teacher.id,
+    teacherEmail: scope.teacher.email,
+    teacherPassword: scope.teacher.password,
+    teacherFullName: scope.teacher.fullName,
+    teacherUsername: scope.teacher.username,
+    courseId: scope.id("authoring-course"),
+    chapterId: scope.id("authoring-chapter"),
+    topicId: scope.id("authoring-topic"),
+    collaboratorId: scope.id("authoring-collaborator"),
+    courseSlug: scope.slug("local-toeic-test-course"),
+    topicSlug: scope.slug("local-test-topic"),
+    titlePrefix: scope.prefix("E2E Smoke Exercise"),
+  };
+}
+
+export async function prepareExerciseAuthoringFixture(scope, env = process.env) {
+  const fixture = exerciseAuthoringFixtureFor(scope);
   const { supabase } = await createBaseTopicAuthoringFixture({
     env,
-    fixture: exerciseAuthoringFixture,
+    fixture,
     teacherProfile: {
       bio: "Local teacher account for exercise smoke E2E.",
       experience_years: 1,
       certifications: "Local smoke fixture",
     },
     course: {
-      title: "Local TOEIC Test Course",
-      slug: "local-toeic-test-course",
+      title: `Local TOEIC Test Course ${scope.tag}`,
+      slug: fixture.courseSlug,
       description: "Local seed course for exercise authoring smoke tests.",
       price: 0,
       status: "published",
@@ -33,41 +45,42 @@ export async function prepareExerciseAuthoringFixture(env = process.env) {
       removed_at: null,
     },
     collaborator: {
-      id: "77777777-7777-4777-8777-777777777772",
+      id: fixture.collaboratorId,
       // Seed đã có admin là owner; teacher giữ co_owner theo invariant D1.
       role: "co_owner",
     },
     chapter: {
-      created_by_user_id: exerciseAuthoringFixture.adminId,
+      created_by_user_id: fixture.adminId,
       title: "Local Test Chapter",
       order_index: 1,
       removed_at: null,
     },
     topic: {
-      original_creator_user_id: exerciseAuthoringFixture.teacherId,
-      responsible_author_user_id: exerciseAuthoringFixture.teacherId,
+      original_creator_user_id: fixture.teacherId,
+      responsible_author_user_id: fixture.teacherId,
       title: "Local Test Topic",
-      slug: "local-test-topic",
+      slug: fixture.topicSlug,
       // Các scenario soạn nội dung bắt đầu từ draft.
       status: "draft",
       order_index: 1,
       removed_at: null,
     },
   });
-  const title = `${exerciseAuthoringFixture.titlePrefix} ${new Date().toISOString()} ${randomUUID()}`;
+  const title = `${fixture.titlePrefix} ${new Date().toISOString()} ${randomUUID()}`;
 
-  await cleanupSmokeExercises(supabase);
+  await cleanupSmokeExercises(supabase, fixture);
 
   return {
     E2E_EXERCISE_TITLE: title,
-    E2E_TEACHER_EMAIL: exerciseAuthoringFixture.teacherEmail,
-    E2E_TEACHER_PASSWORD: exerciseAuthoringFixture.teacherPassword,
-    E2E_COURSE_ID: exerciseAuthoringFixture.courseId,
-    E2E_TOPIC_ID: exerciseAuthoringFixture.topicId,
+    E2E_TEACHER_EMAIL: fixture.teacherEmail,
+    E2E_TEACHER_PASSWORD: fixture.teacherPassword,
+    E2E_COURSE_ID: fixture.courseId,
+    E2E_TOPIC_ID: fixture.topicId,
   };
 }
 
-export async function assertExerciseAuthoringSmokePersisted(title, env = process.env) {
+export async function assertExerciseAuthoringSmokePersisted(scope, title, env = process.env) {
+  const fixture = exerciseAuthoringFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data: exercise, error } = await supabase
     .from("exercises")
@@ -92,7 +105,7 @@ export async function assertExerciseAuthoringSmokePersisted(title, env = process
       )
     `,
     )
-    .eq("topic_id", exerciseAuthoringFixture.topicId)
+    .eq("topic_id", fixture.topicId)
     .eq("title", title)
     .is("removed_at", null)
     .single();
@@ -112,8 +125,8 @@ export async function assertExerciseAuthoringSmokePersisted(title, env = process
   );
 
   if (
-    exercise.course_id !== exerciseAuthoringFixture.courseId ||
-    exercise.topic_id !== exerciseAuthoringFixture.topicId ||
+    exercise.course_id !== fixture.courseId ||
+    exercise.topic_id !== fixture.topicId ||
     exercise.part_type !== "part7" ||
     activeGroups.length !== 1 ||
     activeQuestions.length !== 1 ||
@@ -126,12 +139,12 @@ export async function assertExerciseAuthoringSmokePersisted(title, env = process
   return { exerciseId: exercise.id };
 }
 
-async function cleanupSmokeExercises(supabase) {
+async function cleanupSmokeExercises(supabase, fixture) {
   const { data: exercises, error } = await supabase
     .from("exercises")
     .select("id")
-    .eq("topic_id", exerciseAuthoringFixture.topicId)
-    .like("title", `${exerciseAuthoringFixture.titlePrefix}%`);
+    .eq("topic_id", fixture.topicId)
+    .like("title", `${fixture.titlePrefix}%`);
 
   if (error) throw new Error(`Cannot find old smoke exercises: ${error.message}`);
 

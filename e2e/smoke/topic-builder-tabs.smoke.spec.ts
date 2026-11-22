@@ -4,7 +4,7 @@ import {
   getActiveFixtureFlashcardCount,
   prepareDashboardReturnFreshnessFixture,
 } from "../../scripts/e2e/dashboard-return-freshness-fixture.mjs";
-import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { getCourseOverviewPath, getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
@@ -21,8 +21,11 @@ import { expectTopicBuilder } from "../support/structure-ui";
 // - Bảo mật/phân quyền: service-role chỉ dựng/đọc fixture trong Node; trình duyệt dùng tài khoản giáo viên seed.
 // - Invariant cần giữ: thẻ được lưu đúng một lần, tab cuối cùng hiển thị nội dung đã tải, URL khớp tab đang mở.
 
+// Worker-scoped: mỗi worker (parallelIndex) có giáo viên, khóa học và topic riêng.
+const currentScope = () => getWorkerScope(test.info().parallelIndex);
+
 test.afterEach(async () => {
-  await cleanupDashboardReturnFreshnessFixture();
+  await cleanupDashboardReturnFreshnessFixture(currentScope());
 });
 
 async function holdServerActions(page: Page, delayMs: number) {
@@ -44,9 +47,9 @@ async function addFlashcard(page: Page, word: string, translation: string) {
 }
 
 test("all three tabs fit a phone and the open tab stays in view on the narrowest screen", async ({ page }) => {
-  const fixture = await prepareDashboardReturnFreshnessFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
-  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  const fixture = await prepareDashboardReturnFreshnessFixture(currentScope());
+  const courseId = fixture.E2E_COURSE_ID;
+  const topicId = fixture.E2E_TOPIC_ID;
   const tabs = page.getByRole("tablist", { name: "Nội dung bài học" }).getByRole("tab");
   const rightEdges = () => tabs.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().right));
 
@@ -66,9 +69,9 @@ test("all three tabs fit a phone and the open tab stays in view on the narrowest
 });
 
 test("tabs and the add button stay in reach while a phone scrolls, but not on a short landscape screen", async ({ page }) => {
-  const fixture = await prepareDashboardReturnFreshnessFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
-  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  const fixture = await prepareDashboardReturnFreshnessFixture(currentScope());
+  const courseId = fixture.E2E_COURSE_ID;
+  const topicId = fixture.E2E_TOPIC_ID;
   const tablist = page.getByRole("tablist", { name: "Nội dung bài học" });
   const addCard = page.getByRole("button", { name: "Thêm thẻ" }).first();
   // Fixture không có đủ thẻ, nên kéo dài chính khung danh sách (phần tử dính chỉ dính trong khung cha của nó).
@@ -96,9 +99,9 @@ test("tabs and the add button stay in reach while a phone scrolls, but not on a 
 
 test("fast tab switches while a save is in flight never strand a tab or drop the save", async ({ page }) => {
   const consoleGuard = watchBrowserConsole(page);
-  const fixture = await prepareDashboardReturnFreshnessFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
-  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  const fixture = await prepareDashboardReturnFreshnessFixture(currentScope());
+  const courseId = fixture.E2E_COURSE_ID;
+  const topicId = fixture.E2E_TOPIC_ID;
 
   await loginAsTeacher(page, fixture);
   await page.goto(getTopicBuilderPath(courseId, topicId, "flashcards"));
@@ -116,7 +119,7 @@ test("fast tab switches while a save is in flight never strand a tab or drop the
   await expect(page).toHaveURL(/tab=memory-check/, { timeout: 15_000 });
   await release();
 
-  await expect.poll(() => getActiveFixtureFlashcardCount(), { timeout: 15_000 }).toBe(1);
+  await expect.poll(() => getActiveFixtureFlashcardCount(currentScope()), { timeout: 15_000 }).toBe(1);
   for (const [name, loaded] of [
     [/^Memory check/, "Bài học chưa có memory check"],
     [/^Bài tập/, "Chưa có bài tập nào"],
@@ -131,9 +134,9 @@ test("fast tab switches while a save is in flight never strand a tab or drop the
 
 test("a dashboard deep link keeps its tab and guidance until the save, then returns to Overview", async ({ page }) => {
   const consoleGuard = watchBrowserConsole(page);
-  const fixture = await prepareDashboardReturnFreshnessFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
-  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  const fixture = await prepareDashboardReturnFreshnessFixture(currentScope());
+  const courseId = fixture.E2E_COURSE_ID;
+  const topicId = fixture.E2E_TOPIC_ID;
   const deepLink =
     getTopicBuilderPath(courseId, topicId) +
     `?from=dashboard&issue=topic_has_no_learning_content&targetType=topic&target=${topicId}&tab=exercises`;
@@ -155,7 +158,7 @@ test("a dashboard deep link keeps its tab and guidance until the save, then retu
   await expect(page).not.toHaveURL(/from=dashboard/, { timeout: 15_000 });
   await expect(page).toHaveURL(/tab=flashcards/);
   await release();
-  expect(await getActiveFixtureFlashcardCount()).toBe(1);
+  expect(await getActiveFixtureFlashcardCount(currentScope())).toBe(1);
 
   await page.getByRole("link", { name: /Quay l.*i t.*ng quan/i }).click();
   await expect(page).toHaveURL(new RegExp(`${getCourseOverviewPath(courseId)}$`), { timeout: 15_000 });

@@ -4,7 +4,7 @@ import {
   getActiveFixtureFlashcardCount,
   prepareDashboardReturnFreshnessFixture,
 } from "../../scripts/e2e/dashboard-return-freshness-fixture.mjs";
-import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { getCourseOverviewPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 import { watchBrowserConsole } from "../support/console";
@@ -20,8 +20,11 @@ import { expectTopicBuilder } from "../support/structure-ui";
 // - Invariant cần giữ: issue biến mất nhờ active flashcard trong database, không nhờ client tự ẩn issue.
 // - TFEAT4: chạy lại trên CI; thẻ mới được thêm bằng editor inline thay cho dialog.
 
+// Worker-scoped: mỗi worker (parallelIndex) có giáo viên, khóa học và topic riêng.
+const currentScope = () => getWorkerScope(test.info().parallelIndex);
+
 test.afterEach(async () => {
-  await cleanupDashboardReturnFreshnessFixture();
+  await cleanupDashboardReturnFreshnessFixture(currentScope());
 });
 
 test("teacher returns to overview and sees the resolved topic content issue disappear", async ({
@@ -29,13 +32,13 @@ test("teacher returns to overview and sees the resolved topic content issue disa
 }) => {
   const consoleGuard = watchBrowserConsole(page);
 
-  const fixture = await prepareDashboardReturnFreshnessFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
+  const fixture = await prepareDashboardReturnFreshnessFixture(currentScope());
+  const courseId = fixture.E2E_COURSE_ID;
   const topicTitle = fixture.E2E_TOPIC_TITLE;
   const word = fixture.E2E_FLASHCARD_WORD;
   const translation = fixture.E2E_FLASHCARD_TRANSLATION;
 
-  expect(await getActiveFixtureFlashcardCount()).toBe(0);
+  expect(await getActiveFixtureFlashcardCount(currentScope())).toBe(0);
 
   await loginAsTeacher(page, fixture);
 
@@ -77,7 +80,7 @@ test("teacher returns to overview and sees the resolved topic content issue disa
 
   await expect(page.getByRole("status").filter({ hasText: /n.*i dung h.*c t.*p/i })).toBeVisible();
   await expect(page).not.toHaveURL(/from=dashboard/);
-  expect(await getActiveFixtureFlashcardCount()).toBe(1);
+  expect(await getActiveFixtureFlashcardCount(currentScope())).toBe(1);
 
   await page.getByRole("link", { name: /Quay l.*i t.*ng quan/i }).click();
   await expect(page).toHaveURL(new RegExp(`${getCourseOverviewPath(courseId)}$`));
@@ -87,6 +90,6 @@ test("teacher returns to overview and sees the resolved topic content issue disa
   await expect(
     page.locator(issueContainers).filter({ hasText: topicTitle }).filter({ hasText: "flashcard" }),
   ).toHaveCount(0);
-  expect(await getActiveFixtureFlashcardCount()).toBe(1);
+  expect(await getActiveFixtureFlashcardCount(currentScope())).toBe(1);
   await consoleGuard.expectNoErrors();
 });

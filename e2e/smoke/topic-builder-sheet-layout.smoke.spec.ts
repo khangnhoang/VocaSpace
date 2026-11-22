@@ -3,8 +3,8 @@ import {
   cleanupDashboardReturnFreshnessFixture,
   prepareDashboardReturnFreshnessFixture,
 } from "../../scripts/e2e/dashboard-return-freshness-fixture.mjs";
-import { exerciseAuthoringFixture } from "../../scripts/e2e/exercise-authoring-fixture.mjs";
-import { portfolioFixture, preparePortfolioFixture } from "../../scripts/e2e/teacher-course-portfolio-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
+import { preparePortfolioFixture } from "../../scripts/e2e/teacher-course-portfolio-fixture.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsTeacher } from "../support/auth";
 import { expectTopicBuilder } from "../support/structure-ui";
@@ -17,13 +17,16 @@ import { expectTopicBuilder } from "../support/structure-ui";
 // - Đối tượng: khóa cuộn của Radix (`body[data-scroll-locked]`) cùng `scrollbar-gutter: stable` trong globals.css.
 // - Invariant cần giữ: khung header giữ nguyên vị trí và kích thước trước, trong và sau khi mở sheet.
 
+// Worker-scoped: mỗi worker (parallelIndex) có giáo viên, khóa học và topic riêng.
+const currentScope = () => getWorkerScope(test.info().parallelIndex);
+
 test.use({
   viewport: { width: 1280, height: 360 },
   launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] },
 });
 
 test.afterEach(async () => {
-  await cleanupDashboardReturnFreshnessFixture();
+  await cleanupDashboardReturnFreshnessFixture(currentScope());
 });
 
 function headerBox(page: Page) {
@@ -31,9 +34,9 @@ function headerBox(page: Page) {
 }
 
 test("opening the author group sheet does not shift the page", async ({ page }) => {
-  const fixture = await prepareDashboardReturnFreshnessFixture();
-  const courseId = fixture.E2E_COURSE_ID ?? exerciseAuthoringFixture.courseId;
-  const topicId = fixture.E2E_TOPIC_ID ?? exerciseAuthoringFixture.topicId;
+  const fixture = await prepareDashboardReturnFreshnessFixture(currentScope());
+  const courseId = fixture.E2E_COURSE_ID;
+  const topicId = fixture.E2E_TOPIC_ID;
 
   await loginAsTeacher(page, fixture);
   await page.goto(getTopicBuilderPath(courseId, topicId, "flashcards"));
@@ -56,7 +59,8 @@ test("opening the author group sheet does not shift the page", async ({ page }) 
 });
 
 test("opening a dialog on the course portfolio does not shift the page", async ({ page }) => {
-  await preparePortfolioFixture();
+  // Giáo viên portfolio riêng của worker: trang chỉ có một khóa học, nên nút thùng rác là duy nhất.
+  const { fixture: portfolioFixture } = await preparePortfolioFixture(currentScope());
   await loginAsTeacher(page, { E2E_TEACHER_EMAIL: portfolioFixture.teacherEmail, E2E_TEACHER_PASSWORD: portfolioFixture.teacherPassword });
   await page.goto("/teacher/courses");
   // Không định vị theo role: hộp thoại mở thì phần còn lại của trang bị ẩn khỏi cây trợ năng.

@@ -3,33 +3,27 @@ import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixt
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
 import { upsertRow } from "./support/db-write.mjs";
 
-export const topicCreateNavigationFixture = {
-  adminId: "11111111-1111-4111-8111-111111111111",
-  teacherId: "22222222-2222-4222-8222-222222222222",
-  teacherEmail: "teacher@gmail.com",
-  teacherPassword: "123123",
-  courseId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-  collaboratorId: "99999999-9999-4999-8999-999999999999",
-  chapters: [
-    {
-      key: "zero",
-      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-      existingDraftCount: 0,
-    },
-    {
-      key: "one",
-      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
-      existingDraftCount: 1,
-    },
-    {
-      key: "multiple",
-      id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
-      existingDraftCount: 3,
-    },
-  ],
-};
+export function topicCreateNavigationFixtureFor(scope) {
+  return {
+    adminId: "11111111-1111-4111-8111-111111111111",
+    teacherId: scope.teacher.id,
+    teacherEmail: scope.teacher.email,
+    teacherPassword: scope.teacher.password,
+    teacherFullName: scope.teacher.fullName,
+    teacherUsername: scope.teacher.username,
+    courseId: scope.id("create-nav-course"),
+    collaboratorId: scope.id("create-nav-collaborator"),
+    courseSlug: scope.slug("d1-topic-navigation-smoke-course"),
+    chapters: [
+      { key: "zero", id: scope.id("create-nav-chapter-zero"), existingDraftCount: 0 },
+      { key: "one", id: scope.id("create-nav-chapter-one"), existingDraftCount: 1 },
+      { key: "multiple", id: scope.id("create-nav-chapter-multiple"), existingDraftCount: 3 },
+    ],
+  };
+}
 
-export async function prepareTopicCreateNavigationFixture(env = process.env) {
+export async function prepareTopicCreateNavigationFixture(scope, env = process.env) {
+  const topicCreateNavigationFixture = topicCreateNavigationFixtureFor(scope);
   const { supabase } = await createBaseAuthoringFixture({
     env,
     fixture: topicCreateNavigationFixture,
@@ -39,8 +33,8 @@ export async function prepareTopicCreateNavigationFixture(env = process.env) {
       certifications: "D1 bounded smoke",
     },
     course: {
-      title: "D1 Topic Navigation Smoke Course",
-      slug: "d1-topic-navigation-smoke-course",
+      title: `D1 Topic Navigation Smoke Course ${scope.tag}`,
+      slug: topicCreateNavigationFixture.courseSlug,
       description: "Bounded D1 create-to-builder navigation smoke fixture.",
       price: 0,
       status: "draft",
@@ -96,7 +90,8 @@ export async function prepareTopicCreateNavigationFixture(env = process.env) {
   };
 }
 
-export async function findCreatedTopicByTitle(title, env = process.env) {
+export async function findCreatedTopicByTitle(scope, title, env = process.env) {
+  const topicCreateNavigationFixture = topicCreateNavigationFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data, error } = await supabase
     .from("topics")
