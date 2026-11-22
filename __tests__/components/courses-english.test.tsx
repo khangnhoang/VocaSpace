@@ -203,6 +203,28 @@ describe("/courses in English", () => {
     expect(html).toContain("1 vocabulary card<");
   });
 
+  it("groups thousands in the English counts and keeps the Vietnamese digits bare (AC5)", async () => {
+    mockedListing.mockResolvedValue({
+      status: "success",
+      data: { courses: Array.from({ length: 1234 }, (_, index) => listingItem(index + 1)), enrolledCourseIds: [] },
+    });
+    window.history.replaceState(null, "", "/courses?trang=84");
+
+    const english = await renderCatalog({ trang: "84" });
+    setServerTestLocale("vi");
+    const vietnamese = text(
+      renderToStaticMarkup(await CoursesPage({ searchParams: Promise.resolve({ trang: "84" }) }), { locale: "vi" }),
+    );
+
+    // Trang 84 gồm khóa học 997–1008; tiếng Anh nhóm hàng nghìn ở phần tóm tắt, tiêu đề và nhãn trang, tiếng Việt giữ chữ số trần.
+    expect(english).toContain("Showing 997–1,008 of 1,234 courses");
+    expect(english).toMatch(/<b[^>]*>1,234<\/b> courses/);
+    expect(english).not.toMatch(/of 1234|>1234</);
+    expect(vietnamese).toContain("Hiển thị 997–1008 trong 1234 khóa học");
+    expect(vietnamese).not.toContain("1,234");
+    expect(vietnamese).not.toContain("1,008");
+  });
+
   it("renders the empty and error states in English and keeps the safe error out of the page", async () => {
     mockedListing.mockResolvedValueOnce({ status: "success", data: { courses: [], enrolledCourseIds: [] } });
     const emptyHtml = await renderCatalog();

@@ -2,7 +2,9 @@
 
 import type { MouseEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCatalogCount } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 import {
   catalogPageWindow,
@@ -25,6 +27,8 @@ const ITEM =
 
 export function CatalogPagination({ query, page, totalPages, from, to, total, onPage }: CatalogPaginationProps) {
   const t = useTranslations("courses");
+  const locale = useLocale() as Locale;
+  const displayNumber = (value: number) => formatCatalogCount(locale, value);
   // Link thật để trang vẫn chuyển được khi JavaScript chưa chạy; khi đã hydrate thì đổi trang tại chỗ.
   const href = (target: number) => {
     const search = serializeCatalogQuery({ ...query, page: target });
@@ -62,7 +66,7 @@ export function CatalogPagination({ query, page, totalPages, from, to, total, on
               <a
                 href={href(item)}
                 onClick={go(item)}
-                aria-label={t("catalog.pagination.page", { page: item })}
+                aria-label={t("catalog.pagination.page", { page: displayNumber(item) })}
                 aria-current={item === page ? "page" : undefined}
                 className={cn(
                   ITEM,
@@ -71,7 +75,7 @@ export function CatalogPagination({ query, page, totalPages, from, to, total, on
                     : "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900",
                 )}
               >
-                {item}
+                {displayNumber(item)}
               </a>
             </li>
           ),
@@ -91,7 +95,7 @@ export function CatalogPagination({ query, page, totalPages, from, to, total, on
         </li>
       </ol>
       <p className="font-[family-name:var(--font-geist-sans)] text-xs leading-4 font-medium text-slate-600">
-        {t("catalog.pagination.showing", { from, to, total })}
+        {t("catalog.pagination.showing", { from: displayNumber(from), to: displayNumber(to), total: displayNumber(total) })}
       </p>
     </nav>
   );

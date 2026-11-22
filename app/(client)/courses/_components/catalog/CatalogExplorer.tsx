@@ -5,7 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { domMax, LazyMotion, MotionConfig, useReducedMotion } from "motion/react";
 import * as m from "motion/react-m";
 import { X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCatalogCount } from "@/lib/i18n/format";
 import { Button } from "@/components/ui/button";
 import {
   countPriceGroups,
@@ -54,6 +56,7 @@ export function CatalogExplorer(props: CatalogExplorerProps) {
 
 function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerProps) {
   const t = useTranslations("courses");
+  const locale = useLocale() as Locale;
   const searchParams = useSearchParams();
   const reduceMotion = useReducedMotion() ?? false;
   const [userPagedTo, setUserPagedTo] = useState<number | null>(null);
@@ -150,6 +153,8 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
                 {t.rich(results.length !== courses.length ? "catalog.results.summaryOf" : "catalog.results.summary", {
                   count: results.length,
                   total: courses.length,
+                  formatted: formatCatalogCount(locale, results.length),
+                  totalFormatted: formatCatalogCount(locale, courses.length),
                   sort: t(`catalog.sort.${query.sort}`),
                   b: (chunks) => <b className="font-semibold text-slate-900 tabular-nums">{chunks}</b>,
                 })}
@@ -233,6 +238,7 @@ type NoResultsProps = {
 
 function NoResults({ query, chips, otherPriceCount, suggestions, enrolled, onClear, onClearAll }: NoResultsProps) {
   const t = useTranslations("courses");
+  const locale = useLocale() as Locale;
   const conditions = [
     query.q ? t("catalog.noResults.conditionQuery", { query: query.q }) : null,
     query.price !== "all" ? t("catalog.noResults.conditionPrice", { price: t(`price.${query.price}`) }) : null,
@@ -260,7 +266,7 @@ function NoResults({ query, chips, otherPriceCount, suggestions, enrolled, onCle
       >
         {query.price !== "all" && otherPriceCount > 0 ? (
           <Button type="button" size="lg" onClick={() => onClear({ price: otherPrice })}>
-            {t("catalog.noResults.seeOther", { count: otherPriceCount, price: t(`price.${otherPrice}`).toLowerCase() })}
+            {t("catalog.noResults.seeOther", { count: otherPriceCount, formatted: formatCatalogCount(locale, otherPriceCount), price: t(`price.${otherPrice}`).toLowerCase() })}
           </Button>
         ) : null}
         <Button type="button" size="lg" variant="outline" onClick={onClearAll}>

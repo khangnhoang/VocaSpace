@@ -124,7 +124,7 @@ export default function ProfileSidebar({
           ) : profileData?.avatar_url ? (
             <Image 
               src={profileData.avatar_url} 
-              alt={t("avatarAlt")} 
+              alt={t("avatarAlt")}
               fill
               sizes="96px"
               className="object-cover" 

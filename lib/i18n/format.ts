@@ -11,6 +11,14 @@ export function formatNumber(locale: Locale, value: number, options?: Intl.Numbe
   return new Intl.NumberFormat(intlTag(locale), options).format(value);
 }
 
+/**
+ * Số đếm hiển thị ở danh mục khóa học: tiếng Việt giữ chữ số trần như trước U2 (không dấu phân cách) để bản chụp không đổi,
+ * tiếng Anh có dấu phân cách hàng nghìn như các số khác trong màn hình.
+ */
+export function formatCatalogCount(locale: Locale, value: number): string {
+  return locale === "en" ? formatNumber(locale, value) : String(value);
+}
+
 export function formatDateTime(locale: Locale, value: Date, options?: Intl.DateTimeFormatOptions): string {
   return new Intl.DateTimeFormat(intlTag(locale), options).format(value);
 }

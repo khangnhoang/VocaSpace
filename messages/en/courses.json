@@ -56,8 +56,8 @@
       "title": "Course list",
       "found": "Found {count, plural, one {# course} other {# courses}}.",
       "none": "No matching courses found.",
-      "summary": "<b>{count}</b> {count, plural, one {course} other {courses}} · {sort}",
-      "summaryOf": "<b>{count}</b> of {total} courses · {sort}",
+      "summary": "<b>{formatted}</b> {count, plural, one {course} other {courses}} · {sort}",
+      "summaryOf": "<b>{formatted}</b> of {totalFormatted} courses · {sort}",
       "chipQuery": "“{query}”",
       "chipRemove": "Remove the {label} filter",
       "clearAll": "Clear all"
@@ -69,7 +69,7 @@
       "conditionPrice": "in the {price} group",
       "conditionPreview": "with a free preview",
       "description": "Try removing a filter, or search with a shorter word. You don't need to type accents.",
-      "seeOther": "See {count} {price} {count, plural, one {course} other {courses}}",
+      "seeOther": "See {formatted} {price} {count, plural, one {course} other {courses}}",
       "clearFilters": "Clear all filters",
       "suggestionsTitle": "Most enrolled courses",
       "suggestionsHint": "Suggestions from the whole library, not the current filters."

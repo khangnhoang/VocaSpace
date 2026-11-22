@@ -14,7 +14,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCatalogCount } from "@/lib/i18n/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { CatalogPriceGroup, CatalogQuery } from "@/lib/public-courses/catalog-query";
@@ -61,6 +63,7 @@ export function CatalogToolbar({
   renderPriceIndicator,
 }: CatalogToolbarProps) {
   const t = useTranslations("courses");
+  const locale = useLocale() as Locale;
   const inputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -205,7 +208,7 @@ export function CatalogToolbar({
                         active ? "text-route" : "text-slate-600",
                       )}
                     >
-                      {priceCounts[option.value]}
+                      {formatCatalogCount(locale, priceCounts[option.value])}
                     </span>
                   </button>
                 );
