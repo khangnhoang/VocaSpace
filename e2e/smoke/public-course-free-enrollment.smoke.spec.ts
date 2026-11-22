@@ -1,20 +1,25 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
+import { ensureWorkerAccount } from "../../scripts/e2e/support/worker-accounts.mjs";
+import { assertIsolatedRuntime, getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf3/plan.md
 // Test plan:
 // - Mục tiêu: kiểm chứng trên trình duyệt thật rằng đăng ký khóa miễn phí ở lại trang chi tiết và chỉ mở chủ đề đầu khi bấm "Bắt đầu học" (LF3 AC7).
-// - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với khóa miễn phí có sẵn trong seed; beforeEach đưa chủ đề đầu về published (spec soạn nội dung để nó ở draft) và xóa tiến độ của học viên ở chủ đề đó, afterEach gỡ ghi danh vừa tạo.
+// - Loại test: smoke E2E trên Supabase local cô lập (cổng 45441) với khóa miễn phí có sẵn trong seed; học viên là tài khoản riêng của worker; chủ đề seed chỉ được đọc (không spec nào còn đưa nó về draft). beforeEach xóa tiến độ của học viên ở chủ đề đó, afterEach gỡ ghi danh vừa tạo.
 // - Case thành công: đăng ký xong thì modal đóng, URL không đổi, nút chính đổi thành "Bắt đầu học"; bấm mới vào chủ đề đầu tiên.
 // - Case thất bại: không có (đường lỗi điều hướng đã có component test).
-// - Bảo mật/phân quyền: chỉ ghi ghi danh của học viên seed trên runtime E2E cô lập, dọn lại sau test.
+// - Bảo mật/phân quyền: chỉ ghi ghi danh của học viên worker-scoped trên runtime E2E cô lập, dọn lại sau test.
 // - Ổn định/resilience: không tràn ngang ở 375px và 1280px.
 // - Invariant cần giữ: không có điều hướng tự động sau đăng ký; học viên đã ghi danh từ trước thấy "Tiếp tục: <tên chủ đề>" (FEAT3 AC6a).
 // - Kết quả verify gần nhất: xem báo cáo checkpoint LF3 CP4 (chạy `npm run test:e2e -- e2e/smoke/public-course-free-enrollment.smoke.spec.ts`).
 
 const COURSE_SLUG = "local-toeic-test-course";
 const FIRST_TOPIC_SLUG = "local-test-topic";
-const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
+
+// Worker-scoped: học viên riêng của worker (parallelIndex), nên ghi danh/tiến độ của spec này không đụng học viên seed
+// mà `learning-workspace` và `enrolled-course-overview` đọc. Khóa học và chủ đề seed chỉ được đọc, không bị ghi.
+const currentStudent = () => getWorkerScope(test.info().parallelIndex).student;
 
 async function removeStudentEnrollment() {
   const admin = createSupabaseAdmin(process.env);
@@ -24,22 +29,8 @@ async function removeStudentEnrollment() {
     .from("enrollments")
     .delete()
     .eq("course_id", course.data.id)
-    .eq("user_id", STUDENT_ID);
+    .eq("user_id", currentStudent().id);
   if (removed.error) throw new Error(removed.error.message);
-}
-
-// Các spec soạn nội dung chạy trước (`prepareExerciseAuthoringFixture`) đưa chủ đề seed này về draft và không trả lại,
-// nên spec này tự đưa chủ đề đầu về published thay vì dựa vào trạng thái seed.
-async function publishFirstTopic() {
-  const admin = createSupabaseAdmin(process.env);
-  const course = await admin.from("courses").select("id").eq("slug", COURSE_SLUG).single();
-  if (course.error) throw new Error(course.error.message);
-  const published = await admin
-    .from("topics")
-    .update({ status: "published" })
-    .eq("course_id", course.data.id)
-    .eq("slug", FIRST_TOPIC_SLUG);
-  if (published.error) throw new Error(published.error.message);
 }
 
 // Chủ đề seed không có thẻ hay bài tập, nên mở nó (test "Bắt đầu học") là đồng bộ thành hoàn thành;
@@ -59,7 +50,7 @@ async function forgetFirstTopicProgress() {
     .from("user_topic_progress")
     .delete()
     .eq("topic_id", topic.data.id)
-    .eq("user_id", STUDENT_ID);
+    .eq("user_id", currentStudent().id);
   if (removed.error) throw new Error(removed.error.message);
 }
 
@@ -70,12 +61,13 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  assertIsolatedRuntime(process.env);
+  await ensureWorkerAccount(createSupabaseAdmin(process.env), currentStudent(), "student");
   await removeStudentEnrollment();
-  await publishFirstTopic();
   await forgetFirstTopicProgress();
   await page.goto("/login");
-  await page.getByLabel("Email").fill("student@gmail.com");
-  await page.getByLabel("Mật khẩu", { exact: true }).fill("123123");
+  await page.getByLabel("Email").fill(currentStudent().email);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(currentStudent().password);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
@@ -117,7 +109,7 @@ test("a learner who is already enrolled sees Tiếp tục with the next topic", 
   if (course.error) throw new Error(course.error.message);
   const enrolled = await admin
     .from("enrollments")
-    .insert({ course_id: course.data.id, user_id: STUDENT_ID });
+    .insert({ course_id: course.data.id, user_id: currentStudent().id });
   if (enrolled.error) throw new Error(enrolled.error.message);
 
   await page.goto(`/courses/${COURSE_SLUG}`);

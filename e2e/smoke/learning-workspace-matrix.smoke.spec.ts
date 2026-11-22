@@ -1,10 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  MATRIX_COURSE_SLUG,
   MATRIX_TOPICS,
   cleanupLearningWorkspaceMatrix,
+  matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/d8-learning-ui/plan.md
@@ -21,29 +22,34 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // - LF4: các test thẻ từ vựng xóa dòng chấm của học viên trước khi chạy vì hàng đợi chỉ gồm thẻ chưa xem.
 // - Kết quả verify gần nhất: passed (10/10) ngày 2026-10-18 sau khi sửa case memory check theo LF9 (đạt thì tự mở bài tập) và cho helper mở danh sách câu hỏi chờ hydrate (chạy `npm run test:e2e -- e2e/smoke/learning-workspace-matrix.smoke.spec.ts`).
 
-const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
 const WIDTHS = [320, 375, 768, 1024, 1366, 1440];
 
+// Worker-scoped: ma trận, học viên và giáo viên riêng của worker này (parallelIndex); gán trong beforeAll.
+let scope: ReturnType<typeof getWorkerScope>;
+let matrix: ReturnType<typeof matrixFor>;
+
 test.beforeAll(async () => {
+  scope = getWorkerScope(test.info().parallelIndex);
+  matrix = matrixFor(scope);
   // Many synthetic rows and storage uploads are written once for the whole file.
   test.setTimeout(240_000);
-  await seedLearningWorkspaceMatrix();
+  await seedLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.afterAll(async () => {
-  await cleanupLearningWorkspaceMatrix();
+  await cleanupLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("student@gmail.com");
-  await page.getByLabel("Mật khẩu", { exact: true }).fill("123123");
+  await page.getByLabel("Email").fill(matrix.student.email);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(matrix.student.password);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 
 const topicPath = (key: keyof typeof MATRIX_TOPICS) =>
-  `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS[key].slug}`;
+  `/learn/${matrix.courseSlug}/${matrix.topics[key].slug}`;
 
 // LF9 r7: the question list is the only way between questions, so moving on picks the row after the current one.
 const nextQuestion = async (page: Page) => {
@@ -64,14 +70,14 @@ const nextQuestion = async (page: Page) => {
 // LF4: workspace chỉ xếp thẻ chưa xem, nên test thẻ từ vựng xóa dòng chấm của học viên để luôn bắt đầu từ hàng đợi đầy đủ.
 async function forgetVocabularyCardProgress() {
   const admin = createSupabaseAdmin(process.env);
-  const topic = await admin.from("topics").select("id").eq("slug", MATRIX_TOPICS.vocabulary.slug).single();
+  const topic = await admin.from("topics").select("id").eq("slug", matrix.topics.vocabulary.slug).single();
   if (topic.error) throw new Error(topic.error.message);
   const cards = await admin.from("cards").select("id").eq("topic_id", topic.data.id);
   if (cards.error) throw new Error(cards.error.message);
   const removed = await admin
     .from("user_flashcards")
     .delete()
-    .eq("user_id", STUDENT_ID)
+    .eq("user_id", matrix.student.id)
     .in("card_id", cards.data.map((card) => card.id));
   if (removed.error) throw new Error(removed.error.message);
 }
@@ -86,7 +92,7 @@ test("vocabulary card turns in place and continues to the next front", async ({ 
   await forgetVocabularyCardProgress();
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto(topicPath("vocabulary"));
-  await expect(page.getByRole("heading", { level: 1, name: MATRIX_TOPICS.vocabulary.title })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: matrix.topics.vocabulary.title })).toBeVisible();
   await expect(page.getByText("reliable", { exact: true })).toBeVisible();
 
   const reveal = page.getByRole("button", { name: "Hiện đáp án" });

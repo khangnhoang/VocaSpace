@@ -1,10 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  MATRIX_COURSE_SLUG,
-  MATRIX_TOPICS,
   cleanupLearningWorkspaceMatrix,
+  matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf3/plan.md
@@ -22,23 +22,31 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 
 test.describe.configure({ mode: "serial" });
 
-const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
-const coursePath = `/courses/${MATRIX_COURSE_SLUG}`;
-const firstTopic = MATRIX_TOPICS.full;
-const memoryTopic = MATRIX_TOPICS.memory;
+
+// Worker-scoped: ma trận, học viên và giáo viên riêng của worker này (parallelIndex); gán trong beforeAll.
+let scope: ReturnType<typeof getWorkerScope>;
+let matrix: ReturnType<typeof matrixFor>;
+let coursePath: string;
+let firstTopic: ReturnType<typeof matrixFor>["topics"]["full"];
+let memoryTopic: ReturnType<typeof matrixFor>["topics"]["memory"];
 
 test.beforeAll(async () => {
+  scope = getWorkerScope(test.info().parallelIndex);
+  matrix = matrixFor(scope);
+  coursePath = `/courses/${matrix.courseSlug}`;
+  firstTopic = matrix.topics.full;
+  memoryTopic = matrix.topics.memory;
   test.setTimeout(240_000);
-  await seedLearningWorkspaceMatrix();
+  await seedLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.afterAll(async () => {
-  await cleanupLearningWorkspaceMatrix();
+  await cleanupLearningWorkspaceMatrix(process.env, { scope });
 });
 
 async function resetStudentProgress() {
   const admin = createSupabaseAdmin(process.env);
-  const course = await admin.from("courses").select("id").eq("slug", MATRIX_COURSE_SLUG).single();
+  const course = await admin.from("courses").select("id").eq("slug", matrix.courseSlug).single();
   if (course.error) throw new Error(course.error.message);
   const topics = await admin.from("topics").select("id").eq("course_id", course.data.id);
   if (topics.error) throw new Error(topics.error.message);
@@ -49,13 +57,13 @@ async function resetStudentProgress() {
   const answers = await admin
     .from("user_question_answers")
     .delete()
-    .eq("user_id", STUDENT_ID)
+    .eq("user_id", matrix.student.id)
     .in("question_id", questions.data.map((question) => question.id));
   if (answers.error) throw new Error(answers.error.message);
   const progress = await admin
     .from("user_topic_progress")
     .delete()
-    .eq("user_id", STUDENT_ID)
+    .eq("user_id", matrix.student.id)
     .in("topic_id", topicIds);
   if (progress.error) throw new Error(progress.error.message);
 }
@@ -78,7 +86,7 @@ test("a visitor still sees the preview syllabus without learning links", async (
   await expect(topicLink(page, firstTopic.title)).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Xem thử bài học" })).toHaveCount(1);
   await expect(page.getByText("Nội dung dành cho học viên").first()).toBeVisible();
-  await expect(page.locator(`a[href^="/learn/${MATRIX_COURSE_SLUG}/"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href^="/learn/${matrix.courseSlug}/"]`)).toHaveCount(0);
 });
 
 for (const width of [375, 1280]) {
@@ -89,18 +97,18 @@ for (const width of [375, 1280]) {
     await resetStudentProgress();
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/login");
-    await page.getByLabel("Email").fill("student@gmail.com");
-    await page.getByLabel("Mật khẩu", { exact: true }).fill("123123");
+    await page.getByLabel("Email").fill(matrix.student.email);
+    await page.getByLabel("Mật khẩu", { exact: true }).fill(matrix.student.password);
     await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
     await expect(page).toHaveURL(/\/$/);
 
     // Chưa có tiến độ: chủ đề đầu (cũng là chủ đề Preview) là liên kết /learn với trạng thái Học tiếp.
     await page.goto(coursePath);
     const first = topicLink(page, firstTopic.title);
-    await expect(first).toHaveAttribute("href", `/learn/${MATRIX_COURSE_SLUG}/${firstTopic.slug}`);
+    await expect(first).toHaveAttribute("href", `/learn/${matrix.courseSlug}/${firstTopic.slug}`);
     await expect(first).toContainText("Học tiếp");
     const memory = topicLink(page, memoryTopic.title);
-    await expect(memory).toHaveAttribute("href", `/learn/${MATRIX_COURSE_SLUG}/${memoryTopic.slug}`);
+    await expect(memory).toHaveAttribute("href", `/learn/${matrix.courseSlug}/${memoryTopic.slug}`);
     await expect(memory).toContainText("Sắp tới");
     await expect(page.getByText("Học tiếp", { exact: true })).toHaveCount(1);
     await expect(page.getByText("Đã hoàn thành", { exact: true })).toHaveCount(0);
@@ -110,7 +118,7 @@ for (const width of [375, 1280]) {
 
     // Hoàn thành thật chủ đề memory check: memory check rồi bài tập duy nhất của chủ đề.
     await memory.click();
-    await expect(page).toHaveURL(new RegExp(`/learn/${MATRIX_COURSE_SLUG}/${memoryTopic.slug}$`));
+    await expect(page).toHaveURL(new RegExp(`/learn/${matrix.courseSlug}/${memoryTopic.slug}$`));
     await page.getByRole("radio", { name: /đáng tin cậy/ }).click();
     await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
     await expect(page.getByRole("radio", { name: /bạn chọn đúng/ })).toBeVisible();
@@ -128,7 +136,7 @@ for (const width of [375, 1280]) {
         const rows = await admin
           .from("user_topic_progress")
           .select("is_topic_completed, topics!inner(slug)")
-          .eq("user_id", STUDENT_ID)
+          .eq("user_id", matrix.student.id)
           .eq("topics.slug", memoryTopic.slug);
         if (rows.error) throw new Error(rows.error.message);
         return rows.data.some((row) => row.is_topic_completed === true);
@@ -144,7 +152,7 @@ for (const width of [375, 1280]) {
 
     // FEAT3 AC6a: nút chính của thẻ đang học "Tiếp tục: <tên chủ đề>" mở đúng chủ đề Học tiếp.
     await page.getByRole("button", { name: `Tiếp tục: ${firstTopic.title}` }).click();
-    await expect(page).toHaveURL(new RegExp(`/learn/${MATRIX_COURSE_SLUG}/${firstTopic.slug}$`));
+    await expect(page).toHaveURL(new RegExp(`/learn/${matrix.courseSlug}/${firstTopic.slug}$`));
     // Chờ trang học tải xong để afterAll không dọn fixture giữa lúc trang đang đồng bộ tiến độ.
     await expect(page.getByRole("list", { name: "Các bước của bài học" })).toBeVisible();
   });

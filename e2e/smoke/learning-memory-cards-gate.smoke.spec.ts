@@ -1,12 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   FULL_FLOW_ADDED_CARD,
-  MATRIX_COURSE_SLUG,
-  MATRIX_TOPICS,
   addFullFlowCard,
   cleanupLearningWorkspaceMatrix,
+  matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
+import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
 import { CARDS_REQUIRED_ERROR } from "../../lib/memory-check";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
@@ -30,25 +30,30 @@ import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mj
 // Hai test dùng chung một lần seed và test sau đọc trạng thái do test trước để lại.
 test.describe.configure({ mode: "serial" });
 
+// Worker-scoped: ma trận, học viên và giáo viên riêng của worker này (parallelIndex); gán trong beforeAll.
+let scope: ReturnType<typeof getWorkerScope>;
+let matrix: ReturnType<typeof matrixFor>;
+
 test.beforeAll(async () => {
+  scope = getWorkerScope(test.info().parallelIndex);
+  matrix = matrixFor(scope);
   test.setTimeout(240_000);
-  await seedLearningWorkspaceMatrix();
+  await seedLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.afterAll(async () => {
-  await cleanupLearningWorkspaceMatrix();
+  await cleanupLearningWorkspaceMatrix(process.env, { scope });
 });
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("student@gmail.com");
-  await page.getByLabel("Mật khẩu", { exact: true }).fill("123123");
+  await page.getByLabel("Email").fill(matrix.student.email);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(matrix.student.password);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 
-const topicPath = `/learn/${MATRIX_COURSE_SLUG}/${MATRIX_TOPICS.full.slug}`;
-const STUDENT_ID = "33333333-3333-4333-8333-333333333333";
+const topicPath = () => `/learn/${matrix.courseSlug}/${matrix.topics.full.slug}`;
 const NEW_CARDS_TOAST = "Bài học vừa có thêm 1 thẻ mới. Học xong rồi làm lại memory check nhé.";
 const FIRST_QUESTION = 'Nghĩa của "deadline" là gì?';
 
@@ -80,14 +85,14 @@ async function rateCardsUntilMemoryCheck(page: Page) {
 /** Number of the topic's cards that have a stored rating for the seeded learner. */
 async function ratedCardCount() {
   const admin = createSupabaseAdmin(process.env);
-  const topic = await admin.from("topics").select("id").eq("slug", MATRIX_TOPICS.full.slug).limit(1).single();
+  const topic = await admin.from("topics").select("id").eq("slug", matrix.topics.full.slug).limit(1).single();
   if (topic.error) throw new Error(topic.error.message);
   const cards = await admin.from("cards").select("id").eq("topic_id", topic.data.id);
   if (cards.error) throw new Error(cards.error.message);
   const rows = await admin
     .from("user_flashcards")
     .select("card_id, last_rating")
-    .eq("user_id", STUDENT_ID)
+    .eq("user_id", matrix.student.id)
     .in("card_id", cards.data.map((card) => card.id));
   if (rows.error) throw new Error(rows.error.message);
   return rows.data.filter((row) => row.last_rating !== null).length;
@@ -95,9 +100,13 @@ async function ratedCardCount() {
 
 async function answeredOptionFor(questionContent: string) {
   const admin = createSupabaseAdmin(process.env);
+  // Nội dung câu hỏi lặp lại ở khóa học matrix của mọi worker, nên chỉ tìm trong khóa học của worker này.
+  const course = await admin.from("courses").select("id").eq("slug", matrix.courseSlug).single();
+  if (course.error) throw new Error(course.error.message);
   const question = await admin
     .from("questions")
     .select("id")
+    .eq("course_id", course.data.id)
     .eq("content", questionContent)
     .limit(1)
     .single();
@@ -105,7 +114,7 @@ async function answeredOptionFor(questionContent: string) {
   const answers = await admin
     .from("user_question_answers")
     .select("selected_option_id")
-    .eq("user_id", STUDENT_ID)
+    .eq("user_id", matrix.student.id)
     .eq("question_id", question.data.id);
   if (answers.error) throw new Error(answers.error.message);
   return answers.data;
@@ -116,7 +125,7 @@ test("a card added after the page loaded sends the learner back to the flashcard
   browser,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(topicPath);
+  await page.goto(topicPath());
   const thread = page.getByRole("list", { name: "Các bước của bài học" });
   await expect(thread).toContainText("Memory check (đang khóa)");
 
@@ -139,7 +148,7 @@ test("a card added after the page loaded sends the learner back to the flashcard
   });
   try {
     const touchPage = await touchContext.newPage();
-    await touchPage.goto(topicPath);
+    await touchPage.goto(topicPath());
     for (const width of [375, 320]) {
       await touchPage.setViewportSize({ width, height: 812 });
       await expect(touchPage.getByRole("list", { name: "Các bước của bài học" })).toContainText("Memory check (đang khóa)");
@@ -190,7 +199,7 @@ test("a card added after the page loaded sends the learner back to the flashcard
   await expect(thread).toContainText("Memory check (đang học)");
 
   // Giảng viên thêm thẻ khi học viên đang ở memory check.
-  await addFullFlowCard();
+  await addFullFlowCard(process.env, { scope });
 
   // Server từ chối: không có câu trả lời nào được ghi, người học về Từ vựng và dữ liệu được tải lại.
   await page.getByRole("radio", { name: /hạn chót/ }).click();
@@ -245,7 +254,7 @@ test("the stage thread shows a finished step as done while it is the current ste
 }) => {
   for (const width of [375, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto(topicPath);
+    await page.goto(topicPath());
     const thread = page.getByRole("list", { name: "Các bước của bài học" });
     // Test trước đã học hết thẻ và qua memory check, còn bài tập chưa làm: LF5 mở thẳng bước Bài tập.
     await expect(thread).toContainText("Bài tập (đang học)");
@@ -265,9 +274,9 @@ test("a changed answer is refused while a new card is unseen and the stored answ
 }) => {
   // Test này tự seed lại để bắt đầu từ trạng thái sạch (không còn thẻ mới, đáp án, tiến độ của hai test trước).
   test.setTimeout(300_000);
-  await seedLearningWorkspaceMatrix();
+  await seedLearningWorkspaceMatrix(process.env, { scope });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(topicPath);
+  await page.goto(topicPath());
   const thread = page.getByRole("list", { name: "Các bước của bài học" });
   await rateCardsUntilMemoryCheck(page);
 
@@ -287,7 +296,7 @@ test("a changed answer is refused while a new card is unseen and the stored answ
   await expect(page.getByRole("heading", { name: FIRST_QUESTION })).toBeVisible();
 
   // Giảng viên thêm thẻ; lần đổi đáp án của câu đầu bị từ chối và đáp án đã lưu không đổi.
-  await addFullFlowCard();
+  await addFullFlowCard(process.env, { scope });
   await page.getByRole("radio", { name: /hạn chót/ }).click();
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
   await expect(page.getByText(NEW_CARDS_TOAST)).toBeVisible();
@@ -316,9 +325,9 @@ for (const width of [375, 1280]) {
     page,
   }) => {
     test.setTimeout(300_000);
-    await seedLearningWorkspaceMatrix();
+    await seedLearningWorkspaceMatrix(process.env, { scope });
     await page.setViewportSize({ width, height: 900 });
-    await page.goto(topicPath);
+    await page.goto(topicPath());
 
     const counter = (left: number, total: number) => page.getByText(`${left} / ${total}`, { exact: true });
     const finishedHeading = page.getByRole("heading", { name: "Bạn đã ôn xong từ vựng" });
@@ -373,7 +382,7 @@ for (const width of [375, 1280]) {
     await expectNoHorizontalOverflow(page);
 
     // (c) Giảng viên thêm thẻ: tải lại thì chỉ thẻ mới được xếp, kèm toast.
-    await addFullFlowCard();
+    await addFullFlowCard(process.env, { scope });
     await page.reload();
     await expect(counter(1, 1)).toBeVisible();
     await expect(page.getByText(FULL_FLOW_ADDED_CARD.word, { exact: true })).toBeVisible();
