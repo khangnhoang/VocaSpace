@@ -42,6 +42,14 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Direction: reproduce with the preceding spec files of the failing local runs, then look at the portfolio fixture and the hydration warning.
 - Exit condition: a local full smoke run passes this spec.
 
+### E2E-DEV-002: `d2/public-course-preview:39` once missed its 5 s URL assertion in a full local run under `next dev`
+
+- Status: Open (2026-11-23, found at the English localization U2 Final; not related to localization by the evidence below).
+- Problem: in the spec "guest and enrolled Preview recovers automatically after denominator growth", `expect(page).toHaveURL(…/preview/…)` at line 53 times out after 5 s: the click on the preview link at 320 px was received, but the URL was still the course page when the assertion gave up.
+- Evidence: a full local `npm run test:e2e` (default `next dev` server) on `9e33fe89` ended 96 passed, 1 failed. The trace shows the click hit the link and the client navigation started. The preview route's RSC request took 4738 ms, the course page document took 4194 ms and Fast Refresh logged rebuilds ("done in 2443 ms"). The screenshot taken at failure shows the preview page fully rendered with the dev "Rendering…" indicator. The browser console has 6 messages (React DevTools, HMR, Fast Refresh) and no error or hydration warning. The spec then passed 3 of 3 on each of two solo `next dev` reruns. On a production build (`E2E_WEB_SERVER=start`, `--repeat-each=10`, 3 tests per repeat) it passed 30 of 30 on the U2 candidate and 30 of 30 on the base `20fadd25` (built with placeholder PayOS values, since that worktree has no `.env.local`); the target test took about 11 s each time. No `next dev` repeats were run on the base, so a dev-mode difference between base and candidate is not excluded. The first failure's trace and screenshot are kept outside the repo, in the Claude session scratchpad folder `e2e-fail1` (`C:\Users\khang\AppData\Local\Temp\claude\473f8a4a78caa7db\e1fa7da2-232a-4f46-b641-7b197150080f\scratchpad\e2e-fail1`).
+- Direction: the most likely cause is a cold on-demand compile of the preview route under a 16-minute run, which exceeds the default 5 s expectation; unconfirmed. If it recurs, repeat the spec under `next dev` on the base and on the candidate before changing anything.
+- Exit condition: the spec passes in repeated full local `next dev` runs, or its dev-mode runs are replaced by the production build.
+
 ## Resolved
 
 One line each.
