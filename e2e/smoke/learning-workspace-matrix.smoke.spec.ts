@@ -283,6 +283,8 @@ test("a long Part 7 passage keeps the question reachable: pinned beside it when 
 });
 
 test("every content mode fits without page-wide horizontal scrolling", async ({ page }) => {
+  // 6 chiều rộng × hai topic mỗi chiều: khoảng 80 giây trên runner CI 2 lõi chạy 2 worker.
+  test.setTimeout(120_000);
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
 
