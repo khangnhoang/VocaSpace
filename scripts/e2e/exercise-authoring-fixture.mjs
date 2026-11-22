@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { deleteExerciseTreeByIds } from "./support/cleanup-learning-content.mjs";
 import { createBaseTopicAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
 const sharedAdminId = "11111111-1111-4111-8111-111111111111";
 
@@ -26,6 +27,7 @@ export function exerciseAuthoringFixtureFor(scope) {
 }
 
 export async function prepareExerciseAuthoringFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const fixture = exerciseAuthoringFixtureFor(scope);
   const { supabase } = await createBaseTopicAuthoringFixture({
     env,
@@ -46,7 +48,7 @@ export async function prepareExerciseAuthoringFixture(scope, env = process.env) 
     },
     collaborator: {
       id: fixture.collaboratorId,
-      // Seed đã có admin là owner; teacher giữ co_owner theo invariant D1.
+      // Fixture nền thêm admin làm owner của khóa học worker; teacher giữ co_owner theo invariant D1.
       role: "co_owner",
     },
     chapter: {
@@ -80,6 +82,7 @@ export async function prepareExerciseAuthoringFixture(scope, env = process.env) 
 }
 
 export async function assertExerciseAuthoringSmokePersisted(scope, title, env = process.env) {
+  assertIsolatedRuntime(env);
   const fixture = exerciseAuthoringFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data: exercise, error } = await supabase

@@ -22,6 +22,7 @@ const FIRST_TOPIC_SLUG = "local-test-topic";
 const currentStudent = () => getWorkerScope(test.info().parallelIndex).student;
 
 async function removeStudentEnrollment() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const course = await admin.from("courses").select("id").eq("slug", COURSE_SLUG).single();
   if (course.error) throw new Error(course.error.message);
@@ -36,6 +37,7 @@ async function removeStudentEnrollment() {
 // Chủ đề seed không có thẻ hay bài tập, nên mở nó (test "Bắt đầu học") là đồng bộ thành hoàn thành;
 // xóa tiến độ để mỗi test bắt đầu như học viên chưa học chủ đề nào.
 async function forgetFirstTopicProgress() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const course = await admin.from("courses").select("id").eq("slug", COURSE_SLUG).single();
   if (course.error) throw new Error(course.error.message);
@@ -104,6 +106,7 @@ for (const width of [375, 1280]) {
 }
 
 test("a learner who is already enrolled sees Tiếp tục with the next topic", async ({ page }) => {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const course = await admin.from("courses").select("id").eq("slug", COURSE_SLUG).single();
   if (course.error) throw new Error(course.error.message);

@@ -4,7 +4,7 @@ import {
   matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
-import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 import { getTopicBuilderPath } from "../../lib/course-authoring/routes";
 import { loginAsStudent, loginAsTeacher } from "../support/auth";
@@ -42,6 +42,7 @@ test.afterAll(async () => {
 });
 
 async function readTopic() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const topic = await admin
     .from("topics")

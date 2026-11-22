@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
 // Khóa học cấu trúc riêng của từng worker; khóa học seed/cố định `44444444-…-445` không bị ghi nữa.
 export function courseStructureFixtureFor(scope) {
@@ -20,6 +21,7 @@ export function courseStructureFixtureFor(scope) {
 }
 
 export async function prepareCourseStructureFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const courseStructureFixture = courseStructureFixtureFor(scope);
   const { supabase } = await createBaseAuthoringFixture({
     env,
@@ -65,6 +67,7 @@ export async function assertCourseStructureOrderPersisted(
   { chapterTitles, topicChapterTitle, topicTitles },
   env = process.env,
 ) {
+  assertIsolatedRuntime(env);
   const courseStructureFixture = courseStructureFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data: chapters, error: chaptersError } = await supabase
@@ -120,6 +123,7 @@ export async function assertCourseStructureOrderPersisted(
 }
 
 export async function findCourseStructureTopicByTitle(scope, title, env = process.env) {
+  assertIsolatedRuntime(env);
   const courseStructureFixture = courseStructureFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data, error } = await supabase
@@ -142,6 +146,7 @@ export async function assertCourseStructureSmokePersisted(
   { chapterTitle, hiddenTopicTitle, activeTopicTitle },
   env = process.env,
 ) {
+  assertIsolatedRuntime(env);
   const courseStructureFixture = courseStructureFixtureFor(scope);
   const supabase = createSupabaseAdmin(env);
   const { data: chapter, error: chapterError } = await supabase

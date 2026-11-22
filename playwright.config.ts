@@ -21,13 +21,19 @@ function parseWorkers(value: string | undefined) {
 // G2: các file đọc/ghi hàng seed dùng chung (hàng B2 của học viên seed, admin gate, khóa học seed) chạy trong project
 // `seed` giới hạn 1 worker; không project nào khác ghi các hàng đó. Mọi file smoke khác nằm trong project `chromium`
 // (file mới mặc định ở đó, nên file mới cần hàng seed phải được thêm vào danh sách này).
+// Các spec ngoài smoke (e2e/admin, e2e/d2) cũng vào project này: admin-user-hardening dùng chung admin thu hồi được với
+// admin-gate, còn fixture D2 thêm thẻ đến hạn cho học viên seed mà review-session đếm theo toàn bộ học viên.
 const seedBoundSpecs = [
-  "admin-gate",
-  "enrolled-course-overview",
-  "learning-workspace",
-  "review-session-recovery",
-  "review-session",
-].map((name) => `**/smoke/${name}.smoke.spec.ts`);
+  ...[
+    "admin-gate",
+    "enrolled-course-overview",
+    "learning-workspace",
+    "review-session-recovery",
+    "review-session",
+  ].map((name) => `**/smoke/${name}.smoke.spec.ts`),
+  "**/e2e/admin/**/*.spec.ts",
+  "**/e2e/d2/**/*.spec.ts",
+];
 
 export default defineConfig({
   testDir: "./e2e",

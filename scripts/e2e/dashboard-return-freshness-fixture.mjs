@@ -9,10 +9,12 @@ import {
   deleteExerciseTreeByIds,
 } from "./support/cleanup-learning-content.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
 const flashcardWordPrefix = "E2E Return Freshness Flashcard";
 
 export async function prepareDashboardReturnFreshnessFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const base = await prepareExerciseAuthoringFixture(scope, env);
   const supabase = createSupabaseAdmin(env);
   const word = `${flashcardWordPrefix} ${new Date().toISOString()} ${randomUUID()}`;
@@ -28,6 +30,7 @@ export async function prepareDashboardReturnFreshnessFixture(scope, env = proces
 }
 
 export async function getActiveFixtureFlashcardCount(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const supabase = createSupabaseAdmin(env);
   const { count, error } = await supabase
     .from("cards")
@@ -43,6 +46,7 @@ export async function getActiveFixtureFlashcardCount(scope, env = process.env) {
 }
 
 export async function cleanupDashboardReturnFreshnessFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const supabase = createSupabaseAdmin(env);
   const { data: cards, error } = await supabase
     .from("cards")

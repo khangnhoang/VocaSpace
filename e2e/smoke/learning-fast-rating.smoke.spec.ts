@@ -4,7 +4,7 @@ import {
   matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
-import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf8/plan.md
@@ -48,6 +48,7 @@ const FIRST_QUESTION = 'Nghĩa của "deadline" là gì?';
 
 /** Last rating stored for each card word of the topic; a card without a row is left out. */
 async function lastRatingsByWord() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const topic = await admin.from("topics").select("id").eq("slug", matrix.topics.full.slug).limit(1).single();
   if (topic.error) throw new Error(topic.error.message);
@@ -94,6 +95,7 @@ test("rating Again, Easy and Good with no wait stores each card's last rating, t
 
 // Xoá trạng thái thẻ và tiến độ của học viên seed để chủ đề lại có 4 thẻ chưa xem, rồi lật thẻ đầu ("schedule").
 async function startFreshReview(page: Page) {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const topic = await admin.from("topics").select("id").eq("slug", matrix.topics.full.slug).limit(1).single();
   if (topic.error) throw new Error(topic.error.message);

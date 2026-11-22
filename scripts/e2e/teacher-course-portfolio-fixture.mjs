@@ -1,4 +1,5 @@
 import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
 // Giáo viên riêng của nhóm portfolio (mỗi worker một tài khoản): trang `/teacher/courses` chỉ có đúng khóa học này,
 // nên nút "Đưa vào thùng rác" và "Cài đặt thông tin" là duy nhất và danh sách không rơi vào chế độ dày (từ 5 khóa học).
@@ -19,6 +20,7 @@ export function portfolioFixtureFor(scope) {
 }
 
 export async function preparePortfolioFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const fixture = portfolioFixtureFor(scope);
   const { supabase } = await createBaseAuthoringFixture({
     env,

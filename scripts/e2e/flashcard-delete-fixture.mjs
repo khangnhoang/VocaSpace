@@ -5,8 +5,10 @@ import {
 } from "./exercise-authoring-fixture.mjs";
 import { deleteCardsByIds } from "./support/cleanup-learning-content.mjs";
 import { createSupabaseAdmin } from "./support/supabase-admin.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
 export async function prepareFlashcardDeleteFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const base = await prepareExerciseAuthoringFixture(scope, env);
   const supabase = createSupabaseAdmin(env);
   const word = `E2E Delete Flashcard ${new Date().toISOString()} ${randomUUID()}`;
@@ -52,6 +54,7 @@ export async function getFlashcardRemovedAt(cardId, env = process.env) {
 }
 
 export async function cleanupFlashcardDeleteFixtures(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const supabase = createSupabaseAdmin(env);
   await cleanupOldFlashcards(supabase, scope);
 }

@@ -1,6 +1,7 @@
 import { createBaseAuthoringFixture } from "./support/course-authoring-base-fixture.mjs";
 import { ensureAuthUserOnce } from "./support/auth-users.mjs";
 import { upsertRow } from "./support/db-write.mjs";
+import { assertIsolatedRuntime } from "./support/worker-scope.mjs";
 
 // Giáo viên, học viên cộng tác và khóa học đều riêng của worker; không đụng student@gmail.com của seed.
 export function courseLeaveNavigationFixtureFor(scope) {
@@ -19,6 +20,7 @@ export function courseLeaveNavigationFixtureFor(scope) {
 }
 
 export async function prepareCourseLeaveNavigationFixture(scope, env = process.env) {
+  assertIsolatedRuntime(env);
   const courseLeaveNavigationFixture = courseLeaveNavigationFixtureFor(scope);
   const { supabase } = await createBaseAuthoringFixture({
     env,

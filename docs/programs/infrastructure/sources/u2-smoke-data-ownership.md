@@ -42,6 +42,18 @@ Scope key: `worker-scoped` = every ID, email, username, slug and Storage path th
 | `topic-builder-tabs` | worker-scoped | worker authoring topic; cards titled `E2E Return Freshness Flashcard …` | topic-wide active card count 1 over the worker topic | none from seed | afterEach removes prefixed cards |
 | `topic-create-navigation` | worker-scoped | worker teacher, course, 3 chapters, 0/1/3 existing drafts, 3 created topics | per-chapter URL regex, exact title lookup in the worker course | none from seed | none; the stack is reset per local run |
 
+## Non-smoke specs that write seed rows (correction after the Codex implementation review)
+
+CI runs only `e2e/smoke`, but a full `npm run test:e2e` with `E2E_WORKERS=2` also collects `e2e/admin` and `e2e/d2`. They are seed-bound and run in the `seed` project with the five seed-bound smoke files, so they never run next to them or next to each other:
+
+| File | Scope | Seed rows it writes or depends on |
+| --- | --- | --- |
+| `e2e/admin/admin-user-hardening.spec.ts` | seed-bound | the revocable admin `66666666-…-666` shared with `admin-gate` |
+| `e2e/admin/admin-course-review.spec.ts` | seed-bound | a course plus collaborators on the seeded teacher/admin; the admin course list is read page-wide |
+| `e2e/d2/public-course-preview.spec.ts` | seed-bound | due flashcards, an answer, progress and an enrolment for the seed student `3333…`, which `review-session` counts student-wide |
+
+Also corrected: a worker authoring course whose teacher is `co_owner` now gets the shared admin as its `owner` (the seed owner row belongs to the seed course `44444444-…-444`), and `topic-create-navigation` removes the topics of its three chapters before rebuilding so the 0/1/3 draft counts hold on every prepare.
+
 ## Conclusion
 
-17 files are `worker-scoped`, 5 are `seed-bound` (`admin-gate`, `enrolled-course-overview`, `learning-workspace`, `review-session`, `review-session-recovery`) and 4 are `read-only` (`account-menu`, `auth-return-path`, `profile-username-once`, `public-course-discovery`). After the CP1/CP2 changes no worker-scoped file writes a seed row or an account the seed-bound files read, and the only shared writers of accounts (`ensureSharedAccounts`) run once before the first worker starts.
+17 files are `worker-scoped`, 5 are `seed-bound` (`admin-gate`, `enrolled-course-overview`, `learning-workspace`, `review-session`, `review-session-recovery`) and 4 are `read-only` (`account-menu`, `auth-return-path`, `profile-username-once`, `public-course-discovery`). After the CP1/CP2 changes and the review correction no worker-scoped file writes a seed row or an account the seed-bound files read, and the only shared writers of accounts (`ensureSharedAccounts`) run once before the first worker starts.

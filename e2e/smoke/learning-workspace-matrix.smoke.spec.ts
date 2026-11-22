@@ -5,7 +5,7 @@ import {
   matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
-import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/d8-learning-ui/plan.md
@@ -69,6 +69,7 @@ const nextQuestion = async (page: Page) => {
 
 // LF4: workspace chỉ xếp thẻ chưa xem, nên test thẻ từ vựng xóa dòng chấm của học viên để luôn bắt đầu từ hàng đợi đầy đủ.
 async function forgetVocabularyCardProgress() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const topic = await admin.from("topics").select("id").eq("slug", matrix.topics.vocabulary.slug).single();
   if (topic.error) throw new Error(topic.error.message);

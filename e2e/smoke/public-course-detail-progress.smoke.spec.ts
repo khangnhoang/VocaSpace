@@ -4,7 +4,7 @@ import {
   matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
-import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf3/plan.md
@@ -45,6 +45,7 @@ test.afterAll(async () => {
 });
 
 async function resetStudentProgress() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const course = await admin.from("courses").select("id").eq("slug", matrix.courseSlug).single();
   if (course.error) throw new Error(course.error.message);
@@ -129,6 +130,8 @@ for (const width of [375, 1280]) {
     await expect(page.getByText("Part 5 sau memory check")).toBeVisible();
     await page.getByRole("radio", { name: /^(?:[A-C]\.?\s*)?return$/ }).click();
     await page.getByRole("button", { name: "Xác nhận đáp án" }).click();
+
+    assertIsolatedRuntime(process.env);
 
     const admin = createSupabaseAdmin(process.env);
     await expect

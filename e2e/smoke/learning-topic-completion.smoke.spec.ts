@@ -5,7 +5,7 @@ import {
   matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
-import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf9/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf6/plan.md
@@ -62,6 +62,7 @@ const completionTitle = (key: keyof typeof MATRIX_TOPICS) =>
 
 /** Xóa mọi dấu vết học của học viên seed trong khóa fixture, để mỗi test bắt đầu từ chủ đề chưa học. */
 async function resetLearner() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const course = await admin.from("courses").select("id").eq("slug", matrix.courseSlug).single();
   if (course.error) throw new Error(course.error.message);

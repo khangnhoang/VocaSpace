@@ -6,7 +6,7 @@ import {
   matrixFor,
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
-import { getWorkerScope } from "../../scripts/e2e/support/worker-scope.mjs";
+import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
 import { CARDS_REQUIRED_ERROR } from "../../lib/memory-check";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
@@ -84,6 +84,7 @@ async function rateCardsUntilMemoryCheck(page: Page) {
 
 /** Number of the topic's cards that have a stored rating for the seeded learner. */
 async function ratedCardCount() {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   const topic = await admin.from("topics").select("id").eq("slug", matrix.topics.full.slug).limit(1).single();
   if (topic.error) throw new Error(topic.error.message);
@@ -99,6 +100,7 @@ async function ratedCardCount() {
 }
 
 async function answeredOptionFor(questionContent: string) {
+  assertIsolatedRuntime(process.env);
   const admin = createSupabaseAdmin(process.env);
   // Nội dung câu hỏi lặp lại ở khóa học matrix của mọi worker, nên chỉ tìm trong khóa học của worker này.
   const course = await admin.from("courses").select("id").eq("slug", matrix.courseSlug).single();

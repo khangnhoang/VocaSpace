@@ -79,6 +79,19 @@ function assertSyntheticTarget(env, { allowDevDatabase }) {
   }
 }
 
+// Chế độ worker-scoped (có `scope`) chỉ chạy trên runtime E2E cô lập và không bao giờ nhận cờ ghi vào DB dev;
+// chế độ cũ không có `scope` giữ nguyên quyền ghi vào DB dev khi Owner truyền --allow-dev-db.
+function assertMatrixTarget(env, options) {
+  if (options.scope) {
+    if (options.allowDevDatabase === true) {
+      throw new Error("A worker-scoped matrix never writes to the dev database; drop allowDevDatabase.");
+    }
+    assertIsolatedRuntime(env);
+    return;
+  }
+  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
+}
+
 function checked(result, label) {
   if (result.error) throw new Error(`${label}: ${result.error.message}`);
   return result.data;
@@ -151,11 +164,10 @@ const LONG_PASSAGE = Array.from(
 ).join("\n\n");
 
 export async function seedLearningWorkspaceMatrix(env = process.env, options = {}) {
-  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
+  assertMatrixTarget(env, options);
   const m = matrixFor(options.scope);
   const supabase = createSupabaseAdmin(env);
   if (m.scoped) {
-    assertIsolatedRuntime(env);
     await ensureWorkerAccount(supabase, m.teacher, "teacher");
     await ensureWorkerAccount(supabase, m.student, "student");
   }
@@ -480,7 +492,7 @@ export async function seedLearningWorkspaceMatrix(env = process.env, options = {
 export const FULL_FLOW_ADDED_CARD = { word: "negotiate", translation: "đàm phán" };
 
 export async function addFullFlowCard(env = process.env, options = {}) {
-  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
+  assertMatrixTarget(env, options);
   const m = matrixFor(options.scope);
   const supabase = createSupabaseAdmin(env);
   checked(
@@ -497,7 +509,7 @@ export async function addFullFlowCard(env = process.env, options = {}) {
 }
 
 export async function cleanupLearningWorkspaceMatrix(env = process.env, options = {}) {
-  assertSyntheticTarget(env, { allowDevDatabase: options.allowDevDatabase === true });
+  assertMatrixTarget(env, options);
   const m = matrixFor(options.scope);
   const supabase = createSupabaseAdmin(env);
 

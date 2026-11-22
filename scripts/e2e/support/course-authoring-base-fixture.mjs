@@ -42,6 +42,22 @@ export async function createBaseAuthoringFixture({
     id: fixture.courseId,
     ...course,
   });
+  const teacherRole = collaborator?.role ?? "owner";
+  if (teacherRole !== "owner") {
+    // Mỗi khóa học có đúng một owner (D1). Khóa học của worker không thừa hưởng hàng owner của admin trong seed
+    // (hàng đó thuộc khóa học seed 4444…444), nên admin dùng chung được thêm làm owner trước khi giáo viên vào với vai trò thấp hơn.
+    await upsertRow(
+      supabase,
+      "course_collaborators",
+      {
+        course_id: fixture.courseId,
+        user_id: fixture.adminId,
+        role: "owner",
+        added_by: fixture.adminId,
+      },
+      "course_id,user_id",
+    );
+  }
   await upsertRow(
     supabase,
     "course_collaborators",
