@@ -2,8 +2,11 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getPublicCourseCatalogListing } from "@/app/actions/public-course";
 import { Button } from "@/components/ui/button";
+import { retryLabels } from "@/lib/i18n/courses-text";
+import { asTranslate } from "@/lib/i18n/translate";
 import {
   filterAndSortCatalog,
   paginateCatalog,
@@ -17,10 +20,10 @@ import { CatalogResultsSkeleton } from "./_components/catalog/CatalogSkeleton";
 import { CatalogStatePanel } from "./_components/catalog/CatalogStatePanel";
 import { PublicCourseRetryButton } from "./_components/PublicCourseRetryButton";
 
-export const metadata: Metadata = {
-  title: "Khóa học | VocaSpace",
-  description: "Khám phá toàn bộ khóa học công khai trên VocaSpace.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("courses");
+  return { title: t("meta.listTitle"), description: t("meta.listDescription") };
+}
 
 const CONTAINER = "mx-auto w-full max-w-[1200px] px-4 sm:px-6";
 
@@ -39,6 +42,7 @@ function rawSearch(params: Record<string, string | string[] | undefined>) {
 export default async function CoursesPage({ searchParams }: CoursesPageProps) {
   const params = await searchParams;
   const result = await getPublicCourseCatalogListing();
+  const t = await getTranslations("courses");
 
   if (result.status === "error") {
     return (
@@ -48,11 +52,11 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
           <CatalogStatePanel
             art="error"
             role="alert"
-            eyebrow="Lỗi kết nối"
-            title="Chưa thể tải danh sách khóa học"
-            description="Kết nối dữ liệu đang gián đoạn. Thử tải lại; bộ lọc bạn đã chọn vẫn được giữ nguyên."
+            eyebrow={t("catalog.error.eyebrow")}
+            title={t("catalog.error.title")}
+            description={t("catalog.error.description")}
           >
-            <PublicCourseRetryButton className="min-h-11 px-5" />
+            <PublicCourseRetryButton className="min-h-11 px-5" labels={retryLabels(asTranslate(t))} />
           </CatalogStatePanel>
         </div>
       </div>
@@ -69,15 +73,15 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
           <CatalogStatePanel
             art="deck"
             role="status"
-            eyebrow="Thư viện đang được soạn"
-            title="Chưa có khóa học nào được công khai"
-            description="Các giáo viên đang hoàn thiện những khóa học đầu tiên. Trong lúc chờ, bạn có thể thử cách VocaSpace giúp nhớ từ lâu hơn bằng bộ thẻ mẫu trên trang chủ."
+            eyebrow={t("catalog.empty.eyebrow")}
+            title={t("catalog.empty.title")}
+            description={t("catalog.empty.description")}
           >
             <Button asChild size="lg">
-              <Link href="/#hero-practice-title">Thử bộ thẻ mẫu</Link>
+              <Link href="/#hero-practice-title">{t("catalog.empty.tryDeck")}</Link>
             </Button>
             <Button asChild variant="link" size="lg" className="px-1">
-              <Link href="/">Về trang chủ</Link>
+              <Link href="/">{t("catalog.empty.home")}</Link>
             </Button>
           </CatalogStatePanel>
         </div>

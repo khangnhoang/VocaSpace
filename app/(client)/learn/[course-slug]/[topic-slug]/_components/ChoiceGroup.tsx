@@ -2,6 +2,8 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
+import { viLearningText } from "@/lib/i18n/learning-text";
+import type { Translate } from "@/lib/i18n/translate";
 import type { QuestionOptionDTO } from "@/lib/schemas/learn";
 
 export type ChoiceResult = "correct" | "incorrect";
@@ -14,6 +16,8 @@ interface ChoiceGroupProps {
   disabled: boolean;
   onSelect: (optionId: string) => void;
   labelledBy: string;
+  /** `learning` namespace translator (H7); callers that do not pass one keep today's Vietnamese. */
+  t?: Translate;
 }
 
 function optionLetter(option: QuestionOptionDTO, index: number) {
@@ -39,6 +43,7 @@ export default function ChoiceGroup({
   disabled,
   onSelect,
   labelledBy,
+  t = viLearningText,
 }: ChoiceGroupProps) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   // Derived during render: true only once a result has appeared after mount, and
@@ -115,13 +120,13 @@ export default function ChoiceGroup({
             {graded === "correct" && (
               <>
                 <CheckCircle2 aria-hidden="true" className="size-5 shrink-0 text-growth" />
-                <span className="sr-only">(bạn chọn đúng)</span>
+                <span className="sr-only">{t("choice.correct")}</span>
               </>
             )}
             {graded === "incorrect" && (
               <>
                 <XCircle aria-hidden="true" className="size-5 shrink-0 text-correction" />
-                <span className="sr-only">(bạn chọn chưa đúng)</span>
+                <span className="sr-only">{t("choice.incorrect")}</span>
               </>
             )}
           </button>

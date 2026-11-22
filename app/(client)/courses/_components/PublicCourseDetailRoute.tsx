@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getCourseLearningSummary } from "@/app/actions/learning-activity";
 import { resumePendingCheckout } from "@/app/actions/payment";
 import { getPublicCourseDetail } from "@/app/actions/public-course";
@@ -23,12 +24,13 @@ export async function PublicCourseDetailRoute({
   if (result.status === "not_found") notFound();
 
   if (result.status === "error") {
+    const t = await getTranslations("courses");
     return (
       <div className="container mx-auto px-4 py-12 md:py-16">
         <PublicCourseFeedback
           kind="error"
-          title="Chưa thể tải thông tin khóa học"
-          description="Dữ liệu khóa học tạm thời chưa sẵn sàng. Hãy thử tải lại trang sau ít phút."
+          title={t("detail.errorTitle")}
+          description={t("detail.errorDescription")}
         />
       </div>
     );

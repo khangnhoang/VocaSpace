@@ -1,4 +1,7 @@
 import { BookOpen, Layers3, Users } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import type { Locale } from "@/lib/i18n/config";
+import { formatNumber } from "@/lib/i18n/format";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 
 type PublicCourseStatsProps = {
@@ -6,18 +9,20 @@ type PublicCourseStatsProps = {
 };
 
 export function PublicCourseStats({ course }: PublicCourseStatsProps) {
+  const t = useTranslations("courses");
+  const locale = useLocale() as Locale;
   const topicCount = course.syllabus.reduce(
     (total, chapter) => total + chapter.topics.length,
     0,
   );
   const stats = [
     {
-      label: "Chương học",
+      label: t("detail.stats.chapters"),
       value: course.syllabus.length,
       icon: BookOpen,
     },
-    { label: "Chủ đề công khai", value: topicCount, icon: Layers3 },
-    { label: "Học viên", value: course.enrollment_count, icon: Users },
+    { label: t("detail.stats.topics"), value: topicCount, icon: Layers3 },
+    { label: t("detail.stats.students"), value: course.enrollment_count, icon: Users },
   ];
 
   return (
@@ -26,7 +31,7 @@ export function PublicCourseStats({ course }: PublicCourseStatsProps) {
         id="public-course-stats-title"
         className="mb-4 text-2xl font-extrabold text-gray-900"
       >
-        Tổng quan khóa học
+        {t("detail.stats.title")}
       </h2>
       <div className="grid gap-4 sm:grid-cols-3">
         {stats.map((stat) => (
@@ -36,7 +41,7 @@ export function PublicCourseStats({ course }: PublicCourseStatsProps) {
           >
             <stat.icon aria-hidden="true" className="size-6 text-blue-500" />
             <p className="mt-4 text-2xl font-extrabold text-gray-950">
-              {stat.value.toLocaleString("vi-VN")}
+              {formatNumber(locale, stat.value)}
             </p>
             <p className="mt-1 text-sm text-gray-600">{stat.label}</p>
           </div>

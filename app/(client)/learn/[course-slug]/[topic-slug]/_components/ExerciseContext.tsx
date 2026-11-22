@@ -11,13 +11,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { viLearningText } from "@/lib/i18n/learning-text";
+import type { Translate } from "@/lib/i18n/translate";
 import type { QuestionGroupDTO } from "@/lib/schemas/learn";
 import type { MaterialArrangement, MaterialKind } from "./exercise-arrangement";
 
-const MISSING_LABEL: Record<MaterialKind, string> = {
-  image: "hình ảnh",
-  audio: "âm thanh",
-  passage: "đoạn văn",
+const MISSING_KEY: Record<MaterialKind, string> = {
+  image: "context.missingImage",
+  audio: "context.missingAudio",
+  passage: "context.missingPassage",
 };
 
 interface ExerciseContextProps {
@@ -27,6 +29,8 @@ interface ExerciseContextProps {
   enlargeableImage: boolean;
   /** Lets a consumer react to a failed media request, e.g. Preview rechecks its eligibility. */
   onMediaError?: (src: string) => void;
+  /** `learning` namespace translator (H7); callers that do not pass one keep today's Vietnamese. */
+  t?: Translate;
 }
 
 /**
@@ -38,10 +42,12 @@ function ZoomedImage({
   src,
   alt,
   onMediaError,
+  t,
 }: {
   src: string;
   alt: string;
   onMediaError?: (src: string) => void;
+  t: Translate;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -53,7 +59,7 @@ function ZoomedImage({
         className="flex flex-col items-center gap-3 rounded-lg border border-attention-line bg-attention-quiet p-6 text-center"
       >
         <ImageOff aria-hidden="true" className="size-8 text-attention" />
-        <p className="text-sm font-medium text-slate-800">Không tải được hình ảnh.</p>
+        <p className="text-sm font-medium text-slate-800">{t("context.imageFailed")}</p>
         <Button
           variant="outline"
           onClick={() => {
@@ -62,7 +68,7 @@ function ZoomedImage({
           }}
         >
           <RotateCcw aria-hidden="true" />
-          Tải lại hình ảnh
+          {t("context.reloadImage")}
         </Button>
       </div>
     );
@@ -88,14 +94,16 @@ function MaterialImage({
   src,
   enlargeable,
   onMediaError,
+  t,
 }: {
   src: string;
   enlargeable: boolean;
   onMediaError?: (src: string) => void;
+  t: Translate;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
-  const alt = "Hình ảnh của nhóm câu hỏi";
+  const alt = t("context.image");
   const markFailed = () => {
     setStatus("failed");
     onMediaError?.(src);
@@ -105,7 +113,7 @@ function MaterialImage({
     return (
       <div className="flex flex-col items-center gap-3 rounded-lg border border-attention-line bg-attention-quiet p-6 text-center">
         <ImageOff aria-hidden="true" className="size-8 text-attention" />
-        <p className="text-sm font-medium text-slate-800">Không tải được hình ảnh.</p>
+        <p className="text-sm font-medium text-slate-800">{t("context.imageFailed")}</p>
         <Button
           variant="outline"
           onClick={() => {
@@ -114,7 +122,7 @@ function MaterialImage({
           }}
         >
           <RotateCcw aria-hidden="true" />
-          Tải lại hình ảnh
+          {t("context.reloadImage")}
         </Button>
       </div>
     );
@@ -156,20 +164,20 @@ function MaterialImage({
               variant="outline"
               size="sm"
               className="absolute right-2 bottom-2 bg-white/90"
-              aria-label="Phóng to hình ảnh"
+              aria-label={t("context.enlargeLabel")}
             >
               <Expand aria-hidden="true" />
-              Phóng to
+              {t("context.enlarge")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[92vh] max-w-[min(96vw,64rem)] overflow-auto">
             <DialogHeader>
-              <DialogTitle>Hình ảnh của nhóm câu hỏi</DialogTitle>
+              <DialogTitle>{t("context.image")}</DialogTitle>
               <DialogDescription className="sr-only">
-                Bản phóng to của hình ảnh đi kèm câu hỏi.
+                {t("context.enlargedDescription")}
               </DialogDescription>
             </DialogHeader>
-            <ZoomedImage src={src} alt={alt} onMediaError={onMediaError} />
+            <ZoomedImage src={src} alt={alt} onMediaError={onMediaError} t={t} />
           </DialogContent>
         </Dialog>
       )}
@@ -177,7 +185,15 @@ function MaterialImage({
   );
 }
 
-function MaterialAudio({ src, onMediaError }: { src: string; onMediaError?: (src: string) => void }) {
+function MaterialAudio({
+  src,
+  onMediaError,
+  t,
+}: {
+  src: string;
+  onMediaError?: (src: string) => void;
+  t: Translate;
+}) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
 
@@ -185,7 +201,7 @@ function MaterialAudio({ src, onMediaError }: { src: string; onMediaError?: (src
     <div className="flex flex-col gap-3 rounded-lg border border-recall-line bg-recall-quiet p-4">
       <p className="flex items-center gap-2 text-sm font-bold text-recall">
         <Headphones aria-hidden="true" className="size-5" />
-        Nghe âm thanh
+        {t("context.listen")}
       </p>
       {/* The element is keyed by the group, so moving between questions of one
           group keeps the player and its position. */}
@@ -194,7 +210,7 @@ function MaterialAudio({ src, onMediaError }: { src: string; onMediaError?: (src
         controls
         preload="metadata"
         src={src}
-        aria-label="Âm thanh của nhóm câu hỏi"
+        aria-label={t("context.audioLabel")}
         onError={() => {
           setFailed(true);
           onMediaError?.(src);
@@ -202,14 +218,14 @@ function MaterialAudio({ src, onMediaError }: { src: string; onMediaError?: (src
         onLoadedMetadata={() => setFailed(false)}
         className="h-11 w-full"
       >
-        Trình duyệt của bạn không hỗ trợ thẻ audio.
+        {t("context.audioUnsupported")}
       </audio>
       {failed && (
         <div className="flex flex-wrap items-center gap-3 text-sm text-slate-800">
-          <span>Không tải được âm thanh.</span>
+          <span>{t("context.audioFailed")}</span>
           <Button variant="outline" size="sm" onClick={() => { setFailed(false); setAttempt((current) => current + 1); }}>
             <RotateCcw aria-hidden="true" />
-            Tải lại âm thanh
+            {t("context.reloadAudio")}
           </Button>
         </div>
       )}
@@ -226,6 +242,7 @@ export default function ExerciseContext({
   arrangement,
   enlargeableImage,
   onMediaError,
+  t = viLearningText,
 }: ExerciseContextProps) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -237,11 +254,12 @@ export default function ExerciseContext({
               src={group.image_url}
               enlargeable={enlargeableImage}
               onMediaError={onMediaError}
+              t={t}
             />
           );
         }
         if (kind === "audio" && group.audio_url) {
-          return <MaterialAudio key="audio" src={group.audio_url} onMediaError={onMediaError} />;
+          return <MaterialAudio key="audio" src={group.audio_url} onMediaError={onMediaError} t={t} />;
         }
         if (kind === "passage" && group.passage_text) {
           return (
@@ -258,7 +276,7 @@ export default function ExerciseContext({
       {arrangement.missing.length > 0 && (
         <p className="flex items-start gap-2 rounded-lg border border-attention-line bg-attention-quiet p-3 text-sm text-slate-900">
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-attention" />
-          Nhóm câu hỏi này đang thiếu {arrangement.missing.map((kind) => MISSING_LABEL[kind]).join(", ")}. Hãy báo cho giáo viên của khóa học.
+          {t("context.missing", { kinds: arrangement.missing.map((kind) => t(MISSING_KEY[kind])).join(", ") })}
         </p>
       )}
     </div>

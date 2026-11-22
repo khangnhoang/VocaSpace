@@ -14,19 +14,14 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { CatalogPriceGroup, CatalogQuery } from "@/lib/public-courses/catalog-query";
 import { PUBLIC_CATALOG_SEARCH_MAX_LENGTH, type PublicCatalogSort } from "@/lib/schemas/public-course";
 
-export const CATALOG_SORT_LABELS: Record<PublicCatalogSort, string> = {
-  popular: "Phổ biến nhất",
-  trending: "Thịnh hành 30 ngày",
-  newest: "Mới nhất",
-  az: "Tên A–Z",
-  "price-asc": "Giá thấp đến cao",
-  "price-desc": "Giá cao đến thấp",
-};
+// Thứ tự các kiểu sắp xếp trong danh sách chọn; nhãn lấy từ catalog `courses` (catalog.sort.<kiểu>).
+export const CATALOG_SORTS: PublicCatalogSort[] = ["popular", "trending", "newest", "az", "price-asc", "price-desc"];
 
 const SORT_ICONS: Record<PublicCatalogSort, LucideIcon> = {
   popular: Users,
@@ -37,10 +32,10 @@ const SORT_ICONS: Record<PublicCatalogSort, LucideIcon> = {
   "price-desc": ArrowDownWideNarrow,
 };
 
-const PRICE_OPTIONS: { value: CatalogPriceGroup; label: string }[] = [
-  { value: "all", label: "Tất cả" },
-  { value: "free", label: "Miễn phí" },
-  { value: "paid", label: "Trả phí" },
+const PRICE_OPTIONS: { value: CatalogPriceGroup; labelKey: "priceAll" | "priceFree" | "pricePaid" }[] = [
+  { value: "all", labelKey: "priceAll" },
+  { value: "free", labelKey: "priceFree" },
+  { value: "paid", labelKey: "pricePaid" },
 ];
 
 const SEARCH_COMMIT_DELAY_MS = 150;
@@ -65,6 +60,7 @@ export function CatalogToolbar({
   onSort,
   renderPriceIndicator,
 }: CatalogToolbarProps) {
+  const t = useTranslations("courses");
   const inputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,7 +138,7 @@ export function CatalogToolbar({
         <div role="search" className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-2 px-4 sm:gap-3 sm:px-6">
           <div className="relative w-full lg:w-auto lg:max-w-110 lg:flex-1">
             <label htmlFor="catalog-search" className="sr-only">
-              Tìm khóa học theo tên
+              {t("catalog.toolbar.searchLabel")}
             </label>
             <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2 text-slate-500" />
             <input
@@ -158,7 +154,7 @@ export function CatalogToolbar({
                   clearSearch();
                 }
               }}
-              placeholder="Tìm theo tên khóa học"
+              placeholder={t("catalog.toolbar.searchPlaceholder")}
               autoComplete="off"
               className="h-11 w-full rounded-xl border border-slate-500 bg-white pr-12 pl-10.5 text-sm text-slate-900 transition-[border-color,box-shadow] duration-150 placeholder:text-slate-500 hover:border-slate-600 focus:border-route focus:shadow-[0_0_0_3px_var(--route-quiet)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
             />
@@ -166,7 +162,7 @@ export function CatalogToolbar({
               <button
                 type="button"
                 onClick={clearSearch}
-                aria-label="Xóa từ khóa tìm kiếm"
+                aria-label={t("catalog.toolbar.clearSearch")}
                 className="absolute top-1/2 right-1.5 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-route"
               >
                 <X aria-hidden="true" className="size-4" />
@@ -184,7 +180,7 @@ export function CatalogToolbar({
           <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:w-auto sm:overflow-visible sm:px-0">
             <div
               role="group"
-              aria-label="Lọc theo giá"
+              aria-label={t("catalog.toolbar.priceGroup")}
               className="relative inline-flex gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-1"
             >
               {PRICE_OPTIONS.map((option) => {
@@ -202,7 +198,7 @@ export function CatalogToolbar({
                     )}
                   >
                     {renderPriceIndicator?.(active)}
-                    <span className="relative">{option.label}</span>
+                    <span className="relative">{t(`catalog.toolbar.${option.labelKey}`)}</span>
                     <span
                       className={cn(
                         "relative font-[family-name:var(--font-geist-sans)] text-xs leading-4 tabular-nums",
@@ -237,12 +233,12 @@ export function CatalogToolbar({
             >
               <Check className="size-3" strokeWidth={3} />
             </span>
-            Có học thử
+            {t("catalog.toolbar.preview")}
           </button>
 
           <div className="flex flex-1 items-center gap-2 text-sm text-slate-600 sm:flex-none lg:ml-auto">
             <label htmlFor="catalog-sort" className="font-semibold whitespace-nowrap max-sm:sr-only">
-              Sắp xếp
+              {t("catalog.toolbar.sort")}
             </label>
             <Select value={query.sort} onValueChange={(value) => onSort(value as PublicCatalogSort)}>
               <SelectTrigger
@@ -261,7 +257,7 @@ export function CatalogToolbar({
                 sideOffset={8}
                 className="w-(--radix-select-trigger-width) min-w-56 rounded-xl border border-slate-200 bg-white p-1.5 text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)] ring-0 data-[side=bottom]:translate-y-0 motion-reduce:animate-none!"
               >
-                {(Object.keys(CATALOG_SORT_LABELS) as PublicCatalogSort[]).map((sort) => {
+                {CATALOG_SORTS.map((sort) => {
                   const Icon = SORT_ICONS[sort];
                   return (
                     <SelectItem
@@ -270,7 +266,7 @@ export function CatalogToolbar({
                       className="min-h-9 cursor-pointer gap-2.5 rounded-lg py-1.5 pr-9 pl-2.5 text-sm leading-5 font-medium text-slate-700 transition-colors duration-150 focus:bg-slate-100 focus:text-slate-900 data-[state=checked]:bg-route-quiet data-[state=checked]:font-semibold data-[state=checked]:text-route pointer-coarse:min-h-11 motion-reduce:transition-none [&_svg]:text-current"
                     >
                       <Icon aria-hidden="true" className="size-4 shrink-0 opacity-80" />
-                      {CATALOG_SORT_LABELS[sort]}
+                      {t(`catalog.sort.${sort}`)}
                     </SelectItem>
                   );
                 })}

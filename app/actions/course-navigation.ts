@@ -1,11 +1,14 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/utils/supabase/server";
 
 export async function getFirstTopicSlugByCourseSlug(courseSlug: string) {
+  const t = await getTranslations("courses");
+
   if (!courseSlug) {
     return {
-      error: "Thiếu course slug.",
+      error: t("actions.firstTopic.missingSlug"),
       topicSlug: null,
     };
   }
@@ -22,7 +25,7 @@ export async function getFirstTopicSlugByCourseSlug(courseSlug: string) {
 
   if (courseError || !course) {
     return {
-      error: "Không tìm thấy khóa học hoặc khóa học chưa được xuất bản.",
+      error: t("actions.firstTopic.notFound"),
       topicSlug: null,
     };
   }
@@ -38,14 +41,14 @@ export async function getFirstTopicSlugByCourseSlug(courseSlug: string) {
     console.error("🚨 [GET_CHAPTERS_ERROR]:", chaptersError);
 
     return {
-      error: "Không thể lấy danh sách chương học.",
+      error: t("actions.firstTopic.chaptersFailed"),
       topicSlug: null,
     };
   }
 
   if (!chapters?.length) {
     return {
-      error: "Khóa học chưa có chương học nào.",
+      error: t("actions.firstTopic.noChapters"),
       topicSlug: null,
     };
   }
@@ -66,7 +69,7 @@ export async function getFirstTopicSlugByCourseSlug(courseSlug: string) {
       console.error("🚨 [GET_FIRST_TOPIC_ERROR]:", topicError);
 
       return {
-        error: "Không thể lấy bài học đầu tiên.",
+        error: t("actions.firstTopic.topicFailed"),
         topicSlug: null,
       };
     }
@@ -81,7 +84,7 @@ export async function getFirstTopicSlugByCourseSlug(courseSlug: string) {
 
   // 4. Có chapter nhưng không có topic published nào
   return {
-    error: "Khóa học chưa có bài học nào được xuất bản.",
+    error: t("actions.firstTopic.noTopic"),
     topicSlug: null,
   };
 }

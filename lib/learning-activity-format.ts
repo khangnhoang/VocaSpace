@@ -1,11 +1,19 @@
 // FEAT3: chữ hiển thị cho chuỗi ngày học. Ngày đã được SQL tính theo Asia/Ho_Chi_Minh (G3); các hàm ở đây chỉ định dạng,
 // không bao giờ tự suy ra "hôm nay" từ đồng hồ trình duyệt hay máy chủ web.
 
-/** "Hôm nay", "Hôm qua", "N ngày trước" từ số ngày lệch do SQL trả về. */
+import { viLearningText } from "@/lib/i18n/learning-text";
+import type { Translate } from "@/lib/i18n/translate";
+
+/** Như `formatRelativeDay` nhưng theo bản dịch `t` của namespace `learning` (màn hình U2, H7). */
+export function translateRelativeDay(daysAgo: number, t: Translate): string {
+  if (daysAgo <= 0) return t("relativeDay.today");
+  if (daysAgo === 1) return t("relativeDay.yesterday");
+  return t("relativeDay.daysAgo", { days: daysAgo });
+}
+
+/** "Hôm nay", "Hôm qua", "N ngày trước" từ số ngày lệch do SQL trả về. Luôn tiếng Việt: người gọi U3 và test hiện có dựa vào đây. */
 export function formatRelativeDay(daysAgo: number): string {
-  if (daysAgo <= 0) return "Hôm nay";
-  if (daysAgo === 1) return "Hôm qua";
-  return `${daysAgo} ngày trước`;
+  return translateRelativeDay(daysAgo, viLearningText);
 }
 
 /** Thời gian học ước tính, luôn có "khoảng": 25 -> "khoảng 25 phút", 80 -> "khoảng 1 giờ 20 phút", 120 -> "khoảng 2 giờ". */

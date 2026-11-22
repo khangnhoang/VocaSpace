@@ -1,0 +1,234 @@
+{
+  "meta": {
+    "listTitle": "Courses | VocaSpace",
+    "listDescription": "Explore every public course on VocaSpace.",
+    "detailFallbackTitle": "Courses | VocaSpace",
+    "detailTitle": "{title} | VocaSpace",
+    "detailDescription": "Explore the {title} course on VocaSpace."
+  },
+  "price": {
+    "free": "Free",
+    "paid": "Paid"
+  },
+  "catalog": {
+    "loading": "Loading the course list",
+    "hero": {
+      "eyebrow": "Course library",
+      "title": "Find the course that fits your goal",
+      "intro": "Each course is a topic-based path with vocabulary cards and practice. Many let you try them right away, without signing in.",
+      "factsLabel": "Library overview",
+      "total": "<b>{formatted}</b> {count, plural, one {course} other {courses}}",
+      "free": "<b>{formatted}</b> free {count, plural, one {course} other {courses}}",
+      "preview": "<b>{formatted}</b> {count, plural, one {course} other {courses}} you can try without signing in"
+    },
+    "error": {
+      "eyebrow": "Connection error",
+      "title": "Couldn't load the course list",
+      "description": "The data connection is interrupted. Try reloading; the filters you chose are kept."
+    },
+    "empty": {
+      "eyebrow": "The library is being prepared",
+      "title": "No courses are public yet",
+      "description": "Teachers are finishing the first courses. In the meantime, you can see how VocaSpace helps you remember words for longer with the sample deck on the home page.",
+      "tryDeck": "Try the sample deck",
+      "home": "Back to home"
+    },
+    "toolbar": {
+      "searchLabel": "Search courses by name",
+      "searchPlaceholder": "Search by course name",
+      "clearSearch": "Clear the search text",
+      "priceGroup": "Filter by price",
+      "priceAll": "All",
+      "priceFree": "Free",
+      "pricePaid": "Paid",
+      "preview": "Free preview",
+      "sort": "Sort by"
+    },
+    "sort": {
+      "popular": "Most popular",
+      "trending": "Trending in 30 days",
+      "newest": "Newest",
+      "az": "Name A–Z",
+      "price-asc": "Price: low to high",
+      "price-desc": "Price: high to low"
+    },
+    "results": {
+      "title": "Course list",
+      "found": "Found {count, plural, one {# course} other {# courses}}.",
+      "none": "No matching courses found.",
+      "summary": "<b>{count}</b> {count, plural, one {course} other {courses}} · {sort}",
+      "summaryOf": "<b>{count}</b> of {total} courses · {sort}",
+      "chipQuery": "“{query}”",
+      "chipRemove": "Remove the {label} filter",
+      "clearAll": "Clear all"
+    },
+    "noResults": {
+      "eyebrow": "No results",
+      "title": "No courses {conditions}",
+      "conditionQuery": "matching “{query}”",
+      "conditionPrice": "in the {price} group",
+      "conditionPreview": "with a free preview",
+      "description": "Try removing a filter, or search with a shorter word. You don't need to type accents.",
+      "seeOther": "See {count} {price} {count, plural, one {course} other {courses}}",
+      "clearFilters": "Clear all filters",
+      "suggestionsTitle": "Most enrolled courses",
+      "suggestionsHint": "Suggestions from the whole library, not the current filters."
+    },
+    "pagination": {
+      "nav": "Course pagination",
+      "previousLabel": "Previous page",
+      "previous": "Previous",
+      "nextLabel": "Next page",
+      "next": "Next",
+      "page": "Page {page}",
+      "showing": "Showing {from}–{to} of {total} courses"
+    },
+    "backToTop": "Back to top",
+    "card": {
+      "coverAlt": "Cover image of the {title} course",
+      "noCover": "No cover image for the {title} course",
+      "enrolled": "Enrolled",
+      "new": "New",
+      "students": "{count, plural, one {{formatted} learner} other {{formatted} learners}}",
+      "topics": "{count, plural, one {{formatted} topic} other {{formatted} topics}}",
+      "cards": "{count, plural, one {{formatted} vocabulary card} other {{formatted} vocabulary cards}}",
+      "trend": "+{formatted} in 30 days",
+      "viewLabel": "View details of the {title} course",
+      "continueLabel": "Continue the {title} course",
+      "continue": "Continue",
+      "tryLabel": "Try the {title} course",
+      "try": "Try it",
+      "detail": "View details",
+      "paidCourse": "Paid course"
+    }
+  },
+  "retry": {
+    "retry": "Try again",
+    "pending": "Trying again..."
+  },
+  "detail": {
+    "nav": "Course navigation",
+    "home": "Home",
+    "catalog": "Courses",
+    "eyebrow": "A learning path on VocaSpace",
+    "noDescription": "The course introduction is being updated.",
+    "enrollAside": "Course enrollment",
+    "previewSuspended": "Previewing this course's content is temporarily unavailable.",
+    "errorTitle": "Couldn't load the course",
+    "errorDescription": "The course data isn't ready right now. Please reload the page in a few minutes.",
+    "loading": {
+      "course": "Loading the course",
+      "enrollment": "Loading the enrollment section",
+      "content": "Loading the course content"
+    },
+    "stats": {
+      "title": "Course overview",
+      "chapters": "Chapters",
+      "topics": "Public topics",
+      "students": "Learners"
+    },
+    "instructors": {
+      "title": "Teaching team",
+      "owner": "Lead instructor",
+      "ownerMissing": "The lead instructor's information is being updated.",
+      "collaborators": "Collaborators",
+      "collaboratorsNone": "This course has no public collaborators yet.",
+      "defaultName": "VocaSpace instructor",
+      "avatarAlt": "Profile photo of {name}",
+      "bioMissing": "The introduction is being updated.",
+      "experience": "{years, plural, one {# year} other {# years}} of experience"
+    },
+    "syllabus": {
+      "title": "Course syllabus",
+      "subtitle": "Preview content is open on selected topics; full lessons are for enrolled learners.",
+      "emptyTitle": "The syllabus is being updated",
+      "emptyBody": "The course has no public chapters to show yet.",
+      "chapter": "Chapter {number}",
+      "topics": "{count, plural, one {# public topic} other {# public topics}}",
+      "noTopics": "This chapter has no public topics yet.",
+      "completed": "Completed",
+      "current": "Continue",
+      "upcoming": "Up next",
+      "previewLink": "Preview this lesson",
+      "locked": "Content for enrolled learners"
+    },
+    "enrollment": {
+      "learningTitle": "You're studying this course",
+      "startTitle": "Start the course",
+      "accessNote": "Learning content opens only once your account has access to the course.",
+      "continueTopic": "Continue: {title}",
+      "continue": "Continue studying",
+      "overview": "View course overview",
+      "start": "Start learning",
+      "enrollFree": "Enroll for free",
+      "enroll": "Enroll in the course",
+      "progress": "{done}/{total} topics done",
+      "progressLabel": "Progress in the {title} course",
+      "progressText": "{done} of {total} topics completed",
+      "noFirstTopic": "Couldn't find the first topic.",
+      "openFirstFailed": "Couldn't open the first topic. Please try again later.",
+      "freeSuccess": "You're enrolled!"
+    }
+  },
+  "preview": {
+    "loading": "Loading the preview",
+    "unavailable": {
+      "errorTitle": "Couldn't load the preview",
+      "title": "The preview isn't available right now",
+      "errorBody": "Please reload the page in a few minutes.",
+      "body": "Previewing this course's content is temporarily unavailable.",
+      "back": "Back to the course"
+    },
+    "nav": "Preview navigation",
+    "badge": "Preview · Progress isn't saved",
+    "emptyTitle": "The preview content is being updated",
+    "emptyBody": "This topic has no content to view in this session yet.",
+    "back": "Back to the course",
+    "doneEyebrow": "Preview finished",
+    "doneTitle": "You've seen all the sample content.",
+    "doneBody": "The preview ends here. Nothing from this session is saved as learning progress.",
+    "cardsSeen": "Vocabulary cards seen",
+    "correctThisRound": "Correct answers this round",
+    "enrollNow": "Enroll in the course now",
+    "continue": "Continue studying",
+    "opening": "Opening the lesson...",
+    "cardsLeft": "Vocabulary · {count, plural, one {# card} other {# cards}} left this round",
+    "imageAlt": "Illustration for {word}",
+    "audioLabel": "Vocabulary audio",
+    "audioUnsupported": "Your browser doesn't support the audio element.",
+    "questionOf": "Question {current}/{total}",
+    "toQuestion": "Go to the question",
+    "noOptions": "This question has no answer choices yet.",
+    "finish": "Finish the lesson",
+    "skip": "Skip this question",
+    "skipFinish": "Skip and finish",
+    "checking": "Checking…",
+    "confirm": "Confirm answer",
+    "next": "Next question",
+    "retry": "Try again",
+    "checkingStatus": "Checking your answer...",
+    "correct": "Correct!",
+    "incorrect": "Not quite right",
+    "incorrectHint": "Review the material, then select Try again to choose another answer.",
+    "answerErrorTitle": "Couldn't check your answer",
+    "answerFailed": "Couldn't check your answer right now. Please try again.",
+    "noFirstTopic": "Couldn't find the first topic.",
+    "openTopicFailed": "Couldn't open the topic. Please try again later.",
+    "group": "Group {number}/{total}",
+    "fallbackQuestion": "Choose the correct answer"
+  },
+  "actions": {
+    "catalogError": "Couldn't load the course list right now. Please try again.",
+    "detailError": "Couldn't load the course right now. Please try again.",
+    "previewError": "Couldn't load the preview right now. Please try again.",
+    "answerError": "Couldn't check your answer right now. Please try again.",
+    "firstTopic": {
+      "missingSlug": "The course slug is missing.",
+      "notFound": "Course not found, or the course isn't published.",
+      "chaptersFailed": "Couldn't load the list of chapters.",
+      "noChapters": "The course has no chapters yet.",
+      "topicFailed": "Couldn't load the first lesson.",
+      "noTopic": "The course has no published lessons yet."
+    }
+  }
+}

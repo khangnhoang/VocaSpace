@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { domMax, LazyMotion, MotionConfig, useReducedMotion } from "motion/react";
 import * as m from "motion/react-m";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   countPriceGroups,
@@ -14,7 +15,6 @@ import {
   parseCatalogQuery,
   serializeCatalogQuery,
   type CatalogCourse,
-  type CatalogPriceGroup,
   type CatalogQuery,
 } from "@/lib/public-courses/catalog-query";
 import { CatalogAnimatedGrid } from "./CatalogAnimatedGrid";
@@ -22,9 +22,8 @@ import { CatalogBackToTop } from "./CatalogBackToTop";
 import { CatalogCourseCard } from "./CatalogCourseCard";
 import { CatalogPagination } from "./CatalogPagination";
 import { CatalogStatePanel } from "./CatalogStatePanel";
-import { CATALOG_SORT_LABELS, CatalogToolbar } from "./CatalogToolbar";
+import { CatalogToolbar } from "./CatalogToolbar";
 
-const PRICE_LABEL: Record<Exclude<CatalogPriceGroup, "all">, string> = { free: "Miễn phí", paid: "Trả phí" };
 const CONTAINER = "mx-auto w-full max-w-[1200px] px-4 sm:px-6";
 const RESULTS_GRID_ID = "catalog-results-grid";
 const GRID = "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4";
@@ -54,6 +53,7 @@ export function CatalogExplorer(props: CatalogExplorerProps) {
 }
 
 function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerProps) {
+  const t = useTranslations("courses");
   const searchParams = useSearchParams();
   const reduceMotion = useReducedMotion() ?? false;
   const [userPagedTo, setUserPagedTo] = useState<number | null>(null);
@@ -76,7 +76,7 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
   if (courses.length === 1) {
     return (
       <div className={CONTAINER}>
-        <h2 className="sr-only">Danh sách khóa học</h2>
+        <h2 className="sr-only">{t("catalog.results.title")}</h2>
         <CatalogCourseCard
           course={courses[0]}
           searchQuery=""
@@ -90,9 +90,11 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
   }
 
   const chips = [
-    query.q ? { key: "q", label: `“${query.q}”`, clear: { q: "" } } : null,
-    query.price !== "all" ? { key: "price", label: PRICE_LABEL[query.price], clear: { price: "all" as const } } : null,
-    query.preview ? { key: "preview", label: "Có học thử", clear: { preview: false } } : null,
+    query.q ? { key: "q", label: t("catalog.results.chipQuery", { query: query.q }), clear: { q: "" } } : null,
+    query.price !== "all"
+      ? { key: "price", label: t(`price.${query.price}`), clear: { price: "all" as const } }
+      : null,
+    query.preview ? { key: "preview", label: t("catalog.toolbar.preview"), clear: { preview: false } } : null,
   ].filter((chip) => chip !== null);
   const clearAll = () => writeCatalogQuery({ q: "", price: "all", preview: false }, "replace");
   const changePage = (page: number) => {
@@ -125,10 +127,10 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
 
       <section aria-labelledby="catalog-results-title" className={`${CONTAINER} pt-2`}>
         <h2 id="catalog-results-title" className="sr-only">
-          Danh sách khóa học
+          {t("catalog.results.title")}
         </h2>
         <p role="status" aria-live="polite" className="sr-only">
-          {results.length > 0 ? `Tìm thấy ${results.length} khóa học.` : "Không tìm thấy khóa học phù hợp."}
+          {results.length > 0 ? t("catalog.results.found", { count: results.length }) : t("catalog.results.none")}
         </p>
 
         {results.length === 0 ? (
@@ -145,8 +147,12 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
           <>
             <div className="mb-5 flex min-h-8 flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
               <span>
-                <b className="font-semibold text-slate-900 tabular-nums">{results.length}</b> khóa học
-                {results.length !== courses.length ? ` trong ${courses.length}` : ""} · {CATALOG_SORT_LABELS[query.sort]}
+                {t.rich(results.length !== courses.length ? "catalog.results.summaryOf" : "catalog.results.summary", {
+                  count: results.length,
+                  total: courses.length,
+                  sort: t(`catalog.sort.${query.sort}`),
+                  b: (chunks) => <b className="font-semibold text-slate-900 tabular-nums">{chunks}</b>,
+                })}
               </span>
               {chips.length > 0 ? (
                 <span className="flex flex-wrap gap-2">
@@ -155,7 +161,7 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
                   ))}
                   {chips.length > 1 ? (
                     <button type="button" onClick={clearAll} className="min-h-8 pointer-coarse:min-h-11 px-1 font-semibold text-route hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-route">
-                      Xóa tất cả
+                      {t("catalog.results.clearAll")}
                     </button>
                   ) : null}
                 </span>
@@ -201,11 +207,12 @@ function CatalogExplorerContent({ courses, enrolledCourseIds }: CatalogExplorerP
 }
 
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  const t = useTranslations("courses");
   return (
     <button
       type="button"
       onClick={onClear}
-      aria-label={`Bỏ bộ lọc ${label}`}
+      aria-label={t("catalog.results.chipRemove", { label })}
       className="inline-flex min-h-8 pointer-coarse:min-h-11 items-center gap-1.5 rounded-full border border-route-line bg-route-quiet py-0 pr-1.5 pl-3 text-sm font-semibold text-route hover:border-route focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route"
     >
       {label}
@@ -225,10 +232,11 @@ type NoResultsProps = {
 };
 
 function NoResults({ query, chips, otherPriceCount, suggestions, enrolled, onClear, onClearAll }: NoResultsProps) {
+  const t = useTranslations("courses");
   const conditions = [
-    query.q ? `khớp “${query.q}”` : null,
-    query.price !== "all" ? `trong nhóm ${PRICE_LABEL[query.price]}` : null,
-    query.preview ? "có học thử" : null,
+    query.q ? t("catalog.noResults.conditionQuery", { query: query.q }) : null,
+    query.price !== "all" ? t("catalog.noResults.conditionPrice", { price: t(`price.${query.price}`) }) : null,
+    query.preview ? t("catalog.noResults.conditionPreview") : null,
   ].filter(Boolean);
   const otherPrice = query.price === "free" ? "paid" : "free";
 
@@ -237,11 +245,11 @@ function NoResults({ query, chips, otherPriceCount, suggestions, enrolled, onCle
       <CatalogStatePanel
         art="search"
         role="status"
-        eyebrow="Không có kết quả"
-        title={`Không có khóa học nào ${conditions.join(" ")}`}
+        eyebrow={t("catalog.noResults.eyebrow")}
+        title={t("catalog.noResults.title", { conditions: conditions.join(" ") })}
         description={
           <>
-            <p>Thử bỏ bớt một điều kiện, hoặc tìm bằng một từ ngắn hơn. Tìm kiếm không cần gõ dấu.</p>
+            <p>{t("catalog.noResults.description")}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {chips.map((chip) => (
                 <FilterChip key={chip.key} label={chip.label} onClear={() => onClear(chip.clear)} />
@@ -252,19 +260,19 @@ function NoResults({ query, chips, otherPriceCount, suggestions, enrolled, onCle
       >
         {query.price !== "all" && otherPriceCount > 0 ? (
           <Button type="button" size="lg" onClick={() => onClear({ price: otherPrice })}>
-            Xem {otherPriceCount} khóa {PRICE_LABEL[otherPrice].toLowerCase()}
+            {t("catalog.noResults.seeOther", { count: otherPriceCount, price: t(`price.${otherPrice}`).toLowerCase() })}
           </Button>
         ) : null}
         <Button type="button" size="lg" variant="outline" onClick={onClearAll}>
-          Xóa tất cả bộ lọc
+          {t("catalog.noResults.clearFilters")}
         </Button>
       </CatalogStatePanel>
 
       <section aria-labelledby="catalog-suggestions-title" className="mt-12">
         <h2 id="catalog-suggestions-title" className="text-lg leading-[26px] font-bold text-slate-900">
-          Khóa học được ghi danh nhiều nhất
+          {t("catalog.noResults.suggestionsTitle")}
         </h2>
-        <p className="mt-1 mb-5 text-sm text-slate-600">Gợi ý từ toàn bộ thư viện, không theo bộ lọc hiện tại.</p>
+        <p className="mt-1 mb-5 text-sm text-slate-600">{t("catalog.noResults.suggestionsHint")}</p>
         <div className={GRID}>
           {suggestions.map((course) => (
             <CatalogCourseCard

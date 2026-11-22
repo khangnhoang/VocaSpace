@@ -19,7 +19,7 @@ export default async function Home() {
 
   // `home` và `flashcard` chỉ cho HeroPractice (client); `flashcard` cho nhãn đánh giá (U2 H2).
   return (
-    <ClientNamespaces namespaces={["home", "flashcard"]}>
+    <ClientNamespaces namespaces={["home", "flashcard", "courses"]}>
       <div className="flex w-full flex-col bg-slate-50">
         <HomeHero isSignedIn={viewer.isSignedIn} />
         <HomeHowItWorks />

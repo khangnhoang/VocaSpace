@@ -1,13 +1,15 @@
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PublicCourseDetailLoading() {
+  const t = useTranslations("courses");
   return (
     <div
       aria-busy="true"
-      aria-label="Đang tải thông tin khóa học"
+      aria-label={t("detail.loading.course")}
       className="container mx-auto px-4 py-8 md:py-12"
     >
-      <span className="sr-only">Đang tải thông tin khóa học</span>
+      <span className="sr-only">{t("detail.loading.course")}</span>
       <Skeleton className="mb-8 h-5 w-64" />
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <header className="rounded-3xl border border-gray-100 bg-white p-6 md:p-8 lg:col-start-1 lg:row-start-1">
@@ -18,14 +20,14 @@ export default function PublicCourseDetailLoading() {
         </header>
 
         <aside
-          aria-label="Đang tải phần đăng ký khóa học"
+          aria-label={t("detail.loading.enrollment")}
           className="lg:col-start-2 lg:row-span-2 lg:row-start-1"
         >
           <Skeleton className="aspect-4/5 rounded-3xl" />
         </aside>
 
         <section
-          aria-label="Đang tải nội dung khóa học"
+          aria-label={t("detail.loading.content")}
           className="space-y-8 lg:col-start-1 lg:row-start-2"
         >
           <div className="grid gap-4 sm:grid-cols-3">

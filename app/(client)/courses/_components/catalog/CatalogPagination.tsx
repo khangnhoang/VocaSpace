@@ -2,6 +2,7 @@
 
 import type { MouseEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   catalogPageWindow,
@@ -23,6 +24,7 @@ const ITEM =
   "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route";
 
 export function CatalogPagination({ query, page, totalPages, from, to, total, onPage }: CatalogPaginationProps) {
+  const t = useTranslations("courses");
   // Link thật để trang vẫn chuyển được khi JavaScript chưa chạy; khi đã hydrate thì đổi trang tại chỗ.
   const href = (target: number) => {
     const search = serializeCatalogQuery({ ...query, page: target });
@@ -35,18 +37,18 @@ export function CatalogPagination({ query, page, totalPages, from, to, total, on
   };
 
   return (
-    <nav aria-label="Phân trang khóa học" className="mt-10 flex flex-col items-center gap-3">
+    <nav aria-label={t("catalog.pagination.nav")} className="mt-10 flex flex-col items-center gap-3">
       <ol className="flex flex-wrap items-center justify-center gap-1">
         <li>
           {page > 1 ? (
-            <a href={href(page - 1)} onClick={go(page - 1)} aria-label="Trang trước" className={cn(ITEM, "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900")}>
+            <a href={href(page - 1)} onClick={go(page - 1)} aria-label={t("catalog.pagination.previousLabel")} className={cn(ITEM, "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900")}>
               <ChevronLeft aria-hidden="true" className="size-4" />
-              <span className="max-sm:hidden">Trước</span>
+              <span className="max-sm:hidden">{t("catalog.pagination.previous")}</span>
             </a>
           ) : (
             <span aria-disabled="true" className={cn(ITEM, "border-transparent text-slate-400")}>
               <ChevronLeft aria-hidden="true" className="size-4" />
-              <span className="max-sm:hidden">Trước</span>
+              <span className="max-sm:hidden">{t("catalog.pagination.previous")}</span>
             </span>
           )}
         </li>
@@ -60,7 +62,7 @@ export function CatalogPagination({ query, page, totalPages, from, to, total, on
               <a
                 href={href(item)}
                 onClick={go(item)}
-                aria-label={`Trang ${item}`}
+                aria-label={t("catalog.pagination.page", { page: item })}
                 aria-current={item === page ? "page" : undefined}
                 className={cn(
                   ITEM,
@@ -76,20 +78,20 @@ export function CatalogPagination({ query, page, totalPages, from, to, total, on
         )}
         <li>
           {page < totalPages ? (
-            <a href={href(page + 1)} onClick={go(page + 1)} aria-label="Trang sau" className={cn(ITEM, "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900")}>
-              <span className="max-sm:hidden">Sau</span>
+            <a href={href(page + 1)} onClick={go(page + 1)} aria-label={t("catalog.pagination.nextLabel")} className={cn(ITEM, "border-transparent text-slate-600 hover:border-slate-300 hover:bg-white hover:text-slate-900")}>
+              <span className="max-sm:hidden">{t("catalog.pagination.next")}</span>
               <ChevronRight aria-hidden="true" className="size-4" />
             </a>
           ) : (
             <span aria-disabled="true" className={cn(ITEM, "border-transparent text-slate-400")}>
-              <span className="max-sm:hidden">Sau</span>
+              <span className="max-sm:hidden">{t("catalog.pagination.next")}</span>
               <ChevronRight aria-hidden="true" className="size-4" />
             </span>
           )}
         </li>
       </ol>
       <p className="font-[family-name:var(--font-geist-sans)] text-xs leading-4 font-medium text-slate-600">
-        Hiển thị {from}–{to} trong {total} khóa học
+        {t("catalog.pagination.showing", { from, to, total })}
       </p>
     </nav>
   );

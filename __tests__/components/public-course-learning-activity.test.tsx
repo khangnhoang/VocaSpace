@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup } from "@/__tests__/support/intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCourseLearningSummary } from "@/app/actions/learning-activity";
 import { getPublicCourseDetail } from "@/app/actions/public-course";

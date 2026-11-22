@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, useIsPresent, useReducedMotion } from "motion/react";
 import * as m from "motion/react-m";
 import { ArrowUp } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type CatalogBackToTopProps = {
   gridId: string;
@@ -56,11 +57,12 @@ export function CatalogBackToTop({ gridId, afterCard, focusTargetId }: CatalogBa
 function BackToTopButton({ reduceMotion, onClick }: { reduceMotion: boolean; onClick: () => void }) {
   // Đang ẩn đi thì không còn là thao tác khả dụng: chặn focus/click và ẩn khỏi trình đọc màn hình ngay.
   const isPresent = useIsPresent();
+  const t = useTranslations("courses");
   return (
     <m.button
       type="button"
       onClick={onClick}
-      aria-label="Lên đầu trang"
+      aria-label={t("catalog.backToTop")}
       inert={!isPresent}
       aria-hidden={isPresent ? undefined : true}
       initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}

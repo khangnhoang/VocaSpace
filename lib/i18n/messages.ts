@@ -1,23 +1,43 @@
 import enAuth from "@/messages/en/auth.json";
 import enCommon from "@/messages/en/common.json";
+import enCourses from "@/messages/en/courses.json";
 import enFlashcard from "@/messages/en/flashcard.json";
 import enHome from "@/messages/en/home.json";
+import enLearning from "@/messages/en/learning.json";
 import enValidation from "@/messages/en/validation.json";
 import viAuth from "@/messages/vi/auth.json";
 import viCommon from "@/messages/vi/common.json";
+import viCourses from "@/messages/vi/courses.json";
 import viFlashcard from "@/messages/vi/flashcard.json";
 import viHome from "@/messages/vi/home.json";
+import viLearning from "@/messages/vi/learning.json";
 import viValidation from "@/messages/vi/validation.json";
 import type { Locale } from "./config";
 
 // Mỗi namespace là một tệp riêng (H2) để các unit sau thêm namespace mà ít đụng nhau. Bộ tiếng Việt là bộ gốc về kiểu;
 // test parity bắt lệch khóa giữa hai ngôn ngữ.
-const viMessages = { common: viCommon, validation: viValidation, auth: viAuth, home: viHome, flashcard: viFlashcard };
+const viMessages = {
+  common: viCommon,
+  validation: viValidation,
+  auth: viAuth,
+  home: viHome,
+  flashcard: viFlashcard,
+  courses: viCourses,
+  learning: viLearning,
+};
 export type AppMessages = typeof viMessages;
 
 export const MESSAGES: Record<Locale, AppMessages> = {
   vi: viMessages,
-  en: { common: enCommon, validation: enValidation, auth: enAuth, home: enHome, flashcard: enFlashcard },
+  en: {
+    common: enCommon,
+    validation: enValidation,
+    auth: enAuth,
+    home: enHome,
+    flashcard: enFlashcard,
+    courses: enCourses,
+    learning: enLearning,
+  },
 };
 
 // G5/G4: client chỉ nhận các namespace mà subtree của nó dùng. `common` và `validation` luôn có vì provider gốc gửi chúng,

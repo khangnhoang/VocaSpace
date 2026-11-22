@@ -19,6 +19,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { viLearningText } from "@/lib/i18n/learning-text";
+import type { Translate } from "@/lib/i18n/translate";
 
 /** Answer state of one question; the current position is a separate flag. */
 export type QuestionNavigatorStatus = "correct" | "incorrect" | "unanswered";
@@ -54,6 +56,8 @@ interface QuestionNavigatorProps {
   onSelect: (questionId: string) => void;
   /** Visible label of the trigger; defaults to the review wording. */
   label?: string;
+  /** `learning` namespace translator (H7); callers that do not pass one keep today's Vietnamese. */
+  t?: Translate;
 }
 
 const WIDE_QUERY = "(min-width: 768px)";
@@ -68,10 +72,10 @@ function subscribeWide(onChange: () => void) {
 const wideSnapshot = () =>
   typeof window.matchMedia === "function" && window.matchMedia(WIDE_QUERY).matches;
 
-const STATUS_TEXT: Record<QuestionNavigatorStatus, string> = {
-  correct: "Đã trả lời đúng",
-  incorrect: "Trả lời chưa đúng",
-  unanswered: "Chưa trả lời",
+const STATUS_KEY: Record<QuestionNavigatorStatus, string> = {
+  correct: "navigator.statusCorrect",
+  incorrect: "navigator.statusIncorrect",
+  unanswered: "navigator.statusUnanswered",
 };
 
 function StatusIcon({ status, locked }: { status: QuestionNavigatorStatus; locked: boolean }) {
@@ -88,9 +92,11 @@ function StatusIcon({ status, locked }: { status: QuestionNavigatorStatus; locke
 function QuestionList({
   sections,
   onPick,
+  t,
 }: {
   sections: QuestionNavigatorSection[];
   onPick: (item: QuestionNavigatorItem) => void;
+  t: Translate;
 }) {
   const items = sections.flatMap((section) => section.groups.flatMap((group) => group.items));
   const correctCount = items.filter((item) => item.status === "correct").length;
@@ -101,7 +107,7 @@ function QuestionList({
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <p className="text-sm font-semibold text-slate-700">
-        Đã trả lời đúng {correctCount}/{items.length} câu
+        {t("navigator.summary", { correct: correctCount, total: items.length })}
       </p>
       {lockReasons.map((reason) => (
         <p
@@ -147,11 +153,11 @@ function QuestionList({
                         <StatusIcon status={item.status} locked={locked} />
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-sm font-semibold text-slate-900">
-                            Câu {item.number}: {item.text}
+                            {t("navigator.item", { number: item.number, text: item.text })}
                           </span>
                           <span className="text-xs text-slate-600">
-                            {item.current ? "Đang xem · " : ""}
-                            {locked ? "Đang khóa" : STATUS_TEXT[item.status]}
+                            {item.current ? t("navigator.current") : ""}
+                            {locked ? t("navigator.locked") : t(STATUS_KEY[item.status])}
                           </span>
                         </span>
                       </button>
@@ -177,7 +183,8 @@ function QuestionList({
 export default function QuestionNavigator({
   sections,
   onSelect,
-  label = "Danh sách câu hỏi",
+  label,
+  t = viLearningText,
 }: QuestionNavigatorProps) {
   const [open, setOpen] = useState(false);
   const isWide = useSyncExternalStore(subscribeWide, wideSnapshot, () => false);
@@ -201,7 +208,7 @@ export default function QuestionNavigator({
   const trigger = (
     <Button variant="outline" className="shrink-0" aria-describedby={hintId}>
       <ListChecks aria-hidden="true" />
-      {label}
+      {label ?? t("navigator.trigger")}
     </Button>
   );
   // The list is the only way to move between questions, so its purpose is shown on every screen size, not on hover.
@@ -209,12 +216,12 @@ export default function QuestionNavigator({
     <div className="flex shrink-0 flex-col items-end gap-1">
       {control}
       <p id={hintId} className="text-xs text-slate-600">
-        Chuyển nhanh giữa các câu
+        {t("navigator.hint")}
       </p>
     </div>
   );
 
-  const list = <QuestionList sections={sections} onPick={pick} />;
+  const list = <QuestionList sections={sections} onPick={pick} t={t} />;
 
   if (isWide) {
     return withHint(
@@ -222,14 +229,14 @@ export default function QuestionNavigator({
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
         <PopoverContent
           align="end"
-          aria-label="Câu hỏi của bài tập"
+          aria-label={t("navigator.title")}
           onCloseAutoFocus={keepJumpFocus}
           className="max-h-[min(32rem,var(--radix-popover-content-available-height))] w-[26rem] max-w-[calc(100vw-2rem)] overflow-y-auto p-4"
         >
           <PopoverHeader>
-            <PopoverTitle className="text-base font-bold">Câu hỏi của bài tập</PopoverTitle>
+            <PopoverTitle className="text-base font-bold">{t("navigator.title")}</PopoverTitle>
             <PopoverDescription className="sr-only">
-              Chọn một câu để chuyển tới câu đó.
+              {t("navigator.description")}
             </PopoverDescription>
           </PopoverHeader>
           {list}
@@ -247,8 +254,8 @@ export default function QuestionNavigator({
         className="max-h-[85dvh] overflow-y-auto rounded-t-2xl"
       >
         <SheetHeader>
-          <SheetTitle className="text-lg font-bold">Câu hỏi của bài tập</SheetTitle>
-          <SheetDescription className="sr-only">Chọn một câu để chuyển tới câu đó.</SheetDescription>
+          <SheetTitle className="text-lg font-bold">{t("navigator.title")}</SheetTitle>
+          <SheetDescription className="sr-only">{t("navigator.description")}</SheetDescription>
         </SheetHeader>
         <div className="px-4 pb-6">{list}</div>
       </SheetContent>
