@@ -970,7 +970,7 @@ export default function LearningWorkspace({
     };
   });
   const questionNavigator = (
-    <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} t={learningText} />
+    <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} t={learningText} formatCount={count} />
   );
 
   // Moves the learner from the end of a stacked passage to the question; reduced motion jumps.

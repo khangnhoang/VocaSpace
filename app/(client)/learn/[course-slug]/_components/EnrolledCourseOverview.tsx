@@ -344,6 +344,7 @@ export default function EnrolledCourseOverview({
   const t = useTranslations("learn");
   // Nhãn của khối chuỗi ngày học nằm trong namespace `learning` (U3 AC5); component dùng chung nhận `t` như màn hình U2.
   const learningText = asTranslate(useTranslations("learning"));
+  const locale = useLocale() === "en" ? "en" : "vi";
 
   return (
     <div className="min-h-full bg-slate-50 px-4 py-8 sm:px-6 md:py-10 lg:px-8 lg:py-12">
@@ -382,6 +383,7 @@ export default function EnrolledCourseOverview({
                 result={learningSummary}
                 className="mt-6"
                 t={learningText}
+                formatDays={(value) => formatCatalogCount(locale, value)}
               />
             )}
           </div>

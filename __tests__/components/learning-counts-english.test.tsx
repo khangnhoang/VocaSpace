@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import React from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { cleanup, fireEvent, render, screen, within } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRouter } from "next/navigation";
 import { RecentTopicsList } from "@/components/learning-activity/CourseLearningActivity";
 import CoursePagination from "@/app/(client)/learn/_components/CoursePagination";
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
+import { formatCatalogCount } from "@/lib/i18n/format";
 import { asTranslate } from "@/lib/i18n/translate";
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 
@@ -30,21 +31,31 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-function RecentTopics({ daysAgo }: { daysAgo: number }) {
+function RecentTopics({ daysAgo, grouped = false }: { daysAgo: number; grouped?: boolean }) {
   const t = asTranslate(useTranslations("learning"));
+  const locale = useLocale() === "en" ? "en" : "vi";
   return (
     <RecentTopicsList
       courseSlug="toeic"
       t={t}
+      formatDays={grouped ? (value) => formatCatalogCount(locale, value) : undefined}
       topics={[{ topicId: "d0d0d0d0-0000-4000-8000-000000000001", slug: "bai-1", title: "Bài 1", lastActivityAt: "2026-03-10T01:00:00+00:00", daysAgo }]}
     />
   );
 }
 
 describe("relative day in the recent topics list", () => {
-  it("groups thousands in English and keeps bare digits in Vietnamese", () => {
-    render(<RecentTopics daysAgo={1234} />, { locale: "en" });
+  it("groups thousands in English when the U3 caller passes its formatter, and keeps bare digits in Vietnamese", () => {
+    render(<RecentTopics daysAgo={1234} grouped />, { locale: "en" });
     expect(screen.getByText("1,234 days ago")).toBeTruthy();
+    cleanup();
+    render(<RecentTopics daysAgo={1234} grouped />, { locale: "vi" });
+    expect(screen.getByText("1234 ngày trước")).toBeTruthy();
+  });
+
+  it("leaves the output of a caller that passes no formatter (the U2 public card) as bare digits in both languages (G7)", () => {
+    render(<RecentTopics daysAgo={1234} />, { locale: "en" });
+    expect(screen.getByText("1234 days ago")).toBeTruthy();
     cleanup();
     render(<RecentTopics daysAgo={1234} />, { locale: "vi" });
     expect(screen.getByText("1234 ngày trước")).toBeTruthy();
@@ -134,6 +145,24 @@ describe("exercise group label in the question list", () => {
     expect(dialog.getByText("Group 1,234/1,234")).toBeTruthy();
     expect(dialog.queryByText("Group 1234/1234")).toBeNull();
   });
+
+  it("groups thousands of the summary line and of the last question's accessible name in English", () => {
+    render(<LearningWorkspace data={workspaceData()} />, { locale: "en" });
+    const dialog = openList(/Question list/);
+    expect(dialog.getByText("0/1,234 answered correctly")).toBeTruthy();
+    expect(dialog.queryByText("0/1234 answered correctly")).toBeNull();
+    // Tên truy cập của nút là chữ trong nút; tìm theo chữ thay vì getByRole vì 1.234 nút làm phép tính tên truy cập chậm.
+    const last = dialog.getByText("Question 1,234: Câu 1234");
+    expect(last.closest("button")?.textContent).toContain("Question 1,234: Câu 1234");
+    expect(dialog.queryByText(/^Question 1234:/)).toBeNull();
+  }, 30000);
+
+  it("keeps bare digits in the Vietnamese summary line and item names", () => {
+    render(<LearningWorkspace data={workspaceData()} />, { locale: "vi" });
+    const dialog = openList(/Danh sách câu hỏi/);
+    expect(dialog.getByText("Đã trả lời đúng 0/1234 câu")).toBeTruthy();
+    expect(dialog.getByText("Câu 1234: Câu 1234").closest("button")).toBeTruthy();
+  }, 30000);
 
   it("keeps bare digits in Vietnamese", () => {
     render(<LearningWorkspace data={workspaceData()} />, { locale: "vi" });

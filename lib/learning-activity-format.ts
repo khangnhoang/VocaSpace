@@ -5,10 +5,10 @@ import { viLearningText } from "@/lib/i18n/learning-text";
 import type { Translate } from "@/lib/i18n/translate";
 
 /** Như `formatRelativeDay` nhưng theo bản dịch `t` của namespace `learning` (màn hình U2, H7). */
-export function translateRelativeDay(daysAgo: number, t: Translate): string {
+export function translateRelativeDay(daysAgo: number, t: Translate, formatDays?: (value: number) => string): string {
   if (daysAgo <= 0) return t("relativeDay.today");
   if (daysAgo === 1) return t("relativeDay.yesterday");
-  return t("relativeDay.daysAgo", { days: daysAgo });
+  return t("relativeDay.daysAgo", { days: formatDays ? formatDays(daysAgo) : daysAgo });
 }
 
 /** "Hôm nay", "Hôm qua", "N ngày trước" từ số ngày lệch do SQL trả về. Luôn tiếng Việt: người gọi U3 và test hiện có dựa vào đây. */

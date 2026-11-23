@@ -176,6 +176,17 @@ describe("enrolled course overview in English", () => {
     expect(html).not.toContain("ngày trước");
   });
 
+  it("groups thousands of a long-ago recent topic in English and keeps bare digits in Vietnamese (U3 caller)", () => {
+    const long = summary({
+      recentTopics: [{ topicId: "t9", slug: "lesson-9", title: "Lesson 9", lastActivityAt: "2023-07-01T01:00:00Z", daysAgo: 1234 }],
+    });
+    const en = renderToStaticMarkup(<EnrolledCourseOverview data={overviewData()} learningSummary={long} />, { locale: "en" });
+    expect(en).toContain("1,234 days ago");
+    expect(en).not.toContain("1234 days ago");
+    const vi = renderToStaticMarkup(<EnrolledCourseOverview data={overviewData()} learningSummary={long} />, { locale: "vi" });
+    expect(vi).toContain("1234 ngày trước");
+  });
+
   it("shows the quiet unavailable state in English when the summary could not be read", () => {
     const html = renderToStaticMarkup(
       <EnrolledCourseOverview data={overviewData()} learningSummary={{ success: false, error: "x" }} />,
