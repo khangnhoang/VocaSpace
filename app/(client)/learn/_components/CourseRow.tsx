@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BookOpen, CheckCircle2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { LearnDashboardCourse } from "@/lib/schemas/learn-dashboard";
@@ -89,6 +89,7 @@ export default function CourseRow({
   course: LearnDashboardCourse;
 }) {
   const t = useTranslations("learn");
+  const locale = useLocale();
   const isCompleted = course.status === "completed";
   const isHighlighted = course.status === "in-progress";
   const presentation = getCoursePresentation(course);
@@ -161,7 +162,12 @@ export default function CourseRow({
         </p>
       </div>
 
-      <div className="col-span-2 flex w-full shrink-0 flex-col gap-2 md:col-span-1 md:w-40">
+      {/* The Vietnamese labels fit the 10rem column; the English ones are longer ("Review the last lesson" needs about 12.5rem with its arrow), so the column is 13rem wide in English. */}
+      <div
+        className={`col-span-2 flex w-full shrink-0 flex-col gap-2 md:col-span-1 ${
+          locale === "en" ? "md:w-52" : "md:w-40"
+        }`}
+      >
         {destination && presentation.ctaKey && (
           <Button
             asChild
