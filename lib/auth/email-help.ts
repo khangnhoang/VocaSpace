@@ -1,3 +1,6 @@
+import type { Translate } from "@/lib/i18n/translate";
+import { viAuthText } from "./vi-auth-text";
+
 // U3 AC5: gợi ý sửa tên miền email gõ nhầm và link mở hộp thư. Chỉ gợi ý, không bao giờ tự đổi giá trị.
 const SUGGESTED_DOMAINS = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"] as const;
 // Tên miền thật nằm gần các tên trên (ví dụ ymail.com cách gmail.com 1 ký tự): không được coi là gõ nhầm.
@@ -21,11 +24,11 @@ const REAL_PROVIDER_DOMAINS = new Set([
 ]);
 const MAX_EDIT_DISTANCE = 2;
 
-const MAILBOX_LINKS: Record<string, { label: string; href: string }> = {
-  "gmail.com": { label: "Mở Gmail", href: "https://mail.google.com/mail/u/0/#inbox" },
-  "outlook.com": { label: "Mở Outlook", href: "https://outlook.live.com/mail/0/inbox" },
-  "hotmail.com": { label: "Mở Outlook", href: "https://outlook.live.com/mail/0/inbox" },
-  "yahoo.com": { label: "Mở Yahoo Mail", href: "https://mail.yahoo.com" },
+const MAILBOX_LINKS: Record<string, { labelKey: string; href: string }> = {
+  "gmail.com": { labelKey: "mailbox.gmail", href: "https://mail.google.com/mail/u/0/#inbox" },
+  "outlook.com": { labelKey: "mailbox.outlook", href: "https://outlook.live.com/mail/0/inbox" },
+  "hotmail.com": { labelKey: "mailbox.outlook", href: "https://outlook.live.com/mail/0/inbox" },
+  "yahoo.com": { labelKey: "mailbox.yahoo", href: "https://mail.yahoo.com" },
 };
 
 function editDistance(a: string, b: string): number {
@@ -63,7 +66,8 @@ export function suggestEmailCorrection(value: string): string | null {
   return best ? `${local}@${best.domain}` : null;
 }
 
-export function mailboxLinkFor(value: string): { label: string; href: string } | null {
+export function mailboxLinkFor(value: string, t: Translate = viAuthText): { label: string; href: string } | null {
   const parts = splitEmail(value);
-  return parts ? MAILBOX_LINKS[parts.domain] ?? null : null;
+  const link = parts ? MAILBOX_LINKS[parts.domain] : undefined;
+  return link ? { label: t(link.labelKey), href: link.href } : null;
 }

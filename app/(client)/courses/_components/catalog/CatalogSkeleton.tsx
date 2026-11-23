@@ -1,11 +1,13 @@
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const GRID = "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4";
 
 export function CatalogResultsSkeleton({ count = 8 }: { count?: number }) {
+  const t = useTranslations("courses");
   return (
-    <div aria-busy="true" aria-label="Đang tải danh sách khóa học" role="status" className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
-      <span className="sr-only">Đang tải danh sách khóa học</span>
+    <div aria-busy="true" aria-label={t("catalog.loading")} role="status" className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
+      <span className="sr-only">{t("catalog.loading")}</span>
       <div className="flex flex-wrap items-center gap-3 py-3">
         <Skeleton className="h-11 w-full rounded-xl lg:w-110" />
         <Skeleton className="h-11 w-64 rounded-xl" />

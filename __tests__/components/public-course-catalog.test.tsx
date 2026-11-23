@@ -1,7 +1,7 @@
 import React, { useTransition } from "react";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup } from "@/__tests__/support/intl";
 import { redirect, useRouter } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getPublicCourseCatalog, getPublicCourseCatalogListing } from "@/app/actions/public-course";
@@ -12,6 +12,7 @@ import CoursesPage from "@/app/(client)/courses/page";
 import CoursesLoading from "@/app/(client)/courses/loading";
 import { PublicCourseGrid } from "@/app/(client)/courses/_components/PublicCourseGrid";
 import { PublicCourseRetryButton } from "@/app/(client)/courses/_components/PublicCourseRetryButton";
+import { retryLabels, viCoursesText } from "@/lib/i18n/courses-text";
 import { selectHighlightedCourses } from "@/lib/public-courses/highlighted-course-selector";
 import type { PublicCourseCatalogItem, PublicCourseCatalogListingItem } from "@/lib/schemas/public-course";
 
@@ -224,7 +225,7 @@ describe("public catalog and homepage course discovery", () => {
   });
 
   it("refreshes Server Component data once and exposes the retry pending state", () => {
-    const retryButton = PublicCourseRetryButton({}) as React.ReactElement<{
+    const retryButton = PublicCourseRetryButton({ labels: retryLabels(viCoursesText) }) as React.ReactElement<{
       onClick: () => void;
     }>;
 
@@ -233,7 +234,7 @@ describe("public catalog and homepage course discovery", () => {
     expect(refreshRoute).toHaveBeenCalledOnce();
 
     mockedUseTransition.mockReturnValue([true, vi.fn()]);
-    const pendingHtml = renderToStaticMarkup(<PublicCourseRetryButton />);
+    const pendingHtml = renderToStaticMarkup(<PublicCourseRetryButton labels={retryLabels(viCoursesText)} />);
 
     expect(pendingHtml).toContain("disabled");
     expect(pendingHtml).toContain("Đang thử lại...");

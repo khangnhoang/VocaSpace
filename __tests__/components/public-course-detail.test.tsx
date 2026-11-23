@@ -1,7 +1,7 @@
 import React, { useState, useTransition } from "react";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup } from "@/__tests__/support/intl";
 import { notFound, useRouter } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getPublicCourseDetail } from "@/app/actions/public-course";

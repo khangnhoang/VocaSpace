@@ -8,5 +8,31 @@
     "phoneTooLong": "Phone number is too long",
     "dobInvalid": "Please choose a valid date of birth",
     "genderRequired": "Please choose a gender"
+  },
+  "login": {
+    "emailInvalid": "Enter a valid email address",
+    "passwordRequired": "Please enter your password"
+  },
+  "email": {
+    "invalid": "This email address isn't valid"
+  },
+  "password": {
+    "setMin": "Use at least 6 characters to keep your account safe",
+    "confirmRequired": "Please confirm your password",
+    "mismatch": "The passwords don't match",
+    "currentMin": "Your current password is too short",
+    "newMin": "Your new password must be at least 6 characters"
+  },
+  "profile": {
+    "fullNameMin": "Your name must be at least 2 characters",
+    "usernameMin": "Username must be at least 3 characters",
+    "genderInvalid": "Please choose a valid gender."
+  },
+  "avatar": {
+    "invalid": "This profile photo isn't valid. Choose a different JPG, PNG or WebP image."
+  },
+  "zodType": {
+    "string": "Invalid input: expected string, received {received}",
+    "object": "Invalid input: expected object, received {received}"
   }
 }

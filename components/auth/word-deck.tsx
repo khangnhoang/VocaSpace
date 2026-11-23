@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Lock } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { asTranslate } from "@/lib/i18n/translate";
 import type { CurveVariant } from "@/lib/auth/memory-curve";
 import { deckScene, type DeckTone } from "@/lib/auth/word-deck";
 import styles from "./word-deck.module.css";
@@ -28,7 +30,8 @@ type WordDeckProps = { variant: CurveVariant; flipped: boolean };
 // U3 quyết định 17: điểm nhấn riêng cho màn dưới 960px thay cho đường cong. Chồng thẻ chỉ là minh hoạ (aria-hidden);
 // tiêu đề và lời bên cạnh mang nội dung cho trình đọc màn hình.
 export function WordDeck({ variant, flipped }: WordDeckProps) {
-  const scene = deckScene(variant);
+  const t = asTranslate(useTranslations("auth"));
+  const scene = deckScene(variant, t);
   const sceneKey = scene.cards.map((card) => card.word).join("|");
   const reduceMotion = useReducedMotion();
 
@@ -84,7 +87,7 @@ export function WordDeck({ variant, flipped }: WordDeckProps) {
 
   return (
     <aside
-      aria-label="Minh hoạ cách VocaSpace ôn thẻ"
+      aria-label={t("deck.label")}
       className="order-first flex flex-col items-center gap-2 rounded-[16px] bg-slate-100 px-4 pt-3.5 pb-3 sm:flex-row sm:gap-5 sm:px-5 sm:py-[18px] min-[960px]:hidden"
     >
       {/* Chạm vào chồng thẻ để ôn thẻ tiếp theo: chỉ là phần thưởng cho chuột/cảm ứng, không mang thông tin. */}
@@ -120,7 +123,7 @@ export function WordDeck({ variant, flipped }: WordDeckProps) {
               >
                 <div className="absolute inset-0 flex flex-col justify-between rounded-[14px] border border-slate-300 bg-white px-3.5 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.06)] [backface-visibility:hidden]">
                   <span className="flex items-center justify-between gap-2">
-                    <span className={cn(UTILITY, "tracking-[0.04em] text-recall")}>THẺ TỪ</span>
+                    <span className={cn(UTILITY, "tracking-[0.04em] text-recall")}>{t("deck.cardLabel")}</span>
                     {card.tag ? (
                       <span className={cn(UTILITY, "inline-flex items-center gap-1 rounded-full px-2 py-px", TONE_CLASS[card.tone ?? "due"])}>
                         {card.locked ? <Lock className="size-3" /> : null}
@@ -149,9 +152,9 @@ export function WordDeck({ variant, flipped }: WordDeckProps) {
                   <div className="absolute inset-0 flex flex-col justify-center gap-1 rounded-[14px] bg-slate-900 px-3.5 py-2.5 text-white [backface-visibility:hidden] [transform:rotateY(180deg)]">
                     <span className="flex items-center gap-2 text-sm leading-5 font-bold">
                       <Lock className="size-4" />
-                      Không nhìn trộm đâu
+                      {t("deck.peekTitle")}
                     </span>
-                    <span className="text-xs leading-[18px] text-slate-300">Thẻ úp mặt khi bạn gõ mật khẩu.</span>
+                    <span className="text-xs leading-[18px] text-slate-300">{t("deck.peekText")}</span>
                   </div>
                 ) : null}
               </div>
@@ -160,7 +163,7 @@ export function WordDeck({ variant, flipped }: WordDeckProps) {
         })}
       </div>
       <div aria-live="polite" className="text-center sm:flex-1 sm:text-left">
-        <p className={cn(UTILITY, "tracking-[0.04em] text-recall uppercase")}>Minh hoạ</p>
+        <p className={cn(UTILITY, "tracking-[0.04em] text-recall uppercase")}>{t("deck.badge")}</p>
         <p className="mt-0.5 text-base leading-6 font-bold text-slate-900 sm:text-lg sm:leading-[26px]">{scene.title}</p>
         <p className="mt-1 hidden text-sm leading-[22px] text-slate-600 sm:block">{scene.text}</p>
       </div>

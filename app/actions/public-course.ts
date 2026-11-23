@@ -1,6 +1,7 @@
 "use server";
 
 import { unstable_noStore } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import {
   buildLearnCourseProgressProjection,
   type LearnDashboardChapterRow,
@@ -40,10 +41,11 @@ export type PublicCourseDetailResult =
   | { status: "not_found" }
   | { status: "error"; error: string };
 
-const PUBLIC_CATALOG_ERROR =
-  "Không thể tải danh sách khóa học lúc này. Vui lòng thử lại.";
-const PUBLIC_DETAIL_ERROR =
-  "Không thể tải thông tin khóa học lúc này. Vui lòng thử lại.";
+// Thông báo lỗi dịch theo ngôn ngữ của request tại thời điểm trả về (không dựng sẵn ở mức module).
+async function publicError(key: "catalogError" | "detailError") {
+  const t = await getTranslations("courses");
+  return t(`actions.${key}`);
+}
 
 // LF3 AC10: hàng đầu vào của projection lấy từ chính syllabus RPC (đã chỉ gồm chủ đề published, chưa gỡ, trong chương chưa gỡ).
 function toProjectionRows(course: PublicCourseDetailRpc) {
@@ -81,13 +83,13 @@ export async function getPublicCourseCatalog(): Promise<PublicCourseCatalogResul
 
   if (error) {
     console.error("Public course catalog RPC failed", error);
-    return { status: "error", error: PUBLIC_CATALOG_ERROR };
+    return { status: "error", error: await publicError("catalogError") };
   }
 
   const parsed = publicCourseCatalogRpcSchema.safeParse(data);
   if (!parsed.success) {
     console.error("Public course catalog contract drift", parsed.error.issues);
-    return { status: "error", error: PUBLIC_CATALOG_ERROR };
+    return { status: "error", error: await publicError("catalogError") };
   }
 
   return { status: "success", data: parsed.data };
@@ -99,13 +101,13 @@ export async function getPublicCourseCatalogListing(): Promise<PublicCourseCatal
 
   if (error) {
     console.error("Public course catalog listing RPC failed", error);
-    return { status: "error", error: PUBLIC_CATALOG_ERROR };
+    return { status: "error", error: await publicError("catalogError") };
   }
 
   const parsed = publicCourseCatalogListingRpcSchema.safeParse(data);
   if (!parsed.success) {
     console.error("Public course catalog listing contract drift", parsed.error.issues);
-    return { status: "error", error: PUBLIC_CATALOG_ERROR };
+    return { status: "error", error: await publicError("catalogError") };
   }
 
   const {
@@ -155,14 +157,14 @@ export async function getPublicCourseDetail(
 
   if (error) {
     console.error("Public course detail RPC failed", error);
-    return { status: "error", error: PUBLIC_DETAIL_ERROR };
+    return { status: "error", error: await publicError("detailError") };
   }
   if (data === null) return { status: "not_found" };
 
   const parsed = publicCourseDetailRpcSchema.safeParse(data);
   if (!parsed.success) {
     console.error("Public course detail contract drift", parsed.error.issues);
-    return { status: "error", error: PUBLIC_DETAIL_ERROR };
+    return { status: "error", error: await publicError("detailError") };
   }
 
   const {
@@ -181,7 +183,7 @@ export async function getPublicCourseDetail(
 
     if (enrollmentError) {
       console.error("Public course enrollment overlay failed", enrollmentError);
-      return { status: "error", error: PUBLIC_DETAIL_ERROR };
+      return { status: "error", error: await publicError("detailError") };
     }
     isEnrolled = enrollment !== null;
 
@@ -209,7 +211,7 @@ export async function getPublicCourseDetail(
             "Public course progress overlay failed",
             progressResult.error,
           );
-          return { status: "error", error: PUBLIC_DETAIL_ERROR };
+          return { status: "error", error: await publicError("detailError") };
         }
         progress = (progressResult.data ?? []) as LearnDashboardTopicProgressRow[];
       }

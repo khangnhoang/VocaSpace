@@ -1,0 +1,1266 @@
+[
+ {
+  "schema": "loginSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received null"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received string"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received number"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received array"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email không đúng định dạng"
+   },
+   {
+    "path": "password",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "valid",
+  "issues": []
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:email=missing",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:email=null",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:email=1",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:email=\"\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:email=\" \"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:email=\"a\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:email=\"abcdefg\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:password=missing",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:password=null",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Invalid input: expected string, received null"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:password=1",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:password=\"\"",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Vui lòng nhập mật khẩu"
+   }
+  ]
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:password=\" \"",
+  "issues": []
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:password=\"a\"",
+  "issues": []
+ },
+ {
+  "schema": "loginSchema",
+  "input": "field:password=\"abcdefg\"",
+  "issues": []
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received null"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received string"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received number"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received array"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Invalid input: expected string, received undefined"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "valid",
+  "issues": []
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:password=missing",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:password=null",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Invalid input: expected string, received null"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:password=1",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:password=\"\"",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Mật khẩu ít nhất 6 ký tự cho an toàn"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:password=\" \"",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Mật khẩu ít nhất 6 ký tự cho an toàn"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:password=\"a\"",
+  "issues": [
+   {
+    "path": "password",
+    "message": "Mật khẩu ít nhất 6 ký tự cho an toàn"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:password=\"abcdefg\"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:confirmPassword=missing",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:confirmPassword=null",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Invalid input: expected string, received null"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:confirmPassword=1",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:confirmPassword=\"\"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Vui lòng xác nhận lại mật khẩu"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:confirmPassword=\" \"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:confirmPassword=\"a\"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "field:confirmPassword=\"abcdefg\"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "setPasswordSchema",
+  "input": "mismatch",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received null"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received string"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received number"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received array"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "valid",
+  "issues": []
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "field:email=missing",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "field:email=null",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "field:email=1",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "field:email=\"\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "field:email=\" \"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "field:email=\"a\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "resendSignupConfirmationSchema",
+  "input": "field:email=\"abcdefg\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received null"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received string"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received number"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received array"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "valid",
+  "issues": []
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "field:email=missing",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "field:email=null",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "field:email=1",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "field:email=\"\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "field:email=\" \"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "field:email=\"a\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "passwordRecoveryRequestSchema",
+  "input": "field:email=\"abcdefg\"",
+  "issues": [
+   {
+    "path": "email",
+    "message": "Email này không đúng định dạng"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received null"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received string"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received number"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received array"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "full_name",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "valid",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:full_name=missing",
+  "issues": [
+   {
+    "path": "full_name",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:full_name=null",
+  "issues": [
+   {
+    "path": "full_name",
+    "message": "Invalid input: expected string, received null"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:full_name=1",
+  "issues": [
+   {
+    "path": "full_name",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:full_name=\"\"",
+  "issues": [
+   {
+    "path": "full_name",
+    "message": "Họ tên phải có ít nhất 2 ký tự"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:full_name=\" \"",
+  "issues": [
+   {
+    "path": "full_name",
+    "message": "Họ tên phải có ít nhất 2 ký tự"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:full_name=\"a\"",
+  "issues": [
+   {
+    "path": "full_name",
+    "message": "Họ tên phải có ít nhất 2 ký tự"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:full_name=\"abcdefg\"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:username=missing",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:username=null",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:username=1",
+  "issues": [
+   {
+    "path": "username",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:username=\"\"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:username=\" \"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:username=\"a\"",
+  "issues": [
+   {
+    "path": "username",
+    "message": "Username phải từ 3 ký tự trở lên"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:username=\"abcdefg\"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:dob=missing",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:dob=null",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:dob=1",
+  "issues": [
+   {
+    "path": "dob",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:dob=\"\"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:dob=\" \"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:dob=\"a\"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:dob=\"abcdefg\"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:gender=missing",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:gender=null",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:gender=1",
+  "issues": [
+   {
+    "path": "gender",
+    "message": "Giới tính không hợp lệ."
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:gender=\"\"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:gender=\" \"",
+  "issues": []
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:gender=\"a\"",
+  "issues": [
+   {
+    "path": "gender",
+    "message": "Giới tính không hợp lệ."
+   }
+  ]
+ },
+ {
+  "schema": "profileSchema",
+  "input": "field:gender=\"abcdefg\"",
+  "issues": [
+   {
+    "path": "gender",
+    "message": "Giới tính không hợp lệ."
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received null"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received string"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received number"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "",
+    "message": "Invalid input: expected object, received array"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "whole",
+  "issues": [
+   {
+    "path": "currentPassword",
+    "message": "Invalid input: expected string, received undefined"
+   },
+   {
+    "path": "newPassword",
+    "message": "Invalid input: expected string, received undefined"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "valid",
+  "issues": []
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:currentPassword=missing",
+  "issues": [
+   {
+    "path": "currentPassword",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:currentPassword=null",
+  "issues": [
+   {
+    "path": "currentPassword",
+    "message": "Invalid input: expected string, received null"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:currentPassword=1",
+  "issues": [
+   {
+    "path": "currentPassword",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:currentPassword=\"\"",
+  "issues": [
+   {
+    "path": "currentPassword",
+    "message": "Mật khẩu hiện tại quá ngắn"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:currentPassword=\" \"",
+  "issues": [
+   {
+    "path": "currentPassword",
+    "message": "Mật khẩu hiện tại quá ngắn"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:currentPassword=\"a\"",
+  "issues": [
+   {
+    "path": "currentPassword",
+    "message": "Mật khẩu hiện tại quá ngắn"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:currentPassword=\"abcdefg\"",
+  "issues": []
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:newPassword=missing",
+  "issues": [
+   {
+    "path": "newPassword",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:newPassword=null",
+  "issues": [
+   {
+    "path": "newPassword",
+    "message": "Invalid input: expected string, received null"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:newPassword=1",
+  "issues": [
+   {
+    "path": "newPassword",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:newPassword=\"\"",
+  "issues": [
+   {
+    "path": "newPassword",
+    "message": "Mật khẩu mới phải từ 6 ký tự"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:newPassword=\" \"",
+  "issues": [
+   {
+    "path": "newPassword",
+    "message": "Mật khẩu mới phải từ 6 ký tự"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:newPassword=\"a\"",
+  "issues": [
+   {
+    "path": "newPassword",
+    "message": "Mật khẩu mới phải từ 6 ký tự"
+   },
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:newPassword=\"abcdefg\"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:confirmPassword=missing",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Invalid input: expected string, received undefined"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:confirmPassword=null",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Invalid input: expected string, received null"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:confirmPassword=1",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Invalid input: expected string, received number"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:confirmPassword=\"\"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:confirmPassword=\" \"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:confirmPassword=\"a\"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "field:confirmPassword=\"abcdefg\"",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ },
+ {
+  "schema": "passwordSchema",
+  "input": "mismatch",
+  "issues": [
+   {
+    "path": "confirmPassword",
+    "message": "Mật khẩu xác nhận không khớp"
+   }
+  ]
+ }
+]

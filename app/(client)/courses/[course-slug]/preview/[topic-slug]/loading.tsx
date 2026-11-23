@@ -1,14 +1,16 @@
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PublicCoursePreviewLoading() {
+  const t = useTranslations("courses");
   return (
     <div
       aria-busy="true"
-      aria-label="Đang tải nội dung xem thử"
+      aria-label={t("preview.loading")}
       role="status"
       className="min-h-[70vh] bg-slate-50 px-4 py-8 sm:px-6 md:py-12"
     >
-      <span className="sr-only">Đang tải nội dung xem thử</span>
+      <span className="sr-only">{t("preview.loading")}</span>
       <div className="mx-auto max-w-[1280px] space-y-5">
         <Skeleton className="h-5 w-48" />
         <div className="space-y-3">

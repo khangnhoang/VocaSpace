@@ -1,5 +1,6 @@
 "use client";
 import { Suspense, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useReducedMotion } from "motion/react";
 import { useAnimate } from "motion/react-mini";
 import * as m from "motion/react-m";
@@ -9,28 +10,32 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, Check, ChevronRight, Info, Loader2 } from "lucide-react";
 import { loginSchema, type LoginInput } from "@/lib/schemas/auth";
-import { signInUser } from "@/app/actions/auth";
+import { signInUserLocalized } from "@/app/actions/auth-localized";
 import { Button } from "@/components/ui/button";
-import { SIGN_IN_REASON_MESSAGES, SIGN_IN_REASON_PARAM } from "@/lib/auth/sign-in-reason";
+import { SIGN_IN_REASON_KEYS, SIGN_IN_REASON_PARAM } from "@/lib/auth/sign-in-reason";
+import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
 import { GoogleSignInButton, LastUsedTag } from "@/components/auth/google-sign-in-button";
 import { LegalConsentNotice } from "@/components/auth/legal-consent-notice";
 import { AuthDivider, AuthNotice, EmailField, PasswordField } from "@/components/auth/auth-fields";
 import { useAuthShell } from "@/components/auth/auth-shell-context";
 import { cn } from "@/lib/utils";
 
-const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  confirm: "Link xác minh không hợp lệ hoặc đã hết hạn",
-  recovery: "Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Bạn có thể gửi lại link mới.",
-  oauth: "Đăng nhập Google không thành công. Bạn có thể thử lại hoặc đăng nhập bằng email.",
+// Khóa trong catalog `auth`, tra theo `auth_error` trên URL.
+const AUTH_ERROR_KEYS: Record<string, string> = {
+  confirm: "login.authError.confirm",
+  recovery: "login.authError.recovery",
+  oauth: "login.authError.oauth",
 };
 
 // Đọc `auth_error` trong Suspense riêng để trang đăng nhập vẫn prerender được.
 function AuthErrorNotice() {
+  const t = asTranslate(useTranslations("auth"));
   const authError = useSearchParams().get("auth_error");
   // Chỉ nhận đúng key của map; tra thẳng thì `__proto__`/`constructor` trả về object của prototype.
-  const message =
-    authError && Object.hasOwn(AUTH_ERROR_MESSAGES, authError) ? AUTH_ERROR_MESSAGES[authError] : undefined;
-  if (!message) return null;
+  const key = authError && Object.hasOwn(AUTH_ERROR_KEYS, authError) ? AUTH_ERROR_KEYS[authError] : undefined;
+  if (!key) return null;
+  const message = t(key);
 
   return (
     <AuthNotice tone="error" role="alert" icon={<AlertCircle />}>
@@ -41,9 +46,11 @@ function AuthErrorNotice() {
 
 // Lý do redirect không phải lỗi nên dùng role="status"; chỉ hiện message tra từ map cố định (G1).
 function SignInReasonNotice() {
+  const t = asTranslate(useTranslations("auth"));
   const reason = useSearchParams().get(SIGN_IN_REASON_PARAM);
-  const message = reason && Object.hasOwn(SIGN_IN_REASON_MESSAGES, reason) ? SIGN_IN_REASON_MESSAGES[reason] : undefined;
-  if (!message) return null;
+  const key = reason && Object.hasOwn(SIGN_IN_REASON_KEYS, reason) ? SIGN_IN_REASON_KEYS[reason] : undefined;
+  if (!key) return null;
+  const message = t(key);
 
   return (
     <AuthNotice tone="info" role="status" icon={<Info />}>
@@ -52,16 +59,20 @@ function SignInReasonNotice() {
   );
 }
 
-const SIGN_IN_FAILED_FALLBACK = "Sai email hoặc mật khẩu!";
 // Lời gọi Server Action thất bại (mạng, hoặc máy chủ lỗi/5xx) không phải lỗi thông tin đăng nhập, nên không báo "sai mật
-// khẩu" (U3 quyết định 15).
-const SIGN_IN_NETWORK_FAILED = "Không thể kết nối máy chủ. Kiểm tra mạng rồi thử lại.";
-
+// khẩu" (U3 quyết định 15): dùng `login.networkFailed` thay vì `actions.signInFailed`.
 export default function LoginPage() {
+  const t = useTranslations("auth");
+  const locale = useLocale() === "en" ? "en" : "vi";
+  const tRoot = asTranslate(useTranslations());
+  const tx = asTranslate(useTranslations("validation"));
+  const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tx, message) : undefined);
   const router = useRouter();
   const { lastSignInMethod, setPasswordFocused } = useAuthShell();
   const [status, setStatus] = useState<"idle" | "pending" | "success">("idle");
-  const [serverError, setServerError] = useState<string | null>(null);
+  // Giữ thông báo dưới dạng khóa hoặc chuỗi gắn ngôn ngữ của request để đổi ngôn ngữ giữa chừng không để lại chữ cũ.
+  const [serverMessage, setServerError] = useState<HeldMessage | null>(null);
+  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t), tRoot);
   const submitting = useRef(false);
   const [formScope, animate] = useAnimate<HTMLDivElement>();
   const reduceMotion = useReducedMotion();
@@ -82,9 +93,11 @@ export default function LoginPage() {
     formData.append("password", data.password);
 
     try {
-      const res = await signInUser(formData);
+      const { result: res, ...reply } = await signInUserLocalized(formData);
       if (res?.error || !res?.success) {
-        setServerError(res?.error ?? SIGN_IN_FAILED_FALLBACK);
+        // Luôn có thông báo hiện ra (chuỗi của server, hoặc bản chung của client nếu server dùng ngôn ngữ khác tab), nên focus và
+        // rung bên dưới luôn đi cùng một lỗi đang hiện.
+        setServerError(res?.error != null ? heldText(res.error, reply, "actions.signInFailed") : heldKey("actions.signInFailed"));
         setStatus("idle");
         form.setFocus("password", { shouldSelect: true });
         // Rung một lần để báo thất bại; thông báo lỗi và focus đã có ngay, không chờ hiệu ứng (AC13).
@@ -98,7 +111,7 @@ export default function LoginPage() {
       router.replace(res.redirectTo ?? "/");
       router.refresh();
     } catch {
-      setServerError(SIGN_IN_NETWORK_FAILED);
+      setServerError(heldKey("login.networkFailed"));
       setStatus("idle");
       // Giữ nguyên mật khẩu, không bôi đen và không rung: chỉ cần nhấn Enter để thử lại.
       form.setFocus("password");
@@ -113,9 +126,9 @@ export default function LoginPage() {
   return (
     <>
       <h1 className="text-[28px] leading-9 font-extrabold tracking-[-0.015em] text-slate-900 min-[960px]:text-[32px] min-[960px]:leading-10">
-        Chào mừng trở lại
+        {t("login.title")}
       </h1>
-      <p className="mt-2 mb-6 text-base leading-[26px] text-slate-600">Đăng nhập để học tiếp đúng chỗ bạn đã dừng.</p>
+      <p className="mt-2 mb-6 text-base leading-[26px] text-slate-600">{t("login.lead")}</p>
 
       <Suspense fallback={null}>
         <SignInReasonNotice />
@@ -130,7 +143,7 @@ export default function LoginPage() {
       {googleFirst ? (
         <>
           {google}
-          <AuthDivider label="hoặc dùng email" className="my-4" />
+          <AuthDivider label={t("login.dividerEmail")} className="my-4" />
         </>
       ) : null}
 
@@ -140,17 +153,17 @@ export default function LoginPage() {
         <EmailField
           id="login-email"
           registration={form.register("email")}
-          error={errors.email?.message}
+          error={fieldError(errors.email?.message)}
           labelAside={lastSignInMethod === "email" ? <LastUsedTag /> : null}
           onApplySuggestion={(value) => form.setValue("email", value, { shouldValidate: Boolean(errors.email) })}
         />
         <div className="grid gap-1">
           <PasswordField
             id="login-password"
-            label="Mật khẩu"
+            label={t("login.password")}
             autoComplete="current-password"
             registration={form.register("password")}
-            error={errors.password?.message}
+            error={fieldError(errors.password?.message)}
             onFocusChange={setPasswordFocused}
           />
           <div className="flex justify-end">
@@ -158,7 +171,7 @@ export default function LoginPage() {
               href="/forgot-password"
               className="inline-flex min-h-11 items-center rounded-[8px] px-0.5 text-sm font-semibold text-route hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-route"
             >
-              Quên mật khẩu?
+              {t("login.forgot")}
             </Link>
           </div>
         </div>
@@ -175,7 +188,7 @@ export default function LoginPage() {
           {status === "pending" ? (
             <>
               <Loader2 aria-hidden="true" className="motion-safe:animate-spin" />
-              Đang đăng nhập…
+              {t("login.submitting")}
             </>
           ) : status === "success" ? (
             <>
@@ -188,11 +201,11 @@ export default function LoginPage() {
               >
                 <Check />
               </m.span>
-              Đã đăng nhập
+              {t("login.success")}
             </>
           ) : (
             <>
-              Đăng nhập
+              {t("login.submit")}
               <ChevronRight aria-hidden="true" />
             </>
           )}
@@ -202,7 +215,7 @@ export default function LoginPage() {
 
       {googleFirst ? null : (
         <>
-          <AuthDivider label="hoặc" className="mt-5 mb-4" />
+          <AuthDivider label={t("login.divider")} className="mt-5 mb-4" />
           {google}
         </>
       )}

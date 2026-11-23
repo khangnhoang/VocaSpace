@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getLearnDashboard } from "@/app/actions/learn-dashboard";
 import { getLearningSummary } from "@/app/actions/learning-activity";
-import LearnDashboardPage from "@/app/(client)/learn/page";
+import LearnDashboardPage from "@/app/(client)/learn/(dashboard)/page";
 
 // Test plan:
 // - Mục tiêu: bảo vệ redirect /learn → /login kèm lý do đăng nhập (F1 AUTH-003).

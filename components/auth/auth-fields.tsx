@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { AlertCircle, Eye, EyeOff, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { UseFormRegisterReturn } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { suggestEmailCorrection } from "@/lib/auth/email-help";
@@ -100,6 +101,7 @@ type EmailFieldProps = {
 };
 
 export function EmailField({ id, registration, error, hint, labelAside, onApplySuggestion }: EmailFieldProps) {
+  const t = useTranslations("auth.fields");
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -109,7 +111,7 @@ export function EmailField({ id, registration, error, hint, labelAside, onApplyS
     <div className="grid gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <label htmlFor={id} className={LABEL_CLASS}>
-          Email
+          {t("email")}
         </label>
         {labelAside}
       </div>
@@ -118,7 +120,7 @@ export function EmailField({ id, registration, error, hint, labelAside, onApplyS
         type="email"
         autoComplete="email"
         inputMode="email"
-        placeholder="ban@example.com"
+        placeholder={t("emailPlaceholder")}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(hint && hintId, error && errorId, suggestion && suggestionId)}
         className={AUTH_INPUT_CLASS}
@@ -142,7 +144,10 @@ export function EmailField({ id, registration, error, hint, labelAside, onApplyS
         {suggestion ? (
           <p id={suggestionId} className="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[18px] text-slate-600">
             <span>
-              Có phải ý bạn là <b className="font-semibold text-slate-900">{suggestion}</b>?
+              {t.rich("didYouMean", {
+                address: suggestion,
+                b: (chunks) => <b className="font-semibold text-slate-900">{chunks}</b>,
+              })}
             </span>
             <button
               type="button"
@@ -153,7 +158,7 @@ export function EmailField({ id, registration, error, hint, labelAside, onApplyS
                 document.getElementById(id)?.focus();
               }}
             >
-              Dùng địa chỉ này
+              {t("useSuggestion")}
             </button>
           </p>
         ) : null}
@@ -174,6 +179,7 @@ type PasswordFieldProps = {
 };
 
 export function PasswordField({ id, label, registration, autoComplete, error, details, onFocusChange }: PasswordFieldProps) {
+  const t = useTranslations("auth.fields");
   const [visible, setVisible] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
   const errorId = `${id}-error`;
@@ -205,7 +211,7 @@ export function PasswordField({ id, label, registration, autoComplete, error, de
         />
         <button
           type="button"
-          aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+          aria-label={visible ? t("hidePassword") : t("showPassword")}
           aria-pressed={visible}
           onClick={() => setVisible((current) => !current)}
           className="absolute top-0.5 right-0.5 grid size-10 place-items-center rounded-[10px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-route"
@@ -217,7 +223,7 @@ export function PasswordField({ id, label, registration, autoComplete, error, de
       {capsLock ? (
         <p id={capsId} className="flex items-center gap-1.5 text-[13px] leading-[18px] font-semibold text-attention">
           <TriangleAlert aria-hidden="true" className="size-4" />
-          Caps Lock đang bật
+          {t("capsLock")}
         </p>
       ) : null}
       <FieldError id={errorId} message={error} />

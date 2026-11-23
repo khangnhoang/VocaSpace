@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { useSyncExternalStore } from "react";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CatalogExplorer } from "@/app/(client)/courses/_components/catalog/CatalogExplorer";
 import { toCatalogCourses } from "@/lib/public-courses/catalog-query";

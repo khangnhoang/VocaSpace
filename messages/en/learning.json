@@ -1,0 +1,51 @@
+{
+  "navigator": {
+    "trigger": "Question list",
+    "hint": "Jump between questions",
+    "title": "Exercise questions",
+    "description": "Choose a question to jump to it.",
+    "summary": "{correct}/{total} answered correctly",
+    "item": "Question {number}: {text}",
+    "current": "Viewing · ",
+    "locked": "Locked",
+    "statusCorrect": "Answered correctly",
+    "statusIncorrect": "Answered incorrectly",
+    "statusUnanswered": "Not answered"
+  },
+  "context": {
+    "image": "Image for this question group",
+    "imageFailed": "The image couldn't be loaded.",
+    "reloadImage": "Reload image",
+    "enlargeLabel": "Enlarge image",
+    "enlarge": "Enlarge",
+    "enlargedDescription": "An enlarged view of the image that comes with the question.",
+    "listen": "Listen to the audio",
+    "audioLabel": "Audio for this question group",
+    "audioUnsupported": "Your browser doesn't support the audio element.",
+    "audioFailed": "The audio couldn't be loaded.",
+    "reloadAudio": "Reload audio",
+    "missing": "This question group is missing its {kinds}. Please tell the course teacher.",
+    "missingImage": "image",
+    "missingAudio": "audio",
+    "missingPassage": "passage"
+  },
+  "choice": {
+    "correct": "(you chose correctly)",
+    "incorrect": "(you chose incorrectly)"
+  },
+  "activity": {
+    "streak": "{streak, plural, one {# day} other {# days}} studying this course in a row",
+    "noStreak": "No study streak for this course yet",
+    "startStreak": "Answer a question or review a card from this course today to start a streak.",
+    "studiedToday": "You studied this course today.",
+    "notStudiedToday": "You haven't studied this course today. Study a little to keep your streak.",
+    "recent": "RECENTLY STUDIED",
+    "unavailableTitle": "Couldn't load this course's study streak",
+    "unavailableBody": "You can keep studying as usual."
+  },
+  "relativeDay": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{days} days ago"
+  }
+}

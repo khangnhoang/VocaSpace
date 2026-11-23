@@ -1,23 +1,56 @@
+import enAuth from "@/messages/en/auth.json";
 import enCommon from "@/messages/en/common.json";
+import enCourses from "@/messages/en/courses.json";
+import enFlashcard from "@/messages/en/flashcard.json";
+import enHome from "@/messages/en/home.json";
+import enLearning from "@/messages/en/learning.json";
+import enProfile from "@/messages/en/profile.json";
 import enValidation from "@/messages/en/validation.json";
+import viAuth from "@/messages/vi/auth.json";
 import viCommon from "@/messages/vi/common.json";
+import viCourses from "@/messages/vi/courses.json";
+import viFlashcard from "@/messages/vi/flashcard.json";
+import viHome from "@/messages/vi/home.json";
+import viLearning from "@/messages/vi/learning.json";
+import viProfile from "@/messages/vi/profile.json";
 import viValidation from "@/messages/vi/validation.json";
 import type { Locale } from "./config";
 
 // Mỗi namespace là một tệp riêng (H2) để các unit sau thêm namespace mà ít đụng nhau. Bộ tiếng Việt là bộ gốc về kiểu;
 // test parity bắt lệch khóa giữa hai ngôn ngữ.
-const viMessages = { common: viCommon, validation: viValidation };
+const viMessages = {
+  common: viCommon,
+  validation: viValidation,
+  auth: viAuth,
+  home: viHome,
+  flashcard: viFlashcard,
+  courses: viCourses,
+  learning: viLearning,
+  profile: viProfile,
+};
 export type AppMessages = typeof viMessages;
 
 export const MESSAGES: Record<Locale, AppMessages> = {
   vi: viMessages,
-  en: { common: enCommon, validation: enValidation },
+  en: {
+    common: enCommon,
+    validation: enValidation,
+    auth: enAuth,
+    home: enHome,
+    flashcard: enFlashcard,
+    courses: enCourses,
+    learning: enLearning,
+    profile: enProfile,
+  },
 };
 
-// G5: chỉ các namespace mà client component đã chuyển đổi dùng mới được gửi xuống trình duyệt.
+// G5/G4: client chỉ nhận các namespace mà subtree của nó dùng. `common` và `validation` luôn có vì provider gốc gửi chúng,
+// và provider lồng nhau thay (không gộp) messages của provider cha khi truyền `messages` (use-intl), nên mỗi provider lồng
+// phải liệt kê đủ cả hai.
 export const CLIENT_NAMESPACES = ["common", "validation"] as const satisfies readonly (keyof AppMessages)[];
 
-export function pickClientMessages(locale: Locale) {
+export function pickClientMessages(locale: Locale, extra: readonly (keyof AppMessages)[] = []) {
   const messages = MESSAGES[locale];
-  return Object.fromEntries(CLIENT_NAMESPACES.map((namespace) => [namespace, messages[namespace]]));
+  const namespaces = [...CLIENT_NAMESPACES, ...extra] as const;
+  return Object.fromEntries(namespaces.map((namespace) => [namespace, messages[namespace]]));
 }

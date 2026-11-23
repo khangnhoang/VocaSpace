@@ -10,19 +10,34 @@ import {
   ProfileFormValues,
   UserProfileDTO,
 } from "@/lib/schemas/profile";
-import { toast } from "sonner";
-import { updateUserProfile } from "@/app/actions/profile";
+import { useLocale, useTranslations } from "next-intl";
+import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { useLatest } from "@/lib/i18n/held-message";
+import { showProfileNotice, type EmitProfileNotice } from "./profile-notice";
+import type { Locale } from "@/lib/i18n/config";
+import { updateUserProfileLocalized } from "@/app/actions/profile-localized";
 
 interface EditProfileFormProps {
   initialData: UserProfileDTO | null;
   onRefreshData: () => void;
+  // Do `ProfileSidebar` cấp để toast không phụ thuộc form còn mounted hay không; thiếu thì form tự phát (xem profile-notice.ts).
+  onNotice?: EmitProfileNotice;
 }
 
 export default function EditProfileForm({
   initialData,
   onRefreshData,
+  onNotice,
 }: EditProfileFormProps) {
   const [isPending, startTransition] = useTransition();
+  const t = useTranslations("profile.editForm");
+  const tRoot = asTranslate(useTranslations());
+  const locale = useLocale() as Locale;
+  // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc bấm lưu.
+  const latest = useLatest({ t: tRoot, locale });
+  const notify = onNotice ?? ((notice) => showProfileNotice(notice, latest));
+  // Message của schema là khóa trong `validation` (U2 H3); form dịch khi hiển thị, nên mỗi lỗi hiện đúng ở ngôn ngữ đang dùng.
+  const tValidation = asTranslate(useTranslations("validation"));
 
   // Khởi tạo form với dữ liệu thật kéo từ DB
   const form = useForm<ProfileFormInput, unknown, ProfileFormValues>({
@@ -44,16 +59,16 @@ export default function EditProfileForm({
 
   const onSubmit = (data: ProfileFormValues) => {
     startTransition(async () => {
-      const res = await updateUserProfile(data);
+      const { result: res, ...reply } = await updateUserProfileLocalized(data);
 
       // Xử lý tách biệt return tránh cảnh báo của React
       if (res.error) {
-        toast.error(res.error);
+        notify({ type: "error", text: res.error, reply, fallbackKey: "profile.actions.updateFailed" });
         return;
       }
 
       if (res.success) {
-        toast.success("Đã lưu thông tin hồ sơ thành công!");
+        notify({ type: "success", key: "profile.editForm.saved" });
         onRefreshData(); // Kéo lại dữ liệu mới nhất cho Sidebar cập nhật
       }
     });
@@ -67,11 +82,11 @@ export default function EditProfileForm({
       {/* Trường Email - Read Only */}
       <div>
         <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-          Địa chỉ Email
+          {t("email")}
         </label>
         <input
           type="text"
-          value={initialData?.email || "Chưa cập nhật"}
+          value={initialData?.email || t("notProvided")}
           readOnly
           disabled
           className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-slate-500 cursor-not-allowed text-sm font-medium"
@@ -81,11 +96,11 @@ export default function EditProfileForm({
       {/* Trường Phone - Read Only */}
       <div>
         <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-          Số điện thoại
+          {t("phone")}
         </label>
         <input
           type="text"
-          value={initialData?.phone || "Chưa cập nhật"}
+          value={initialData?.phone || t("notProvided")}
           readOnly
           disabled
           className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-slate-500 cursor-not-allowed text-sm font-medium"
@@ -95,17 +110,17 @@ export default function EditProfileForm({
       {/* Trường Họ Tên */}
       <div>
         <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-          Họ và tên *
+          {t("fullName")}
         </label>
         <input
           type="text"
           {...form.register("full_name")}
-          placeholder="Nhập họ và tên đầy đủ"
+          placeholder={t("fullNamePlaceholder")}
           className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
         />
         {form.formState.errors.full_name && (
           <p className="mt-1 text-xs font-semibold text-correction">
-            {form.formState.errors.full_name.message}
+            {translateIssueMessage(tValidation, form.formState.errors.full_name.message ?? "")}
           </p>
         )}
       </div>
@@ -116,7 +131,7 @@ export default function EditProfileForm({
           htmlFor={canSetUsername ? "profile-username" : undefined}
           className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1"
         >
-          Tên định danh (Username)
+          {t("username")}
         </label>
         {canSetUsername ? (
           <>
@@ -125,22 +140,22 @@ export default function EditProfileForm({
               type="text"
               {...form.register("username")}
               aria-describedby="profile-username-help"
-              placeholder="Nhập username (từ 3 ký tự)"
+              placeholder={t("usernamePlaceholder")}
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium transition-colors"
             />
             <p id="profile-username-help" className="mt-1 text-xs text-slate-500">
-              Bạn chỉ đặt được username một lần.
+              {t("usernameHelp")}
             </p>
             {usernameError && (
               <p className="mt-1 text-xs font-semibold text-correction">
-                {usernameError.message}
+                {translateIssueMessage(tValidation, usernameError.message ?? "")}
               </p>
             )}
           </>
         ) : (
           <input
             type="text"
-            value={initialData?.username || "Chưa thiết lập"}
+            value={initialData?.username || t("usernameUnset")}
             readOnly
             disabled
             className="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-slate-500 cursor-not-allowed text-sm font-medium"
@@ -152,7 +167,7 @@ export default function EditProfileForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-            Ngày sinh
+            {t("dob")}
           </label>
           <input
             type="date"
@@ -163,16 +178,16 @@ export default function EditProfileForm({
 
         <div>
           <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">
-            Giới tính
+            {t("gender")}
           </label>
           <select
             {...form.register("gender")}
             className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-slate-800 focus:border-route focus:outline-none focus:ring-2 focus:ring-route-line text-sm font-medium bg-white transition-colors"
           >
-            <option value="">Chọn giới tính</option>
-            <option value="male">Nam</option>
-            <option value="female">Nữ</option>
-            <option value="other">Khác</option>
+            <option value="">{t("genderPlaceholder")}</option>
+            <option value="male">{t("genderMale")}</option>
+            <option value="female">{t("genderFemale")}</option>
+            <option value="other">{t("genderOther")}</option>
           </select>
         </div>
       </div>
@@ -183,7 +198,7 @@ export default function EditProfileForm({
         disabled={isPending}
         className="mt-6 w-full rounded-xl bg-action px-4 py-3 text-sm font-bold text-action-foreground hover:bg-action/90 active:scale-95 transition-all shadow-md shadow-route-line/40 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:shadow-none"
       >
-        {isPending ? "Đang đồng bộ dữ liệu..." : "Lưu thay đổi"}
+        {isPending ? t("submitting") : t("submit")}
       </button>
     </form>
   );

@@ -76,13 +76,15 @@ describe("auth schemas", () => {
     );
   });
 
+  // English localization U2: schema trả khóa catalog; văn bản tiếng Việt chính xác được kiểm ở test render SetPasswordForm
+  // (auth-onboarding.test.tsx) và ở test action setPasswordAfterConfirmation.
   it("rejects a short password and a mismatched confirmation on the right fields", () => {
     const short = setPasswordSchema.safeParse({ password: "abc12", confirmPassword: "abc12" });
     expect(short.success).toBe(false);
     if (!short.success) {
       expect(short.error.issues[0]).toMatchObject({
         path: ["password"],
-        message: "Mật khẩu ít nhất 6 ký tự cho an toàn",
+        message: "password.setMin",
       });
     }
 
@@ -91,7 +93,7 @@ describe("auth schemas", () => {
     if (!mismatch.success) {
       expect(mismatch.error.issues[0]).toMatchObject({
         path: ["confirmPassword"],
-        message: "Mật khẩu xác nhận không khớp",
+        message: "password.mismatch",
       });
     }
   });

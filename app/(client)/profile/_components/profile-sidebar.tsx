@@ -4,8 +4,12 @@
 import React, { useState, useEffect, useRef, useTransition, useCallback, type ReactNode } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { toast } from "sonner";
-import { getUserProfile, uploadAvatar } from "@/app/actions/profile";
+import { useLocale, useTranslations } from "next-intl";
+import { getUserProfileLocalized, uploadAvatarLocalized } from "@/app/actions/profile-localized";
+import { asTranslate } from "@/lib/i18n/translate";
+import { useLatest } from "@/lib/i18n/held-message";
+import { showProfileNotice, type ProfileNotice } from "./profile-notice";
+import type { Locale } from "@/lib/i18n/config";
 import { UserProfileDTO } from "@/lib/schemas/profile";
 
 import EditProfileForm from "./edit-profile-form";
@@ -23,6 +27,13 @@ export default function ProfileSidebar({
   isDesktop: boolean | null;
   paymentsPanel: ReactNode;
 }) {
+  const t = useTranslations("profile.sidebar");
+  const tRoot = asTranslate(useTranslations());
+  const locale = useLocale() as Locale;
+  // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc gửi. Sidebar còn mounted khi người dùng đổi tab, nên
+  // cũng là nơi phát toast của form hồ sơ và form đổi mật khẩu (xem profile-notice.ts).
+  const latest = useLatest({ t: tRoot, locale });
+  const notify = useCallback((notice: ProfileNotice) => showProfileNotice(notice, latest), [latest]);
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const visibleTab: ProfileTab =
     isDesktop === true && activeTab === "payments" ? "profile" : activeTab;
@@ -38,18 +49,18 @@ export default function ProfileSidebar({
   // Hàm thuần túy chỉ làm nhiệm vụ gọi Server Action
   const fetchRealData = useCallback(async () => {
     // Self-Audit: Server Action getUserProfile cần tự kiểm tra auth.uid() ở backend
-    const res = await getUserProfile();
+    const { result: res, ...reply } = await getUserProfileLocalized();
     
     // Chỉ cập nhật state khi component thực sự còn tồn tại trên DOM
     if (isMounted.current) {
       if (res.error) {
-        toast.error(res.error);
+        notify({ type: "error", text: res.error, reply, fallbackKey: "profile.actions.profileNotFound" });
       } else if (res.data) {
         setProfileData(res.data);
       }
       setIsLoading(false);
     }
-  }, []);
+  }, [notify]);
 
   // Xử lý riêng khi user chủ động bấm làm mới dữ liệu
   const handleRefreshData = useCallback(() => {
@@ -80,15 +91,15 @@ export default function ProfileSidebar({
     formData.append("avatar", file);
 
     startAvatarTransition(async () => {
-      const res = await uploadAvatar(formData);
+      const { result: res, ...reply } = await uploadAvatarLocalized(formData);
       
       if (res.error) {
-        toast.error(res.error);
+        notify({ type: "error", text: res.error, reply, fallbackKey: "profile.actions.uploadFailed" });
         return; 
       }
 
       if (res.success && res.avatarUrl) {
-        toast.success("Cập nhật ảnh đại diện thành công!");
+        notify({ type: "success", key: "profile.sidebar.avatarUpdated" });
         setProfileData((prev) => prev ? { ...prev, avatar_url: res.avatarUrl } : null);
       }
     });
@@ -122,7 +133,7 @@ export default function ProfileSidebar({
           ) : profileData?.avatar_url ? (
             <Image 
               src={profileData.avatar_url} 
-              alt="Avatar" 
+              alt={t("avatarAlt")}
               fill
               sizes="96px"
               className="object-cover" 
@@ -134,17 +145,17 @@ export default function ProfileSidebar({
           {!isLoading && !isUploadingAvatar && (
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white z-10">
               <Camera size={20} />
-              <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Tải ảnh</span>
+              <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">{t("uploadPhoto")}</span>
             </div>
           )}
         </button>
 
         <h2 className="text-xl font-bold text-slate-800">
-          {isLoading ? "Đang tải..." : profileData?.full_name || "Học viên"}
+          {isLoading ? t("loading") : profileData?.full_name || t("defaultName")}
         </h2>
         
         <p className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full mt-2 uppercase tracking-wider">
-          {profileData?.role || "Student"}
+          {profileData?.role || t("roleFallback")}
         </p>
       </div>
 
@@ -158,7 +169,7 @@ export default function ProfileSidebar({
               : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          Hồ sơ cá nhân
+          {t("tabProfile")}
         </button>
         <button
           aria-current={visibleTab === "security" ? "true" : undefined}
@@ -169,7 +180,7 @@ export default function ProfileSidebar({
               : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          Bảo mật
+          {t("tabSecurity")}
         </button>
         {isDesktop !== true && (
           <button
@@ -181,7 +192,7 @@ export default function ProfileSidebar({
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            Thanh toán
+            {t("tabPayments")}
           </button>
         )}
       </div>
@@ -197,9 +208,10 @@ export default function ProfileSidebar({
           <EditProfileForm 
             initialData={profileData} 
             onRefreshData={handleRefreshData} 
+            onNotice={notify}
           />
         ) : (
-          <ChangePasswordForm />
+          <ChangePasswordForm onNotice={notify} />
         )}
       </div>
     </div>

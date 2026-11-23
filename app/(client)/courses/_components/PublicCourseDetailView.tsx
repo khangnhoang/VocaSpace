@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertCircle, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { revealItemProps } from "@/components/motion/reveal-item";
 import { ScrollRevealGroup } from "@/components/motion/scroll-reveal";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
@@ -7,7 +8,7 @@ import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activit
 import type { ResumeCheckoutResult } from "@/lib/schemas/payment";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { PublicCourseCover } from "./PublicCourseCover";
-import { PublicCourseEnrollmentCard, type PublicCourseLearnerCard } from "./PublicCourseEnrollmentCard";
+import { PublicCourseEnrollmentCardLocalized, type PublicCourseLearnerCard } from "./PublicCourseEnrollmentCard";
 import { PublicCourseInstructors } from "./PublicCourseInstructors";
 import { PublicCourseStats } from "./PublicCourseStats";
 import { PublicCourseSyllabus } from "./PublicCourseSyllabus";
@@ -35,17 +36,18 @@ function buildLearnerCard(course: PublicCourseDetail, summary: CourseLearningSum
 }
 
 export function PublicCourseDetailView({ course, learningSummary, resumeCheckout }: PublicCourseDetailViewProps) {
+  const t = useTranslations("courses");
   return (
     <article className="bg-gray-50 pb-16">
       <div className="container mx-auto px-4 py-8 md:py-12">
-        <nav aria-label="Điều hướng khóa học" className="mb-7">
+        <nav aria-label={t("detail.nav")} className="mb-7">
           <ol className="flex min-w-0 items-center gap-1.5 text-sm text-gray-500">
             <li>
               <Link
                 href="/"
                 className="rounded-sm transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-400/50"
               >
-                Trang chủ
+                {t("detail.home")}
               </Link>
             </li>
             <li aria-hidden="true">
@@ -56,7 +58,7 @@ export function PublicCourseDetailView({ course, learningSummary, resumeCheckout
                 href={getPublicCourseCatalogPath()}
                 className="rounded-sm transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-400/50"
               >
-                Khóa học
+                {t("detail.catalog")}
               </Link>
             </li>
             <li aria-hidden="true">
@@ -76,7 +78,7 @@ export function PublicCourseDetailView({ course, learningSummary, resumeCheckout
             <div className={course.is_enrolled ? "grid gap-x-8 gap-y-4 md:grid-cols-[minmax(0,1fr)_15rem]" : undefined}>
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-500">
-                  Lộ trình học tại VocaSpace
+                  {t("detail.eyebrow")}
                 </p>
                 <h1 className="mt-3 break-words text-3xl font-extrabold leading-tight tracking-tight text-gray-950 md:text-4xl">
                   {course.title}
@@ -91,17 +93,16 @@ export function PublicCourseDetailView({ course, learningSummary, resumeCheckout
                 />
               )}
               <p className="whitespace-pre-wrap text-sm leading-7 text-gray-600 md:text-base">
-                {course.description ||
-                  "Thông tin giới thiệu khóa học đang được cập nhật."}
+                {course.description || t("detail.noDescription")}
               </p>
             </div>
           </header>
 
           <aside
-            aria-label="Đăng ký khóa học"
+            aria-label={t("detail.enrollAside")}
             className="lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1"
           >
-            <PublicCourseEnrollmentCard
+            <PublicCourseEnrollmentCardLocalized
               course={{
                 id: course.id,
                 title: course.title,
@@ -131,7 +132,7 @@ export function PublicCourseDetailView({ course, learningSummary, resumeCheckout
                 className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
               >
                 <AlertCircle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-amber-700" />
-                Tính năng xem trước nội dung của khóa học này đang tạm thời không khả dụng.
+                {t("detail.previewSuspended")}
               </p>
             )}
             <div {...revealItemProps}>

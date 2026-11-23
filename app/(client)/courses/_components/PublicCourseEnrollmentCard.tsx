@@ -3,15 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createCheckoutSession } from "@/app/actions/payment";
-import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
+import { getFirstTopicSlugByCourseSlugLocalized } from "@/app/actions/course-navigation-localized";
 import {
   CourseActivityUnavailable,
   CourseStreakLine,
   RecentTopicsList,
 } from "@/components/learning-activity/CourseLearningActivity";
 import { Button } from "@/components/ui/button";
+import type { Locale } from "@/lib/i18n/config";
+import { viCoursesText } from "@/lib/i18n/courses-text";
+import { formatCatalogCount, formatVnd } from "@/lib/i18n/format";
+import { pickServerText, useLatest } from "@/lib/i18n/held-message";
+import { viLearningText } from "@/lib/i18n/learning-text";
+import { asTranslate, type Translate } from "@/lib/i18n/translate";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import { getPublicCourseDetailPath, RESUME_PAYMENT_PARAM } from "@/lib/public-courses/routes";
 import type { CheckoutResponse, ResumeCheckoutResult } from "@/lib/schemas/payment";
@@ -46,6 +53,14 @@ type PublicCourseEnrollmentCardProps = {
   contentSummary?: PublicCourseContentSummary;
   // FEAT6 AC11: kết quả mở lại mã QR khi vào bằng link "Tiếp tục thanh toán"; chỉ được đọc một lần lúc mount.
   resume?: ResumeCheckoutResult;
+  // Bản dịch và ngôn ngữ do trang chi tiết truyền xuống. Thành phần này không gọi hook next-intl vì test gọi nó như một hàm; thiếu
+  // thì dùng tiếng Việt lấy từ catalog (cùng cách với PublicCourseRetryButton và các thành phần dùng chung của U3, H7).
+  t?: Translate;
+  learningText?: Translate;
+  locale?: Locale;
+  // Bản dịch và ngôn ngữ của lần render mới nhất, cho toast phát sau một request async (người dùng có thể đổi ngôn ngữ trong lúc chờ).
+  // Do lớp client mỏng bên dưới cấp; thiếu thì dùng `t`/`locale` của lần render gửi đi.
+  latest?: { readonly current: { t: Translate; locale: Locale } };
 };
 
 export function PublicCourseEnrollmentCard({
@@ -53,6 +68,10 @@ export function PublicCourseEnrollmentCard({
   learnerCard,
   contentSummary,
   resume,
+  t = viCoursesText,
+  learningText = viLearningText,
+  locale = "vi",
+  latest,
 }: PublicCourseEnrollmentCardProps) {
   const router = useRouter();
   // Khoản pending còn hạn chỉ làm giá trị khởi tạo của state: modal mở ở bước QR ngay lần render đầu, không cần click và không tạo thanh toán mới.
@@ -66,16 +85,22 @@ export function PublicCourseEnrollmentCard({
 
   async function continueLearning() {
     try {
-      const result = await getFirstTopicSlugByCourseSlug(course.slug);
+      const { result, ...reply } = await getFirstTopicSlugByCourseSlugLocalized(course.slug);
       if (result.error || !result.topicSlug) {
-        toast.error(result.error || "Không tìm thấy chủ đề học đầu tiên.");
+        // Dịch theo ngôn ngữ lúc toast bật, không phải lúc gửi request; chuỗi của server chỉ dùng khi nó cùng ngôn ngữ đó.
+        const now = latest?.current ?? { t, locale };
+        toast.error(
+          result.error
+            ? pickServerText(result.error, reply, now.locale, now.t, "detail.enrollment.openFirstFailed", "courses")
+            : now.t("detail.enrollment.noFirstTopic"),
+        );
         return;
       }
 
       router.push(`/learn/${course.slug}/${result.topicSlug}`);
     } catch (error) {
       console.error("Public course learning entry navigation failed", error);
-      toast.error("Chưa thể mở chủ đề học đầu tiên. Vui lòng thử lại sau.");
+      toast.error((latest?.current ?? { t }).t("detail.enrollment.openFirstFailed"));
     }
   }
 
@@ -121,7 +146,7 @@ export function PublicCourseEnrollmentCard({
         setPaymentData(null);
         setPaymentId(null);
         setJustEnrolled(true);
-        toast.success(response.message || "Đăng ký thành công!");
+        toast.success(response.message || t("detail.enrollment.freeSuccess"));
         router.refresh();
         return false;
       }
@@ -141,25 +166,22 @@ export function PublicCourseEnrollmentCard({
     }
   }
 
-  const priceLabel =
-    course.price === 0
-      ? "Miễn phí"
-      : `${course.price.toLocaleString("vi-VN")} ₫`;
+  const priceLabel = course.price === 0 ? t("price.free") : formatVnd(locale, course.price);
   // AC6a: học viên đã ghi danh từ trước thấy thẻ "đang học"; khách, người chưa ghi danh và trạng thái vừa đăng ký giữ thẻ bán hàng.
   const isLearningCard = course.is_enrolled && !justEnrolled;
   const nextTopicSlug = course.learner_progress?.next_topic_slug ?? null;
   const continueLabel = nextTopicSlug
     ? learnerCard?.nextTopicTitle
-      ? `Tiếp tục: ${learnerCard.nextTopicTitle}`
-      : "Tiếp tục học"
-    : "Xem tổng quan khóa học";
+      ? t("detail.enrollment.continueTopic", { title: learnerCard.nextTopicTitle })
+      : t("detail.enrollment.continue")
+    : t("detail.enrollment.overview");
   const actionLabel = justEnrolled
-    ? "Bắt đầu học"
+    ? t("detail.enrollment.start")
     : course.is_enrolled
       ? continueLabel
       : course.price === 0
-        ? "Đăng ký miễn phí"
-        : "Đăng ký khóa học";
+        ? t("detail.enrollment.enrollFree")
+        : t("detail.enrollment.enroll");
 
   return (
     <>
@@ -174,17 +196,17 @@ export function PublicCourseEnrollmentCard({
               id="public-course-enrollment-title"
               className="text-xl font-extrabold text-gray-900"
             >
-              Bạn đang học khóa này
+              {t("detail.enrollment.learningTitle")}
             </h2>
             {learnerCard?.summary &&
               (learnerCard.summary.success ? (
                 <div className="mt-4">
-                  <CourseStreakLine data={learnerCard.summary.data} as="h3" />
+                  <CourseStreakLine data={learnerCard.summary.data} as="h3" t={learningText} />
                 </div>
               ) : (
-                <CourseActivityUnavailable className="mt-4" />
+                <CourseActivityUnavailable className="mt-4" t={learningText} />
               ))}
-            {learnerCard && <LearnerProgress card={learnerCard} courseTitle={course.title} />}
+            {learnerCard && <LearnerProgress card={learnerCard} courseTitle={course.title} t={t} locale={locale} />}
             <Button
               type="button"
               size="lg"
@@ -198,6 +220,7 @@ export function PublicCourseEnrollmentCard({
                 courseSlug={course.slug}
                 topics={learnerCard.summary.data.recentTopics}
                 className="mt-6"
+                t={learningText}
               />
             )}
           </div>
@@ -221,7 +244,7 @@ export function PublicCourseEnrollmentCard({
               id="public-course-enrollment-title"
               className="text-xl font-extrabold text-gray-900"
             >
-              Bắt đầu khóa học
+              {t("detail.enrollment.startTitle")}
             </h2>
             <p className="mt-3 text-3xl font-extrabold text-blue-600">
               {priceLabel}
@@ -236,7 +259,7 @@ export function PublicCourseEnrollmentCard({
             </Button>
             <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-gray-500">
               <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-cyan-600" />
-              Nội dung học chỉ mở sau khi tài khoản có quyền truy cập khóa học.
+              {t("detail.enrollment.accessNote")}
             </p>
           </div>
         </section>
@@ -263,6 +286,20 @@ export function PublicCourseEnrollmentCard({
       />
     </>
   );
+}
+
+/**
+ * Điểm vào cho trang chi tiết (Server Component). Hàm dịch là hàm nên không đi qua ranh giới server → client được; lớp client mỏng này
+ * lấy bản dịch từ provider rồi mới truyền xuống `PublicCourseEnrollmentCard`, vốn nhận `t` qua props để test gọi trực tiếp được.
+ */
+export function PublicCourseEnrollmentCardLocalized(
+  props: Omit<PublicCourseEnrollmentCardProps, "t" | "learningText" | "locale" | "latest">,
+) {
+  const t = asTranslate(useTranslations("courses"));
+  const learningText = asTranslate(useTranslations("learning"));
+  const locale = useLocale() as Locale;
+  const latest = useLatest({ t, locale });
+  return <PublicCourseEnrollmentCard {...props} t={t} learningText={learningText} locale={locale} latest={latest} />;
 }
 
 /**
@@ -299,22 +336,37 @@ function ResumePaymentEntry({
   return null;
 }
 
-function LearnerProgress({ card, courseTitle }: { card: PublicCourseLearnerCard; courseTitle: string }) {
+function LearnerProgress({
+  card,
+  courseTitle,
+  t,
+  locale,
+}: {
+  card: PublicCourseLearnerCard;
+  courseTitle: string;
+  t: Translate;
+  locale: Locale;
+}) {
   const { completedTopicCount, totalTopicCount } = card;
   const percentage = totalTopicCount > 0 ? Math.round((completedTopicCount / totalTopicCount) * 100) : 0;
+  // Cùng quy tắc với số đếm của danh mục (AC5): `en` có dấu phân cách hàng nghìn, `vi` giữ chữ số trần như trước.
+  const counts = {
+    done: formatCatalogCount(locale, completedTopicCount),
+    total: formatCatalogCount(locale, totalTopicCount),
+  };
 
   return (
     <div className="mt-5">
       <p className="text-sm font-bold text-gray-900">
-        Đã xong {completedTopicCount}/{totalTopicCount} chủ đề
+        {t("detail.enrollment.progress", counts)}
       </p>
       <div
         role="progressbar"
-        aria-label={`Tiến độ khóa học ${courseTitle}`}
+        aria-label={t("detail.enrollment.progressLabel", { title: courseTitle })}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percentage}
-        aria-valuetext={`${completedTopicCount} trên ${totalTopicCount} chủ đề đã hoàn thành`}
+        aria-valuetext={t("detail.enrollment.progressText", counts)}
         className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100"
       >
         <div className="h-full rounded-full bg-recall" style={{ width: `${percentage}%` }} />

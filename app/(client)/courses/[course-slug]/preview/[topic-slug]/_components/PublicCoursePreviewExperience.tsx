@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Rating } from "ts-fsrs";
 import {
   ArrowLeft,
@@ -16,12 +17,12 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import {
-  answerPublicCoursePreviewQuestion,
-  getPublicCoursePreview,
-} from "@/app/actions/public-course-preview";
-import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
+import { getPublicCoursePreview } from "@/app/actions/public-course-preview";
+import { answerPublicCoursePreviewQuestionLocalized } from "@/app/actions/public-course-preview-localized";
+import { getFirstTopicSlugByCourseSlugLocalized } from "@/app/actions/course-navigation-localized";
 import { Button } from "@/components/ui/button";
+import { asTranslate } from "@/lib/i18n/translate";
+import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
 import type { PublicCoursePreview } from "@/lib/schemas/public-course-preview";
 import ChoiceGroup from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ChoiceGroup";
 import ExerciseContext from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ExerciseContext";
@@ -115,6 +116,11 @@ export function PublicCoursePreviewExperience({
   returnToCourseHref,
 }: PublicCoursePreviewExperienceProps) {
   const router = useRouter();
+  const t = useTranslations("courses");
+  const locale = useLocale() === "en" ? "en" : "vi";
+  const tRoot = asTranslate(useTranslations());
+  // H7: các thành phần học tập dùng chung nhận bản dịch namespace `learning`.
+  const learningText = asTranslate(useTranslations("learning"));
   const questions = flattenQuestions(data.exercises);
   const [remainingCards, setRemainingCards] = useState(() => data.flashcards);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -130,13 +136,16 @@ export function PublicCoursePreviewExperience({
     Record<string, { optionId: string; explanation: string | null }>
   >({});
   const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
-  const [answerError, setAnswerError] = useState<string | null>(null);
+  // Thông báo giữ qua lần đổi ngôn ngữ: khóa hoặc chuỗi gắn ngôn ngữ của request, dịch/lọc lúc render (xem held-message.ts).
+  const [answerMessage, setAnswerError] = useState<HeldMessage | null>(null);
   const [isUnavailable, setIsUnavailable] = useState(false);
   // Requests in flight, by question: the option sent. Keyed by question so a result can
   // only ever land on the question that was submitted, wherever the learner is now.
   const [pendingAnswers, setPendingAnswers] = useState<Record<string, string>>({});
   const [isContinuePending, startContinueTransition] = useTransition();
-  const [continueError, setContinueError] = useState<string | null>(null);
+  const [continueMessage, setContinueError] = useState<HeldMessage | null>(null);
+  const answerError = resolveHeldMessage(answerMessage, locale, asTranslate(t), tRoot);
+  const continueError = resolveHeldMessage(continueMessage, locale, asTranslate(t), tRoot);
   const answerInFlight = useRef<Set<string>>(new Set());
   const latestAttempt = useRef<Record<string, number>>({});
   const attemptCounter = useRef(0);
@@ -225,7 +234,7 @@ export function PublicCoursePreviewExperience({
 
     void (async () => {
       try {
-        const result = await answerPublicCoursePreviewQuestion({
+        const { result, ...reply } = await answerPublicCoursePreviewQuestionLocalized({
           courseSlug: data.course.slug,
           topicSlug: data.topic.slug,
           questionId: answeredId,
@@ -237,7 +246,7 @@ export function PublicCoursePreviewExperience({
           return;
         }
         if (result.status === "error") {
-          if (isShowing()) setAnswerError(result.error);
+          if (isShowing()) setAnswerError(heldText(result.error, reply, "preview.answerFailed"));
           return;
         }
 
@@ -255,7 +264,7 @@ export function PublicCoursePreviewExperience({
         }
       } catch {
         if (isShowing()) {
-          setAnswerError("Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.");
+          setAnswerError(heldKey("preview.answerFailed"));
         }
       } finally {
         answerInFlight.current.delete(answeredId);
@@ -313,16 +322,16 @@ export function PublicCoursePreviewExperience({
     setContinueError(null);
     startContinueTransition(async () => {
       try {
-        const result = await getFirstTopicSlugByCourseSlug(data.course.slug);
+        const { result, ...reply } = await getFirstTopicSlugByCourseSlugLocalized(data.course.slug);
         if (result.error || !result.topicSlug) {
-          setContinueError(result.error || "Không tìm thấy chủ đề học đầu tiên.");
+          setContinueError(result.error ? heldText(result.error, reply, "preview.openTopicFailed") : heldKey("preview.noFirstTopic"));
           return;
         }
         router.push(
           `/learn/${encodeURIComponent(data.course.slug)}/${encodeURIComponent(result.topicSlug)}`,
         );
       } catch {
-        setContinueError("Chưa thể mở chủ đề học. Vui lòng thử lại sau.");
+        setContinueError(heldKey("preview.openTopicFailed"));
       } finally {
         continueInFlight.current = false;
       }
@@ -369,7 +378,7 @@ export function PublicCoursePreviewExperience({
       ).size;
       group = {
         id: groupId,
-        label: item.group ? `Nhóm ${passageNumber}/${passageTotal}` : undefined,
+        label: item.group ? t("preview.group", { number: passageNumber, total: passageTotal }) : undefined,
         items: [],
       };
       section.groups.push(group);
@@ -377,7 +386,7 @@ export function PublicCoursePreviewExperience({
     group.items.push({
       id: item.question.id,
       number: index + 1,
-      text: item.question.content.trim() || "Chọn đáp án đúng",
+      text: item.question.content.trim() || t("preview.fallbackQuestion"),
       status: correctChoices[item.question.id]
         ? "correct"
         : incorrectIds[item.question.id]
@@ -386,7 +395,9 @@ export function PublicCoursePreviewExperience({
       current: index === questionIndex,
     });
   });
-  const questionNavigator = <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} />;
+  const questionNavigator = (
+    <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} t={learningText} />
+  );
   const gradedResult = answerResult ? (answerResult.isCorrect ? "correct" : "incorrect") : null;
 
   return (
@@ -394,7 +405,7 @@ export function PublicCoursePreviewExperience({
       aria-labelledby="public-course-preview-title"
       className="mx-auto flex w-full max-w-[1280px] flex-col gap-5 font-sans"
     >
-      <nav aria-label="Điều hướng xem thử">
+      <nav aria-label={t("preview.nav")}>
         <ol className="flex min-w-0 items-center gap-1.5 text-sm text-slate-600">
           <li className="min-w-0">
             <Link
@@ -427,7 +438,7 @@ export function PublicCoursePreviewExperience({
         </div>
         <p className="inline-flex shrink-0 items-center gap-2 rounded-md border border-route-line bg-route-quiet px-3 py-1.5 text-sm font-semibold text-slate-900">
           <BookOpenText aria-hidden="true" className="size-4 text-route" />
-          Xem thử · Tiến độ không được lưu
+          {t("preview.badge")}
         </p>
       </header>
 
@@ -435,12 +446,12 @@ export function PublicCoursePreviewExperience({
         {isEmpty ? (
           <div role="status" className="py-12 text-center">
             <BookOpenText aria-hidden="true" className="mx-auto size-10 text-slate-400" />
-            <h2 className="mt-4 text-xl font-bold text-slate-900">Nội dung xem thử đang được cập nhật</h2>
+            <h2 className="mt-4 text-xl font-bold text-slate-900">{t("preview.emptyTitle")}</h2>
             <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">
-              Chủ đề này chưa có nội dung để xem trong phiên này.
+              {t("preview.emptyBody")}
             </p>
             <Button asChild variant="outline" size="lg" className="mt-6">
-              <Link href={returnToCourseHref}><ArrowLeft aria-hidden="true" />Về khóa học</Link>
+              <Link href={returnToCourseHref}><ArrowLeft aria-hidden="true" />{t("preview.back")}</Link>
             </Button>
           </div>
         ) : isComplete ? (
@@ -449,39 +460,39 @@ export function PublicCoursePreviewExperience({
             className="mx-auto flex max-w-xl flex-col items-center gap-4 py-6 text-center motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-[240ms]"
           >
             <CheckCircle2 aria-hidden="true" className="size-12 text-growth" />
-            <p className="text-sm font-bold text-growth">Hoàn tất lượt xem thử</p>
+            <p className="text-sm font-bold text-growth">{t("preview.doneEyebrow")}</p>
             <h2 className="text-2xl font-bold text-slate-900">
-              Bạn đã xem hết nội dung mẫu.
+              {t("preview.doneTitle")}
             </h2>
             <p className="text-sm leading-6 text-slate-600">
-              Lượt xem thử kết thúc tại đây. Nội dung trong phiên này không được lưu thành tiến độ học.
+              {t("preview.doneBody")}
             </p>
 
             <div className="grid w-full max-w-sm grid-cols-2 gap-3 text-center">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p className="text-2xl font-bold text-slate-900">{data.flashcards.length}</p>
-                <p className="mt-0.5 text-xs text-slate-600">Thẻ từ vựng đã xem</p>
+                <p className="mt-0.5 text-xs text-slate-600">{t("preview.cardsSeen")}</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p className="text-2xl font-bold text-slate-900">{correctCount}/{questions.length}</p>
-                <p className="mt-0.5 text-xs text-slate-600">Câu trả lời đúng trong lượt này</p>
+                <p className="mt-0.5 text-xs text-slate-600">{t("preview.correctThisRound")}</p>
               </div>
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
               {questions.length > 0 && questionNavigator}
               <Button asChild variant="outline" size="lg">
-                <Link href={returnToCourseHref}>Về khóa học</Link>
+                <Link href={returnToCourseHref}>{t("preview.back")}</Link>
               </Button>
               {!isEnrolled ? (
                 <Button asChild size="lg">
                   <Link href={returnToCourseHref}>
-                    Đăng ký khóa học ngay
+                    {t("preview.enrollNow")}
                     <ArrowRight aria-hidden="true" />
                   </Link>
                 </Button>
               ) : (
                 <Button type="button" size="lg" onClick={continueLearning} disabled={isContinuePending}>
-                  {isContinuePending ? "Đang mở bài học..." : "Tiếp tục học"}
+                  {isContinuePending ? t("preview.opening") : t("preview.continue")}
                   <ArrowRight aria-hidden="true" />
                 </Button>
               )}
@@ -491,19 +502,19 @@ export function PublicCoursePreviewExperience({
         ) : currentCard ? (
           <div className="flex min-w-0 flex-col gap-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-bold text-slate-700">Từ vựng · còn {remainingCards.length} thẻ trong lượt</p>
+              <p className="text-sm font-bold text-slate-700">{t("preview.cardsLeft", { count: remainingCards.length })}</p>
               <Link
                 href={returnToCourseHref}
                 className="inline-flex min-h-10 items-center gap-1 rounded-md px-2 text-sm font-semibold text-slate-600 underline-offset-4 transition-colors duration-[120ms] hover:text-route hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route"
               >
                 <ArrowLeft aria-hidden="true" className="size-4" />
-                Về khóa học
+                {t("preview.back")}
               </Link>
             </div>
             {currentCard.image_url && (
               <PreviewImage
                 src={currentCard.image_url}
-                alt={`Hình minh họa cho ${currentCard.front_content.word}`}
+                alt={t("preview.imageAlt", { word: currentCard.front_content.word })}
                 onPrivateMediaError={handlePrivateMediaError}
               />
             )}
@@ -511,14 +522,14 @@ export function PublicCoursePreviewExperience({
               <div className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-lg border border-recall-line bg-recall-quiet p-3 sm:p-4">
                 <Headphones aria-hidden="true" className="size-5 shrink-0 text-recall" />
                 <audio
-                  aria-label="Âm thanh từ vựng"
+                  aria-label={t("preview.audioLabel")}
                   controls
                   preload="none"
                   className="h-10 min-w-0 flex-1"
                   src={currentCard.audio_url}
                   onError={() => handlePrivateMediaError(currentCard.audio_url!)}
                 >
-                  Trình duyệt của bạn không hỗ trợ thẻ âm thanh.
+                  {t("preview.audioUnsupported")}
                 </audio>
               </div>
             )}
@@ -541,7 +552,7 @@ export function PublicCoursePreviewExperience({
                 </span>
               </p>
               <span className="flex items-center gap-3">
-                Câu hỏi {questionIndex + 1}/{questions.length}
+                {t("preview.questionOf", { current: questionIndex + 1, total: questions.length })}
                 {questionNavigator}
               </span>
             </div>
@@ -568,11 +579,12 @@ export function PublicCoursePreviewExperience({
                     arrangement={arrangement}
                     enlargeableImage={currentQuestionItem.partType === "part1"}
                     onMediaError={handlePrivateMediaError}
+                    t={learningText}
                   />
                   {isSplit && (
                     <div className="mt-3 flex justify-end lg:hidden">
                       <Button type="button" variant="link" size="lg" className="px-2" onClick={scrollToQuestion}>
-                        Tới câu hỏi
+                        {t("preview.toQuestion")}
                         <ArrowDown aria-hidden="true" />
                       </Button>
                     </div>
@@ -601,10 +613,10 @@ export function PublicCoursePreviewExperience({
                     className="flex flex-col items-start gap-3 rounded-lg border border-attention-line bg-attention-quiet p-4"
                   >
                     <p className="text-sm leading-6 text-slate-900">
-                      Câu hỏi này hiện chưa có lựa chọn để trả lời.
+                      {t("preview.noOptions")}
                     </p>
                     <Button type="button" onClick={advanceQuestion}>
-                      {isLastQuestion ? "Hoàn thành bài học" : "Bỏ qua câu này"}
+                      {isLastQuestion ? t("preview.finish") : t("preview.skip")}
                       <ArrowRight aria-hidden="true" />
                     </Button>
                   </div>
@@ -617,6 +629,7 @@ export function PublicCoursePreviewExperience({
                       disabled={isAnswerPending || answerResult !== null}
                       onSelect={selectOption}
                       labelledBy={questionHeadingId}
+                      t={learningText}
                     />
 
                     <div className="flex flex-col gap-3">
@@ -630,7 +643,7 @@ export function PublicCoursePreviewExperience({
                             className="w-full sm:w-auto sm:min-w-48"
                           >
                             {isAnswerPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-                            {isAnswerPending ? "Đang kiểm tra…" : "Xác nhận đáp án"}
+                            {isAnswerPending ? t("preview.checking") : t("preview.confirm")}
                           </Button>
                         ) : answerResult.isCorrect ? (
                           <Button
@@ -639,7 +652,7 @@ export function PublicCoursePreviewExperience({
                             onClick={advanceQuestion}
                             className="w-full sm:w-auto sm:min-w-48"
                           >
-                            {isLastQuestion ? "Hoàn thành bài học" : "Câu tiếp theo"}
+                            {isLastQuestion ? t("preview.finish") : t("preview.next")}
                             <ArrowRight aria-hidden="true" />
                           </Button>
                         ) : (
@@ -650,7 +663,7 @@ export function PublicCoursePreviewExperience({
                               onClick={resetQuestionAttempt}
                               className="w-full sm:w-auto sm:min-w-48"
                             >
-                              Thử lại
+                              {t("preview.retry")}
                             </Button>
                             <Button
                               type="button"
@@ -658,7 +671,7 @@ export function PublicCoursePreviewExperience({
                               onClick={advanceQuestion}
                               className="text-slate-600"
                             >
-                              {isLastQuestion ? "Bỏ qua và hoàn thành" : "Bỏ qua câu này"}
+                              {isLastQuestion ? t("preview.skipFinish") : t("preview.skip")}
                               <ArrowRight aria-hidden="true" />
                             </Button>
                           </>
@@ -667,11 +680,11 @@ export function PublicCoursePreviewExperience({
 
                       <div aria-live="polite" aria-atomic="true" className="empty:hidden">
                         {isAnswerPending && (
-                          <p role="status" className="sr-only">Đang kiểm tra câu trả lời...</p>
+                          <p role="status" className="sr-only">{t("preview.checkingStatus")}</p>
                         )}
                         {/* The green option and its check already show a right answer; announce it
                             for screen readers and keep only the explanation visible. */}
-                        {answerResult?.isCorrect && <p className="sr-only">Chính xác!</p>}
+                        {answerResult?.isCorrect && <p className="sr-only">{t("preview.correct")}</p>}
                         {answerResult?.isCorrect && answerResult.explanation && (
                           <p className="leading-relaxed text-slate-900">{answerResult.explanation}</p>
                         )}
@@ -679,11 +692,10 @@ export function PublicCoursePreviewExperience({
                           <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">
                             <p className="flex items-center gap-2 font-bold text-correction">
                               <XCircle aria-hidden="true" className="size-5 shrink-0" />
-                              Chưa chính xác
+                              {t("preview.incorrect")}
                             </p>
                             <p className="leading-relaxed">
-                              {answerResult.explanation ||
-                                "Hãy xem lại ngữ liệu rồi bấm Thử lại để chọn lại đáp án."}
+                              {answerResult.explanation || t("preview.incorrectHint")}
                             </p>
                           </div>
                         )}
@@ -692,7 +704,7 @@ export function PublicCoursePreviewExperience({
                             role="alert"
                             className="flex flex-col gap-1 rounded-lg border border-attention-line bg-attention-quiet p-4 text-slate-900"
                           >
-                            <p className="font-bold text-attention">Chưa kiểm tra được câu trả lời</p>
+                            <p className="font-bold text-attention">{t("preview.answerErrorTitle")}</p>
                             <p className="leading-relaxed">{answerError}</p>
                           </div>
                         )}

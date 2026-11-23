@@ -1,6 +1,7 @@
 // app/(client)/learn/[course-slug]/[topic-slug]/_components/FlashcardStage.tsx
 "use client";
 import React, { useEffect, useLayoutEffect, useRef, useState, type Ref } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useFlashcardRevealGuard } from "@/hooks/use-flashcard-reveal-guard";
 import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
@@ -29,6 +30,7 @@ const CENTERED = "group-data-[variant=centered]/back";
  * content is identical in both.
  */
 function BackContent({ back, rootRef }: { back: CardBack; rootRef: Ref<HTMLDivElement> }) {
+  const t = useTranslations("flashcard");
   return (
     <div
       ref={rootRef}
@@ -38,7 +40,7 @@ function BackContent({ back, rootRef }: { back: CardBack; rootRef: Ref<HTMLDivEl
       <p
         className={`break-words text-xl font-bold text-recall [overflow-wrap:anywhere] md:text-2xl ${CENTERED}:text-[clamp(1.5rem,3vw,2rem)] ${CENTERED}:font-semibold ${CENTERED}:leading-[1.35]`}
       >
-        <span className={`${CENTERED}:sr-only`}>Nghĩa: </span>
+        <span className={`${CENTERED}:sr-only`}>{t("stage.meaning")} </span>
         {back?.translation}
       </p>
 
@@ -46,7 +48,7 @@ function BackContent({ back, rootRef }: { back: CardBack; rootRef: Ref<HTMLDivEl
         <p
           className={`break-words text-base font-medium italic leading-relaxed text-slate-800 [overflow-wrap:anywhere] md:text-lg ${CENTERED}:font-normal ${CENTERED}:not-italic ${CENTERED}:leading-7 ${CENTERED}:text-slate-600`}
         >
-          <span className={`${CENTERED}:sr-only`}>VD: </span>
+          <span className={`${CENTERED}:sr-only`}>{t("stage.example")} </span>
           <span className={`${CENTERED}:hidden`}>&quot;</span>
           {back.example}
           <span className={`${CENTERED}:hidden`}>&quot;</span>
@@ -57,7 +59,7 @@ function BackContent({ back, rootRef }: { back: CardBack; rootRef: Ref<HTMLDivEl
         <p
           className={`break-words text-sm text-slate-600 [overflow-wrap:anywhere] md:text-base ${CENTERED}:leading-6 ${CENTERED}:text-slate-600 ${CENTERED}:md:text-sm`}
         >
-          <span className={`${CENTERED}:sr-only`}>Dịch: </span>
+          <span className={`${CENTERED}:sr-only`}>{t("stage.translation")} </span>
           {back.exampleTranslation}
         </p>
       )}
@@ -65,7 +67,7 @@ function BackContent({ back, rootRef }: { back: CardBack; rootRef: Ref<HTMLDivEl
       {back?.explanation && (
         <div className={`mt-1 border-t border-slate-200 pt-3 ${CENTERED}:w-full ${CENTERED}:border-recall-line ${CENTERED}:pt-4`}>
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-600">
-            Giải thích chi tiết
+            {t("stage.explanation")}
           </p>
           <p className="break-words text-sm leading-relaxed text-slate-700 [overflow-wrap:anywhere]">
             {back.explanation}
@@ -75,7 +77,7 @@ function BackContent({ back, rootRef }: { back: CardBack; rootRef: Ref<HTMLDivEl
 
       {back?.hint && (
         <p className="mt-2 break-words rounded-lg border border-attention-line bg-attention-quiet px-3.5 py-2 text-sm font-medium text-slate-900 [overflow-wrap:anywhere]">
-          <span aria-hidden="true">💡 </span>Mẹo: {back.hint}
+          <span aria-hidden="true">💡 </span>{t("stage.hint", { hint: back.hint })}
         </p>
       )}
     </div>
@@ -90,6 +92,7 @@ export default function FlashcardStage({
   setIsFlipped,
   handleRateCard,
 }: FlashcardStageProps) {
+  const t = useTranslations("flashcard");
   // Like the D6 review card, one physical card turns over and turns back: after a
   // confirmed rating it keeps showing the answer it just revealed while it comes
   // back to the front, and only the next reveal shows the new card's answer.
@@ -216,13 +219,13 @@ export default function FlashcardStage({
             }}
             className="min-h-12 w-full text-base"
           >
-            Hiện đáp án
+            {t("stage.reveal")}
           </Button>
         ) : (
           <div className="grid grid-cols-4 gap-2 sm:gap-3">
-            {FLASHCARD_RATINGS.map(({ rating, label, className }, index) => (
+            {FLASHCARD_RATINGS.map(({ rating, labelKey, className }, index) => (
               <Button
-                key={label}
+                key={labelKey}
                 ref={index === 0 ? firstRatingRef : undefined}
                 onClick={() => {
                   if (guard.takeRating()) handleRateCard(rating);
@@ -231,7 +234,7 @@ export default function FlashcardStage({
                 size="lg"
                 className={`min-h-12 px-1 text-sm sm:text-base ${className}`}
               >
-                {label}
+                {t(labelKey)}
               </Button>
             ))}
           </div>
@@ -241,11 +244,11 @@ export default function FlashcardStage({
       <div className="mt-4 flex w-full max-w-3xl flex-col items-center gap-2">
         <div
           role="progressbar"
-          aria-label="Tiến độ từ vựng"
+          aria-label={t("stage.progressLabel")}
           aria-valuemin={0}
           aria-valuemax={totalCards}
           aria-valuenow={completedCards}
-          aria-valuetext={`Còn ${cardsLeft} trên ${totalCards} thẻ`}
+          aria-valuetext={t("stage.progressValue", { left: cardsLeft, total: totalCards })}
           className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"
         >
           <div

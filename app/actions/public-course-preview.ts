@@ -1,6 +1,7 @@
 "use server";
 
 import { unstable_noStore } from "next/cache";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
 import {
   publicCoursePreviewAnswerInputSchema,
   publicCoursePreviewAnswerRpcSchema,
@@ -21,8 +22,11 @@ export type PublicCoursePreviewAnswerResult =
   | { status: "unavailable" }
   | { status: "error"; error: string };
 
-const PREVIEW_ERROR = "Không thể tải nội dung xem thử lúc này. Vui lòng thử lại.";
-const ANSWER_ERROR = "Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.";
+// Thông báo lỗi dịch theo ngôn ngữ của request tại thời điểm trả về (không dựng sẵn ở mức module).
+async function previewError(key: "previewError" | "answerError") {
+  const t = await recordedTranslations("courses");
+  return t(`actions.${key}`);
+}
 
 function isKnownManagedReference(value: string) {
   if (value.startsWith("storage://question_group_")) return true;
@@ -113,14 +117,14 @@ export async function getPublicCoursePreview(
 
     if (error) {
       console.error("Public course preview RPC failed", error);
-      return { status: "error", error: PREVIEW_ERROR };
+      return { status: "error", error: await previewError("previewError") };
     }
     if (data === null) return { status: "unavailable" };
 
     const parsed = publicCoursePreviewRpcSchema.safeParse(data);
     if (!parsed.success) {
       console.error("Public course preview contract drift", parsed.error.issues);
-      return { status: "error", error: PREVIEW_ERROR };
+      return { status: "error", error: await previewError("previewError") };
     }
 
     return {
@@ -144,7 +148,7 @@ export async function getPublicCoursePreview(
     };
   } catch (error) {
     console.error("Public course preview service unavailable", error);
-    return { status: "error", error: PREVIEW_ERROR };
+    return { status: "error", error: await previewError("previewError") };
   }
 }
 
@@ -169,14 +173,14 @@ export async function answerPublicCoursePreviewQuestion(
 
     if (error) {
       console.error("Public course preview answer RPC failed", error);
-      return { status: "error", error: ANSWER_ERROR };
+      return { status: "error", error: await previewError("answerError") };
     }
     if (data === null) return { status: "unavailable" };
 
     const parsed = publicCoursePreviewAnswerRpcSchema.safeParse(data);
     if (!parsed.success) {
       console.error("Public course preview answer contract drift", parsed.error.issues);
-      return { status: "error", error: ANSWER_ERROR };
+      return { status: "error", error: await previewError("answerError") };
     }
 
     return {
@@ -188,6 +192,6 @@ export async function answerPublicCoursePreviewQuestion(
     };
   } catch (error) {
     console.error("Public course preview answer service unavailable", error);
-    return { status: "error", error: ANSWER_ERROR };
+    return { status: "error", error: await previewError("answerError") };
   }
 }

@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { AlertCircle, BookOpen } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { retryLabels } from "@/lib/i18n/courses-text";
+import { asTranslate } from "@/lib/i18n/translate";
 import { PublicCourseRetryButton } from "./PublicCourseRetryButton";
 
 type PublicCourseFeedbackBaseProps = {
@@ -23,6 +26,7 @@ type PublicCourseFeedbackProps = PublicCourseFeedbackBaseProps &
 
 export function PublicCourseFeedback(props: PublicCourseFeedbackProps) {
   const { kind, title, description } = props;
+  const t = useTranslations("courses");
   const Icon = kind === "error" ? AlertCircle : BookOpen;
 
   return (
@@ -44,7 +48,7 @@ export function PublicCourseFeedback(props: PublicCourseFeedbackProps) {
         {description}
       </p>
       {kind === "error" ? (
-        <PublicCourseRetryButton />
+        <PublicCourseRetryButton labels={retryLabels(asTranslate(t))} />
       ) : (
         <Button asChild variant="outline" className="mt-6 min-h-10 px-4">
           <Link href={props.actionHref}>{props.actionLabel}</Link>
@@ -59,13 +63,12 @@ type PublicCourseGridSkeletonProps = {
   label?: string;
 };
 
-export function PublicCourseGridSkeleton({
-  count = 4,
-  label = "Đang tải danh sách khóa học",
-}: PublicCourseGridSkeletonProps) {
+export function PublicCourseGridSkeleton({ count = 4, label }: PublicCourseGridSkeletonProps) {
+  const t = useTranslations("courses");
+  const accessibleLabel = label ?? t("catalog.loading");
   return (
-    <div aria-busy="true" aria-label={label} role="status">
-      <span className="sr-only">{label}</span>
+    <div aria-busy="true" aria-label={accessibleLabel} role="status">
+      <span className="sr-only">{accessibleLabel}</span>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: count }, (_, index) => (
           <div

@@ -7,6 +7,7 @@ import {
   LockKeyhole,
   PlayCircle,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { getPublicCoursePreviewPath } from "@/lib/public-courses/routes";
 import type {
@@ -28,6 +29,7 @@ export function PublicCourseSyllabus({
   learnerProgress = null,
   syllabus,
 }: PublicCourseSyllabusProps) {
+  const t = useTranslations("courses");
   const completedTopicIds = new Set(learnerProgress?.completed_topic_ids);
 
   return (
@@ -37,10 +39,10 @@ export function PublicCourseSyllabus({
           id="public-course-syllabus-title"
           className="text-2xl font-bold tracking-tight text-slate-900"
         >
-          Đề cương khóa học
+          {t("detail.syllabus.title")}
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Nội dung xem thử mở ở các chủ đề được chọn; bài học đầy đủ dành cho học viên.
+          {t("detail.syllabus.subtitle")}
         </p>
       </div>
 
@@ -48,10 +50,10 @@ export function PublicCourseSyllabus({
         <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
           <BookOpen aria-hidden="true" className="mx-auto size-8 text-blue-400" />
           <p className="mt-3 font-semibold text-slate-800">
-            Đề cương đang được cập nhật
+            {t("detail.syllabus.emptyTitle")}
           </p>
           <p className="mt-1 text-sm text-slate-500">
-            Khóa học chưa có chương công khai để hiển thị.
+            {t("detail.syllabus.emptyBody")}
           </p>
         </div>
       ) : (
@@ -65,21 +67,21 @@ export function PublicCourseSyllabus({
             >
               <div className="flex items-start gap-3">
                 <span className="flex h-7 px-2.5 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-slate-100 text-xs font-semibold tracking-tight text-slate-700">
-                  Chương {chapterIndex + 1}
+                  {t("detail.syllabus.chapter", { number: chapterIndex + 1 })}
                 </span>
                 <div className="min-w-0 flex-1">
                   <h3 className="break-words text-base sm:text-lg font-bold text-slate-900">
                     {chapter.title}
                   </h3>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {chapter.topics.length} chủ đề công khai
+                    {t("detail.syllabus.topics", { count: chapter.topics.length })}
                   </p>
                 </div>
               </div>
 
               {chapter.topics.length === 0 ? (
                 <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                  Chương này chưa có chủ đề công khai.
+                  {t("detail.syllabus.noTopics")}
                 </p>
               ) : (
                 <ol className="mt-4 space-y-2 border-l-2 border-slate-100 pl-3 sm:pl-4">
@@ -91,10 +93,10 @@ export function PublicCourseSyllabus({
                         !isCompleted &&
                         learnerProgress.next_topic_slug === topic.slug;
                       const stateLabel = isCompleted
-                        ? "Đã hoàn thành"
+                        ? t("detail.syllabus.completed")
                         : isCurrent
-                          ? "Học tiếp"
-                          : "Sắp tới";
+                          ? t("detail.syllabus.current")
+                          : t("detail.syllabus.upcoming");
                       const StateIcon = isCompleted
                         ? CheckCircle2
                         : isCurrent
@@ -161,14 +163,14 @@ export function PublicCourseSyllabus({
                               <Link
                                 href={getPublicCoursePreviewPath(courseSlug, topic.slug)}
                               >
-                                <span>Xem thử bài học</span>
+                                <span>{t("detail.syllabus.previewLink")}</span>
                                 <ArrowRight aria-hidden="true" className="size-3.5" />
                               </Link>
                             </Button>
                           ) : (
                             <span className="inline-flex w-fit items-center gap-1.5 text-xs text-slate-400">
                               <LockKeyhole aria-hidden="true" className="size-3.5" />
-                              Nội dung dành cho học viên
+                              {t("detail.syllabus.locked")}
                             </span>
                           )}
                         </div>

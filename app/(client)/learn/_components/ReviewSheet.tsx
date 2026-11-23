@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Rating } from "ts-fsrs";
 import { getDeckReviewCards } from "@/app/actions/profile";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,8 @@ interface ReviewSheetProps {
 type Batch = { status: "loading" | "error" | "ready"; cards: ReviewFlashcardDTO[]; total: number; dueLeft?: number; error?: string };
 
 export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: ReviewSheetProps) {
+  // U2: chỉ nhãn bốn nút đánh giá lấy từ namespace `flashcard`; phần còn lại của sheet thuộc U3.
+  const flashcardText = useTranslations("flashcard");
   const [batch, setBatch] = useState<Batch>({ status: "loading", cards: [], total: 0 });
   const [isFlipped, setIsFlipped] = useState(false);
   const [previousAnswer, setPreviousAnswer] = useState<ReviewFlashcardDTO["back_content"] | null>(null);
@@ -290,7 +293,7 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
                   <div className="min-h-24 space-y-3">
                     {isFlipped ? <><p className={`${styles.support} text-sm`}>Bạn nhớ từ này ở mức nào?</p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        {FLASHCARD_RATINGS.map(({ rating, label, className }, index) => <Button key={rating} ref={index === 0 ? firstRating : undefined} type="button" variant="outline" size="lg" className={className} onClick={() => handleRate(rating)}>{label}</Button>)}
+                        {FLASHCARD_RATINGS.map(({ rating, labelKey, className }, index) => <Button key={rating} ref={index === 0 ? firstRating : undefined} type="button" variant="outline" size="lg" className={className} onClick={() => handleRate(rating)}>{flashcardText(labelKey)}</Button>)}
                       </div></> : <Button ref={revealButton} type="button" size="lg" className="mx-auto flex w-full sm:w-fit sm:min-w-44" onClick={(event) => { if (!closing.current && !guard.shouldIgnoreReveal(event)) setIsFlipped(true); }}>Hiện đáp án</Button>}
                   </div>
                 </div>

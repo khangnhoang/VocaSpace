@@ -1,0 +1,234 @@
+{
+  "meta": {
+    "listTitle": "Khóa học | VocaSpace",
+    "listDescription": "Khám phá toàn bộ khóa học công khai trên VocaSpace.",
+    "detailFallbackTitle": "Khóa học | VocaSpace",
+    "detailTitle": "{title} | VocaSpace",
+    "detailDescription": "Khám phá khóa học {title} trên VocaSpace."
+  },
+  "price": {
+    "free": "Miễn phí",
+    "paid": "Trả phí"
+  },
+  "catalog": {
+    "loading": "Đang tải danh sách khóa học",
+    "hero": {
+      "eyebrow": "Thư viện khóa học",
+      "title": "Tìm khóa học hợp với mục tiêu của bạn",
+      "intro": "Mỗi khóa là một lộ trình chủ đề với thẻ từ vựng và bài luyện. Nhiều khóa cho học thử ngay, không cần đăng nhập.",
+      "factsLabel": "Tổng quan thư viện",
+      "total": "<b>{formatted}</b> khóa học",
+      "free": "<b>{formatted}</b> khóa miễn phí",
+      "preview": "<b>{formatted}</b> khóa cho học thử không cần đăng nhập"
+    },
+    "error": {
+      "eyebrow": "Lỗi kết nối",
+      "title": "Chưa thể tải danh sách khóa học",
+      "description": "Kết nối dữ liệu đang gián đoạn. Thử tải lại; bộ lọc bạn đã chọn vẫn được giữ nguyên."
+    },
+    "empty": {
+      "eyebrow": "Thư viện đang được soạn",
+      "title": "Chưa có khóa học nào được công khai",
+      "description": "Các giáo viên đang hoàn thiện những khóa học đầu tiên. Trong lúc chờ, bạn có thể thử cách VocaSpace giúp nhớ từ lâu hơn bằng bộ thẻ mẫu trên trang chủ.",
+      "tryDeck": "Thử bộ thẻ mẫu",
+      "home": "Về trang chủ"
+    },
+    "toolbar": {
+      "searchLabel": "Tìm khóa học theo tên",
+      "searchPlaceholder": "Tìm theo tên khóa học",
+      "clearSearch": "Xóa từ khóa tìm kiếm",
+      "priceGroup": "Lọc theo giá",
+      "priceAll": "Tất cả",
+      "priceFree": "Miễn phí",
+      "pricePaid": "Trả phí",
+      "preview": "Có học thử",
+      "sort": "Sắp xếp"
+    },
+    "sort": {
+      "popular": "Phổ biến nhất",
+      "trending": "Thịnh hành 30 ngày",
+      "newest": "Mới nhất",
+      "az": "Tên A–Z",
+      "price-asc": "Giá thấp đến cao",
+      "price-desc": "Giá cao đến thấp"
+    },
+    "results": {
+      "title": "Danh sách khóa học",
+      "found": "Tìm thấy {count} khóa học.",
+      "none": "Không tìm thấy khóa học phù hợp.",
+      "summary": "<b>{count}</b> khóa học · {sort}",
+      "summaryOf": "<b>{count}</b> khóa học trong {total} · {sort}",
+      "chipQuery": "“{query}”",
+      "chipRemove": "Bỏ bộ lọc {label}",
+      "clearAll": "Xóa tất cả"
+    },
+    "noResults": {
+      "eyebrow": "Không có kết quả",
+      "title": "Không có khóa học nào {conditions}",
+      "conditionQuery": "khớp “{query}”",
+      "conditionPrice": "trong nhóm {price}",
+      "conditionPreview": "có học thử",
+      "description": "Thử bỏ bớt một điều kiện, hoặc tìm bằng một từ ngắn hơn. Tìm kiếm không cần gõ dấu.",
+      "seeOther": "Xem {count} khóa {price}",
+      "clearFilters": "Xóa tất cả bộ lọc",
+      "suggestionsTitle": "Khóa học được ghi danh nhiều nhất",
+      "suggestionsHint": "Gợi ý từ toàn bộ thư viện, không theo bộ lọc hiện tại."
+    },
+    "pagination": {
+      "nav": "Phân trang khóa học",
+      "previousLabel": "Trang trước",
+      "previous": "Trước",
+      "nextLabel": "Trang sau",
+      "next": "Sau",
+      "page": "Trang {page}",
+      "showing": "Hiển thị {from}–{to} trong {total} khóa học"
+    },
+    "backToTop": "Lên đầu trang",
+    "card": {
+      "coverAlt": "Ảnh bìa khóa học {title}",
+      "noCover": "Chưa có ảnh bìa cho khóa học {title}",
+      "enrolled": "Đang học",
+      "new": "Mới",
+      "students": "{formatted} học viên",
+      "topics": "{formatted} chủ đề",
+      "cards": "{formatted} thẻ từ vựng",
+      "trend": "+{formatted} trong 30 ngày",
+      "viewLabel": "Xem chi tiết khóa học {title}",
+      "continueLabel": "Tiếp tục học khóa {title}",
+      "continue": "Tiếp tục học",
+      "tryLabel": "Học thử khóa {title}",
+      "try": "Học thử",
+      "detail": "Xem chi tiết",
+      "paidCourse": "Khóa học trả phí"
+    }
+  },
+  "retry": {
+    "retry": "Thử lại",
+    "pending": "Đang thử lại..."
+  },
+  "detail": {
+    "nav": "Điều hướng khóa học",
+    "home": "Trang chủ",
+    "catalog": "Khóa học",
+    "eyebrow": "Lộ trình học tại VocaSpace",
+    "noDescription": "Thông tin giới thiệu khóa học đang được cập nhật.",
+    "enrollAside": "Đăng ký khóa học",
+    "previewSuspended": "Tính năng xem trước nội dung của khóa học này đang tạm thời không khả dụng.",
+    "errorTitle": "Chưa thể tải thông tin khóa học",
+    "errorDescription": "Dữ liệu khóa học tạm thời chưa sẵn sàng. Hãy thử tải lại trang sau ít phút.",
+    "loading": {
+      "course": "Đang tải thông tin khóa học",
+      "enrollment": "Đang tải phần đăng ký khóa học",
+      "content": "Đang tải nội dung khóa học"
+    },
+    "stats": {
+      "title": "Tổng quan khóa học",
+      "chapters": "Chương học",
+      "topics": "Chủ đề công khai",
+      "students": "Học viên"
+    },
+    "instructors": {
+      "title": "Đội ngũ giảng dạy",
+      "owner": "Giảng viên phụ trách",
+      "ownerMissing": "Thông tin giảng viên phụ trách đang được cập nhật.",
+      "collaborators": "Cộng tác viên",
+      "collaboratorsNone": "Khóa học hiện chưa có cộng tác viên công khai.",
+      "defaultName": "Giảng viên VocaSpace",
+      "avatarAlt": "Ảnh đại diện của {name}",
+      "bioMissing": "Thông tin giới thiệu đang được cập nhật.",
+      "experience": "{years} năm kinh nghiệm"
+    },
+    "syllabus": {
+      "title": "Đề cương khóa học",
+      "subtitle": "Nội dung xem thử mở ở các chủ đề được chọn; bài học đầy đủ dành cho học viên.",
+      "emptyTitle": "Đề cương đang được cập nhật",
+      "emptyBody": "Khóa học chưa có chương công khai để hiển thị.",
+      "chapter": "Chương {number}",
+      "topics": "{count} chủ đề công khai",
+      "noTopics": "Chương này chưa có chủ đề công khai.",
+      "completed": "Đã hoàn thành",
+      "current": "Học tiếp",
+      "upcoming": "Sắp tới",
+      "previewLink": "Xem thử bài học",
+      "locked": "Nội dung dành cho học viên"
+    },
+    "enrollment": {
+      "learningTitle": "Bạn đang học khóa này",
+      "startTitle": "Bắt đầu khóa học",
+      "accessNote": "Nội dung học chỉ mở sau khi tài khoản có quyền truy cập khóa học.",
+      "continueTopic": "Tiếp tục: {title}",
+      "continue": "Tiếp tục học",
+      "overview": "Xem tổng quan khóa học",
+      "start": "Bắt đầu học",
+      "enrollFree": "Đăng ký miễn phí",
+      "enroll": "Đăng ký khóa học",
+      "progress": "Đã xong {done}/{total} chủ đề",
+      "progressLabel": "Tiến độ khóa học {title}",
+      "progressText": "{done} trên {total} chủ đề đã hoàn thành",
+      "noFirstTopic": "Không tìm thấy chủ đề học đầu tiên.",
+      "openFirstFailed": "Chưa thể mở chủ đề học đầu tiên. Vui lòng thử lại sau.",
+      "freeSuccess": "Đăng ký thành công!"
+    }
+  },
+  "preview": {
+    "loading": "Đang tải nội dung xem thử",
+    "unavailable": {
+      "errorTitle": "Chưa thể tải nội dung xem thử",
+      "title": "Nội dung xem thử hiện không khả dụng",
+      "errorBody": "Vui lòng thử tải lại trang sau ít phút.",
+      "body": "Tính năng xem trước nội dung của khóa học này đang tạm thời không khả dụng.",
+      "back": "Về khóa học"
+    },
+    "nav": "Điều hướng xem thử",
+    "badge": "Xem thử · Tiến độ không được lưu",
+    "emptyTitle": "Nội dung xem thử đang được cập nhật",
+    "emptyBody": "Chủ đề này chưa có nội dung để xem trong phiên này.",
+    "back": "Về khóa học",
+    "doneEyebrow": "Hoàn tất lượt xem thử",
+    "doneTitle": "Bạn đã xem hết nội dung mẫu.",
+    "doneBody": "Lượt xem thử kết thúc tại đây. Nội dung trong phiên này không được lưu thành tiến độ học.",
+    "cardsSeen": "Thẻ từ vựng đã xem",
+    "correctThisRound": "Câu trả lời đúng trong lượt này",
+    "enrollNow": "Đăng ký khóa học ngay",
+    "continue": "Tiếp tục học",
+    "opening": "Đang mở bài học...",
+    "cardsLeft": "Từ vựng · còn {count} thẻ trong lượt",
+    "imageAlt": "Hình minh họa cho {word}",
+    "audioLabel": "Âm thanh từ vựng",
+    "audioUnsupported": "Trình duyệt của bạn không hỗ trợ thẻ âm thanh.",
+    "questionOf": "Câu hỏi {current}/{total}",
+    "toQuestion": "Tới câu hỏi",
+    "noOptions": "Câu hỏi này hiện chưa có lựa chọn để trả lời.",
+    "finish": "Hoàn thành bài học",
+    "skip": "Bỏ qua câu này",
+    "skipFinish": "Bỏ qua và hoàn thành",
+    "checking": "Đang kiểm tra…",
+    "confirm": "Xác nhận đáp án",
+    "next": "Câu tiếp theo",
+    "retry": "Thử lại",
+    "checkingStatus": "Đang kiểm tra câu trả lời...",
+    "correct": "Chính xác!",
+    "incorrect": "Chưa chính xác",
+    "incorrectHint": "Hãy xem lại ngữ liệu rồi bấm Thử lại để chọn lại đáp án.",
+    "answerErrorTitle": "Chưa kiểm tra được câu trả lời",
+    "answerFailed": "Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.",
+    "noFirstTopic": "Không tìm thấy chủ đề học đầu tiên.",
+    "openTopicFailed": "Chưa thể mở chủ đề học. Vui lòng thử lại sau.",
+    "group": "Nhóm {number}/{total}",
+    "fallbackQuestion": "Chọn đáp án đúng"
+  },
+  "actions": {
+    "catalogError": "Không thể tải danh sách khóa học lúc này. Vui lòng thử lại.",
+    "detailError": "Không thể tải thông tin khóa học lúc này. Vui lòng thử lại.",
+    "previewError": "Không thể tải nội dung xem thử lúc này. Vui lòng thử lại.",
+    "answerError": "Không thể kiểm tra câu trả lời lúc này. Vui lòng thử lại.",
+    "firstTopic": {
+      "missingSlug": "Thiếu course slug.",
+      "notFound": "Không tìm thấy khóa học hoặc khóa học chưa được xuất bản.",
+      "chaptersFailed": "Không thể lấy danh sách chương học.",
+      "noChapters": "Khóa học chưa có chương học nào.",
+      "topicFailed": "Không thể lấy bài học đầu tiên.",
+      "noTopic": "Khóa học chưa có bài học nào được xuất bản."
+    }
+  }
+}

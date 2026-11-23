@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { ExternalLink, Loader2, MailCheck } from "lucide-react";
-import { resendSignupConfirmation } from "@/app/actions/auth";
+import { resendSignupConfirmationLocalized } from "@/app/actions/auth-localized";
 import { Button } from "@/components/ui/button";
 import { AUTH_LEAD_CLASS, AUTH_TEXT_ACTION_CLASS, AUTH_TITLE_CLASS } from "@/components/auth/auth-fields";
 import { mailboxLinkFor } from "@/lib/auth/email-help";
+import { asTranslate } from "@/lib/i18n/translate";
+import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
 import { cn } from "@/lib/utils";
 
 export const RESEND_COOLDOWN_SECONDS = 60;
-const RESEND_FAILED_MESSAGE = "Chưa gửi lại được email, vui lòng thử lại sau.";
 
 type CheckEmailPanelProps = {
   email: string;
@@ -17,10 +19,16 @@ type CheckEmailPanelProps = {
 };
 
 export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
+  const t = useTranslations("auth");
+  const locale = useLocale() === "en" ? "en" : "vi";
+  const tRoot = asTranslate(useTranslations());
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [notice, setNotice] = useState<{ tone: "status" | "error"; text: string } | null>(null);
-  const mailbox = mailboxLinkFor(email);
+  // Thông báo giữ qua lần đổi ngôn ngữ: khóa hoặc chuỗi gắn ngôn ngữ của request, dịch/lọc lúc render (xem held-message.ts).
+  const [heldNotice, setNotice] = useState<{ tone: "status" | "error"; message: HeldMessage } | null>(null);
+  const noticeText = heldNotice ? resolveHeldMessage(heldNotice.message, locale, asTranslate(t), tRoot) : null;
+  const notice = heldNotice && noticeText ? { tone: heldNotice.tone, text: noticeText } : null;
+  const mailbox = mailboxLinkFor(email, asTranslate(t));
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -33,20 +41,20 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
     setIsSending(true);
     setCooldown(RESEND_COOLDOWN_SECONDS);
     try {
-      const result = await resendSignupConfirmation(email);
-      setNotice({ tone: "status", text: result.message });
+      const { result, ...reply } = await resendSignupConfirmationLocalized(email);
+      setNotice({ tone: "status", message: heldText(result.message, reply, "actions.resend") });
     } catch {
-      setNotice({ tone: "error", text: RESEND_FAILED_MESSAGE });
+      setNotice({ tone: "error", message: heldKey("checkEmail.resendFailed") });
     } finally {
       setIsSending(false);
     }
   };
 
   const resendLabel = isSending
-    ? "Đang gửi…"
+    ? t("checkEmail.sending")
     : cooldown > 0
-      ? `Gửi lại email (${cooldown}s)`
-      : "Gửi lại email";
+      ? t("checkEmail.resendCooldown", { seconds: cooldown })
+      : t("checkEmail.resend");
 
   return (
     <section aria-labelledby="check-email-title">
@@ -54,14 +62,14 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
         <MailCheck aria-hidden="true" className="size-6" />
       </span>
       <h1 id="check-email-title" tabIndex={-1} className={AUTH_TITLE_CLASS}>
-        Kiểm tra email của bạn
+        {t("checkEmail.title")}
       </h1>
-      <p className="mt-2 text-base leading-[26px] text-slate-600">Chúng tôi đã gửi link xác minh tới</p>
+      <p className="mt-2 text-base leading-[26px] text-slate-600">{t("checkEmail.sentTo")}</p>
       <p className="mt-1 mb-3.5 rounded-[12px] bg-slate-100 px-3.5 py-2.5 text-base leading-6 font-bold break-all text-slate-900">
         {email}
       </p>
       <p className={cn(AUTH_LEAD_CLASS, "mt-0 text-sm leading-[22px]")}>
-        Bấm link trong email để xác minh, rồi đặt mật khẩu ở chặng cuối.
+        {t("checkEmail.lead")}
       </p>
       <div className="grid gap-2.5">
         {mailbox ? (
@@ -103,11 +111,11 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
           ) : null}
         </div>
         <button type="button" onClick={onEditForm} className={AUTH_TEXT_ACTION_CLASS}>
-          Sửa thông tin đăng ký
+          {t("checkEmail.edit")}
         </button>
       </div>
       <p className="mt-1.5 text-center font-[family-name:var(--font-geist-sans)] text-xs leading-4 font-medium text-slate-500">
-        Không thấy email? Xem thư mục Spam hoặc gửi lại sau ít phút.
+        {t("checkEmail.spamNote")}
       </p>
     </section>
   );

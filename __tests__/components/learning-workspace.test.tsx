@@ -3,8 +3,7 @@
  */
 
 import React, { isValidElement } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { fireEvent, render, renderToStaticMarkup, screen } from "@/__tests__/support/intl";
 import { notFound, redirect, useRouter } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getLearningWorkspace } from "@/app/actions/learning-workspace";

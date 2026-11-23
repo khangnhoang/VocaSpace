@@ -1,7 +1,7 @@
 import React from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup } from "@/__tests__/support/intl";
 import { describe, expect, it, vi } from "vitest";
 import LearnDashboardClient from "@/app/(client)/learn/_components/LearnDashboardClient";
 import CourseRow, {

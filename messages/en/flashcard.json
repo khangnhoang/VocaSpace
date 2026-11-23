@@ -1,0 +1,18 @@
+{
+  "rating": {
+    "again": "Again",
+    "hard": "Hard",
+    "good": "Good",
+    "easy": "Easy"
+  },
+  "stage": {
+    "reveal": "Show answer",
+    "meaning": "Meaning:",
+    "example": "Example:",
+    "translation": "Translation:",
+    "explanation": "Detailed explanation",
+    "hint": "Tip: {hint}",
+    "progressLabel": "Vocabulary progress",
+    "progressValue": "{left} of {total} cards left"
+  }
+}

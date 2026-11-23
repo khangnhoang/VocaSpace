@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { selectHighlightedCourses } from "@/lib/public-courses/highlighted-course-selector";
 import { getHomeCatalog } from "./home-data";
 
@@ -16,5 +17,7 @@ export default async function HeroFreeCourseFact() {
   const result = await getHomeCatalog();
   if (result.status !== "success") return null;
   const hasFreeCourse = selectHighlightedCourses(result.data).some((course) => course.price === 0);
-  return hasFreeCourse ? <HeroFact>Có khóa học miễn phí</HeroFact> : null;
+  if (!hasFreeCourse) return null;
+  const t = await getTranslations("home");
+  return <HeroFact>{t("hero.factFree")}</HeroFact>;
 }

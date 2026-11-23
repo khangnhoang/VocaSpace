@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { PublicCourseCatalogResult } from "@/app/actions/public-course";
 import { Button } from "@/components/ui/button";
 import { selectHighlightedCourses } from "@/lib/public-courses/highlighted-course-selector";
@@ -17,6 +18,7 @@ type PublicCourseHighlightsViewProps = {
 export function PublicCourseHighlightsView({
   result,
 }: PublicCourseHighlightsViewProps) {
+  const t = useTranslations("home");
   const catalogPath = getPublicCourseCatalogPath();
 
   return (
@@ -26,21 +28,20 @@ export function PublicCourseHighlightsView({
     >
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className={HOME_EYEBROW}>Khóa học</p>
+          <p className={HOME_EYEBROW}>{t("highlights.eyebrow")}</p>
           <h2
             id="public-course-highlights-title"
             className={cn("mt-2", HOME_SECTION_TITLE)}
           >
-            Khóa học nổi bật
+            {t("highlights.title")}
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-[22px] text-slate-600">
-            Những lựa chọn được học viên quan tâm nhiều, cân bằng giữa khóa học miễn
-            phí và trả phí.
+            {t("highlights.lead")}
           </p>
         </div>
         <Button asChild variant="outline" className="w-fit shrink-0 duration-[350ms]">
           <Link href={catalogPath}>
-            Xem tất cả khóa học
+            {t("highlights.viewAll")}
             <ArrowRight aria-hidden="true" data-icon="inline-end" />
           </Link>
         </Button>
@@ -49,16 +50,16 @@ export function PublicCourseHighlightsView({
       {result.status === "error" ? (
         <PublicCourseFeedback
           kind="error"
-          title="Chưa thể tải khóa học nổi bật"
-          description="Danh sách khóa học tạm thời chưa sẵn sàng. Bạn có thể thử lại hoặc mở thư viện khóa học sau."
+          title={t("highlights.errorTitle")}
+          description={t("highlights.errorDescription")}
         />
       ) : result.data.length === 0 ? (
         <PublicCourseFeedback
           kind="empty"
-          title="Khóa học mới đang được chuẩn bị"
-          description="Hiện chưa có khóa học công khai. Hãy quay lại sau để khám phá những lộ trình đầu tiên."
+          title={t("highlights.emptyTitle")}
+          description={t("highlights.emptyDescription")}
           actionHref={catalogPath}
-          actionLabel="Mở thư viện khóa học"
+          actionLabel={t("highlights.emptyAction")}
         />
       ) : (
         <PublicCourseGrid

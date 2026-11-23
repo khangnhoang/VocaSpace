@@ -3,7 +3,8 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { SAME_PASSWORD_MESSAGE, WEAK_PASSWORD_MESSAGE } from "@/lib/auth/password-update-messages";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
+import { translateIssueMessage } from "@/lib/i18n/translate";
 import {
   profileSchema,
   passwordSchema,
@@ -11,6 +12,17 @@ import {
   FetchDeckReviewCardsResult,
   ReviewFlashcardDTO,
 } from "@/lib/schemas/profile";
+
+// Thông báo của action hồ sơ nằm trong catalog `profile.actions` và `validation`, dịch theo ngôn ngữ của request lúc trả về
+// (English localization U2 H4). Dạng trả về `{ error }` / `{ success }` giữ nguyên; message của issue schema dịch ở `validationMessage`.
+// `recordedTranslations` ghi khóa + tham số của thông báo trả về để wrapper `*Localized` báo lại cho client; action gốc không đổi kết quả.
+async function profileText() {
+  return recordedTranslations("profile.actions");
+}
+
+async function validationMessage(message: string) {
+  return translateIssueMessage(await recordedTranslations("validation"), message);
+}
 
 // 🔥 ĐỊNH NGHĨA INTERFACE RÕ RÀNG ĐỂ LOẠI BỎ ANY
 interface FSRSMetaData {
@@ -31,7 +43,7 @@ export async function getUserProfile(): Promise<{
     error: authError,
   } = await supabase.auth.getUser();
 
-  if (authError || !user) return { error: "Vui lòng đăng nhập" };
+  if (authError || !user) return { error: (await profileText())("signInRequired") };
 
   // AUTH-019: user client không còn quyền đọc email/phone/dob/gender, kể cả dòng của chính mình.
   // Service role chỉ đọc đúng dòng của user đã xác thực ở trên và giữ bộ lọc `removed_at` của RLS.
@@ -45,7 +57,7 @@ export async function getUserProfile(): Promise<{
     .single();
 
   if (profileError || !profile)
-    return { error: "Không tìm thấy hồ sơ người dùng" };
+    return { error: (await profileText())("profileNotFound") };
 
   return {
     data: {
@@ -59,21 +71,17 @@ export async function getUserProfile(): Promise<{
 // ============================================================================
 // 2. API: CẬP NHẬT THÔNG TIN HỒ SƠ
 // ============================================================================
-const PROFILE_SYSTEM_ERROR = "Lỗi hệ thống khi cập nhật hồ sơ.";
-const USERNAME_TAKEN_ERROR = "Tên người dùng (Username) đã tồn tại!";
-const USERNAME_ALREADY_SET_ERROR = "Username đã được thiết lập, vui lòng tải lại trang.";
-
 export async function updateUserProfile(rawData: unknown) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Vui lòng đăng nhập" };
+  if (!user) return { error: (await profileText())("signInRequired") };
 
   // Kiểm tra Zod nghiêm ngặt trước mọi truy vấn DB
   const validated = profileSchema.safeParse(rawData);
   if (!validated.success) {
-    return { error: validated.error.issues[0].message };
+    return { error: await validationMessage(validated.error.issues[0].message) };
   }
   const { full_name, username, dob, gender } = validated.data;
 
@@ -84,7 +92,7 @@ export async function updateUserProfile(rawData: unknown) {
     .select("username")
     .eq("id", user.id)
     .single();
-  if (readError || !current) return { error: PROFILE_SYSTEM_ERROR };
+  if (readError || !current) return { error: (await profileText())("updateFailed") };
 
   const fields = { full_name, dob, gender, updated_at: new Date().toISOString() };
 
@@ -99,10 +107,10 @@ export async function updateUserProfile(rawData: unknown) {
       .select("id");
 
     if (error) {
-      if (error.code === "23505") return { error: USERNAME_TAKEN_ERROR };
-      return { error: PROFILE_SYSTEM_ERROR };
+      if (error.code === "23505") return { error: (await profileText())("usernameTaken") };
+      return { error: (await profileText())("updateFailed") };
     }
-    if (written?.length !== 1) return { error: USERNAME_ALREADY_SET_ERROR };
+    if (written?.length !== 1) return { error: (await profileText())("usernameAlreadySet") };
     return { success: true };
   }
 
@@ -113,7 +121,7 @@ export async function updateUserProfile(rawData: unknown) {
     .eq("id", user.id)
     .select("id");
 
-  if (error || written?.length !== 1) return { error: PROFILE_SYSTEM_ERROR };
+  if (error || written?.length !== 1) return { error: (await profileText())("updateFailed") };
 
   return { success: true };
 }
@@ -126,14 +134,14 @@ export async function uploadAvatar(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Vui lòng đăng nhập" };
+  if (!user) return { error: (await profileText())("signInRequired") };
 
   const file = formData.get("avatar") as File | null;
-  if (!file) return { error: "Không tìm thấy file tải lên" };
+  if (!file) return { error: (await profileText())("noFile") };
 
   // Kiểm tra định dạng ảnh cơ bản
   if (!file.type.startsWith("image/")) {
-    return { error: "Vui lòng tải lên định dạng hình ảnh hợp lệ" };
+    return { error: (await profileText())("notImage") };
   }
 
   // Đặt tên file duy nhất chống ghi đè
@@ -145,7 +153,7 @@ export async function uploadAvatar(formData: FormData) {
     .from("avatars")
     .upload(fileName, file, { upsert: true });
 
-  if (uploadError) return { error: "Lỗi tải ảnh lên hệ thống" };
+  if (uploadError) return { error: (await profileText())("uploadFailed") };
 
   // Lấy URL Public của ảnh vừa tải
   const {
@@ -161,7 +169,7 @@ export async function uploadAvatar(formData: FormData) {
     })
     .eq("id", user.id);
 
-  if (updateError) return { error: "Lỗi đồng bộ ảnh đại diện vào hồ sơ" };
+  if (updateError) return { error: (await profileText())("avatarSyncFailed") };
 
   return { success: true, avatarUrl: publicUrl };
 }
@@ -169,20 +177,16 @@ export async function uploadAvatar(formData: FormData) {
 // ============================================================================
 // 4. API: ĐỔI MẬT KHẨU (KIỂM TRA CHÉO MẬT KHẨU CŨ)
 // ============================================================================
-const CURRENT_PASSWORD_WRONG_MESSAGE = "Mật khẩu hiện tại không chính xác!";
-const PASSWORD_REAUTH_MESSAGE = "Phiên đăng nhập đã cũ, bạn đăng nhập lại rồi thử nhé.";
-const PASSWORD_UPDATE_FAILED_MESSAGE = "Chưa đổi được mật khẩu, vui lòng thử lại.";
-
 export async function updateUserPassword(rawData: unknown) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !user.email) return { error: "Vui lòng đăng nhập" };
+  if (!user || !user.email) return { error: (await profileText())("signInRequired") };
 
   const validated = passwordSchema.safeParse(rawData);
   if (!validated.success) {
-    return { error: validated.error.issues[0].message };
+    return { error: await validationMessage(validated.error.issues[0].message) };
   }
 
   // THAO TÁC BẢO MẬT: Xác thực lại bằng mật khẩu hiện tại trước khi cho phép đổi
@@ -192,7 +196,7 @@ export async function updateUserPassword(rawData: unknown) {
   });
 
   if (signInError) {
-    return { error: CURRENT_PASSWORD_WRONG_MESSAGE };
+    return { error: (await profileText())("currentPasswordWrong") };
   }
 
   // Gửi kèm current_password cho toggle "Require current password" (A2b). signInWithPassword ở trên
@@ -207,15 +211,16 @@ export async function updateUserPassword(rawData: unknown) {
     switch (updateError.code) {
       case "current_password_required":
       case "current_password_invalid":
-        return { error: CURRENT_PASSWORD_WRONG_MESSAGE };
+        return { error: (await profileText())("currentPasswordWrong") };
+      // Cùng khóa với setPasswordAfterConfirmation (catalog `auth.actions`), đổi ở một chỗ cho cả hai action (U2 H4).
       case "same_password":
-        return { error: SAME_PASSWORD_MESSAGE };
+        return { error: (await recordedTranslations("auth.actions"))("samePassword") };
       case "weak_password":
-        return { error: WEAK_PASSWORD_MESSAGE };
+        return { error: (await recordedTranslations("auth.actions"))("weakPassword") };
       case "reauthentication_needed":
-        return { error: PASSWORD_REAUTH_MESSAGE };
+        return { error: (await profileText())("reauthNeeded") };
       default:
-        return { error: PASSWORD_UPDATE_FAILED_MESSAGE };
+        return { error: (await profileText())("passwordUpdateFailed") };
     }
   }
 

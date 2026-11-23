@@ -1,0 +1,51 @@
+{
+  "navigator": {
+    "trigger": "Danh sách câu hỏi",
+    "hint": "Chuyển nhanh giữa các câu",
+    "title": "Câu hỏi của bài tập",
+    "description": "Chọn một câu để chuyển tới câu đó.",
+    "summary": "Đã trả lời đúng {correct}/{total} câu",
+    "item": "Câu {number}: {text}",
+    "current": "Đang xem · ",
+    "locked": "Đang khóa",
+    "statusCorrect": "Đã trả lời đúng",
+    "statusIncorrect": "Trả lời chưa đúng",
+    "statusUnanswered": "Chưa trả lời"
+  },
+  "context": {
+    "image": "Hình ảnh của nhóm câu hỏi",
+    "imageFailed": "Không tải được hình ảnh.",
+    "reloadImage": "Tải lại hình ảnh",
+    "enlargeLabel": "Phóng to hình ảnh",
+    "enlarge": "Phóng to",
+    "enlargedDescription": "Bản phóng to của hình ảnh đi kèm câu hỏi.",
+    "listen": "Nghe âm thanh",
+    "audioLabel": "Âm thanh của nhóm câu hỏi",
+    "audioUnsupported": "Trình duyệt của bạn không hỗ trợ thẻ audio.",
+    "audioFailed": "Không tải được âm thanh.",
+    "reloadAudio": "Tải lại âm thanh",
+    "missing": "Nhóm câu hỏi này đang thiếu {kinds}. Hãy báo cho giáo viên của khóa học.",
+    "missingImage": "hình ảnh",
+    "missingAudio": "âm thanh",
+    "missingPassage": "đoạn văn"
+  },
+  "choice": {
+    "correct": "(bạn chọn đúng)",
+    "incorrect": "(bạn chọn chưa đúng)"
+  },
+  "activity": {
+    "streak": "Chuỗi {streak} ngày học khóa này",
+    "noStreak": "Chưa có chuỗi ngày học khóa này",
+    "startStreak": "Làm một câu hỏi hoặc ôn một thẻ của khóa này hôm nay để bắt đầu chuỗi.",
+    "studiedToday": "Hôm nay bạn đã học khóa này.",
+    "notStudiedToday": "Hôm nay bạn chưa học khóa này. Học một chút để giữ chuỗi.",
+    "recent": "HỌC GẦN ĐÂY",
+    "unavailableTitle": "Chưa tải được chuỗi ngày học của khóa này",
+    "unavailableBody": "Bạn vẫn học bình thường."
+  },
+  "relativeDay": {
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "daysAgo": "{days} ngày trước"
+  }
+}

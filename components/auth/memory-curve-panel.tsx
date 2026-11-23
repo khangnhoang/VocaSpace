@@ -2,13 +2,15 @@
 
 import { useState, type CSSProperties } from "react";
 import { Lock } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { asTranslate } from "@/lib/i18n/translate";
 import {
   CURVE_VIEWBOX,
   PLOT_BOUNDS,
   REVIEW_THRESHOLD,
   REVIEW_X,
-  TICK_LABELS,
+  TICK_LABEL_KEYS,
   curveGeometry,
   yForRecall,
   type CurveGeometry,
@@ -58,12 +60,11 @@ function drawTimeline(geometry: CurveGeometry, timings: Map<string, Timing>) {
   return timings;
 }
 
-const CHART_SUMMARY: Record<CurveVariant["kind"], string> = {
-  login:
-    "Minh hoạ: mỗi lần ôn đúng lúc sắp quên kéo mức nhớ về gần 100%, khoảng cách giữa các lần ôn dài dần; nếu không ôn lại, mức nhớ tụt dần.",
-  register: "Minh hoạ: đường cong ghi nhớ thêm một lần ôn sau mỗi chặng đăng ký.",
-  settled: "Minh hoạ: sau nhiều lần ôn đúng lúc, mức nhớ giữ ổn định ở gần 100%.",
-  forgot: "Minh hoạ: lâu không ôn thì mức nhớ tụt dần; một lần ôn lại kéo nó về 100%.",
+const CHART_SUMMARY_KEYS: Record<CurveVariant["kind"], string> = {
+  login: "curve.summaryLogin",
+  register: "curve.summaryRegister",
+  settled: "curve.summarySettled",
+  forgot: "curve.summaryForgot",
 };
 
 const UTILITY = "font-[family-name:var(--font-geist-sans)] text-xs font-semibold leading-4";
@@ -78,7 +79,8 @@ type MemoryCurvePanelProps = {
 const pct = (value: number, total: number) => `${(value / total) * 100}%`;
 
 export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlipped }: MemoryCurvePanelProps) {
-  const geometry = curveGeometry(variant);
+  const t = asTranslate(useTranslations("auth"));
+  const geometry = curveGeometry(variant, t);
   const { width, height } = CURVE_VIEWBOX;
   // Panel giữ nguyên khi đổi trang/bước, nên bảng timing sống cùng panel và chỉ thêm phần mới.
   const [knownTimings] = useState(() => new Map<string, Timing>());
@@ -95,14 +97,14 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
 
   return (
     <aside
-      aria-label="Minh hoạ cách VocaSpace xếp lịch ôn"
+      aria-label={t("curve.label")}
       // Chỉ hiện từ 960px; màn nhỏ hơn dùng chồng thẻ WordDeck (U3 quyết định 17).
       className="hidden flex-col gap-1.5 rounded-[16px] bg-slate-100 px-4 pt-3.5 pb-3 min-[960px]:flex min-[960px]:gap-3 min-[960px]:px-7 min-[960px]:pt-7 min-[960px]:pb-6"
     >
       <div className="flex items-center justify-between gap-3">
-        <p className={cn(UTILITY, "tracking-[0.04em] text-recall uppercase")}>Đường cong ghi nhớ</p>
+        <p className={cn(UTILITY, "tracking-[0.04em] text-recall uppercase")}>{t("curve.heading")}</p>
         <span className={cn(UTILITY, "hidden rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-slate-600 min-[960px]:inline")}>
-          Minh hoạ
+          {t("curve.badge")}
         </span>
       </div>
 
@@ -125,7 +127,7 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
               )}
             >
               <div className="absolute inset-0 flex flex-col justify-between rounded-[16px] border border-slate-300 bg-white px-4 py-3.5 shadow-[0_8px_24px_rgba(15,23,42,0.10)] [backface-visibility:hidden]">
-                <span className={cn(UTILITY, "tracking-[0.04em] text-recall")}>THẺ TỪ</span>
+                <span className={cn(UTILITY, "tracking-[0.04em] text-recall")}>{t("curve.cardLabel")}</span>
                 <span>
                   <span className="block text-[22px] leading-7 font-extrabold tracking-[-0.01em] text-slate-900">remember</span>
                   <span className="font-[family-name:var(--font-geist-sans)] text-[13px] leading-4 font-medium text-slate-600">
@@ -136,9 +138,9 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
               <div className="absolute inset-0 flex flex-col justify-between rounded-[16px] bg-slate-900 px-4 py-3.5 text-white shadow-[0_8px_24px_rgba(15,23,42,0.10)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
                 <span className="flex items-center gap-2 text-sm leading-5 font-bold">
                   <Lock aria-hidden="true" className="size-4" />
-                  Không nhìn trộm đâu
+                  {t("curve.peekTitle")}
                 </span>
-                <span className="text-xs leading-[18px] text-slate-300">Thẻ quay mặt đi khi bạn gõ mật khẩu.</span>
+                <span className="text-xs leading-[18px] text-slate-300">{t("curve.peekText")}</span>
               </div>
             </div>
             </div>
@@ -149,7 +151,7 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
           <svg
             viewBox={`0 0 ${width} ${height - 30}`}
             role="img"
-            aria-label={CHART_SUMMARY[variant.kind]}
+            aria-label={t(CHART_SUMMARY_KEYS[variant.kind])}
             className="block h-auto w-full overflow-visible"
           >
             <line x1={PLOT_BOUNDS.x0} x2={PLOT_BOUNDS.x1} y1={yForRecall(1)} y2={yForRecall(1)} stroke="#E2E8F0" />
@@ -247,9 +249,9 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
               </span>
             ))}
           <div aria-hidden="true" className="relative mt-1 h-4">
-            {TICK_LABELS.map((label, index) => (
+            {TICK_LABEL_KEYS.map((labelKey, index) => (
               <span
-                key={label}
+                key={labelKey}
                 className={cn(
                   UTILITY,
                   "absolute whitespace-nowrap",
@@ -258,7 +260,7 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
                 )}
                 style={{ left: pct(REVIEW_X[index], width) }}
               >
-                {label}
+                {t(labelKey)}
               </span>
             ))}
           </div>
@@ -268,23 +270,23 @@ export function MemoryCurvePanel({ variant, copy, showFlashcard, flashcardFlippe
       <ul className={cn(UTILITY, "hidden flex-wrap gap-x-4 gap-y-1.5 text-slate-600 min-[960px]:flex")} aria-hidden="true">
         <li className="flex items-center gap-2">
           <span className="h-0.5 w-5 rounded-full bg-recall" />
-          Ôn theo lịch FSRS
+          {t("curve.legendFsrs")}
         </li>
         {variant.kind === "login" ? (
           <li className="flex items-center gap-2">
             <span className="w-5 border-t-2 border-dotted border-slate-500" />
-            Không ôn lại
+            {t("curve.legendNoReview")}
           </li>
         ) : null}
         {variant.kind === "forgot" ? (
           <li className="flex items-center gap-2">
             <span className="h-0.5 w-5 rounded-full bg-attention" />
-            Lâu không ôn
+            {t("curve.legendLapse")}
           </li>
         ) : null}
         <li className="flex items-center gap-2">
           <span className="w-5 border-t border-dashed border-slate-400" />
-          Ngưỡng ôn 90%
+          {t("curve.legendThreshold")}
         </li>
       </ul>
 

@@ -1,3 +1,6 @@
+import type { Translate } from "@/lib/i18n/translate";
+import { viAuthText } from "./vi-auth-text";
+
 // U3 AC12: hình minh hoạ đường cong ghi nhớ trên panel các trang auth. Đây là minh hoạ, không đọc dữ liệu người dùng.
 // Công thức là đường cong quên dạng luỹ thừa của FSRS: R(t) = (1 + 19/81 · t/S)^-0.5, nên R(S) = 0,9. Mỗi lần ôn
 // đặt đúng lúc mức nhớ chạm ngưỡng 90% bằng cách cho độ ổn định S bằng khoảng cách tới lần ôn sau.
@@ -13,7 +16,8 @@ const LAPSE_START_INDEX = 2;
 const LAPSE_END_DAY = 30;
 
 export const REVIEW_THRESHOLD = 0.9;
-export const TICK_LABELS = ["Hôm nay", "1 ngày", "3 ngày", "1 tuần", "1 tháng"] as const;
+// Nhãn trục thời gian là khóa trong catalog `auth.curve`.
+export const TICK_LABEL_KEYS = ["curve.tick0", "curve.tick1", "curve.tick2", "curve.tick3", "curve.tick4"] as const;
 
 export type CurveVariant =
   | { kind: "login" }
@@ -80,7 +84,8 @@ function reviewNode(index: number, tone: CurveNode["tone"]): CurveNode {
   return { key: `node-${index}`, x: round(xForDay(REVIEW_DAYS[index])), y: round(yForRecall(1)), tone };
 }
 
-export function curveGeometry(variant: CurveVariant): CurveGeometry {
+// `t` dịch nhãn mốc; thiếu thì dùng tiếng Việt từ catalog (test và code không có provider).
+export function curveGeometry(variant: CurveVariant, t: Translate = viAuthText): CurveGeometry {
   if (variant.kind === "login" || variant.kind === "settled") {
     const paths = REVIEW_DAYS.map((_, index) => reviewSegment(index));
     const nodes = REVIEW_DAYS.map((_, index) => reviewNode(index, index === REVIEW_DAYS.length - 1 ? "current" : "recall"));
@@ -115,11 +120,11 @@ export function curveGeometry(variant: CurveVariant): CurveGeometry {
   const lowX = round(xForDay(LAPSE_END_DAY));
   const lowY = round(yForRecall(lowRecall));
   paths.push({ key: "lapse", d: decayPath(lapseStart, LAPSE_END_DAY, lapseStability), tone: "lapse" });
-  nodes.push({ key: "low", x: lowX, y: lowY, tone: "low", label: "Quên dần" });
+  nodes.push({ key: "low", x: lowX, y: lowY, tone: "low", label: t("curve.lapsing") });
   if (variant.sent) {
     const topY = round(yForRecall(1));
     paths.push({ key: "relearn-jump", d: `M${lowX},${lowY} L${lowX},${topY}`, tone: "jump" });
-    nodes.push({ key: "relearn", x: lowX, y: topY, tone: "relearn", label: "Ôn lại" });
+    nodes.push({ key: "relearn", x: lowX, y: topY, tone: "relearn", label: t("curve.relearn") });
     paths.push({ key: "after-relearn", d: decayPath(LAPSE_END_DAY, PLOT.horizonDays, STABILITY_DAYS[4]), tone: "recall" });
   }
   return { paths, nodes, ghost: null, preview: null, reachedTick: LAPSE_START_INDEX };

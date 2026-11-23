@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { AlertCircle, EyeOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { PublicCourseRetryButton } from "@/app/(client)/courses/_components/PublicCourseRetryButton";
+import { retryLabels } from "@/lib/i18n/courses-text";
+import { asTranslate } from "@/lib/i18n/translate";
 
 type PublicCoursePreviewUnavailableProps = {
   kind: "unavailable" | "error";
@@ -12,6 +15,7 @@ export function PublicCoursePreviewUnavailable({
   kind,
   returnToCourseHref,
 }: PublicCoursePreviewUnavailableProps) {
+  const t = useTranslations("courses");
   const isError = kind === "error";
 
   return (
@@ -31,18 +35,16 @@ export function PublicCoursePreviewUnavailable({
         id="public-course-preview-unavailable-title"
         className="text-2xl font-extrabold text-slate-900"
       >
-        {isError ? "Chưa thể tải nội dung xem thử" : "Nội dung xem thử hiện không khả dụng"}
+        {isError ? t("preview.unavailable.errorTitle") : t("preview.unavailable.title")}
       </h1>
       <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-        {isError
-          ? "Vui lòng thử tải lại trang sau ít phút."
-          : "Tính năng xem trước nội dung của khóa học này đang tạm thời không khả dụng."}
+        {isError ? t("preview.unavailable.errorBody") : t("preview.unavailable.body")}
       </p>
       <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
         <Button asChild variant="outline" className="min-h-11 px-5">
-          <Link href={returnToCourseHref}>Về khóa học</Link>
+          <Link href={returnToCourseHref}>{t("preview.unavailable.back")}</Link>
         </Button>
-        {isError && <PublicCourseRetryButton />}
+        {isError && <PublicCourseRetryButton labels={retryLabels(asTranslate(t))} />}
       </div>
     </section>
   );

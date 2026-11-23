@@ -8,7 +8,8 @@ import { profileSchema } from "@/lib/schemas/profile";
 // - Case thành công: username/dob/gender rỗng, toàn khoảng trắng, null hoặc vắng mặt đều thành null; username
 //   hợp lệ giữ nguyên từng ký tự (không trim); giới tính hợp lệ giữ nguyên.
 // - Case thất bại: họ tên < 2 ký tự, username có giá trị < 3 ký tự, giới tính ngoài male/female/other (kể cả
-//   "nam" của form đăng ký) và giới tính sai kiểu đều trả message tiếng Việt cố định.
+//   "nam" của form đăng ký) và giới tính sai kiểu đều trả đúng khóa message và đúng trường (English localization U2 G6: câu tiếng
+//   Việt/Anh của từng khóa được kiểm ở __tests__/actions/profile.test.ts, profile-english.test.ts và u2-schema-issues.test.ts).
 // - Bảo mật/phân quyền: payload tự chế `dob: ""` được chuẩn hóa ở server schema, không phụ thuộc form.
 // - Ổn định/resilience: không áp dụng.
 // - Invariant cần giữ: giá trị "không nhập" luôn ra null, không bao giờ ra chuỗi rỗng cho cột date/username.
@@ -49,20 +50,22 @@ describe("profileSchema blank normalization", () => {
 });
 
 describe("profileSchema rejections", () => {
-  function firstMessage(input: unknown) {
+  function firstIssue(input: unknown) {
     const result = profileSchema.safeParse(input);
-    return result.success ? null : result.error.issues[0].message;
+    if (result.success) return null;
+    const [issue] = result.error.issues;
+    return { path: issue.path.join("."), message: issue.message };
   }
 
   it("rejects a full name under 2 characters", () => {
-    expect(firstMessage({ full_name: "A" })).toBe("Họ tên phải có ít nhất 2 ký tự");
+    expect(firstIssue({ full_name: "A" })).toEqual({ path: "full_name", message: "profile.fullNameMin" });
   });
 
   it("rejects a non-blank username under 3 characters", () => {
-    expect(firstMessage({ ...base, username: "ab" })).toBe("Username phải từ 3 ký tự trở lên");
+    expect(firstIssue({ ...base, username: "ab" })).toEqual({ path: "username", message: "profile.usernameMin" });
   });
 
-  it.each(["nam", "nữ", "MALE", 1])("rejects gender %j with a Vietnamese message", (gender) => {
-    expect(firstMessage({ ...base, gender })).toBe("Giới tính không hợp lệ.");
+  it.each(["nam", "nữ", "MALE", 1])("rejects gender %j with the invalid-gender message", (gender) => {
+    expect(firstIssue({ ...base, gender })).toEqual({ path: "gender", message: "profile.genderInvalid" });
   });
 });
