@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, Check, ChevronRight, Info, Loader2 } from "lucide-react";
 import { loginSchema, type LoginInput } from "@/lib/schemas/auth";
-import { signInUser } from "@/app/actions/auth";
+import { signInUserLocalized } from "@/app/actions/auth-localized";
 import { Button } from "@/components/ui/button";
 import { SIGN_IN_REASON_KEYS, SIGN_IN_REASON_PARAM } from "@/lib/auth/sign-in-reason";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
@@ -92,9 +92,11 @@ export default function LoginPage() {
     formData.append("password", data.password);
 
     try {
-      const res = await signInUser(formData);
+      const { result: res, locale: responseLocale } = await signInUserLocalized(formData);
       if (res?.error || !res?.success) {
-        setServerError(res?.error != null ? heldText(res.error, locale) : heldKey("actions.signInFailed"));
+        // Luôn có thông báo hiện ra (chuỗi của server, hoặc bản chung của client nếu server dùng ngôn ngữ khác tab), nên focus và
+        // rung bên dưới luôn đi cùng một lỗi đang hiện.
+        setServerError(res?.error != null ? heldText(res.error, responseLocale, "actions.signInFailed") : heldKey("actions.signInFailed"));
         setStatus("idle");
         form.setFocus("password", { shouldSelect: true });
         // Rung một lần để báo thất bại; thông báo lỗi và focus đã có ngay, không chờ hiệu ứng (AC13).

@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { unstable_rethrow } from "next/navigation";
 import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { setPasswordSchema, type SetPasswordInput } from "@/lib/schemas/auth";
-import { setPasswordAfterConfirmation } from "@/app/actions/auth";
+import { setPasswordAfterConfirmationLocalized } from "@/app/actions/auth-localized";
 import { Button } from "@/components/ui/button";
 import { AUTH_LEAD_CLASS, AUTH_TITLE_CLASS, AuthNotice, PasswordField } from "@/components/auth/auth-fields";
 import { ProgressionRail } from "@/components/auth/progression-rail";
@@ -46,8 +46,8 @@ export function SetPasswordForm() {
 
     // Thành công thì action redirect về "/"; chỉ quay lại đây khi có lỗi.
     try {
-      const res = await setPasswordAfterConfirmation(formData);
-      if (res?.error) setServerError(heldText(res.error, locale));
+      const { result: res, locale: responseLocale } = await setPasswordAfterConfirmationLocalized(formData);
+      if (res?.error) setServerError(heldText(res.error, responseLocale, "actions.setPasswordFailed"));
     } catch (error) {
       unstable_rethrow(error);
       setServerError(heldKey("actions.setPasswordFailed"));

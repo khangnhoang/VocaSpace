@@ -6,7 +6,7 @@ import { ShieldCheck } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { createCheckoutSession } from "@/app/actions/payment";
-import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
+import { getFirstTopicSlugByCourseSlugLocalized } from "@/app/actions/course-navigation-localized";
 import {
   CourseActivityUnavailable,
   CourseStreakLine,
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import type { Locale } from "@/lib/i18n/config";
 import { viCoursesText } from "@/lib/i18n/courses-text";
 import { formatCatalogCount, formatVnd } from "@/lib/i18n/format";
+import { pickServerText, useLatest } from "@/lib/i18n/held-message";
 import { viLearningText } from "@/lib/i18n/learning-text";
 import { asTranslate, type Translate } from "@/lib/i18n/translate";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
@@ -57,6 +58,9 @@ type PublicCourseEnrollmentCardProps = {
   t?: Translate;
   learningText?: Translate;
   locale?: Locale;
+  // Bản dịch và ngôn ngữ của lần render mới nhất, cho toast phát sau một request async (người dùng có thể đổi ngôn ngữ trong lúc chờ).
+  // Do lớp client mỏng bên dưới cấp; thiếu thì dùng `t`/`locale` của lần render gửi đi.
+  latest?: { readonly current: { t: Translate; locale: Locale } };
 };
 
 export function PublicCourseEnrollmentCard({
@@ -67,6 +71,7 @@ export function PublicCourseEnrollmentCard({
   t = viCoursesText,
   learningText = viLearningText,
   locale = "vi",
+  latest,
 }: PublicCourseEnrollmentCardProps) {
   const router = useRouter();
   // Khoản pending còn hạn chỉ làm giá trị khởi tạo của state: modal mở ở bước QR ngay lần render đầu, không cần click và không tạo thanh toán mới.
@@ -80,16 +85,22 @@ export function PublicCourseEnrollmentCard({
 
   async function continueLearning() {
     try {
-      const result = await getFirstTopicSlugByCourseSlug(course.slug);
+      const { result, locale: responseLocale } = await getFirstTopicSlugByCourseSlugLocalized(course.slug);
       if (result.error || !result.topicSlug) {
-        toast.error(result.error || t("detail.enrollment.noFirstTopic"));
+        // Dịch theo ngôn ngữ lúc toast bật, không phải lúc gửi request; chuỗi của server chỉ dùng khi nó cùng ngôn ngữ đó.
+        const now = latest?.current ?? { t, locale };
+        toast.error(
+          result.error
+            ? pickServerText(result.error, responseLocale, now.locale, now.t("detail.enrollment.openFirstFailed"))
+            : now.t("detail.enrollment.noFirstTopic"),
+        );
         return;
       }
 
       router.push(`/learn/${course.slug}/${result.topicSlug}`);
     } catch (error) {
       console.error("Public course learning entry navigation failed", error);
-      toast.error(t("detail.enrollment.openFirstFailed"));
+      toast.error((latest?.current ?? { t }).t("detail.enrollment.openFirstFailed"));
     }
   }
 
@@ -282,12 +293,13 @@ export function PublicCourseEnrollmentCard({
  * lấy bản dịch từ provider rồi mới truyền xuống `PublicCourseEnrollmentCard`, vốn nhận `t` qua props để test gọi trực tiếp được.
  */
 export function PublicCourseEnrollmentCardLocalized(
-  props: Omit<PublicCourseEnrollmentCardProps, "t" | "learningText" | "locale">,
+  props: Omit<PublicCourseEnrollmentCardProps, "t" | "learningText" | "locale" | "latest">,
 ) {
   const t = asTranslate(useTranslations("courses"));
   const learningText = asTranslate(useTranslations("learning"));
   const locale = useLocale() as Locale;
-  return <PublicCourseEnrollmentCard {...props} t={t} learningText={learningText} locale={locale} />;
+  const latest = useLatest({ t, locale });
+  return <PublicCourseEnrollmentCard {...props} t={t} learningText={learningText} locale={locale} latest={latest} />;
 }
 
 /**

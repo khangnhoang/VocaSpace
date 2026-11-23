@@ -11,9 +11,11 @@ import {
   UserProfileDTO,
 } from "@/lib/schemas/profile";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
-import { updateUserProfile } from "@/app/actions/profile";
+import { pickServerText, useLatest } from "@/lib/i18n/held-message";
+import type { Locale } from "@/lib/i18n/config";
+import { updateUserProfileLocalized } from "@/app/actions/profile-localized";
 
 interface EditProfileFormProps {
   initialData: UserProfileDTO | null;
@@ -26,6 +28,10 @@ export default function EditProfileForm({
 }: EditProfileFormProps) {
   const [isPending, startTransition] = useTransition();
   const t = useTranslations("profile.editForm");
+  const tActions = asTranslate(useTranslations("profile.actions"));
+  const locale = useLocale() as Locale;
+  // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc bấm lưu.
+  const latest = useLatest({ t, tActions, locale });
   // Message của schema là khóa trong `validation` (U2 H3); form dịch khi hiển thị, nên mỗi lỗi hiện đúng ở ngôn ngữ đang dùng.
   const tValidation = asTranslate(useTranslations("validation"));
 
@@ -49,16 +55,17 @@ export default function EditProfileForm({
 
   const onSubmit = (data: ProfileFormValues) => {
     startTransition(async () => {
-      const res = await updateUserProfile(data);
+      const { result: res, locale: responseLocale } = await updateUserProfileLocalized(data);
+      const now = latest.current;
 
       // Xử lý tách biệt return tránh cảnh báo của React
       if (res.error) {
-        toast.error(res.error);
+        toast.error(pickServerText(res.error, responseLocale, now.locale, now.tActions("updateFailed")));
         return;
       }
 
       if (res.success) {
-        toast.success(t("saved"));
+        toast.success(now.t("saved"));
         onRefreshData(); // Kéo lại dữ liệu mới nhất cho Sidebar cập nhật
       }
     });

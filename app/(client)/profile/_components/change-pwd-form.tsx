@@ -6,13 +6,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { passwordSchema, PasswordFormValues } from "@/lib/schemas/profile";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
-import { updateUserPassword } from "@/app/actions/profile";
+import { pickServerText, useLatest } from "@/lib/i18n/held-message";
+import type { Locale } from "@/lib/i18n/config";
+import { updateUserPasswordLocalized } from "@/app/actions/profile-localized";
 
 export default function ChangePasswordForm() {
   const [isPending, startTransition] = useTransition();
   const t = useTranslations("profile.passwordForm");
+  const tActions = asTranslate(useTranslations("profile.actions"));
+  const locale = useLocale() as Locale;
+  // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc bấm gửi.
+  const latest = useLatest({ t, tActions, locale });
   // Message của schema là khóa trong `validation` (U2 H3); form dịch khi hiển thị.
   const tValidation = asTranslate(useTranslations("validation"));
 
@@ -27,16 +33,17 @@ export default function ChangePasswordForm() {
 
   const onSubmit = (data: PasswordFormValues) => {
     startTransition(async () => {
-      const res = await updateUserPassword(data);
+      const { result: res, locale: responseLocale } = await updateUserPasswordLocalized(data);
+      const now = latest.current;
 
       // Bắt lỗi an toàn, tuyệt đối không trả về ID của toast
       if (res.error) {
-        toast.error(res.error);
+        toast.error(pickServerText(res.error, responseLocale, now.locale, now.tActions("passwordUpdateFailed")));
         return;
       }
 
       if (res.success) {
-        toast.success(t("changed"));
+        toast.success(now.t("changed"));
         form.reset(); // Dọn sạch form
       }
     });

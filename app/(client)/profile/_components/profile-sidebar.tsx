@@ -5,8 +5,11 @@ import React, { useState, useEffect, useRef, useTransition, useCallback, type Re
 import { Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
-import { getUserProfile, uploadAvatar } from "@/app/actions/profile";
+import { useLocale, useTranslations } from "next-intl";
+import { getUserProfileLocalized, uploadAvatarLocalized } from "@/app/actions/profile-localized";
+import { asTranslate } from "@/lib/i18n/translate";
+import { pickServerText, useLatest } from "@/lib/i18n/held-message";
+import type { Locale } from "@/lib/i18n/config";
 import { UserProfileDTO } from "@/lib/schemas/profile";
 
 import EditProfileForm from "./edit-profile-form";
@@ -25,6 +28,10 @@ export default function ProfileSidebar({
   paymentsPanel: ReactNode;
 }) {
   const t = useTranslations("profile.sidebar");
+  const tActions = asTranslate(useTranslations("profile.actions"));
+  const locale = useLocale() as Locale;
+  // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc gửi.
+  const latest = useLatest({ t, tActions, locale });
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const visibleTab: ProfileTab =
     isDesktop === true && activeTab === "payments" ? "profile" : activeTab;
@@ -40,18 +47,19 @@ export default function ProfileSidebar({
   // Hàm thuần túy chỉ làm nhiệm vụ gọi Server Action
   const fetchRealData = useCallback(async () => {
     // Self-Audit: Server Action getUserProfile cần tự kiểm tra auth.uid() ở backend
-    const res = await getUserProfile();
+    const { result: res, locale: responseLocale } = await getUserProfileLocalized();
     
     // Chỉ cập nhật state khi component thực sự còn tồn tại trên DOM
     if (isMounted.current) {
       if (res.error) {
-        toast.error(res.error);
+        const now = latest.current;
+        toast.error(pickServerText(res.error, responseLocale, now.locale, now.tActions("profileNotFound")));
       } else if (res.data) {
         setProfileData(res.data);
       }
       setIsLoading(false);
     }
-  }, []);
+  }, [latest]);
 
   // Xử lý riêng khi user chủ động bấm làm mới dữ liệu
   const handleRefreshData = useCallback(() => {
@@ -82,15 +90,16 @@ export default function ProfileSidebar({
     formData.append("avatar", file);
 
     startAvatarTransition(async () => {
-      const res = await uploadAvatar(formData);
+      const { result: res, locale: responseLocale } = await uploadAvatarLocalized(formData);
+      const now = latest.current;
       
       if (res.error) {
-        toast.error(res.error);
+        toast.error(pickServerText(res.error, responseLocale, now.locale, now.tActions("uploadFailed")));
         return; 
       }
 
       if (res.success && res.avatarUrl) {
-        toast.success(t("avatarUpdated"));
+        toast.success(now.t("avatarUpdated"));
         setProfileData((prev) => prev ? { ...prev, avatar_url: res.avatarUrl } : null);
       }
     });

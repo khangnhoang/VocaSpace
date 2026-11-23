@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { enUS, vi } from "date-fns/locale";
 import { AlertCircle, CalendarIcon, Camera, ChevronRight, Loader2 } from "lucide-react";
-import { signUpUser } from "@/app/actions/auth";
+import { signUpUserLocalized } from "@/app/actions/auth-localized";
 import { AVATAR_INVALID_KEY, registerSchema, type RegisterInput } from "@/lib/schemas/auth";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
 import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
@@ -167,8 +167,8 @@ export default function RegisterPage() {
     if (avatarFile) formData.append("avatar", avatarFile);
 
     try {
-      const res = await signUpUser(formData);
-      if (res?.error) setServerError(heldText(res.error, locale));
+      const { result: res, locale: responseLocale } = await signUpUserLocalized(formData);
+      if (res?.error) setServerError(heldText(res.error, responseLocale, "actions.signUpRetry"));
       // Chưa có session: người dùng phải bấm link trong email để xác minh và đặt mật khẩu.
       else setSubmittedEmail(data.email);
     } catch {

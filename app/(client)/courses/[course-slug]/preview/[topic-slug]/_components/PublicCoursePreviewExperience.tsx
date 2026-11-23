@@ -17,11 +17,9 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import {
-  answerPublicCoursePreviewQuestion,
-  getPublicCoursePreview,
-} from "@/app/actions/public-course-preview";
-import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
+import { getPublicCoursePreview } from "@/app/actions/public-course-preview";
+import { answerPublicCoursePreviewQuestionLocalized } from "@/app/actions/public-course-preview-localized";
+import { getFirstTopicSlugByCourseSlugLocalized } from "@/app/actions/course-navigation-localized";
 import { Button } from "@/components/ui/button";
 import { asTranslate } from "@/lib/i18n/translate";
 import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
@@ -235,7 +233,7 @@ export function PublicCoursePreviewExperience({
 
     void (async () => {
       try {
-        const result = await answerPublicCoursePreviewQuestion({
+        const { result, locale: responseLocale } = await answerPublicCoursePreviewQuestionLocalized({
           courseSlug: data.course.slug,
           topicSlug: data.topic.slug,
           questionId: answeredId,
@@ -247,7 +245,7 @@ export function PublicCoursePreviewExperience({
           return;
         }
         if (result.status === "error") {
-          if (isShowing()) setAnswerError(heldText(result.error, locale));
+          if (isShowing()) setAnswerError(heldText(result.error, responseLocale, "preview.answerFailed"));
           return;
         }
 
@@ -323,9 +321,9 @@ export function PublicCoursePreviewExperience({
     setContinueError(null);
     startContinueTransition(async () => {
       try {
-        const result = await getFirstTopicSlugByCourseSlug(data.course.slug);
+        const { result, locale: responseLocale } = await getFirstTopicSlugByCourseSlugLocalized(data.course.slug);
         if (result.error || !result.topicSlug) {
-          setContinueError(result.error ? heldText(result.error, locale) : heldKey("preview.noFirstTopic"));
+          setContinueError(result.error ? heldText(result.error, responseLocale, "preview.openTopicFailed") : heldKey("preview.noFirstTopic"));
           return;
         }
         router.push(

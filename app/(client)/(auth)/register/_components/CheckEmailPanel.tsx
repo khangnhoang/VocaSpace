@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ExternalLink, Loader2, MailCheck } from "lucide-react";
-import { resendSignupConfirmation } from "@/app/actions/auth";
+import { resendSignupConfirmationLocalized } from "@/app/actions/auth-localized";
 import { Button } from "@/components/ui/button";
 import { AUTH_LEAD_CLASS, AUTH_TEXT_ACTION_CLASS, AUTH_TITLE_CLASS } from "@/components/auth/auth-fields";
 import { mailboxLinkFor } from "@/lib/auth/email-help";
@@ -40,8 +40,8 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
     setIsSending(true);
     setCooldown(RESEND_COOLDOWN_SECONDS);
     try {
-      const result = await resendSignupConfirmation(email);
-      setNotice({ tone: "status", message: heldText(result.message, locale) });
+      const { result, locale: responseLocale } = await resendSignupConfirmationLocalized(email);
+      setNotice({ tone: "status", message: heldText(result.message, responseLocale, "actions.resend") });
     } catch {
       setNotice({ tone: "error", message: heldKey("checkEmail.resendFailed") });
     } finally {

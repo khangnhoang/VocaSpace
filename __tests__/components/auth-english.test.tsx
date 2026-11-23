@@ -2,6 +2,7 @@
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@/__tests__/support/intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setServerTestLocale } from "@/__tests__/support/i18n-request";
 import RegisterPage from "@/app/(client)/(auth)/register/page";
 import LoginPage from "@/app/(client)/(auth)/login/page";
 import ForgotPasswordPage from "@/app/(client)/(auth)/forgot-password/page";
@@ -81,12 +82,15 @@ function renderEn(pathname: string, ui: React.ReactElement) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Wrapper `*Localized` trả kèm ngôn ngữ server; chuỗi action giả trong file này là tiếng Anh nên server cũng ở `en`.
+  setServerTestLocale("en");
   mocks.searchParams = new URLSearchParams();
   mocks.prepareAvatar.mockImplementation(async () => preparedAvatar());
 });
 
 afterEach(() => {
   cleanup();
+  setServerTestLocale("vi");
   vi.useRealTimers();
 });
 
