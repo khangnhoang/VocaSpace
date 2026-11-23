@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ExternalLink, Loader2, MailCheck } from "lucide-react";
 import { resendSignupConfirmation } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { AUTH_LEAD_CLASS, AUTH_TEXT_ACTION_CLASS, AUTH_TITLE_CLASS } from "@/components/auth/auth-fields";
 import { mailboxLinkFor } from "@/lib/auth/email-help";
 import { asTranslate } from "@/lib/i18n/translate";
+import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
 import { cn } from "@/lib/utils";
 
 export const RESEND_COOLDOWN_SECONDS = 60;
@@ -19,9 +20,13 @@ type CheckEmailPanelProps = {
 
 export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
   const t = useTranslations("auth");
+  const locale = useLocale() === "en" ? "en" : "vi";
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [notice, setNotice] = useState<{ tone: "status" | "error"; text: string } | null>(null);
+  // Thông báo giữ qua lần đổi ngôn ngữ: khóa hoặc chuỗi gắn ngôn ngữ của request, dịch/lọc lúc render (xem held-message.ts).
+  const [heldNotice, setNotice] = useState<{ tone: "status" | "error"; message: HeldMessage } | null>(null);
+  const noticeText = heldNotice ? resolveHeldMessage(heldNotice.message, locale, asTranslate(t)) : null;
+  const notice = heldNotice && noticeText ? { tone: heldNotice.tone, text: noticeText } : null;
   const mailbox = mailboxLinkFor(email, asTranslate(t));
 
   useEffect(() => {
@@ -36,9 +41,9 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
     setCooldown(RESEND_COOLDOWN_SECONDS);
     try {
       const result = await resendSignupConfirmation(email);
-      setNotice({ tone: "status", text: result.message });
+      setNotice({ tone: "status", message: heldText(result.message, locale) });
     } catch {
-      setNotice({ tone: "error", text: t("checkEmail.resendFailed") });
+      setNotice({ tone: "error", message: heldKey("checkEmail.resendFailed") });
     } finally {
       setIsSending(false);
     }

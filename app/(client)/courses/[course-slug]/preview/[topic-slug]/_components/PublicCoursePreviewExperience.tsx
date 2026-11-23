@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Rating } from "ts-fsrs";
 import {
   ArrowLeft,
@@ -24,6 +24,7 @@ import {
 import { getFirstTopicSlugByCourseSlug } from "@/app/actions/course-navigation";
 import { Button } from "@/components/ui/button";
 import { asTranslate } from "@/lib/i18n/translate";
+import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
 import type { PublicCoursePreview } from "@/lib/schemas/public-course-preview";
 import ChoiceGroup from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ChoiceGroup";
 import ExerciseContext from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/ExerciseContext";
@@ -118,6 +119,7 @@ export function PublicCoursePreviewExperience({
 }: PublicCoursePreviewExperienceProps) {
   const router = useRouter();
   const t = useTranslations("courses");
+  const locale = useLocale() === "en" ? "en" : "vi";
   // H7: các thành phần học tập dùng chung nhận bản dịch namespace `learning`.
   const learningText = asTranslate(useTranslations("learning"));
   const questions = flattenQuestions(data.exercises);
@@ -135,13 +137,16 @@ export function PublicCoursePreviewExperience({
     Record<string, { optionId: string; explanation: string | null }>
   >({});
   const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
-  const [answerError, setAnswerError] = useState<string | null>(null);
+  // Thông báo giữ qua lần đổi ngôn ngữ: khóa hoặc chuỗi gắn ngôn ngữ của request, dịch/lọc lúc render (xem held-message.ts).
+  const [answerMessage, setAnswerError] = useState<HeldMessage | null>(null);
   const [isUnavailable, setIsUnavailable] = useState(false);
   // Requests in flight, by question: the option sent. Keyed by question so a result can
   // only ever land on the question that was submitted, wherever the learner is now.
   const [pendingAnswers, setPendingAnswers] = useState<Record<string, string>>({});
   const [isContinuePending, startContinueTransition] = useTransition();
-  const [continueError, setContinueError] = useState<string | null>(null);
+  const [continueMessage, setContinueError] = useState<HeldMessage | null>(null);
+  const answerError = resolveHeldMessage(answerMessage, locale, asTranslate(t));
+  const continueError = resolveHeldMessage(continueMessage, locale, asTranslate(t));
   const answerInFlight = useRef<Set<string>>(new Set());
   const latestAttempt = useRef<Record<string, number>>({});
   const attemptCounter = useRef(0);
@@ -242,7 +247,7 @@ export function PublicCoursePreviewExperience({
           return;
         }
         if (result.status === "error") {
-          if (isShowing()) setAnswerError(result.error);
+          if (isShowing()) setAnswerError(heldText(result.error, locale));
           return;
         }
 
@@ -260,7 +265,7 @@ export function PublicCoursePreviewExperience({
         }
       } catch {
         if (isShowing()) {
-          setAnswerError(t("preview.answerFailed"));
+          setAnswerError(heldKey("preview.answerFailed"));
         }
       } finally {
         answerInFlight.current.delete(answeredId);
@@ -320,14 +325,14 @@ export function PublicCoursePreviewExperience({
       try {
         const result = await getFirstTopicSlugByCourseSlug(data.course.slug);
         if (result.error || !result.topicSlug) {
-          setContinueError(result.error || t("preview.noFirstTopic"));
+          setContinueError(result.error ? heldText(result.error, locale) : heldKey("preview.noFirstTopic"));
           return;
         }
         router.push(
           `/learn/${encodeURIComponent(data.course.slug)}/${encodeURIComponent(result.topicSlug)}`,
         );
       } catch {
-        setContinueError(t("preview.openTopicFailed"));
+        setContinueError(heldKey("preview.openTopicFailed"));
       } finally {
         continueInFlight.current = false;
       }

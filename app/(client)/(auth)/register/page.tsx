@@ -10,6 +10,7 @@ import { AlertCircle, CalendarIcon, Camera, ChevronRight, Loader2 } from "lucide
 import { signUpUser } from "@/app/actions/auth";
 import { AVATAR_INVALID_KEY, registerSchema, type RegisterInput } from "@/lib/schemas/auth";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
 import { registerPanel } from "@/components/auth/auth-panels";
 import { prepareAvatar } from "@/lib/auth/avatar-image";
 import { Button } from "@/components/ui/button";
@@ -54,10 +55,12 @@ export default function RegisterPage() {
   const { setShowTabs } = useAuthShell();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+  // Thông báo giữ qua lần đổi ngôn ngữ: khóa hoặc chuỗi gắn ngôn ngữ của request, dịch/lọc lúc render (xem held-message.ts).
+  const [serverMessage, setServerError] = useState<HeldMessage | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarError, setAvatarError] = useState<string | null>(null);
+  // Lỗi ảnh lưu dưới dạng cờ và dịch lúc render bằng `validation`, để đổi ngôn ngữ giữa chừng đổi cả chữ lỗi.
+  const [hasAvatarError, setHasAvatarError] = useState(false);
   const [avatarProcessing, setAvatarProcessing] = useState(false);
   const avatarRequest = useRef(0);
   // Email vừa gửi đăng ký; có giá trị thì hiện chặng "kiểm tra email" thay cho form.
@@ -75,6 +78,8 @@ export default function RegisterPage() {
   // English localization U1: message của registerSchema là khóa trong namespace `validation`, dịch theo ngôn ngữ đang dùng.
   const tValidation = asTranslate(useTranslations("validation"));
   const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tValidation, message) : undefined);
+  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t));
+  const avatarError = hasAvatarError ? translateIssueMessage(tValidation, AVATAR_INVALID_KEY) : null;
   const stage = submittedEmail ? 4 : step;
   const [stageMove, setStageMove] = useState({ stage, direction: 1 });
   if (stageMove.stage !== stage) setStageMove({ stage, direction: stage > stageMove.stage ? 1 : -1 });
@@ -114,7 +119,7 @@ export default function RegisterPage() {
     const file = input.files?.[0];
     if (!file) return;
     const request = ++avatarRequest.current;
-    setAvatarError(null);
+    setHasAvatarError(false);
     setAvatarProcessing(true);
     try {
       const prepared = await prepareAvatar(file);
@@ -124,7 +129,7 @@ export default function RegisterPage() {
       setAvatarPreview(URL.createObjectURL(prepared));
     } catch {
       if (request !== avatarRequest.current) return;
-      setAvatarError(translateIssueMessage(tValidation, AVATAR_INVALID_KEY));
+      setHasAvatarError(true);
     } finally {
       if (request === avatarRequest.current) {
         setAvatarProcessing(false);
@@ -140,7 +145,7 @@ export default function RegisterPage() {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     avatarRequest.current += 1;
     setAvatarProcessing(false);
-    setAvatarError(null);
+    setHasAvatarError(false);
     setAvatarFile(null);
     setAvatarPreview(null);
     const input = document.getElementById("avatar-upload") as HTMLInputElement | null;
@@ -163,11 +168,11 @@ export default function RegisterPage() {
 
     try {
       const res = await signUpUser(formData);
-      if (res?.error) setServerError(res.error);
+      if (res?.error) setServerError(heldText(res.error, locale));
       // Chưa có session: người dùng phải bấm link trong email để xác minh và đặt mật khẩu.
       else setSubmittedEmail(data.email);
     } catch {
-      setServerError(t("actions.signUpRetry"));
+      setServerError(heldKey("actions.signUpRetry"));
     } finally {
       setIsLoading(false);
       submitting.current = false;

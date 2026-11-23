@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { unstable_rethrow } from "next/navigation";
@@ -12,6 +12,7 @@ import { AUTH_LEAD_CLASS, AUTH_TITLE_CLASS, AuthNotice, PasswordField } from "@/
 import { ProgressionRail } from "@/components/auth/progression-rail";
 import { PASSWORD_STRENGTH_KEYS, passwordStrength } from "@/lib/auth/password-strength";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
 import { cn } from "@/lib/utils";
 
 const STRENGTH_COLORS = ["bg-correction", "bg-correction", "bg-attention", "bg-recall", "bg-growth"] as const;
@@ -19,10 +20,13 @@ const STRENGTH_TEXT = ["text-correction", "text-correction", "text-attention", "
 
 export function SetPasswordForm() {
   const t = useTranslations("auth");
-  const tx = asTranslate(useTranslations("validation"));
+  const locale = useLocale() === "en" ? "en" : "vi";
+  const tx =asTranslate(useTranslations("validation"));
   const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tx, message) : undefined);
   const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+  // Thông báo giữ qua lần đổi ngôn ngữ: khóa hoặc chuỗi gắn ngôn ngữ của request, dịch/lọc lúc render (xem held-message.ts).
+  const [serverMessage, setServerError] = useState<HeldMessage | null>(null);
+  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t));
 
   const form = useForm<SetPasswordInput>({
     resolver: zodResolver(setPasswordSchema),
@@ -43,10 +47,10 @@ export function SetPasswordForm() {
     // Thành công thì action redirect về "/"; chỉ quay lại đây khi có lỗi.
     try {
       const res = await setPasswordAfterConfirmation(formData);
-      if (res?.error) setServerError(res.error);
+      if (res?.error) setServerError(heldText(res.error, locale));
     } catch (error) {
       unstable_rethrow(error);
-      setServerError(t("actions.setPasswordFailed"));
+      setServerError(heldKey("actions.setPasswordFailed"));
     } finally {
       setIsLoading(false);
     }

@@ -1,6 +1,6 @@
 "use client";
 import { Suspense, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useReducedMotion } from "motion/react";
 import { useAnimate } from "motion/react-mini";
 import * as m from "motion/react-m";
@@ -14,6 +14,7 @@ import { signInUser } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { SIGN_IN_REASON_KEYS, SIGN_IN_REASON_PARAM } from "@/lib/auth/sign-in-reason";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { heldKey, heldText, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
 import { GoogleSignInButton, LastUsedTag } from "@/components/auth/google-sign-in-button";
 import { LegalConsentNotice } from "@/components/auth/legal-consent-notice";
 import { AuthDivider, AuthNotice, EmailField, PasswordField } from "@/components/auth/auth-fields";
@@ -62,12 +63,15 @@ function SignInReasonNotice() {
 // khẩu" (U3 quyết định 15): dùng `login.networkFailed` thay vì `actions.signInFailed`.
 export default function LoginPage() {
   const t = useTranslations("auth");
+  const locale = useLocale() === "en" ? "en" : "vi";
   const tx = asTranslate(useTranslations("validation"));
   const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tx, message) : undefined);
   const router = useRouter();
   const { lastSignInMethod, setPasswordFocused } = useAuthShell();
   const [status, setStatus] = useState<"idle" | "pending" | "success">("idle");
-  const [serverError, setServerError] = useState<string | null>(null);
+  // Giữ thông báo dưới dạng khóa hoặc chuỗi gắn ngôn ngữ của request để đổi ngôn ngữ giữa chừng không để lại chữ cũ.
+  const [serverMessage, setServerError] = useState<HeldMessage | null>(null);
+  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t));
   const submitting = useRef(false);
   const [formScope, animate] = useAnimate<HTMLDivElement>();
   const reduceMotion = useReducedMotion();
@@ -90,7 +94,7 @@ export default function LoginPage() {
     try {
       const res = await signInUser(formData);
       if (res?.error || !res?.success) {
-        setServerError(res?.error ?? t("actions.signInFailed"));
+        setServerError(res?.error != null ? heldText(res.error, locale) : heldKey("actions.signInFailed"));
         setStatus("idle");
         form.setFocus("password", { shouldSelect: true });
         // Rung một lần để báo thất bại; thông báo lỗi và focus đã có ngay, không chờ hiệu ứng (AC13).
@@ -104,7 +108,7 @@ export default function LoginPage() {
       router.replace(res.redirectTo ?? "/");
       router.refresh();
     } catch {
-      setServerError(t("login.networkFailed"));
+      setServerError(heldKey("login.networkFailed"));
       setStatus("idle");
       // Giữ nguyên mật khẩu, không bôi đen và không rung: chỉ cần nhấn Enter để thử lại.
       form.setFocus("password");

@@ -1,5 +1,5 @@
-import type { ReactElement, ReactNode } from "react";
-import { render as rtlRender, type RenderOptions } from "@testing-library/react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
+import { act, render as rtlRender, type RenderOptions } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { hydrateRoot as reactHydrateRoot } from "react-dom/client";
 import {
@@ -27,6 +27,26 @@ export function render(ui: ReactElement, options: RenderOptions & { locale?: Loc
     ...rest,
     wrapper: ({ children }) => <IntlWrapper locale={locale}>{children}</IntlWrapper>,
   });
+}
+
+// Giả lập `router.refresh()` sau khi người dùng đổi ngôn ngữ: provider nhận locale mới còn cây bên dưới giữ nguyên state đang mount.
+export function renderSwitchable(ui: ReactElement, initial: Locale = "vi") {
+  let setCurrent: (next: Locale) => void = () => {};
+  function Host() {
+    const [locale, setLocale] = useState(initial);
+    useEffect(() => {
+      setCurrent = setLocale;
+    }, []);
+    return <IntlWrapper locale={locale}>{ui}</IntlWrapper>;
+  }
+  const view = rtlRender(<Host />);
+  return {
+    ...view,
+    switchLocale: (next: Locale) =>
+      act(() => {
+        setCurrent(next);
+      }),
+  };
 }
 
 export function renderToStaticMarkup(ui: ReactElement, { locale = "vi" }: { locale?: Locale } = {}) {
