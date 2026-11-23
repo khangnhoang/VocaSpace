@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/lib/i18n/config";
 import { viCoursesText } from "@/lib/i18n/courses-text";
-import { formatVnd } from "@/lib/i18n/format";
+import { formatCatalogCount, formatVnd } from "@/lib/i18n/format";
 import { viLearningText } from "@/lib/i18n/learning-text";
 import { asTranslate, type Translate } from "@/lib/i18n/translate";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
@@ -195,7 +195,7 @@ export function PublicCourseEnrollmentCard({
               ) : (
                 <CourseActivityUnavailable className="mt-4" t={learningText} />
               ))}
-            {learnerCard && <LearnerProgress card={learnerCard} courseTitle={course.title} t={t} />}
+            {learnerCard && <LearnerProgress card={learnerCard} courseTitle={course.title} t={t} locale={locale} />}
             <Button
               type="button"
               size="lg"
@@ -324,14 +324,29 @@ function ResumePaymentEntry({
   return null;
 }
 
-function LearnerProgress({ card, courseTitle, t }: { card: PublicCourseLearnerCard; courseTitle: string; t: Translate }) {
+function LearnerProgress({
+  card,
+  courseTitle,
+  t,
+  locale,
+}: {
+  card: PublicCourseLearnerCard;
+  courseTitle: string;
+  t: Translate;
+  locale: Locale;
+}) {
   const { completedTopicCount, totalTopicCount } = card;
   const percentage = totalTopicCount > 0 ? Math.round((completedTopicCount / totalTopicCount) * 100) : 0;
+  // Cùng quy tắc với số đếm của danh mục (AC5): `en` có dấu phân cách hàng nghìn, `vi` giữ chữ số trần như trước.
+  const counts = {
+    done: formatCatalogCount(locale, completedTopicCount),
+    total: formatCatalogCount(locale, totalTopicCount),
+  };
 
   return (
     <div className="mt-5">
       <p className="text-sm font-bold text-gray-900">
-        {t("detail.enrollment.progress", { done: completedTopicCount, total: totalTopicCount })}
+        {t("detail.enrollment.progress", counts)}
       </p>
       <div
         role="progressbar"
@@ -339,7 +354,7 @@ function LearnerProgress({ card, courseTitle, t }: { card: PublicCourseLearnerCa
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percentage}
-        aria-valuetext={t("detail.enrollment.progressText", { done: completedTopicCount, total: totalTopicCount })}
+        aria-valuetext={t("detail.enrollment.progressText", counts)}
         className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100"
       >
         <div className="h-full rounded-full bg-recall" style={{ width: `${percentage}%` }} />

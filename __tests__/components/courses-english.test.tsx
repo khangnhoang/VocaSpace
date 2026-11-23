@@ -321,6 +321,39 @@ describe("course detail in English", () => {
     expect(hasVietnamese(learningHtml)).toBe(false);
   });
 
+  it("groups thousands in the learner progress text and aria-valuetext in English and keeps the Vietnamese digits bare (AC5)", async () => {
+    const topics = Array.from({ length: 1234 }, (_, index) => ({
+      id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      title: `Topic ${index}`,
+      slug: `topic-${index}`,
+      order_index: index,
+      is_preview: false,
+    }));
+    const big = enrolled({
+      syllabus: [{ id: "44444444-4444-4444-8444-444444444444", title: "Everything", order_index: 0, topics }],
+      learner_progress: { completed_topic_ids: topics.slice(0, 1000).map((topic) => topic.id), next_topic_slug: "topic-1000" },
+    });
+    mockedSummary.mockResolvedValue({ success: true, data: { streak: 0, studiedToday: false, recentTopics: [] } });
+
+    mockedDetail.mockResolvedValueOnce({ status: "success", data: big });
+    const english = await route();
+    setServerTestLocale("vi");
+    mockedDetail.mockResolvedValueOnce({ status: "success", data: big });
+    const vietnamese = text(
+      renderToStaticMarkup(await PublicCourseDetailRoute({ courseSlug: "toeic-foundations" }), { locale: "vi" }),
+    );
+
+    expect(english).toContain("1,000/1,234 topics done");
+    expect(english).toContain('aria-valuetext="1,000 of 1,234 topics completed"');
+    // Chỉ thẻ tiến độ được kiểm: giáo trình có slug/tên chủ đề chứa 1000 và 1234 nhưng không phải số đếm.
+    expect(english.match(/<p class="text-sm font-bold text-gray-900">[^<]*<\/p>/)?.[0]).not.toMatch(/(1000|1234)/);
+    expect(vietnamese).toContain("Đã xong 1000/1234 chủ đề");
+    expect(vietnamese).toContain('aria-valuetext="1000 trên 1234 chủ đề đã hoàn thành"');
+    expect(vietnamese).not.toContain("1,000");
+    // Giá trị số của progressbar không đổi (81% của 1000/1234).
+    expect(english).toContain('aria-valuenow="81"');
+  });
+
   it("shows the quiet unavailable activity state in English and the error page when the course fails to load", async () => {
     mockedDetail.mockResolvedValueOnce({ status: "success", data: enrolled() });
     mockedSummary.mockResolvedValue({ success: false, error: "x" } as never);
