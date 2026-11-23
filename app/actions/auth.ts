@@ -16,8 +16,8 @@ import {
 } from "@/lib/schemas/auth";
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
-import { getTranslations } from "next-intl/server";
-import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
+import { translateIssueMessage } from "@/lib/i18n/translate";
 import {
   LAST_SIGN_IN_METHOD_COOKIE,
   RETURN_PATH_COOKIE,
@@ -29,8 +29,13 @@ import {
 
 // Thông báo của action nằm trong catalog `auth.actions` và `validation`, dịch theo ngôn ngữ của request lúc trả về (U2 H4).
 // Dạng trả về `{ error }` / `{ success, message }` giữ nguyên.
+// `recordedTranslations` ghi khóa + tham số của thông báo trả về để wrapper `*Localized` báo lại cho client; action gốc không đổi kết quả.
 async function authActionText() {
-  return asTranslate(await getTranslations("auth.actions"));
+  return recordedTranslations("auth.actions");
+}
+
+async function validationText() {
+  return recordedTranslations("validation");
 }
 
 // G4: admin API bỏ qua công tắc "Allow new users to sign up" của Supabase, nên đọc công tắc đó
@@ -79,8 +84,7 @@ export async function signUpUser(formData: FormData) {
   if (!validated.success) {
     // Sửa chữ .errors thành .issues là TypeScript xanh mượt ngay
     // English localization U1: message là khóa trong namespace `validation`; trả bản dịch theo ngôn ngữ của request.
-    const tValidation = asTranslate(await getTranslations("validation"));
-    return { error: translateIssueMessage(tValidation, validated.error.issues[0].message) };
+    return { error: translateIssueMessage(await validationText(), validated.error.issues[0].message) };
   }
 
   // Ảnh là tuỳ chọn: không gửi hoặc gửi tệp rỗng thì bỏ qua; có thì phải hợp lệ trước mọi truy vấn và upload.
@@ -88,7 +92,7 @@ export async function signUpUser(formData: FormData) {
   const hasAvatar = rawAvatar instanceof File ? rawAvatar.size > 0 : rawAvatar !== null;
   const parsedAvatar = hasAvatar ? avatarFileSchema.safeParse(rawAvatar) : null;
   if (parsedAvatar && !parsedAvatar.success) {
-    return { error: translateIssueMessage(asTranslate(await getTranslations("validation")), AVATAR_INVALID_KEY) };
+    return { error: translateIssueMessage(await validationText(), AVATAR_INVALID_KEY) };
   }
 
   // 3. Destructuring dữ liệu sạch
@@ -209,8 +213,7 @@ export async function setPasswordAfterConfirmation(formData: FormData) {
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!validated.success) {
-    const tValidation = asTranslate(await getTranslations("validation"));
-    return { error: translateIssueMessage(tValidation, validated.error.issues[0].message) };
+    return { error: translateIssueMessage(await validationText(), validated.error.issues[0].message) };
   }
 
   const supabase = await createClient();

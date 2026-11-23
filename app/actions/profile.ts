@@ -3,8 +3,8 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { getTranslations } from "next-intl/server";
-import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
+import { translateIssueMessage } from "@/lib/i18n/translate";
 import {
   profileSchema,
   passwordSchema,
@@ -15,12 +15,13 @@ import {
 
 // Thông báo của action hồ sơ nằm trong catalog `profile.actions` và `validation`, dịch theo ngôn ngữ của request lúc trả về
 // (English localization U2 H4). Dạng trả về `{ error }` / `{ success }` giữ nguyên; message của issue schema dịch ở `validationMessage`.
+// `recordedTranslations` ghi khóa + tham số của thông báo trả về để wrapper `*Localized` báo lại cho client; action gốc không đổi kết quả.
 async function profileText() {
-  return asTranslate(await getTranslations("profile.actions"));
+  return recordedTranslations("profile.actions");
 }
 
 async function validationMessage(message: string) {
-  return translateIssueMessage(asTranslate(await getTranslations("validation")), message);
+  return translateIssueMessage(await recordedTranslations("validation"), message);
 }
 
 // 🔥 ĐỊNH NGHĨA INTERFACE RÕ RÀNG ĐỂ LOẠI BỎ ANY
@@ -213,9 +214,9 @@ export async function updateUserPassword(rawData: unknown) {
         return { error: (await profileText())("currentPasswordWrong") };
       // Cùng khóa với setPasswordAfterConfirmation (catalog `auth.actions`), đổi ở một chỗ cho cả hai action (U2 H4).
       case "same_password":
-        return { error: (await getTranslations("auth.actions"))("samePassword") };
+        return { error: (await recordedTranslations("auth.actions"))("samePassword") };
       case "weak_password":
-        return { error: (await getTranslations("auth.actions"))("weakPassword") };
+        return { error: (await recordedTranslations("auth.actions"))("weakPassword") };
       case "reauthentication_needed":
         return { error: (await profileText())("reauthNeeded") };
       default:

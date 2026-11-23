@@ -1,7 +1,7 @@
 "use server";
 
 import { unstable_noStore } from "next/cache";
-import { getTranslations } from "next-intl/server";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
 import {
   publicCoursePreviewAnswerInputSchema,
   publicCoursePreviewAnswerRpcSchema,
@@ -24,7 +24,7 @@ export type PublicCoursePreviewAnswerResult =
 
 // Thông báo lỗi dịch theo ngôn ngữ của request tại thời điểm trả về (không dựng sẵn ở mức module).
 async function previewError(key: "previewError" | "answerError") {
-  const t = await getTranslations("courses");
+  const t = await recordedTranslations("courses");
   return t(`actions.${key}`);
 }
 

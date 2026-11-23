@@ -2,8 +2,8 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import type { Locale } from "./config";
 import type { Translate } from "./translate";
 
-/** Ngôn ngữ mà server dùng cho request và khóa catalog của thông báo (xem `request-locale-result.ts`). */
-export type RequestReply = { locale: Locale; messageKey: string | null };
+/** Ngôn ngữ mà server dùng cho request, khóa catalog và tham số của thông báo (xem `request-locale-result.ts`, `message-ref.ts`). */
+export type RequestReply = { locale: Locale; messageKey: string | null; messageParams?: Record<string, string | number> };
 
 /**
  * Thông báo client giữ trong state qua lần đổi ngôn ngữ. `router.refresh()` của bộ chọn ngôn ngữ giữ nguyên state của component
@@ -11,8 +11,8 @@ export type RequestReply = { locale: Locale; messageKey: string | null };
  * - `key`: thông báo do client sở hữu, lưu khóa và dịch lúc render nên đổi theo ngôn ngữ ngay.
  * - `text`: chuỗi Server Action đã dịch theo ngôn ngữ mà SERVER dùng cho request đó (không phải ngôn ngữ của tab: cookie dùng chung
  *   giữa các tab, nên tab đang hiện VI vẫn có thể nhận chuỗi EN). Chỉ hiện khi ngôn ngữ ấy khớp ngôn ngữ đang hiển thị; không khớp
- *   thì dịch lại đúng thông báo đó từ `messageKey` (khóa đầy đủ từ gốc catalog), và chỉ khi server không tìm ra khóa mới dùng
- *   `fallbackKey`, một thông báo chung do client dịch, vì cách khắc phục của các lỗi khác nhau.
+ *   thì dịch lại đúng thông báo đó từ `messageKey` + `messageParams` (khóa đầy đủ từ gốc catalog, do action ghi lại), và chỉ khi
+ *   action không ghi khóa nào mới dùng `fallbackKey`, một thông báo chung do client dịch, vì cách khắc phục của các lỗi khác nhau.
  */
 export type HeldMessage =
   | { kind: "key"; key: string }
@@ -32,7 +32,7 @@ export function resolveHeldMessage(message: HeldMessage | null, locale: Locale, 
   if (!message) return null;
   if (message.kind === "key") return t(message.key);
   if (message.reply.locale === locale) return message.text;
-  return message.reply.messageKey ? tRoot(message.reply.messageKey) : t(message.fallbackKey);
+  return message.reply.messageKey ? tRoot(message.reply.messageKey, message.reply.messageParams) : t(message.fallbackKey);
 }
 
 /** Đổi khóa đầy đủ từ gốc thành khóa tương đối trong `namespace`, hoặc null khi khóa nằm ngoài namespace đó. */
@@ -54,7 +54,7 @@ export function pickServerText(
 ): string {
   if (reply.locale === locale) return text;
   const key = namespace ? keyWithin(reply.messageKey, namespace) : reply.messageKey;
-  return t(key ?? fallbackKey);
+  return key ? t(key, reply.messageParams) : t(fallbackKey);
 }
 
 /**

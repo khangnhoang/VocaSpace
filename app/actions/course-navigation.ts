@@ -1,10 +1,10 @@
 "use server";
 
-import { getTranslations } from "next-intl/server";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
 import { createClient } from "@/utils/supabase/server";
 
 export async function getFirstTopicSlugByCourseSlug(courseSlug: string) {
-  const t = await getTranslations("courses");
+  const t = await recordedTranslations("courses");
 
   if (!courseSlug) {
     return {
