@@ -153,7 +153,10 @@ describe("exercise group label in the question list", () => {
     expect(dialog.queryByText("0/1234 answered correctly")).toBeNull();
     // Tên truy cập của nút là chữ trong nút; tìm theo chữ thay vì getByRole vì 1.234 nút làm phép tính tên truy cập chậm.
     const last = dialog.getByText("Question 1,234: Câu 1234");
-    expect(last.closest("button")?.textContent).toContain("Question 1,234: Câu 1234");
+    // Tên truy cập chỉ tính cho đúng nút cuối: giới hạn phạm vi truy vấn vào phần tử chứa nút đó, không duyệt 1.234 nút.
+    const lastItem = last.closest("li") ?? last.closest("button")!.parentElement!;
+    expect(within(lastItem).getByRole("button", { name: /^Question 1,234: Câu 1234/ })).toBeTruthy();
+    expect(within(lastItem).queryByRole("button", { name: /^Question 1234:/ })).toBeNull();
     expect(dialog.queryByText(/^Question 1234:/)).toBeNull();
   }, 30000);
 
@@ -161,7 +164,8 @@ describe("exercise group label in the question list", () => {
     render(<LearningWorkspace data={workspaceData()} />, { locale: "vi" });
     const dialog = openList(/Danh sách câu hỏi/);
     expect(dialog.getByText("Đã trả lời đúng 0/1234 câu")).toBeTruthy();
-    expect(dialog.getByText("Câu 1234: Câu 1234").closest("button")).toBeTruthy();
+    const lastItem = dialog.getByText("Câu 1234: Câu 1234").closest("li") ?? dialog.getByText("Câu 1234: Câu 1234").closest("button")!.parentElement!;
+    expect(within(lastItem).getByRole("button", { name: /^Câu 1234: Câu 1234/ })).toBeTruthy();
   }, 30000);
 
   it("keeps bare digits in Vietnamese", () => {
