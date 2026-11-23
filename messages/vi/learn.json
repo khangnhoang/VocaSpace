@@ -149,6 +149,18 @@
     "workspace": {
       "queryFailed": "Không thể tải bài học lúc này. Vui lòng thử lại.",
       "invalidData": "Dữ liệu bài học không hợp lệ."
+    },
+    "progress": {
+      "authRequired": "Vui lòng đăng nhập",
+      "invalidInput": "Dữ liệu câu trả lời không hợp lệ.",
+      "questionUnavailable": "Câu hỏi không khả dụng.",
+      "saveFailed": "Không thể lưu câu trả lời lúc này.",
+      "progressSync": "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
+      "enrollRequired": "Bạn cần ghi danh khóa học để lưu câu trả lời.",
+      "optionUnavailable": "Đáp án không khả dụng.",
+      "memoryRequired": "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.",
+      "cardsRequired": "Bạn cần học hết flashcard của bài này trước khi làm memory check.",
+      "defaultExplanation": "Đáp án chưa chính xác. Bạn hãy thử lại nhé!"
     }
   },
   "overview": {
@@ -305,6 +317,41 @@
     "navigator": {
       "group": "Nhóm {number}/{total}",
       "fallbackText": "Chọn đáp án đúng"
+    },
+    "answer": {
+      "correctAnnounce": "Chính xác!",
+      "correctTitle": "Chính xác",
+      "incorrectTitle": "Chưa chính xác",
+      "next": "Câu tiếp theo",
+      "retry": "Thử lại"
+    },
+    "memory": {
+      "title": "Memory check",
+      "correctCount": "Đã đúng {correct}/{total}",
+      "progressLabel": "Tiến độ memory check",
+      "progressValueText": "Đã đúng {correct} trên {total} câu",
+      "fallbackExplanation": "Đáp án chưa chính xác.",
+      "willReturn": "Câu này sẽ quay lại sau các câu còn lại.",
+      "willRetry": "Bạn sẽ trả lời lại câu này.",
+      "checking": "Đang kiểm tra...",
+      "check": "Kiểm tra đáp án",
+      "reviewTitle": "Xem lại Memory check",
+      "reviewCount": "{shown} câu, đáp án đúng của bạn được đánh dấu.",
+      "explanation": "Giải thích",
+      "doExercises": "Làm bài tập",
+      "changedTitle": "Memory check vừa thay đổi",
+      "changedBody": "Tải lại để làm các câu còn lại trước khi mở bài tập.",
+      "reload": "Tải lại"
+    },
+    "question": {
+      "position": "Câu hỏi {current}/{total}",
+      "incorrectFallback": "Rất tiếc đáp án chưa chính xác. Bạn hãy đọc lại ngữ liệu và thử lại nhé!",
+      "progressNotice": "Đã lưu câu trả lời, nhưng chưa ghi nhận được tiến độ bài học.",
+      "sendFailed": "Không thể gửi câu trả lời lúc này.",
+      "confirm": "Xác nhận đáp án",
+      "checking": "Đang kiểm tra…",
+      "saveFailedTitle": "Chưa lưu được câu trả lời",
+      "saveFailedBody": "{message} Lựa chọn của bạn vẫn được giữ, hãy thử gửi lại."
     }
   }
 }

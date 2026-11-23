@@ -8,7 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Rating } from "ts-fsrs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { CARDS_REQUIRED, CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
+import { CARDS_REQUIRED } from "@/lib/memory-check";
+import viLearn from "@/messages/vi/learn.json";
+
+const CARDS_REQUIRED_ERROR = viLearn.actions.progress.cardsRequired;
 import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";

@@ -149,6 +149,18 @@
     "workspace": {
       "queryFailed": "Couldn't load the lesson right now. Please try again.",
       "invalidData": "The lesson data is invalid."
+    },
+    "progress": {
+      "authRequired": "Please sign in",
+      "invalidInput": "The answer data is invalid.",
+      "questionUnavailable": "This question isn't available.",
+      "saveFailed": "Couldn't save your answer right now.",
+      "progressSync": "Your answer was saved, but your lesson progress couldn't be recorded.",
+      "enrollRequired": "You need to enroll in the course to save your answer.",
+      "optionUnavailable": "That answer option isn't available.",
+      "memoryRequired": "Answer every Memory check question correctly before starting the exercises.",
+      "cardsRequired": "Study all the flashcards in this lesson before taking the Memory check.",
+      "defaultExplanation": "That answer isn't correct. Give it another try!"
     }
   },
   "overview": {
@@ -305,6 +317,41 @@
     "navigator": {
       "group": "Group {number}/{total}",
       "fallbackText": "Choose the correct answer"
+    },
+    "answer": {
+      "correctAnnounce": "Correct!",
+      "correctTitle": "Correct",
+      "incorrectTitle": "Not quite right",
+      "next": "Next question",
+      "retry": "Try again"
+    },
+    "memory": {
+      "title": "Memory check",
+      "correctCount": "{correct}/{total} correct",
+      "progressLabel": "Memory check progress",
+      "progressValueText": "{count, plural, one {{correct} of {total} question correct} other {{correct} of {total} questions correct}}",
+      "fallbackExplanation": "That answer isn't correct.",
+      "willReturn": "This question will come back after the remaining ones.",
+      "willRetry": "You'll answer this question again.",
+      "checking": "Checking...",
+      "check": "Check answer",
+      "reviewTitle": "Memory check review",
+      "reviewCount": "{count, plural, one {{shown} question, your correct answer is marked.} other {{shown} questions, your correct answers are marked.}}",
+      "explanation": "Explanation",
+      "doExercises": "Do the exercises",
+      "changedTitle": "The Memory check just changed",
+      "changedBody": "Reload to answer the remaining questions before opening the exercises.",
+      "reload": "Reload"
+    },
+    "question": {
+      "position": "Question {current}/{total}",
+      "incorrectFallback": "Sorry, that answer isn't correct. Reread the material and try again!",
+      "progressNotice": "Your answer was saved, but your lesson progress couldn't be recorded.",
+      "sendFailed": "Couldn't send your answer right now.",
+      "confirm": "Confirm answer",
+      "checking": "Checking…",
+      "saveFailedTitle": "Couldn't save your answer",
+      "saveFailedBody": "{message} Your choice was kept, so try sending it again."
     }
   }
 }

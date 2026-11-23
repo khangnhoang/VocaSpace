@@ -2,12 +2,17 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { CheckCircle2, Loader2, RotateCcw, TriangleAlert, XCircle } from "lucide-react";
-import { submitQuestionAnswer } from "@/app/actions/progress";
+import { useLocale, useTranslations } from "next-intl";
+import { submitQuestionAnswerLocalized } from "@/app/actions/progress-localized";
 import { Button } from "@/components/ui/button";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCatalogCount } from "@/lib/i18n/format";
+import { heldText, replyForField, resolveHeldMessage, type RequestReply } from "@/lib/i18n/held-message";
+import { asTranslate } from "@/lib/i18n/translate";
 import { CARDS_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO } from "@/lib/schemas/learn";
 import type { TopicProgress } from "@/lib/schemas/learning-workspace";
-import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
+import { serverTextFor, type AnswerAttempt, type AttemptOutcome } from "./answer-attempt";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -54,6 +59,11 @@ interface MemoryCheckStageProps {
    * loaded). The workspace owns recovery: back to the flashcards and a data refresh.
    */
   onCardsRequired?: () => void;
+  /**
+   * The workspace translates the progress warning of a saved answer with the language shown when the reply lands (U3 H4). It
+   * stays mounted while this stage does not, so a reply that arrives after the learner left the stage still toasts correctly.
+   */
+  resolveProgressNotice: (text: string, reply: RequestReply) => string;
 }
 
 function sortOptions(question: QuestionDTO) {
@@ -85,7 +95,13 @@ export default function MemoryCheckStage({
   onGoToExercises,
   onTopicCompleted,
   onCardsRequired,
+  resolveProgressNotice,
 }: MemoryCheckStageProps) {
+  const t = asTranslate(useTranslations("learn"));
+  const tRoot = asTranslate(useTranslations());
+  const learningText = asTranslate(useTranslations("learning"));
+  const locale: Locale = useLocale() === "en" ? "en" : "vi";
+  const count = (value: number) => formatCatalogCount(locale, value);
   const [isPending, startTransition] = useTransition();
   // Retry queue: unanswered/incorrect questions in authoring order; a wrong
   // answer moves its question to the end until every question is correct. A question
@@ -121,11 +137,13 @@ export default function MemoryCheckStage({
         ? { kind: "correct", passed: settled.passed }
         : {
             kind: "incorrect",
-            explanation: settled.explanation || "Đáp án chưa chính xác.",
+            explanation:
+              serverTextFor(settled.explanation, locale, tRoot) || t("workspace.memory.fallbackExplanation"),
             passed: settled.passed,
           }
       : null;
-  const error = settled?.kind === "error" ? settled.message : null;
+  // Giữ thông báo lỗi dạng khóa + tham số và dịch lúc render để nó đổi theo ngôn ngữ khi đang hiện (U3 H4).
+  const error = settled?.kind === "error" ? resolveHeldMessage(settled.message, locale, t, tRoot) : null;
   const isRequestPending = isPending || attempt?.status === "pending";
   const selectedOptionId =
     attempt && (attempt.status === "pending" || feedback)
@@ -162,10 +180,13 @@ export default function MemoryCheckStage({
       >
         <div className="flex flex-col gap-1">
           <h2 id="memory-check-review-title" className="text-xl font-bold text-slate-900">
-            Xem lại Memory check
+            {t("workspace.memory.reviewTitle")}
           </h2>
           <p className="text-sm font-medium text-slate-600">
-            {reviewQuestions.length} câu, đáp án đúng của bạn được đánh dấu.
+            {t("workspace.memory.reviewCount", {
+              count: reviewQuestions.length,
+              shown: count(reviewQuestions.length),
+            })}
           </p>
         </div>
         <ol className="flex flex-col gap-8">
@@ -189,12 +210,13 @@ export default function MemoryCheckStage({
                   disabled
                   onSelect={() => undefined}
                   labelledBy={headingId}
+                  t={learningText}
                 />
                 {explanation && (
                   <div className="flex flex-col gap-1 rounded-lg border border-growth-line bg-growth-quiet p-4 text-slate-900">
                     <p className="flex items-center gap-2 font-bold text-growth">
                       <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
-                      Giải thích
+                      {t("workspace.memory.explanation")}
                     </p>
                     <p className="leading-relaxed">{explanation}</p>
                   </div>
@@ -205,7 +227,7 @@ export default function MemoryCheckStage({
         </ol>
         {hasExercises && (
           <Button onClick={onGoToExercises} size="lg" className="min-h-12 w-full sm:w-auto sm:self-start sm:px-8">
-            Làm bài tập
+            {t("workspace.memory.doExercises")}
           </Button>
         )}
       </section>
@@ -218,8 +240,8 @@ export default function MemoryCheckStage({
     // needed: router.refresh() keeps the client queue and answers state.
     return (
       <section role="status" className="flex max-w-xl flex-col items-center gap-4 text-center">
-        <h2 className="text-xl font-bold text-slate-800">Memory check vừa thay đổi</h2>
-        <p className="text-slate-600">Tải lại để làm các câu còn lại trước khi mở bài tập.</p>
+        <h2 className="text-xl font-bold text-slate-800">{t("workspace.memory.changedTitle")}</h2>
+        <p className="text-slate-600">{t("workspace.memory.changedBody")}</p>
         <Button
           onClick={() => window.location.reload()}
           variant="outline"
@@ -227,7 +249,7 @@ export default function MemoryCheckStage({
           className="px-6"
         >
           <RotateCcw aria-hidden="true" className="size-4" />
-          Tải lại
+          {t("workspace.memory.reload")}
         </Button>
       </section>
     );
@@ -242,7 +264,7 @@ export default function MemoryCheckStage({
     const chosenId = selectedOptionId;
     onAttemptStart(questionId, chosenId);
     startTransition(async () => {
-      const result = await submitQuestionAnswer(questionId, chosenId);
+      const { result, ...reply } = await submitQuestionAnswerLocalized(questionId, chosenId);
       if (result.error) {
         if (result.errorCode === CARDS_REQUIRED && onCardsRequired) {
           // Không có câu trả lời nào được ghi: bỏ lượt gửi để câu hỏi không kẹt, rồi để workspace phục hồi.
@@ -250,15 +272,23 @@ export default function MemoryCheckStage({
           onCardsRequired();
           return;
         }
-        onAttemptSettled(questionId, chosenId, { kind: "error", message: result.error });
+        onAttemptSettled(questionId, chosenId, {
+          kind: "error",
+          message: heldText(result.error, replyForField(reply, "error"), "actions.progress.saveFailed"),
+        });
         return;
       }
-      announceTopicProgress(result, onTopicCompleted);
+      const progressNotice = result.progressError
+        ? resolveProgressNotice(result.progressError, replyForField(reply, "progressError"))
+        : undefined;
+      announceTopicProgress(result, onTopicCompleted, progressNotice);
       if (result.isCorrect) onCorrectAnswer(questionId, chosenId, result.explanation);
       else onIncorrectAnswer?.(questionId);
       onAttemptSettled(questionId, chosenId, {
         kind: result.isCorrect ? "correct" : "incorrect",
-        explanation: result.explanation,
+        explanation: result.explanation
+          ? { text: result.explanation, reply: replyForField(reply, "explanation") }
+          : undefined,
         progressError: result.progressError,
         passed: result.isMemoryCheckPassed === true,
         topicProgress: result.topicProgress,
@@ -292,18 +322,20 @@ export default function MemoryCheckStage({
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3 text-sm font-bold text-slate-600">
-          <span>Memory check</span>
-          <span>
-            Đã đúng {correctCount}/{total}
-          </span>
+          <span>{t("workspace.memory.title")}</span>
+          <span>{t("workspace.memory.correctCount", { correct: count(correctCount), total: count(total) })}</span>
         </div>
         <div
           role="progressbar"
-          aria-label="Tiến độ memory check"
+          aria-label={t("workspace.memory.progressLabel")}
           aria-valuemin={0}
           aria-valuemax={total}
           aria-valuenow={correctCount}
-          aria-valuetext={`Đã đúng ${correctCount} trên ${total} câu`}
+          aria-valuetext={t("workspace.memory.progressValueText", {
+            count: total,
+            correct: count(correctCount),
+            total: count(total),
+          })}
           className="h-2 overflow-hidden rounded-full bg-slate-200"
         >
           <div
@@ -333,23 +365,22 @@ export default function MemoryCheckStage({
           disabled={isAnswered || isRequestPending}
           onSelect={setChosenOptionId}
           labelledBy="memory-check-question"
+          t={learningText}
         />
       </div>
 
       <div aria-live="polite" className="min-h-0">
         {/* The green option and its check already show a right answer; only announce it. */}
-        {feedback?.kind === "correct" && <p className="sr-only">Chính xác!</p>}
+        {feedback?.kind === "correct" && <p className="sr-only">{t("workspace.answer.correctAnnounce")}</p>}
         {feedback?.kind === "incorrect" && (
           <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">
             <p className="flex items-center gap-2 font-bold text-correction">
               <XCircle aria-hidden="true" className="size-5 shrink-0" />
-              Chưa chính xác
+              {t("workspace.answer.incorrectTitle")}
             </p>
             <p className="leading-relaxed">{feedback.explanation}</p>
             <p className="text-sm font-medium">
-              {willReturn
-                ? "Câu này sẽ quay lại sau các câu còn lại."
-                : "Bạn sẽ trả lời lại câu này."}
+              {willReturn ? t("workspace.memory.willReturn") : t("workspace.memory.willRetry")}
             </p>
           </div>
         )}
@@ -372,7 +403,11 @@ export default function MemoryCheckStage({
             size="lg"
             className="min-h-12 w-full"
           >
-            {feedback.kind === "incorrect" ? (willReturn ? "Câu tiếp theo" : "Thử lại") : "Câu tiếp theo"}
+            {feedback.kind === "incorrect"
+              ? willReturn
+                ? t("workspace.answer.next")
+                : t("workspace.answer.retry")
+              : t("workspace.answer.next")}
           </Button>
         )
       ) : (
@@ -383,7 +418,7 @@ export default function MemoryCheckStage({
           className="min-h-12 w-full"
         >
           {isRequestPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-          {isRequestPending ? "Đang kiểm tra..." : "Kiểm tra đáp án"}
+          {isRequestPending ? t("workspace.memory.checking") : t("workspace.memory.check")}
         </Button>
       )}
     </section>

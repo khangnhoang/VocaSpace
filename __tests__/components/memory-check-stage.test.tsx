@@ -10,7 +10,10 @@ import { toast } from "sonner";
 import { submitQuestionAnswer } from "@/app/actions/progress";
 import { submitCardReview } from "@/app/actions/review";
 import { resetCardReviewQueueForTests } from "@/hooks/use-card-review-queue";
-import { CARDS_REQUIRED, CARDS_REQUIRED_ERROR } from "@/lib/memory-check";
+import { CARDS_REQUIRED } from "@/lib/memory-check";
+import viLearn from "@/messages/vi/learn.json";
+
+const CARDS_REQUIRED_ERROR = viLearn.actions.progress.cardsRequired;
 import LearningWorkspace from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/LearningWorkspace";
 import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 

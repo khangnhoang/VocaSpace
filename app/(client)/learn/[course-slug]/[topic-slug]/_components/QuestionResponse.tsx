@@ -3,11 +3,23 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronRight, Loader2, TriangleAlert, XCircle } from "lucide-react";
-import { submitQuestionAnswer } from "@/app/actions/progress";
+import { useLocale, useTranslations } from "next-intl";
+import { submitQuestionAnswerLocalized } from "@/app/actions/progress-localized";
 import { Button } from "@/components/ui/button";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCatalogCount } from "@/lib/i18n/format";
+import {
+  heldKey,
+  heldText,
+  replyForField,
+  resolveHeldMessage,
+  type HeldMessage,
+  type RequestReply,
+} from "@/lib/i18n/held-message";
+import { asTranslate } from "@/lib/i18n/translate";
 import { MEMORY_CHECK_REQUIRED } from "@/lib/memory-check";
 import type { QuestionDTO, QuestionOptionDTO } from "@/lib/schemas/learn";
-import type { AnswerAttempt, AttemptOutcome } from "./answer-attempt";
+import { serverTextFor, type AnswerAttempt, type AttemptOutcome, type ServerText } from "./answer-attempt";
 import ChoiceGroup from "./ChoiceGroup";
 import { announceTopicProgress } from "./topic-progress-feedback";
 
@@ -18,14 +30,9 @@ import { announceTopicProgress } from "./topic-progress-feedback";
 type Phase =
   | { kind: "choosing" }
   | { kind: "pending" }
-  | { kind: "correct"; explanation?: string; progressError?: string; alreadySaved?: boolean }
-  | { kind: "incorrect"; explanation: string; progressError?: string }
-  | { kind: "error"; message: string };
-
-const INCORRECT_FALLBACK =
-  "Rất tiếc đáp án chưa chính xác. Bạn hãy đọc lại ngữ liệu và thử lại nhé!";
-const PROGRESS_SYNC_NOTICE =
-  "Đã lưu câu trả lời, nhưng chưa ghi nhận được tiến độ bài học.";
+  | { kind: "correct"; explanation?: ServerText; progressError?: string; alreadySaved?: boolean }
+  | { kind: "incorrect"; explanation?: ServerText; progressError?: string }
+  | { kind: "error"; message: HeldMessage };
 
 interface QuestionResponseProps {
   question: QuestionDTO;
@@ -59,6 +66,11 @@ interface QuestionResponseProps {
   /** The server reports the topic as completed; the argument is its `newlyCompleted` (LF5 AC4). */
   onTopicCompleted?: (newlyCompleted: boolean) => void;
   onMemoryCheckRequired?: () => void;
+  /**
+   * The workspace translates the progress warning of a saved answer with the language shown when the reply lands (U3 H4). This
+   * view unmounts when the learner leaves the question, the workspace does not.
+   */
+  resolveProgressNotice: (text: string, reply: RequestReply) => string;
 }
 
 /**
@@ -86,7 +98,13 @@ export default function QuestionResponse({
   onIncorrectAnswer,
   onTopicCompleted,
   onMemoryCheckRequired,
+  resolveProgressNotice,
 }: QuestionResponseProps) {
+  const t = asTranslate(useTranslations("learn"));
+  const tRoot = asTranslate(useTranslations());
+  const learningText = asTranslate(useTranslations("learning"));
+  const locale: Locale = useLocale() === "en" ? "en" : "vi";
+  const count = (value: number) => formatCatalogCount(locale, value);
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -119,7 +137,7 @@ export default function QuestionResponse({
         : outcome.kind === "incorrect"
           ? {
               kind: "incorrect",
-              explanation: outcome.explanation || INCORRECT_FALLBACK,
+              explanation: outcome.explanation,
               progressError: outcome.progressError,
             }
           : { kind: "error", message: outcome.message },
@@ -149,7 +167,7 @@ export default function QuestionResponse({
   const isPending = phase.kind === "pending";
   const isCorrect = phase.kind === "correct";
   const result = isCorrect ? "correct" : phase.kind === "incorrect" ? "incorrect" : null;
-  const heading = question.content.trim() || "Chọn đáp án đúng";
+  const heading = question.content.trim() || t("workspace.navigator.fallbackText");
 
   const submit = () => {
     if (!selectedId || isPending || isCorrect || submittingRef.current) return;
@@ -161,11 +179,11 @@ export default function QuestionResponse({
     onAttemptStart(question.id, chosenId);
 
     startTransition(async () => {
-      let response: Awaited<ReturnType<typeof submitQuestionAnswer>>;
+      let response: Awaited<ReturnType<typeof submitQuestionAnswerLocalized>>;
       try {
-        response = await submitQuestionAnswer(question.id, chosenId);
+        response = await submitQuestionAnswerLocalized(question.id, chosenId);
       } catch {
-        const message = "Không thể gửi câu trả lời lúc này.";
+        const message = heldKey("workspace.question.sendFailed");
         onAttemptSettled(question.id, chosenId, { kind: "error", message });
         if (aliveRef.current && attemptRef.current === attemptNumber) {
           setPhase({ kind: "error", message });
@@ -177,41 +195,42 @@ export default function QuestionResponse({
       // Leaving this question makes this view history only; a view that replaced it
       // takes the outcome from the workspace.
       const isCurrent = aliveRef.current && attemptRef.current === attemptNumber;
+      const { result, ...reply } = response;
 
-      if (response.error) {
-        onAttemptSettled(question.id, chosenId, { kind: "error", message: response.error });
+      if (result.error) {
+        const message = heldText(result.error, replyForField(reply, "error"), "actions.progress.saveFailed");
+        onAttemptSettled(question.id, chosenId, { kind: "error", message });
         if (!isCurrent) return;
-        if (response.errorCode === MEMORY_CHECK_REQUIRED && onMemoryCheckRequired) {
+        if (result.errorCode === MEMORY_CHECK_REQUIRED && onMemoryCheckRequired) {
           onMemoryCheckRequired();
           return;
         }
-        setPhase({ kind: "error", message: response.error });
+        setPhase({ kind: "error", message });
         return;
       }
 
-      announceTopicProgress(response, onTopicCompleted);
-      if (response.isCorrect) onCorrectAnswer(question.id, chosenId);
+      const progressNotice = result.progressError
+        ? resolveProgressNotice(result.progressError, replyForField(reply, "progressError"))
+        : undefined;
+      announceTopicProgress(result, onTopicCompleted, progressNotice);
+      if (result.isCorrect) onCorrectAnswer(question.id, chosenId);
       else onIncorrectAnswer?.(question.id);
+      // Lời nhắc mặc định của câu sai có khóa catalog; giải thích do tác giả viết thì không, nên luôn hiện đúng như đã viết.
+      const explanation = result.explanation
+        ? { text: result.explanation, reply: replyForField(reply, "explanation") }
+        : undefined;
       onAttemptSettled(question.id, chosenId, {
-        kind: response.isCorrect ? "correct" : "incorrect",
-        explanation: response.explanation,
-        progressError: response.progressError,
-        passed: response.isMemoryCheckPassed === true,
+        kind: result.isCorrect ? "correct" : "incorrect",
+        explanation,
+        progressError: result.progressError,
+        passed: result.isMemoryCheckPassed === true,
       });
       if (!isCurrent) return;
 
       setPhase(
-        response.isCorrect
-          ? {
-              kind: "correct",
-              explanation: response.explanation,
-              progressError: response.progressError,
-            }
-          : {
-              kind: "incorrect",
-              explanation: response.explanation || INCORRECT_FALLBACK,
-              progressError: response.progressError,
-            },
+        result.isCorrect
+          ? { kind: "correct", explanation, progressError: result.progressError }
+          : { kind: "incorrect", explanation, progressError: result.progressError },
       );
     });
   };
@@ -225,14 +244,14 @@ export default function QuestionResponse({
   const primary =
     phase.kind === "correct"
       ? hasNext
-        ? { label: "Câu tiếp theo", icon: null, trailingIcon: <ChevronRight aria-hidden="true" /> }
+        ? { label: t("workspace.answer.next"), icon: null, trailingIcon: <ChevronRight aria-hidden="true" /> }
         : "href" in endAction
           ? null
           : { label: endAction.label, icon: null, trailingIcon: null }
       : phase.kind === "incorrect"
-        ? { label: "Thử lại", icon: null, trailingIcon: null }
+        ? { label: t("workspace.answer.retry"), icon: null, trailingIcon: null }
         : {
-            label: isPending ? "Đang kiểm tra…" : "Xác nhận đáp án",
+            label: isPending ? t("workspace.question.checking") : t("workspace.question.confirm"),
             icon: isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null,
             trailingIcon: null,
           };
@@ -246,7 +265,7 @@ export default function QuestionResponse({
   const progressNotice =
     phase.kind === "correct" || phase.kind === "incorrect"
       ? phase.progressError
-        ? PROGRESS_SYNC_NOTICE
+        ? t("workspace.question.progressNotice")
         : null
       : null;
 
@@ -256,11 +275,11 @@ export default function QuestionResponse({
     >
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-600">
         <span>
-          Câu hỏi {questionNumber}/{totalQuestions}
+          {t("workspace.question.position", { current: count(questionNumber), total: count(totalQuestions) })}
         </span>
         {groupPosition && (
           <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
-            Nhóm {groupPosition.current}/{groupPosition.total}
+            {t("workspace.navigator.group", { number: count(groupPosition.current), total: count(groupPosition.total) })}
           </span>
         )}
       </div>
@@ -282,6 +301,7 @@ export default function QuestionResponse({
         disabled={isPending || isCorrect || phase.kind === "incorrect"}
         onSelect={setSelectedId}
         labelledBy={headingId}
+        t={learningText}
       />
 
       <div className="flex flex-col gap-3">
@@ -320,24 +340,26 @@ export default function QuestionResponse({
               live region only announces it (a saved answer was announced when it was given); with one,
               the box below has the same shape as the incorrect box and its heading is the announcement. */}
           {phase.kind === "correct" && !phase.alreadySaved && !phase.explanation && (
-            <p className="sr-only">Chính xác!</p>
+            <p className="sr-only">{t("workspace.answer.correctAnnounce")}</p>
           )}
           {phase.kind === "correct" && phase.explanation && (
             <div className="flex flex-col gap-2 rounded-lg border border-growth-line bg-growth-quiet p-4 text-slate-900">
               <p className="flex items-center gap-2 font-bold text-growth">
                 <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
-                Chính xác
+                {t("workspace.answer.correctTitle")}
               </p>
-              <p className="leading-relaxed">{phase.explanation}</p>
+              <p className="leading-relaxed">{serverTextFor(phase.explanation, locale, tRoot)}</p>
             </div>
           )}
           {phase.kind === "incorrect" && (
             <div className="flex flex-col gap-2 rounded-lg border border-correction-line bg-correction-quiet p-4 text-slate-900">
               <p className="flex items-center gap-2 font-bold text-correction">
                 <XCircle aria-hidden="true" className="size-5 shrink-0" />
-                Chưa chính xác
+                {t("workspace.answer.incorrectTitle")}
               </p>
-              <p className="leading-relaxed">{phase.explanation}</p>
+              <p className="leading-relaxed">
+                {serverTextFor(phase.explanation, locale, tRoot) || t("workspace.question.incorrectFallback")}
+              </p>
             </div>
           )}
           {phase.kind === "error" && (
@@ -347,10 +369,12 @@ export default function QuestionResponse({
             >
               <p className="flex items-center gap-2 font-bold text-attention">
                 <TriangleAlert aria-hidden="true" className="size-5 shrink-0" />
-                Chưa lưu được câu trả lời
+                {t("workspace.question.saveFailedTitle")}
               </p>
               <p className="leading-relaxed">
-                {phase.message} Lựa chọn của bạn vẫn được giữ, hãy thử gửi lại.
+                {t("workspace.question.saveFailedBody", {
+                  message: resolveHeldMessage(phase.message, locale, t, tRoot) ?? "",
+                })}
               </p>
             </div>
           )}

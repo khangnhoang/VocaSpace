@@ -35,7 +35,7 @@ import {
 import { useCourseLearningSummary } from "@/hooks/use-course-learning-summary";
 import type { Locale } from "@/lib/i18n/config";
 import { formatCatalogCount } from "@/lib/i18n/format";
-import { pickServerText, replyForField, useLatest } from "@/lib/i18n/held-message";
+import { pickServerText, replyForField, useLatest, type RequestReply } from "@/lib/i18n/held-message";
 import { asTranslate, type Translate } from "@/lib/i18n/translate";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
 import { resolveLandingStage, resolveNextUnfinishedStage } from "@/lib/learning-landing";
@@ -263,6 +263,10 @@ export default function LearningWorkspace({
   const count = (value: number) => formatCatalogCount(locale, value);
   // Toast phát từ callback async (kết quả của lần gửi đáp án, lần lưu thẻ) phải dùng ngôn ngữ LÚC phát, không phải lúc gửi (U3 H4).
   const latestT = useLatest(t);
+  const latestLocale = useLatest(locale);
+  // Cảnh báo tiến độ của câu trả lời đã lưu: các màn hình câu hỏi có thể đã unmount khi phản hồi về, nên workspace dịch bằng ngôn ngữ LÚC phát.
+  const resolveProgressNotice = (text: string, reply: RequestReply) =>
+    pickServerText(text, reply, latestLocale.current, latestT.current, "actions.progress.progressSync", "learn");
   // LF6: ghi chú thông báo khóa của thanh tiến trình lấy từ cùng nguồn chữ với màn hình khóa.
   const memoryCardsLockReason = t("workspace.lock.memoryCards");
   const memoryLockReason = t("workspace.lock.exercises");
@@ -1036,6 +1040,7 @@ export default function LearningWorkspace({
           <StickyColumn enabled={isSplit} className="min-w-0">
             <QuestionResponse
               key={currentQuestion.id}
+              resolveProgressNotice={resolveProgressNotice}
               question={currentQuestion}
               options={sortedOptions}
               questionNumber={currentPositionIndex + 1}
@@ -1159,6 +1164,7 @@ export default function LearningWorkspace({
       return (
         <div className="mx-auto flex w-full justify-center">
           <MemoryCheckStage
+            resolveProgressNotice={resolveProgressNotice}
             questions={memoryCheck.questions}
             initiallyCorrectIds={memoryCheck.questions
               .filter((question) => userAnswers[question.id])

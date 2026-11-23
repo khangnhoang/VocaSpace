@@ -25,8 +25,8 @@ import type { LearningWorkspaceData } from "@/lib/schemas/learning-workspace";
 // - Case chính: số thẻ/chủ đề có phân tách nghìn ở en và chữ số thường ở vi (1234), số ít/số nhiều, nhãn "Chương N · …"/"Chủ đề N · …",
 //   đổi ngôn ngữ khi đang hiện (provider đổi, state giữ), toast phát sau request chờ dùng ngôn ngữ LÚC phát (cảnh báo tiến độ có khóa,
 //   lỗi lưu thẻ do client dựng, lý do khóa bài tập), toast đầu trang về số thẻ chưa học.
-// - Giới hạn: tiêu đề chủ đề/chương/khóa là nội dung của giáo viên nên giữ nguyên; MemoryCheckStage, QuestionResponse và ChoiceGroup chưa
-//   dịch ở CP3 (CP4) nên test không assert chữ của chúng; toast hoàn thành memory check phát từ MemoryCheckStage nên test ở CP4.
+// - Giới hạn: tiêu đề chủ đề/chương/khóa là nội dung của giáo viên nên giữ nguyên; chữ của MemoryCheckStage, QuestionResponse và ChoiceGroup
+//   (U3 CP4) cùng toast hoàn thành memory check do __tests__/components/learning-memory-english.test.tsx giữ, nên file này không assert chữ của chúng.
 
 vi.mock("@/app/actions/progress", () => ({ submitQuestionAnswer: vi.fn() }));
 vi.mock("@/app/actions/review", () => ({ submitCardReview: vi.fn() }));

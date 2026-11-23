@@ -7,7 +7,7 @@ import {
   seedLearningWorkspaceMatrix,
 } from "../../scripts/e2e/learning-workspace-matrix-fixture.mjs";
 import { getWorkerScope, assertIsolatedRuntime } from "../../scripts/e2e/support/worker-scope.mjs";
-import { CARDS_REQUIRED_ERROR } from "../../lib/memory-check";
+import viLearn from "../../messages/vi/learn.json";
 import { createSupabaseAdmin } from "../../scripts/e2e/support/supabase-admin.mjs";
 
 // spec: docs/programs/student-user-flow-route/implementation-plans/lf9/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf4/plan.md, docs/programs/student-user-flow-route/implementation-plans/lf6/plan.md
@@ -208,7 +208,7 @@ test("a card added after the page loaded sends the learner back to the flashcard
   await page.getByRole("button", { name: "Kiểm tra đáp án" }).click();
   // Đúng một toast thông tin với số thẻ mới; không có toast lỗi và không có toast "Bạn còn N thẻ chưa học".
   await expect(page.getByText(NEW_CARDS_TOAST)).toBeVisible();
-  await expect(page.getByText(CARDS_REQUIRED_ERROR)).toHaveCount(0);
+  await expect(page.getByText(viLearn.actions.progress.cardsRequired)).toHaveCount(0);
   await expect(page.getByText(/Bạn còn \d+ thẻ chưa học/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
   await expect(thread).toContainText("Memory check (đang khóa)");
