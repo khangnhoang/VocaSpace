@@ -1,4 +1,6 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { formatCatalogCount } from "@/lib/i18n/format";
 
 interface CoursePaginationProps {
   currentPage: number;
@@ -18,6 +20,8 @@ export default function CoursePagination({
   pageSize,
   totalItems,
 }: CoursePaginationProps) {
+  const t = useTranslations("learn");
+  const locale = useLocale() === "en" ? "en" : "vi";
   const pageCount = Math.max(1, Math.ceil(totalItems / pageSize));
   if (pageCount <= 1) return null;
 
@@ -31,16 +35,21 @@ export default function CoursePagination({
 
   return (
     <nav
-      aria-label={`Phân trang ${itemLabel}`}
+      aria-label={t("pagination.label", { item: itemLabel })}
       className="flex min-h-11 min-w-0 items-center justify-between gap-3"
     >
       <p className="min-w-0 text-xs leading-5 text-slate-600 sm:text-[13px]">
-        Hiển thị {start}–{end} / {totalItems} {itemLabel}
+        {t("pagination.showing", {
+          start: formatCatalogCount(locale, start),
+          end: formatCatalogCount(locale, end),
+          total: formatCatalogCount(locale, totalItems),
+          item: itemLabel,
+        })}
       </p>
       <div className="flex shrink-0 gap-2">
         <button
           type="button"
-          aria-label="Trang trước"
+          aria-label={t("pagination.previous")}
           disabled={safePage === 1}
           onClick={() => onPageChange(safePage - 1)}
           className={`${pageButtonClass} border-transparent bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:text-slate-400`}
@@ -54,7 +63,7 @@ export default function CoursePagination({
               key={page}
               type="button"
               aria-current={isSelected ? "page" : undefined}
-              aria-label={`Trang ${page}`}
+              aria-label={t("pagination.page", { page: String(page) })}
               onClick={() => onPageChange(page)}
               className={`${pageButtonClass} ${
                 isSelected
@@ -68,7 +77,7 @@ export default function CoursePagination({
         })}
         <button
           type="button"
-          aria-label="Trang sau"
+          aria-label={t("pagination.next")}
           disabled={safePage === pageCount}
           onClick={() => onPageChange(safePage + 1)}
           className={`${pageButtonClass} border-slate-200 bg-white text-slate-900 hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400`}

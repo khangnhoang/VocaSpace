@@ -1,8 +1,11 @@
 import { Check, Flame } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { formatCatalogCount } from "@/lib/i18n/format";
+import { asTranslate } from "@/lib/i18n/translate";
 import {
-  dayMonthLabel,
-  formatStudyDuration,
-  weekdayLabel,
+  translateDayMonth,
+  translateStudyDuration,
+  translateWeekday,
 } from "@/lib/learning-activity-format";
 import type {
   OverallLearningSummary,
@@ -21,10 +24,15 @@ function Heading({ children }: { children: React.ReactNode }) {
 }
 
 function SevenDayStrip({ days }: { days: OverallLearningSummary["days"] }) {
+  const t = useTranslations("learn");
+  // Nhãn thứ, ngày-tháng và thời lượng đến từ namespace `learning` (U3 H5); văn bản đọc cho trình đọc màn hình cũng đi qua đây.
+  const tl = asTranslate(useTranslations("learning"));
+
   return (
-    <ol aria-label="7 ngày gần nhất" className="mt-4 grid grid-cols-7 gap-1.5">
+    <ol aria-label={t("streak.stripLabel")} className="mt-4 grid grid-cols-7 gap-1.5">
       {days.map((day, index) => {
         const isToday = index === days.length - 1;
+        const weekday = isToday ? t("streak.todayLong") : translateWeekday(day.date, tl);
         return (
           <li
             key={day.date}
@@ -32,7 +40,7 @@ function SevenDayStrip({ days }: { days: OverallLearningSummary["days"] }) {
             className="flex min-w-0 flex-col items-center gap-1"
           >
             <span className={`text-[11px] font-bold ${isToday ? "text-blue-800" : "text-slate-500"}`}>
-              {isToday ? "Nay" : weekdayLabel(day.date)}
+              {isToday ? t("streak.todayShort") : translateWeekday(day.date, tl)}
             </span>
             <span
               aria-hidden="true"
@@ -47,7 +55,11 @@ function SevenDayStrip({ days }: { days: OverallLearningSummary["days"] }) {
               {day.studied && <Check className="size-4" />}
             </span>
             <span className="sr-only">
-              {`${isToday ? "Hôm nay" : weekdayLabel(day.date)} ${dayMonthLabel(day.date)}: ${day.studied ? "đã học" : "chưa học"}`}
+              {t("streak.dayStatus", {
+                day: weekday,
+                date: translateDayMonth(day.date, tl),
+                status: day.studied ? t("streak.studied") : t("streak.notStudied"),
+              })}
             </span>
           </li>
         );
@@ -61,14 +73,16 @@ function SevenDayStrip({ days }: { days: OverallLearningSummary["days"] }) {
  * đã học hôm nay, mới học hôm qua (nhắc giữ chuỗi), và chưa tải được (AC10, lặng lẽ, phần còn lại của trang vẫn dùng được).
  */
 export default function LearningStreakCard({ result }: { result: OverallLearningSummaryResult }) {
+  const t = useTranslations("learn");
+  const tl = asTranslate(useTranslations("learning"));
+  const locale = useLocale() === "en" ? "en" : "vi";
+
   if (!result.success) {
     return (
       <section aria-labelledby="learning-streak-title" role="status" className={CARD_CLASS}>
-        <p className="text-[11px] font-extrabold tracking-[0.08em] text-blue-900">CHUỖI NGÀY HỌC</p>
-        <Heading>Chưa tải được chuỗi ngày học</Heading>
-        <p className="mt-2 text-xs leading-5 text-slate-600">
-          Bạn vẫn học và ôn tập bình thường. Thử tải lại trang sau ít phút.
-        </p>
+        <p className="text-[11px] font-extrabold tracking-[0.08em] text-blue-900">{t("streak.eyebrow")}</p>
+        <Heading>{t("streak.unavailableTitle")}</Heading>
+        <p className="mt-2 text-xs leading-5 text-slate-600">{t("streak.unavailableBody")}</p>
       </section>
     );
   }
@@ -80,21 +94,25 @@ export default function LearningStreakCard({ result }: { result: OverallLearning
     <section aria-labelledby="learning-streak-title" className={CARD_CLASS}>
       <div className="flex items-center gap-2 text-blue-900">
         <Flame aria-hidden="true" className={`size-4 ${hasStreak ? "text-orange-500" : "text-slate-400"}`} />
-        <p className="text-[11px] font-extrabold tracking-[0.08em]">CHUỖI NGÀY HỌC</p>
+        <p className="text-[11px] font-extrabold tracking-[0.08em]">{t("streak.eyebrow")}</p>
       </div>
-      <Heading>{hasStreak ? `${streak} ngày liên tiếp` : "Bắt đầu chuỗi ngày học"}</Heading>
+      <Heading>
+        {hasStreak
+          ? t("streak.days", { count: streak, shown: formatCatalogCount(locale, streak) })
+          : t("streak.startTitle")}
+      </Heading>
       <p className="mt-1 text-xs leading-5 text-slate-600">
         {!hasStreak
-          ? "Làm một câu hỏi hoặc ôn một thẻ hôm nay để tính ngày học đầu tiên."
+          ? t("streak.startBody")
           : studiedToday
-            ? "Hôm nay bạn đã học. Mai quay lại để nối tiếp chuỗi."
-            : "Hôm nay bạn chưa học. Làm một câu hỏi hoặc ôn một thẻ để giữ chuỗi."}
+            ? t("streak.studiedToday")
+            : t("streak.notStudiedToday")}
       </p>
       <SevenDayStrip days={days} />
       <p className="mt-4 text-xs leading-5 text-slate-600">
         {weekStudyMinutes > 0
-          ? `Tuần này bạn đã học ${formatStudyDuration(weekStudyMinutes)} (ước tính).`
-          : "Tuần này chưa có thời gian học được ghi nhận."}
+          ? t("streak.weekTime", { duration: translateStudyDuration(weekStudyMinutes, tl) })
+          : t("streak.weekNone")}
       </p>
     </section>
   );

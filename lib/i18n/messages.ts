@@ -3,6 +3,7 @@ import enCommon from "@/messages/en/common.json";
 import enCourses from "@/messages/en/courses.json";
 import enFlashcard from "@/messages/en/flashcard.json";
 import enHome from "@/messages/en/home.json";
+import enLearn from "@/messages/en/learn.json";
 import enLearning from "@/messages/en/learning.json";
 import enProfile from "@/messages/en/profile.json";
 import enValidation from "@/messages/en/validation.json";
@@ -11,6 +12,7 @@ import viCommon from "@/messages/vi/common.json";
 import viCourses from "@/messages/vi/courses.json";
 import viFlashcard from "@/messages/vi/flashcard.json";
 import viHome from "@/messages/vi/home.json";
+import viLearn from "@/messages/vi/learn.json";
 import viLearning from "@/messages/vi/learning.json";
 import viProfile from "@/messages/vi/profile.json";
 import viValidation from "@/messages/vi/validation.json";
@@ -26,6 +28,7 @@ const viMessages = {
   flashcard: viFlashcard,
   courses: viCourses,
   learning: viLearning,
+  learn: viLearn,
   profile: viProfile,
 };
 export type AppMessages = typeof viMessages;
@@ -40,6 +43,7 @@ export const MESSAGES: Record<Locale, AppMessages> = {
     flashcard: enFlashcard,
     courses: enCourses,
     learning: enLearning,
+    learn: enLearn,
     profile: enProfile,
   },
 };

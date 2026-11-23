@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/utils/supabase/server";
 import {
   courseLearningSummarySchema,
@@ -9,9 +10,11 @@ import {
   type OverallLearningSummaryResult,
 } from "@/lib/schemas/learning-activity";
 
-const SUMMARY_UNAVAILABLE = "Không thể tải chuỗi ngày học lúc này.";
-
-const unavailable = () => ({ success: false as const, error: SUMMARY_UNAVAILABLE });
+// Thông báo theo ngôn ngữ của request; mọi nơi gọi là trang server (hook client chỉ giữ kết quả thành công) nên không cần wrapper (U3 H3).
+const unavailable = async () => ({
+  success: false as const,
+  error: (await getTranslations("learn"))("actions.summary.unavailable"),
+});
 
 // Người gọi luôn là chính học viên: RPC chỉ nhận auth.uid() nên không có tham số người dùng nào để giả mạo (FEAT3 G4).
 // Mọi lỗi (RPC chưa có trên DB, mạng, JSON lạ, chưa đăng nhập) đều thành kết quả "chưa tải được" và không bao giờ throw,

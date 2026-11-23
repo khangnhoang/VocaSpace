@@ -230,9 +230,9 @@ describe("review sheet rating labels in English", () => {
     render(<ReviewSheet isOpen onClose={() => {}} onReviewComplete={() => {}} />, { locale: "en" });
     await screen.findByText("reliable");
 
-    // Nút hiện đáp án và phần còn lại của ReviewSheet thuộc U3 nên vẫn tiếng Việt; U2 chỉ đổi nhãn bốn mức đánh giá.
+    // U3 dịch cả nút hiện đáp án của ReviewSheet nên nút này cũng có nhãn tiếng Anh.
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Hiện đáp án" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
     });
     for (const label of ["Again", "Hard", "Good", "Easy"]) expect(screen.getByRole("button", { name: label })).toBeTruthy();
   });

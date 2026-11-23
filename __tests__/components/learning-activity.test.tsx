@@ -3,7 +3,8 @@
  */
 
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
+import { render } from "@/__tests__/support/intl";
 import { describe, expect, it } from "vitest";
 import LearningStreakCard from "@/app/(client)/learn/_components/LearningStreakCard";
 import CourseStreakChip from "@/app/(client)/learn/[course-slug]/[topic-slug]/_components/CourseStreakChip";

@@ -1,5 +1,6 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/utils/supabase/server";
 import {
   buildLearnDashboardCourses,
@@ -22,13 +23,17 @@ import {
   readChunkedSupabaseRows,
 } from "@/lib/supabase-pagination";
 
-const queryFailedResult = (): LearnDashboardResult => ({
+// Thông báo theo ngôn ngữ của request; trang server gọi action này nên `router.refresh()` của bộ chọn ngôn ngữ dựng lại bằng ngôn ngữ mới (H3).
+type LearnTranslator = Awaited<ReturnType<typeof getTranslations<"learn">>>;
+
+const queryFailedResult = (t: LearnTranslator): LearnDashboardResult => ({
   success: false,
   errorCode: "QUERY_FAILED",
-  error: "Không thể tải dashboard học tập lúc này.",
+  error: t("actions.dashboard.queryFailed"),
 });
 
 export async function getLearnDashboard(): Promise<LearnDashboardResult> {
+  const t = await getTranslations("learn");
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,7 +44,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
     return {
       success: false,
       errorCode: "AUTH_REQUIRED",
-      error: "Vui lòng đăng nhập để xem dashboard học tập.",
+      error: t("actions.dashboard.authRequired"),
     };
   }
 
@@ -100,7 +105,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
         flashcards: flashcardResult.error,
         payments: paymentResult.error,
       });
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
 
     const enrollments = (enrollmentResult.data ?? []) as unknown as
@@ -131,7 +136,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
 
       if (chapterResult.error) {
         console.error("Learn dashboard chapter query failed", chapterResult.error);
-        return queryFailedResult();
+        return queryFailedResult(t);
       }
 
       chapters = (chapterResult.data ?? []) as LearnDashboardChapterRow[];
@@ -157,7 +162,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
 
         if (topicResult.error) {
           console.error("Learn dashboard topic query failed", topicResult.error);
-          return queryFailedResult();
+          return queryFailedResult(t);
         }
 
         topics = (topicResult.data ?? []) as LearnDashboardTopicRow[];
@@ -182,7 +187,7 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
               "Learn dashboard topic progress query failed",
               progressResult.error,
             );
-            return queryFailedResult();
+            return queryFailedResult(t);
           }
 
           progress = (progressResult.data ?? []) as
@@ -217,13 +222,13 @@ export async function getLearnDashboard(): Promise<LearnDashboardResult> {
       return {
         success: false,
         errorCode: "INVALID_DATA",
-        error: "Dữ liệu dashboard học tập không hợp lệ.",
+        error: t("actions.dashboard.invalidData"),
       };
     }
 
     return { success: true, data: parsedData.data };
   } catch (error) {
     console.error("Learn dashboard unexpected failure", error);
-    return queryFailedResult();
+    return queryFailedResult(t);
   }
 }

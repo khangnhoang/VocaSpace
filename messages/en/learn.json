@@ -1,0 +1,144 @@
+{
+  "meta": {
+    "title": "Learn and practice | Vocaspace",
+    "template": "%s | Vocaspace Learn",
+    "description": "A TOEIC vocabulary platform built around flashcards and smart exercises."
+  },
+  "loading": {
+    "workspace": "Loading your learning space"
+  },
+  "dashboard": {
+    "header": {
+      "eyebrow": "YOUR LEARNING SPACE",
+      "title": "What do you want to learn next today?",
+      "description": "Pick up the lesson you left off, keep up your review rhythm and see your whole learning journey at a glance."
+    },
+    "errorTitle": "Couldn't load your learning space",
+    "retry": "Try again",
+    "courseCount": "{count, plural, one {{shown} course} other {{shown} courses}}",
+    "continuing": {
+      "title": "Continue learning",
+      "description": "Pick up the next lesson on your journey.",
+      "item": "courses in progress"
+    },
+    "remaining": {
+      "title": "Other courses",
+      "description": "Courses you've enrolled in that you haven't started, have finished or that have no content yet.",
+      "item": "courses",
+      "filterLabel": "Filter other courses",
+      "filterAll": "All",
+      "filterNotStarted": "Not started",
+      "filterCompleted": "Completed",
+      "empty": "No courses in this state."
+    },
+    "empty": {
+      "title": "You have no course to continue yet",
+      "description": "Browse published courses and pick the path that fits your goal.",
+      "cta": "Browse courses"
+    },
+    "reviewCard": {
+      "noneTitle": "No cards to review today",
+      "noneBody": "No cards are due.",
+      "eyebrow": "TODAY'S REVIEW",
+      "title": "Today's review",
+      "due": "{count, plural, one {card due} other {cards due}}",
+      "open": "Review now"
+    },
+    "rhythm": {
+      "eyebrow": "MEMORY RHYTHM",
+      "title": "{learningCount, plural, one {{learning} card in progress} other {{learning} cards in progress}} · {totalCount, plural, one {{total} card in total} other {{total} cards in total}}",
+      "body": "Keep a steady review rhythm to remember for longer."
+    }
+  },
+  "courseRow": {
+    "coverAlt": "Cover image of the course {title}",
+    "coverMissing": "No cover image for the course {title}",
+    "completedEyebrow": "LAST LESSON",
+    "completedCta": "Review the last lesson",
+    "notStartedEyebrow": "FIRST LESSON",
+    "notStartedCta": "Start learning",
+    "inProgressEyebrow": "NEXT LESSON",
+    "inProgressCta": "Continue learning",
+    "contentEyebrow": "CONTENT",
+    "completedBadge": "Completed",
+    "noProgress": "No progress yet",
+    "progress": "Course progress",
+    "progressLabel": "Progress of the course {title}",
+    "updating": "Content is being updated",
+    "overview": "View overview"
+  },
+  "pagination": {
+    "label": "{item} pagination",
+    "showing": "Showing {start}–{end} of {total} {item}",
+    "previous": "Previous page",
+    "page": "Page {page}",
+    "next": "Next page"
+  },
+  "streak": {
+    "eyebrow": "LEARNING STREAK",
+    "unavailableTitle": "Couldn't load your learning streak",
+    "unavailableBody": "You can still learn and review as usual. Try reloading the page in a few minutes.",
+    "days": "{count, plural, one {{shown} day in a row} other {{shown} days in a row}}",
+    "startTitle": "Start a learning streak",
+    "startBody": "Answer a question or review a card today to count your first study day.",
+    "studiedToday": "You studied today. Come back tomorrow to keep the streak going.",
+    "notStudiedToday": "You haven't studied today. Answer a question or review a card to keep your streak.",
+    "stripLabel": "Last 7 days",
+    "todayShort": "Today",
+    "todayLong": "Today",
+    "studied": "studied",
+    "notStudied": "not studied",
+    "dayStatus": "{day} {date}: {status}",
+    "weekTime": "This week you studied {duration} (estimate).",
+    "weekNone": "No study time has been recorded this week yet."
+  },
+  "review": {
+    "closeLabel": "Close review",
+    "title": "Focused review",
+    "description": "Recall the word, reveal the answer, then rate yourself.",
+    "loading": "Loading review cards…",
+    "errorTitle": "Couldn't start the review round",
+    "retry": "Try again",
+    "loadFailed": "Couldn't load the review cards. Please try again.",
+    "processed": "Processed {processed}/{total} cards this round",
+    "progressLabel": "Review progress",
+    "recallPrompt": "Recall the meaning of the word",
+    "ratePrompt": "How well did you remember this word?",
+    "saving": "Saving your results, please wait…",
+    "allDone": "Congratulations! You've reviewed every due card.",
+    "roundDone": "This round is complete",
+    "noDue": "No cards are due right now",
+    "noneLoaded": "This batch has no cards to review",
+    "moreDue": "More cards are due. You can review the next round.",
+    "backHint": "You can go back to your learning space and keep learning.",
+    "nextRound": "Review the next round",
+    "back": "Back",
+    "saveFailed": "Couldn't save your rating for the card \"{word}\".",
+    "saveFailedRequeued": "Couldn't save your rating for the card \"{word}\". The card was put back in the queue so you can rate it again."
+  },
+  "actions": {
+    "dashboard": {
+      "authRequired": "Please sign in to view your learning dashboard.",
+      "queryFailed": "Couldn't load the learning dashboard right now.",
+      "invalidData": "The learning dashboard data is invalid."
+    },
+    "summary": {
+      "unavailable": "Couldn't load your learning streak right now."
+    },
+    "deck": {
+      "authRequired": "Please sign in to keep reviewing.",
+      "loadFailed": "Couldn't load the review card data right now.",
+      "queueFailed": "Something went wrong while building the review queue."
+    },
+    "review": {
+      "invalid": "The card rating data is invalid.",
+      "authRequired": "Please sign in",
+      "contextFailed": "Couldn't check the review card right now.",
+      "unavailable": "This review card isn't available.",
+      "enrollRequired": "You need to enroll in the course to save your review.",
+      "invalidMeta": "The current review data is invalid.",
+      "syncFailed": "Couldn't sync your review progress.",
+      "progressSync": "The card was saved, but your lesson progress couldn't be recorded."
+    }
+  }
+}

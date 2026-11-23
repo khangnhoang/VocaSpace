@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BookOpen, CheckCircle2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { LearnDashboardCourse } from "@/lib/schemas/learn-dashboard";
@@ -18,6 +19,7 @@ function getCourseInitials(title: string) {
 }
 
 export function CourseThumbnail({ course }: { course: LearnDashboardCourse }) {
+  const t = useTranslations("learn");
   const [hasImageError, setHasImageError] = useState(false);
   const showImage = Boolean(course.courseThumbnailUrl) && !hasImageError;
 
@@ -26,7 +28,7 @@ export function CourseThumbnail({ course }: { course: LearnDashboardCourse }) {
       {showImage ? (
         <Image
           src={course.courseThumbnailUrl!}
-          alt={`Ảnh bìa khóa học ${course.courseTitle}`}
+          alt={t("courseRow.coverAlt", { title: course.courseTitle })}
           fill
           sizes="(max-width: 767px) 92px, 160px"
           onError={() => setHasImageError(true)}
@@ -35,7 +37,7 @@ export function CourseThumbnail({ course }: { course: LearnDashboardCourse }) {
       ) : (
         <div
           role="img"
-          aria-label={`Chưa có ảnh bìa cho khóa học ${course.courseTitle}`}
+          aria-label={t("courseRow.coverMissing", { title: course.courseTitle })}
           className="flex size-full items-center justify-center text-blue-700"
         >
           <span className="text-xl font-extrabold tracking-tight md:text-3xl">
@@ -53,32 +55,32 @@ function getCoursePresentation(course: LearnDashboardCourse) {
   if (course.status === "completed") {
     return {
       destinationTopic: course.lastTopic,
-      eyebrow: "BÀI HỌC CUỐI",
-      cta: "Xem lại bài học cuối",
-    };
+      eyebrowKey: "courseRow.completedEyebrow",
+      ctaKey: "courseRow.completedCta",
+    } as const;
   }
 
   if (course.status === "not-started") {
     return {
       destinationTopic: course.nextTopic,
-      eyebrow: "BÀI ĐẦU TIÊN",
-      cta: "Bắt đầu học",
-    };
+      eyebrowKey: "courseRow.notStartedEyebrow",
+      ctaKey: "courseRow.notStartedCta",
+    } as const;
   }
 
   if (course.status === "in-progress") {
     return {
       destinationTopic: course.nextTopic,
-      eyebrow: "BÀI TIẾP THEO",
-      cta: "Tiếp tục học",
-    };
+      eyebrowKey: "courseRow.inProgressEyebrow",
+      ctaKey: "courseRow.inProgressCta",
+    } as const;
   }
 
   return {
     destinationTopic: null,
-    eyebrow: "NỘI DUNG",
-    cta: null,
-  };
+    eyebrowKey: "courseRow.contentEyebrow",
+    ctaKey: null,
+  } as const;
 }
 
 export default function CourseRow({
@@ -86,6 +88,7 @@ export default function CourseRow({
 }: {
   course: LearnDashboardCourse;
 }) {
+  const t = useTranslations("learn");
   const isCompleted = course.status === "completed";
   const isHighlighted = course.status === "in-progress";
   const presentation = getCoursePresentation(course);
@@ -113,15 +116,15 @@ export default function CourseRow({
         {isCompleted && (
           <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-extrabold text-blue-800">
             <CheckCircle2 aria-hidden="true" className="size-3.5" />
-            Đã hoàn thành
+            {t("courseRow.completedBadge")}
           </span>
         )}
 
         <div className="mt-2 flex items-center justify-between gap-3 text-[11px] leading-4.5 text-slate-600">
           <span>
             {course.status === "no-content"
-              ? "Chưa có tiến độ"
-              : "Tiến độ khóa học"}
+              ? t("courseRow.noProgress")
+              : t("courseRow.progress")}
           </span>
           <span className="shrink-0 font-bold text-blue-700">
             {course.status === "no-content" ? "—" : `${progress}%`}
@@ -132,7 +135,7 @@ export default function CourseRow({
           aria-label={
             course.status === "no-content"
               ? undefined
-              : `Tiến độ khóa học ${course.courseTitle}`
+              : t("courseRow.progressLabel", { title: course.courseTitle })
           }
           aria-valuemin={course.status === "no-content" ? undefined : 0}
           aria-valuemax={course.status === "no-content" ? undefined : 100}
@@ -150,23 +153,23 @@ export default function CourseRow({
         </div>
 
         <p className="mt-2 text-[10px] font-extrabold tracking-[0.11em] text-blue-700">
-          {presentation.eyebrow}
+          {t(presentation.eyebrowKey)}
         </p>
         <p className="mt-0.5 line-clamp-2 wrap-break-word text-[13px] leading-5 text-slate-600">
           {presentation.destinationTopic?.title ??
-            "Nội dung đang được cập nhật"}
+            t("courseRow.updating")}
         </p>
       </div>
 
       <div className="col-span-2 flex w-full shrink-0 flex-col gap-2 md:col-span-1 md:w-40">
-        {destination && presentation.cta && (
+        {destination && presentation.ctaKey && (
           <Button
             asChild
             variant={isCompleted ? "outline" : "default"}
             className="h-11 w-full text-center [@media(hover:hover)_and_(pointer:fine)]:h-9"
           >
             <Link href={destination}>
-              <span>{presentation.cta}</span>
+              <span>{t(presentation.ctaKey)}</span>
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
           </Button>
@@ -181,7 +184,7 @@ export default function CourseRow({
               : ""
           }`}
         >
-          <Link href={overviewDestination}>Xem tổng quan</Link>
+          <Link href={overviewDestination}>{t("courseRow.overview")}</Link>
         </Button>
       </div>
     </article>

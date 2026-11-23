@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+
 function CourseRowSkeleton() {
   return (
     <div className="grid min-h-40 grid-cols-[92px_minmax(0,1fr)] gap-4 rounded-[20px] border border-blue-100 bg-white p-4 md:flex md:min-h-[184px] md:items-center md:gap-5 md:p-5">
@@ -14,10 +16,12 @@ function CourseRowSkeleton() {
 }
 
 export default function LearnDashboardLoading() {
+  const t = useTranslations("learn");
+
   return (
     <div
       aria-busy="true"
-      aria-label="Đang tải không gian học tập"
+      aria-label={t("loading.workspace")}
       className="min-h-screen bg-slate-50 px-4 py-8 md:px-8 md:py-10 lg:py-12"
     >
       <div className="mx-auto max-w-[1260px] animate-pulse">

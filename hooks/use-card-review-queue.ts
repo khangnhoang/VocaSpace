@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Rating } from "ts-fsrs";
-import { submitCardReview } from "@/app/actions/review";
+import type { submitCardReview } from "@/app/actions/review";
+import { submitCardReviewLocalized } from "@/app/actions/review-localized";
+import type { FieldsReply } from "@/lib/i18n/held-message";
 
 // LF8: hàng đợi lưu đánh giá thẻ dùng chung cho LearningWorkspace và ReviewSheet. Giao diện tiến ngay; việc lưu đi sau,
 // từng đánh giá một theo thứ tự, qua `submitCardReview` không đổi.
@@ -8,6 +10,10 @@ import { submitCardReview } from "@/app/actions/review";
 export const CARD_REVIEW_RETRY_DELAY_MS = 1000;
 
 export type CardReviewSuccess = Extract<Awaited<ReturnType<typeof submitCardReview>>, { success: true }>;
+
+// U3 H4: ngôn ngữ của server và khóa catalog từng trường thông báo (`error`, `progressError`) của lần lưu; người gọi dùng để dịch lại đúng
+// thông báo khi trang đang hiện ngôn ngữ khác. Hàng đợi chỉ chuyển nó đi, không đổi thứ tự lưu hay cách thử lại.
+export type CardReviewReply = FieldsReply;
 
 export interface CardReviewRequest {
   cardId: string;
@@ -21,6 +27,9 @@ interface CardReviewQueueHandlers {
   onSaved: (request: CardReviewRequest, result: CardReviewSuccess) => void;
   // Chạy khi đã thử lại một lần mà vẫn lỗi. `error` là thông báo của server nếu có.
   onFailed: (request: CardReviewRequest, error?: string) => void;
+  // Chạy ngay trước `onSaved`/`onFailed` của cùng đánh giá, mang ngôn ngữ và khóa thông báo của lần lưu cuối (U3 H4). Tách riêng để chữ
+  // ký của hai callback trên giữ nguyên cho người gọi và test hiện có.
+  onReply?: (request: CardReviewRequest, reply: CardReviewReply) => void;
 }
 
 // G5: trạng thái module chỉ gồm chuỗi lưu, số đánh giá đang chờ và listener `beforeunload` do số đó điều khiển.
@@ -72,13 +81,15 @@ function schedule(task: () => void | Promise<void>) {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-type Attempt = { ok: true; result: CardReviewSuccess } | { ok: false; error?: string };
+type Attempt =
+  | { ok: true; result: CardReviewSuccess; reply: CardReviewReply }
+  | { ok: false; error?: string; reply?: CardReviewReply };
 
 async function attempt(request: CardReviewRequest): Promise<Attempt> {
   try {
-    const result = await submitCardReview(request.cardId, request.rating);
-    if (result && !result.error) return { ok: true, result: result as CardReviewSuccess };
-    return { ok: false, error: result?.error };
+    const { result, ...reply } = await submitCardReviewLocalized(request.cardId, request.rating);
+    if (result && !result.error) return { ok: true, result: result as CardReviewSuccess, reply };
+    return { ok: false, error: result?.error, reply };
   } catch {
     return { ok: false };
   }
@@ -117,6 +128,7 @@ export function useCardReviewQueue(handlers: CardReviewQueueHandlers) {
       try {
         // Đã unmount thì vẫn lưu xong nhưng không đụng state hay UI (G5).
         if (mounted.current) {
+          if (outcome.reply) latest.current.onReply?.(request, outcome.reply);
           if (outcome.ok) latest.current.onSaved(request, outcome.result);
           else latest.current.onFailed(request, outcome.error);
           setPending((count) => Math.max(0, count - 1));

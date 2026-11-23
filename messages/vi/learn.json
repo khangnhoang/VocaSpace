@@ -1,0 +1,144 @@
+{
+  "meta": {
+    "title": "Học tập và Rèn luyện | Vocaspace",
+    "template": "%s | Vocaspace Learn",
+    "description": "Nền tảng học từ vựng TOEIC tối ưu với phương pháp Flashcard và Exercise thông minh."
+  },
+  "loading": {
+    "workspace": "Đang tải không gian học tập"
+  },
+  "dashboard": {
+    "header": {
+      "eyebrow": "KHÔNG GIAN HỌC TẬP",
+      "title": "Hôm nay bạn muốn học gì tiếp?",
+      "description": "Tiếp tục đúng bài còn thiếu, giữ nhịp ôn tập và nhìn rõ toàn bộ hành trình học tập của bạn."
+    },
+    "errorTitle": "Chưa thể tải không gian học tập",
+    "retry": "Thử lại",
+    "courseCount": "{shown} khóa học",
+    "continuing": {
+      "title": "Học tiếp",
+      "description": "Quay lại đúng bài tiếp theo trong hành trình của bạn.",
+      "item": "khóa học đang học"
+    },
+    "remaining": {
+      "title": "Các khóa học còn lại",
+      "description": "Các khóa học bạn đã đăng ký nhưng chưa bắt đầu, đã hoàn thành hoặc chưa có nội dung.",
+      "item": "khóa học",
+      "filterLabel": "Lọc các khóa học còn lại",
+      "filterAll": "Tất cả",
+      "filterNotStarted": "Chưa bắt đầu học",
+      "filterCompleted": "Đã hoàn thành",
+      "empty": "Không có khóa học nào ở trạng thái này."
+    },
+    "empty": {
+      "title": "Bạn chưa có khóa học để tiếp tục",
+      "description": "Khám phá các khóa học đã xuất bản và chọn lộ trình phù hợp với mục tiêu của bạn.",
+      "cta": "Khám phá khóa học"
+    },
+    "reviewCard": {
+      "noneTitle": "Hôm nay chưa có thẻ cần ôn",
+      "noneBody": "Không có thẻ đến hạn.",
+      "eyebrow": "ÔN TẬP HÔM NAY",
+      "title": "Ôn tập hôm nay",
+      "due": "thẻ đến hạn",
+      "open": "Ôn ngay"
+    },
+    "rhythm": {
+      "eyebrow": "NHỊP GHI NHỚ",
+      "title": "{learning} thẻ đang học · {total} thẻ tổng cộng",
+      "body": "Duy trì nhịp ôn tập đều đặn để ghi nhớ lâu hơn."
+    }
+  },
+  "courseRow": {
+    "coverAlt": "Ảnh bìa khóa học {title}",
+    "coverMissing": "Chưa có ảnh bìa cho khóa học {title}",
+    "completedEyebrow": "BÀI HỌC CUỐI",
+    "completedCta": "Xem lại bài học cuối",
+    "notStartedEyebrow": "BÀI ĐẦU TIÊN",
+    "notStartedCta": "Bắt đầu học",
+    "inProgressEyebrow": "BÀI TIẾP THEO",
+    "inProgressCta": "Tiếp tục học",
+    "contentEyebrow": "NỘI DUNG",
+    "completedBadge": "Đã hoàn thành",
+    "noProgress": "Chưa có tiến độ",
+    "progress": "Tiến độ khóa học",
+    "progressLabel": "Tiến độ khóa học {title}",
+    "updating": "Nội dung đang được cập nhật",
+    "overview": "Xem tổng quan"
+  },
+  "pagination": {
+    "label": "Phân trang {item}",
+    "showing": "Hiển thị {start}–{end} / {total} {item}",
+    "previous": "Trang trước",
+    "page": "Trang {page}",
+    "next": "Trang sau"
+  },
+  "streak": {
+    "eyebrow": "CHUỖI NGÀY HỌC",
+    "unavailableTitle": "Chưa tải được chuỗi ngày học",
+    "unavailableBody": "Bạn vẫn học và ôn tập bình thường. Thử tải lại trang sau ít phút.",
+    "days": "{shown} ngày liên tiếp",
+    "startTitle": "Bắt đầu chuỗi ngày học",
+    "startBody": "Làm một câu hỏi hoặc ôn một thẻ hôm nay để tính ngày học đầu tiên.",
+    "studiedToday": "Hôm nay bạn đã học. Mai quay lại để nối tiếp chuỗi.",
+    "notStudiedToday": "Hôm nay bạn chưa học. Làm một câu hỏi hoặc ôn một thẻ để giữ chuỗi.",
+    "stripLabel": "7 ngày gần nhất",
+    "todayShort": "Nay",
+    "todayLong": "Hôm nay",
+    "studied": "đã học",
+    "notStudied": "chưa học",
+    "dayStatus": "{day} {date}: {status}",
+    "weekTime": "Tuần này bạn đã học {duration} (ước tính).",
+    "weekNone": "Tuần này chưa có thời gian học được ghi nhận."
+  },
+  "review": {
+    "closeLabel": "Đóng giao diện ôn tập",
+    "title": "Ôn tập tập trung",
+    "description": "Nhớ lại, xem đáp án rồi tự đánh giá.",
+    "loading": "Đang tải thẻ ôn tập…",
+    "errorTitle": "Chưa thể mở lượt ôn",
+    "retry": "Thử lại",
+    "loadFailed": "Chưa thể tải thẻ ôn tập. Hãy thử lại.",
+    "processed": "Đã xử lý {processed}/{total} thẻ trong lượt",
+    "progressLabel": "Tiến độ lượt ôn",
+    "recallPrompt": "Nhớ nghĩa của từ",
+    "ratePrompt": "Bạn nhớ từ này ở mức nào?",
+    "saving": "Đang lưu kết quả, vui lòng đợi…",
+    "allDone": "Chúc mừng! Bạn đã ôn hết thẻ đến hạn.",
+    "roundDone": "Đã hoàn tất lượt này",
+    "noDue": "Hiện không có thẻ đến hạn",
+    "noneLoaded": "Lượt tải này chưa có thẻ có thể ôn",
+    "moreDue": "Vẫn còn thẻ đến hạn. Bạn có thể ôn lượt tiếp theo.",
+    "backHint": "Bạn có thể quay lại không gian học tập và tiếp tục học.",
+    "nextRound": "Ôn lượt tiếp theo",
+    "back": "Quay lại",
+    "saveFailed": "Chưa lưu được đánh giá thẻ \"{word}\".",
+    "saveFailedRequeued": "Chưa lưu được đánh giá thẻ \"{word}\". Thẻ được xếp lại để bạn chấm lại."
+  },
+  "actions": {
+    "dashboard": {
+      "authRequired": "Vui lòng đăng nhập để xem dashboard học tập.",
+      "queryFailed": "Không thể tải dashboard học tập lúc này.",
+      "invalidData": "Dữ liệu dashboard học tập không hợp lệ."
+    },
+    "summary": {
+      "unavailable": "Không thể tải chuỗi ngày học lúc này."
+    },
+    "deck": {
+      "authRequired": "Vui lòng đăng nhập để tiếp tục ôn tập.",
+      "loadFailed": "Không thể tải ngữ liệu thẻ ôn tập lúc này.",
+      "queueFailed": "Hệ thống gặp sự cố khi tổng hợp hàng đợi ôn tập."
+    },
+    "review": {
+      "invalid": "Dữ liệu đánh giá thẻ không hợp lệ.",
+      "authRequired": "Vui lòng đăng nhập",
+      "contextFailed": "Không thể kiểm tra thẻ ôn tập lúc này.",
+      "unavailable": "Thẻ ôn tập không khả dụng.",
+      "enrollRequired": "Bạn cần ghi danh khóa học để lưu ôn tập.",
+      "invalidMeta": "Dữ liệu ôn tập hiện tại không hợp lệ.",
+      "syncFailed": "Chưa thể đồng bộ tiến độ ôn tập.",
+      "progressSync": "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học."
+    }
+  }
+}

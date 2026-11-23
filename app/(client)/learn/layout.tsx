@@ -1,22 +1,25 @@
 import { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { ReactNode } from "react";
 
 /**
  * METADATA CONFIGURATION
- * Đảm bảo SEO và hiển thị tab trình duyệt chính xác cho khu vực học tập.
+ * Đảm bảo SEO và hiển thị tab trình duyệt chính xác cho khu vực học tập. Chữ lấy từ catalog theo ngôn ngữ của request; `robots` không đổi.
  */
-export const metadata: Metadata = {
-  title: {
-    template: "%s | Vocaspace Learn",
-    default: "Học tập và Rèn luyện | Vocaspace",
-  },
-  description:
-    "Nền tảng học từ vựng TOEIC tối ưu với phương pháp Flashcard và Exercise thông minh.",
-  robots: {
-    index: false, // Thường các trang learn (dashboard) nên chặn index để bảo mật nội dung
-    follow: false,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("learn");
+  return {
+    title: {
+      template: t("meta.template"),
+      default: t("meta.title"),
+    },
+    description: t("meta.description"),
+    robots: {
+      index: false, // Thường các trang learn (dashboard) nên chặn index để bảo mật nội dung
+      follow: false,
+    },
+  };
+}
 
 interface LearnLayoutProps {
   children: ReactNode;

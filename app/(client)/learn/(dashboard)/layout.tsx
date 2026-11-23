@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { ClientNamespaces } from "@/components/i18n/client-namespaces";
 
-// Bảng điều khiển học (/learn) render LearnDashboardClient và ReviewSheet nên cần `flashcard` cho nhãn đánh giá (U2 H2). Nhóm route
-// `(dashboard)` không đổi URL; trang tổng quan khóa học /learn/[course-slug] không render hai thành phần đó nên không nhận namespace này.
+// Bảng điều khiển học (/learn) render LearnDashboardClient, ReviewSheet và thẻ chuỗi ngày học nên cần `flashcard` (nhãn đánh giá, U2 H2),
+// `learning` (thứ, ngày-tháng, thời lượng) và `learn` (chữ của màn hình, U3 H2/G4). Nhóm route `(dashboard)` không đổi URL.
 export default function LearnDashboardLayout({ children }: { children: ReactNode }) {
-  return <ClientNamespaces namespaces={["flashcard"]}>{children}</ClientNamespaces>;
+  return <ClientNamespaces namespaces={["flashcard", "learning", "learn"]}>{children}</ClientNamespaces>;
 }
