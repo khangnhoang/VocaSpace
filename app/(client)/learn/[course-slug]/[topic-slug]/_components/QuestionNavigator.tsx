@@ -58,6 +58,8 @@ interface QuestionNavigatorProps {
   label?: string;
   /** `learning` namespace translator (H7); callers that do not pass one keep today's Vietnamese. */
   t?: Translate;
+  /** Formats the counts shown in the list (the U3 workspace passes its locale-aware formatter); defaults to bare digits. */
+  formatCount?: (value: number) => string;
 }
 
 const WIDE_QUERY = "(min-width: 768px)";
@@ -93,10 +95,12 @@ function QuestionList({
   sections,
   onPick,
   t,
+  formatCount,
 }: {
   sections: QuestionNavigatorSection[];
   onPick: (item: QuestionNavigatorItem) => void;
   t: Translate;
+  formatCount: (value: number) => string;
 }) {
   const items = sections.flatMap((section) => section.groups.flatMap((group) => group.items));
   const correctCount = items.filter((item) => item.status === "correct").length;
@@ -107,7 +111,7 @@ function QuestionList({
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <p className="text-sm font-semibold text-slate-700">
-        {t("navigator.summary", { correct: correctCount, total: items.length })}
+        {t("navigator.summary", { correct: formatCount(correctCount), total: formatCount(items.length) })}
       </p>
       {lockReasons.map((reason) => (
         <p
@@ -153,7 +157,7 @@ function QuestionList({
                         <StatusIcon status={item.status} locked={locked} />
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-sm font-semibold text-slate-900">
-                            {t("navigator.item", { number: item.number, text: item.text })}
+                            {t("navigator.item", { number: formatCount(item.number), text: item.text })}
                           </span>
                           <span className="text-xs text-slate-600">
                             {item.current ? t("navigator.current") : ""}
@@ -185,6 +189,7 @@ export default function QuestionNavigator({
   onSelect,
   label,
   t = viLearningText,
+  formatCount = String,
 }: QuestionNavigatorProps) {
   const [open, setOpen] = useState(false);
   const isWide = useSyncExternalStore(subscribeWide, wideSnapshot, () => false);
@@ -221,7 +226,7 @@ export default function QuestionNavigator({
     </div>
   );
 
-  const list = <QuestionList sections={sections} onPick={pick} t={t} />;
+  const list = <QuestionList sections={sections} onPick={pick} t={t} formatCount={formatCount} />;
 
   if (isWide) {
     return withHint(

@@ -1,6 +1,6 @@
 import { getLocale } from "next-intl/server";
 import type { Locale } from "./config";
-import { collectMessageRef } from "./message-ref";
+import { collectMessageRef, collectMessageRefs, type MessageRef } from "./message-ref";
 
 // English localization U2: cookie ngôn ngữ dùng chung giữa các tab, nên chuỗi mà action trả về có thể khác ngôn ngữ của tab đã gửi
 // request (tab A hiện VI, tab B đổi sang EN, rồi tab A gửi form). Các wrapper `*Localized` gọi đúng action gốc, giữ nguyên kết quả
@@ -28,4 +28,25 @@ export async function withRequestLocale<T>(run: () => Promise<T>): Promise<WithR
   const locale = (await getLocale()) as Locale;
   if (!ref || !carriesMessage(value)) return { result: value, locale, messageKey: null };
   return { result: value, locale, messageKey: ref.key, ...(ref.params ? { messageParams: ref.params } : {}) };
+}
+
+// U3 H4: một kết quả thành công có thể mang nhiều thông báo hệ thống (ví dụ `progressError` cùng lời giải thích mặc định), nên wrapper
+// này trả một tham chiếu cho từng trường. Chỉ trường mà kết quả thực sự trả về dạng chuỗi mới có tham chiếu; lời giải thích do tác giả
+// viết không được ghi nên không có tham chiếu và luôn hiện đúng như đã viết. Kết quả gốc và wrapper một khóa của U2 không đổi.
+export type WithRequestLocaleFields<T> = {
+  result: T;
+  locale: Locale;
+  messageRefs: Record<string, MessageRef>;
+};
+
+export async function withRequestLocaleFields<T>(run: () => Promise<T>): Promise<WithRequestLocaleFields<T>> {
+  const { value, refs } = await collectMessageRefs(run);
+  const locale = (await getLocale()) as Locale;
+  const messageRefs: Record<string, MessageRef> = {};
+  if (value && typeof value === "object") {
+    for (const [field, ref] of Object.entries(refs)) {
+      if (typeof (value as Record<string, unknown>)[field] === "string") messageRefs[field] = ref;
+    }
+  }
+  return { result: value, locale, messageRefs };
 }

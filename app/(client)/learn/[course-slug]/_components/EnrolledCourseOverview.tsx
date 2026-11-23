@@ -8,9 +8,12 @@ import {
   Circle,
   PlayCircle,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import CourseLearningActivity from "@/components/learning-activity/CourseLearningActivity";
 import { Button } from "@/components/ui/button";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
+import { formatCatalogCount } from "@/lib/i18n/format";
+import { asTranslate } from "@/lib/i18n/translate";
 import type { EnrolledCourseOverviewData } from "@/lib/schemas/enrolled-course-overview";
 
 function getCourseInitials(title: string) {
@@ -26,40 +29,42 @@ function getCourseInitials(title: string) {
 function getProgressPresentation(data: EnrolledCourseOverviewData) {
   if (data.status === "completed") {
     return {
-      eyebrow: "ĐÃ HOÀN THÀNH",
-      title: "Bạn đã đi hết lộ trình",
-      description: "Ôn lại bài học cuối để giữ nhịp ghi nhớ.",
+      eyebrowKey: "overview.progress.completedEyebrow",
+      titleKey: "overview.progress.completedTitle",
+      descriptionKey: "overview.progress.completedDescription",
       destinationTopic: data.lastTopic,
-      cta: "Xem lại bài học cuối",
-    };
+      ctaKey: "courseRow.completedCta",
+    } as const;
   }
   if (data.status === "not-started") {
     return {
-      eyebrow: "SẴN SÀNG BẮT ĐẦU",
-      title: "Bài đầu tiên đang chờ bạn",
-      description: "Bắt đầu theo đúng thứ tự của lộ trình khóa học.",
+      eyebrowKey: "overview.progress.notStartedEyebrow",
+      titleKey: "overview.progress.notStartedTitle",
+      descriptionKey: "overview.progress.notStartedDescription",
       destinationTopic: data.nextTopic,
-      cta: "Bắt đầu học",
-    };
+      ctaKey: "courseRow.notStartedCta",
+    } as const;
   }
 
   return {
-    eyebrow: "BÀI TIẾP THEO",
-    title: "Tiếp tục từ phần còn dang dở",
-    description: "Quay lại chủ đề chưa hoàn thành sớm nhất trong lộ trình.",
+    eyebrowKey: "overview.progress.inProgressEyebrow",
+    titleKey: "overview.progress.inProgressTitle",
+    descriptionKey: "overview.progress.inProgressDescription",
     destinationTopic: data.nextTopic,
-    cta: "Tiếp tục học",
-  };
+    ctaKey: "courseRow.inProgressCta",
+  } as const;
 }
 
 function CourseIdentity({ data }: { data: EnrolledCourseOverviewData }) {
+  const t = useTranslations("learn");
+
   return (
     <header className="grid min-w-0 gap-5 rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.06)] sm:grid-cols-[144px_minmax(0,1fr)] sm:items-center sm:p-6">
       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-linear-to-br from-blue-50 to-cyan-100 sm:aspect-square">
         {data.courseThumbnailUrl ? (
           <Image
             src={data.courseThumbnailUrl}
-            alt={`Ảnh bìa khóa học ${data.courseTitle}`}
+            alt={t("courseRow.coverAlt", { title: data.courseTitle })}
             fill
             sizes="(max-width: 639px) calc(100vw - 72px), 144px"
             className="object-cover"
@@ -68,7 +73,7 @@ function CourseIdentity({ data }: { data: EnrolledCourseOverviewData }) {
         ) : (
           <div
             role="img"
-            aria-label={`Chưa có ảnh bìa cho khóa học ${data.courseTitle}`}
+            aria-label={t("courseRow.coverMissing", { title: data.courseTitle })}
             className="flex size-full items-center justify-center text-blue-700"
           >
             <span className="text-4xl font-extrabold tracking-tight">
@@ -82,14 +87,13 @@ function CourseIdentity({ data }: { data: EnrolledCourseOverviewData }) {
 
       <div className="min-w-0">
         <p className="text-xs font-extrabold tracking-[0.16em] text-blue-700">
-          KHÔNG GIAN KHÓA HỌC
+          {t("overview.eyebrow")}
         </p>
         <h1 className="mt-2 wrap-break-word text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
           {data.courseTitle}
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-          Theo dõi các chủ đề đã hoàn thành và tiếp tục từ đúng điểm trong lộ
-          trình của bạn.
+          {t("overview.intro")}
         </p>
       </div>
     </header>
@@ -97,6 +101,8 @@ function CourseIdentity({ data }: { data: EnrolledCourseOverviewData }) {
 }
 
 function NoContentState() {
+  const t = useTranslations("learn");
+
   return (
     <section
       role="status"
@@ -108,11 +114,10 @@ function NoContentState() {
         id="course-no-content-title"
         className="mt-4 text-xl font-extrabold text-slate-950"
       >
-        Khóa học chưa có nội dung để bắt đầu
+        {t("overview.noContent.title")}
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        Các chủ đề học tập đang được cập nhật. Bạn có thể quay lại không gian
-        học tập và thử lại sau.
+        {t("overview.noContent.body")}
       </p>
       <Button
         asChild
@@ -121,7 +126,7 @@ function NoContentState() {
       >
         <Link href="/learn">
           <ArrowLeft aria-hidden="true" className="size-4" />
-          Về không gian học tập
+          {t("overview.noContent.back")}
         </Link>
       </Button>
     </section>
@@ -129,6 +134,8 @@ function NoContentState() {
 }
 
 function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
+  const t = useTranslations("learn");
+  const locale = useLocale() === "en" ? "en" : "vi";
   if (data.status === "no-content") return <NoContentState />;
 
   const presentation = getProgressPresentation(data);
@@ -136,6 +143,12 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
   const destination = presentation.destinationTopic
     ? `/learn/${data.courseSlug}/${presentation.destinationTopic.slug}`
     : null;
+  // Số đã định dạng theo ngôn ngữ; `count` chỉ để chọn dạng số ít/số nhiều (tiếng Việt giữ chữ số thường).
+  const topicCounts = {
+    count: data.totalTopicCount,
+    completed: formatCatalogCount(locale, data.completedTopicCount),
+    total: formatCatalogCount(locale, data.totalTopicCount),
+  };
 
   return (
     <aside
@@ -143,16 +156,16 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
       className="rounded-[24px] border border-blue-100 bg-white p-6 shadow-[0_12px_36px_rgba(37,99,235,0.08)] lg:sticky lg:top-6"
     >
       <p className="text-xs font-extrabold tracking-[0.16em] text-blue-700">
-        {presentation.eyebrow}
+        {t(presentation.eyebrowKey)}
       </p>
       <h2
         id="course-progress-title"
         className="mt-2 text-2xl font-extrabold leading-8 text-slate-950"
       >
-        {presentation.title}
+        {t(presentation.titleKey)}
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        {presentation.description}
+        {t(presentation.descriptionKey)}
       </p>
 
       <div className="mt-6 flex items-end justify-between gap-4">
@@ -161,8 +174,7 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
             {progress}%
           </p>
           <p className="mt-1 text-xs font-semibold text-slate-500">
-            {data.completedTopicCount}/{data.totalTopicCount} chủ đề đã hoàn
-            thành
+            {t("overview.progress.topicsDone", topicCounts)}
           </p>
         </div>
         {data.status === "completed" && (
@@ -171,11 +183,11 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
       </div>
       <div
         role="progressbar"
-        aria-label={`Tiến độ khóa học ${data.courseTitle}`}
+        aria-label={t("courseRow.progressLabel", { title: data.courseTitle })}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={progress}
-        aria-valuetext={`${data.completedTopicCount} trên ${data.totalTopicCount} chủ đề đã hoàn thành`}
+        aria-valuetext={t("overview.progress.topicsDoneText", topicCounts)}
         className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100"
       >
         <div
@@ -187,7 +199,9 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
       {presentation.destinationTopic && (
         <div className="mt-6 rounded-2xl bg-blue-50 p-4">
           <p className="text-[11px] font-extrabold tracking-[0.13em] text-blue-700">
-            {data.status === "completed" ? "BÀI ÔN LẠI" : "CHỦ ĐỀ TIẾP THEO"}
+            {data.status === "completed"
+              ? t("overview.progress.reviewTopic")
+              : t("overview.progress.nextTopic")}
           </p>
           <p className="mt-1 wrap-break-word text-sm font-bold leading-6 text-slate-900">
             {presentation.destinationTopic.title}
@@ -204,7 +218,7 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
           className="mt-5 min-h-11 w-full rounded-xl bg-action px-5 font-bold text-action-foreground hover:bg-action/90"
         >
           <Link href={destination}>
-            {presentation.cta}
+            {t(presentation.ctaKey)}
             <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
         </Button>
@@ -214,23 +228,23 @@ function ProgressCard({ data }: { data: EnrolledCourseOverviewData }) {
 }
 
 function LearningPath({ data }: { data: EnrolledCourseOverviewData }) {
+  const t = useTranslations("learn");
   if (data.status === "no-content") return null;
 
   return (
     <section aria-labelledby="learning-path-title" className="min-w-0">
       <div>
         <p className="text-xs font-extrabold tracking-[0.16em] text-blue-700">
-          LỘ TRÌNH HỌC
+          {t("overview.path.eyebrow")}
         </p>
         <h2
           id="learning-path-title"
           className="mt-2 text-2xl font-extrabold text-slate-950 sm:text-3xl"
         >
-          Các chủ đề trong khóa học
+          {t("overview.path.title")}
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Chủ đề được sắp theo đúng thứ tự học; bạn vẫn có thể mở lại phần đã
-          hoàn thành.
+          {t("overview.path.description")}
         </p>
       </div>
 
@@ -247,7 +261,7 @@ function LearningPath({ data }: { data: EnrolledCourseOverviewData }) {
               </span>
               <div className="min-w-0">
                 <p className="text-[11px] font-extrabold tracking-[0.12em] text-slate-500">
-                  CHƯƠNG {chapterIndex + 1}
+                  {t("overview.path.chapter", { number: chapterIndex + 1 })}
                 </p>
                 <h3
                   id={`chapter-${chapter.id}`}
@@ -262,10 +276,10 @@ function LearningPath({ data }: { data: EnrolledCourseOverviewData }) {
               {chapter.topics.map((topic) => {
                 const isCurrent = data.nextTopic?.slug === topic.slug;
                 const stateLabel = topic.isCompleted
-                  ? "Đã hoàn thành"
+                  ? t("overview.path.stateDone")
                   : isCurrent
-                    ? "Học tiếp"
-                    : "Sắp tới";
+                    ? t("overview.path.stateCurrent")
+                    : t("overview.path.stateUpcoming");
                 const StateIcon = topic.isCompleted
                   ? CheckCircle2
                   : isCurrent
@@ -327,6 +341,11 @@ export default function EnrolledCourseOverview({
   data: EnrolledCourseOverviewData;
   learningSummary?: CourseLearningSummaryResult;
 }) {
+  const t = useTranslations("learn");
+  // Nhãn của khối chuỗi ngày học nằm trong namespace `learning` (U3 AC5); component dùng chung nhận `t` như màn hình U2.
+  const learningText = asTranslate(useTranslations("learning"));
+  const locale = useLocale() === "en" ? "en" : "vi";
+
   return (
     <div className="min-h-full bg-slate-50 px-4 py-8 sm:px-6 md:py-10 lg:px-8 lg:py-12">
       <div className="mx-auto max-w-[1180px]">
@@ -337,7 +356,7 @@ export default function EnrolledCourseOverview({
         >
           <Link href="/learn">
             <ArrowLeft aria-hidden="true" className="size-4" />
-            Không gian học tập
+            {t("overview.back")}
           </Link>
         </Button>
 
@@ -359,7 +378,13 @@ export default function EnrolledCourseOverview({
           >
             <ProgressCard data={data} />
             {learningSummary && data.status !== "no-content" && (
-              <CourseLearningActivity courseSlug={data.courseSlug} result={learningSummary} className="mt-6" />
+              <CourseLearningActivity
+                courseSlug={data.courseSlug}
+                result={learningSummary}
+                className="mt-6"
+                t={learningText}
+                formatDays={(value) => formatCatalogCount(locale, value)}
+              />
             )}
           </div>
           {data.status !== "no-content" && (

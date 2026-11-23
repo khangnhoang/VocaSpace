@@ -47,5 +47,20 @@
     "today": "Hôm nay",
     "yesterday": "Hôm qua",
     "daysAgo": "{days} ngày trước"
-  }
+  },
+  "duration": {
+    "minutes": "khoảng {minutes} phút",
+    "hours": "khoảng {hours} giờ",
+    "hoursMinutes": "khoảng {hours} giờ {minutes} phút"
+  },
+  "weekday": {
+    "sun": "CN",
+    "mon": "T2",
+    "tue": "T3",
+    "wed": "T4",
+    "thu": "T5",
+    "fri": "T6",
+    "sat": "T7"
+  },
+  "dayMonth": "{day}/{month}"
 }

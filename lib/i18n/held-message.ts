@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import type { Locale } from "./config";
+import type { MessageRef } from "./message-ref";
 import type { Translate } from "./translate";
 
 /** Ngôn ngữ mà server dùng cho request, khóa catalog và tham số của thông báo (xem `request-locale-result.ts`, `message-ref.ts`). */
@@ -15,10 +16,14 @@ export type RequestReply = { locale: Locale; messageKey: string | null; messageP
  *   action không ghi khóa nào mới dùng `fallbackKey`, một thông báo chung do client dịch, vì cách khắc phục của các lỗi khác nhau.
  */
 export type HeldMessage =
-  | { kind: "key"; key: string }
+  | { kind: "key"; key: string; params?: Record<string, string | number> }
   | { kind: "text"; text: string; reply: RequestReply; fallbackKey: string };
 
-export const heldKey = (key: string): HeldMessage => ({ kind: "key", key });
+export const heldKey = (key: string, params?: Record<string, string | number>): HeldMessage => ({
+  kind: "key",
+  key,
+  ...(params ? { params } : {}),
+});
 
 export const heldText = (text: string, reply: RequestReply, fallbackKey: string): HeldMessage => ({
   kind: "text",
@@ -30,7 +35,7 @@ export const heldText = (text: string, reply: RequestReply, fallbackKey: string)
 /** `t` dịch khóa tương đối của component (heldKey, fallbackKey); `tRoot` dịch khóa đầy đủ từ gốc (messageKey). */
 export function resolveHeldMessage(message: HeldMessage | null, locale: Locale, t: Translate, tRoot: Translate): string | null {
   if (!message) return null;
-  if (message.kind === "key") return t(message.key);
+  if (message.kind === "key") return t(message.key, message.params);
   if (message.reply.locale === locale) return message.text;
   return message.reply.messageKey ? tRoot(message.reply.messageKey, message.reply.messageParams) : t(message.fallbackKey);
 }
@@ -68,4 +73,13 @@ export function useLatest<T>(value: T): RefObject<T> {
     ref.current = value;
   });
   return ref;
+}
+
+/** Phản hồi của wrapper nhiều trường (`withRequestLocaleFields`): ngôn ngữ của server và tham chiếu thông báo theo trường. */
+export type FieldsReply = { locale: Locale; messageRefs: Record<string, MessageRef> };
+
+/** Lấy phản hồi một trường ra dạng `RequestReply` để dùng chung `heldText`, `resolveHeldMessage` và `pickServerText`. */
+export function replyForField(reply: FieldsReply, field: string): RequestReply {
+  const ref = reply.messageRefs[field];
+  return { locale: reply.locale, messageKey: ref?.key ?? null, ...(ref?.params ? { messageParams: ref.params } : {}) };
 }

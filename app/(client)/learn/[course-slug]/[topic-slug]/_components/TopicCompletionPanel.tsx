@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { formatCatalogCount } from "@/lib/i18n/format";
+import type { Locale } from "@/lib/i18n/config";
+import { asTranslate, type Translate } from "@/lib/i18n/translate";
 
 interface TopicCompletionPanelProps {
   topicTitle: string;
@@ -42,11 +46,15 @@ function prefersReducedMotion() {
   );
 }
 
-function catchUpLine(memoryCount: number, exerciseCount: number) {
+function catchUpLine(memoryCount: number, exerciseCount: number, t: Translate, locale: Locale) {
   const parts: string[] = [];
-  if (memoryCount > 0) parts.push(`${memoryCount} câu Memory check`);
-  if (exerciseCount > 0) parts.push(`${exerciseCount} câu bài tập`);
-  return `Còn ${parts.join(" và ")} cần làm`;
+  if (memoryCount > 0) {
+    parts.push(t("workspace.completion.catchUpMemory", { count: memoryCount, shown: formatCatalogCount(locale, memoryCount) }));
+  }
+  if (exerciseCount > 0) {
+    parts.push(t("workspace.completion.catchUpExercise", { count: exerciseCount, shown: formatCatalogCount(locale, exerciseCount) }));
+  }
+  return t("workspace.completion.catchUpLine", { parts: parts.join(t("workspace.completion.catchUpJoin")) });
 }
 
 const percent = (value: number, total: number) =>
@@ -126,6 +134,9 @@ export default function TopicCompletionPanel({
   catchUp,
   next,
 }: TopicCompletionPanelProps) {
+  const t = asTranslate(useTranslations("learn"));
+  const locale: Locale = useLocale() === "en" ? "en" : "vi";
+  const count = (value: number) => formatCatalogCount(locale, value);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [sequence] = useState(() => animate && !prefersReducedMotion());
   const [revealed, setRevealed] = useState(!sequence);
@@ -144,7 +155,7 @@ export default function TopicCompletionPanel({
 
   const catchUpLineText =
     catchUp && (catchUp.memoryCount > 0 || catchUp.exerciseCount > 0)
-      ? catchUpLine(catchUp.memoryCount, catchUp.exerciseCount)
+      ? catchUpLine(catchUp.memoryCount, catchUp.exerciseCount, t, locale)
       : null;
   const chapterFinished = chapter.total > 0 && chapter.completed >= chapter.total;
   const showChapterDone = chapterFinished && revealed;
@@ -156,9 +167,9 @@ export default function TopicCompletionPanel({
   const nextLink =
     next.kind === "topic" ? (
       // Owner Q8: one line; the next topic is already named in the hint above.
-      <Link href={next.href}>Chủ đề tiếp theo</Link>
+      <Link href={next.href}>{t("workspace.completion.nextTopic")}</Link>
     ) : (
-      <Link href={next.href}>Về tổng quan khóa học</Link>
+      <Link href={next.href}>{t("workspace.nav.overview")}</Link>
     );
   return (
     <section
@@ -174,7 +185,7 @@ export default function TopicCompletionPanel({
           tabIndex={-1}
           className="break-words text-xl font-bold leading-snug text-slate-900 outline-none [overflow-wrap:anywhere] md:text-2xl"
         >
-          Đã hoàn thành chủ đề “{topicTitle}”
+          {t("workspace.completion.title", { title: topicTitle })}
         </h2>
       </div>
 
@@ -186,17 +197,17 @@ export default function TopicCompletionPanel({
         >
           <div className="flex min-w-0 flex-col gap-1">
             <h3 className="break-words text-base font-bold text-slate-900 [overflow-wrap:anywhere]">
-              Bài học vừa được cập nhật
+              {t("workspace.completion.catchUpTitle")}
             </h3>
             <p className="text-sm font-medium text-slate-800">{catchUpLineText}</p>
           </div>
           <Button
             size="lg"
             className="w-full sm:w-auto sm:px-8"
-            aria-label={`${catchUpLineText}, Làm ngay`}
+            aria-label={t("workspace.completion.catchUpActionLabel", { line: catchUpLineText })}
             onClick={catchUp.onStart}
           >
-            Làm ngay
+            {t("workspace.completion.catchUpAction")}
           </Button>
         </div>
       )}
@@ -204,9 +215,13 @@ export default function TopicCompletionPanel({
       <div className="flex flex-col gap-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-3 text-sm font-bold text-slate-700">
-            <span id="completion-course-label">Tiến độ khóa học</span>
+            <span id="completion-course-label">{t("workspace.completion.courseProgress")}</span>
             <span>
-              {course.completed}/{course.total} chủ đề
+              {t("workspace.completion.topicsCount", {
+                count: course.total,
+                completed: count(course.completed),
+                total: count(course.total),
+              })}
             </span>
           </div>
           <div
@@ -215,7 +230,11 @@ export default function TopicCompletionPanel({
             aria-valuemin={0}
             aria-valuemax={course.total}
             aria-valuenow={course.completed}
-            aria-valuetext={`${course.completed} trên ${course.total} chủ đề`}
+            aria-valuetext={t("workspace.completion.courseValueText", {
+              count: course.total,
+              completed: count(course.completed),
+              total: count(course.total),
+            })}
             className="relative h-2.5 overflow-hidden rounded-full bg-slate-200"
           >
             <ProgressFill
@@ -236,7 +255,11 @@ export default function TopicCompletionPanel({
               {chapter.title}
             </span>
             <span className="shrink-0">
-              {chapter.completed}/{chapter.total} chủ đề
+              {t("workspace.completion.topicsCount", {
+                count: chapter.total,
+                completed: count(chapter.completed),
+                total: count(chapter.total),
+              })}
             </span>
           </div>
           <div
@@ -245,7 +268,11 @@ export default function TopicCompletionPanel({
             aria-valuemin={0}
             aria-valuemax={chapter.total}
             aria-valuenow={chapter.completed}
-            aria-valuetext={`${chapter.completed} trên ${chapter.total} chủ đề của chương`}
+            aria-valuetext={t("workspace.completion.chapterValueText", {
+              count: chapter.total,
+              completed: count(chapter.completed),
+              total: count(chapter.total),
+            })}
             className="relative h-2.5 overflow-hidden rounded-full bg-slate-200"
           >
             <ProgressFill
@@ -267,11 +294,11 @@ export default function TopicCompletionPanel({
               }`}
             >
               <CheckCircle2 aria-hidden="true" className="size-4" />
-              Đã hoàn thành chương này
+              {t("workspace.completion.chapterDone")}
             </p>
           )}
           <p data-completion-hint className={`text-sm font-medium text-slate-600 ${hintMotion}`}>
-            Tiếp theo: {nextHint}
+            {t("workspace.completion.nextHint", { hint: nextHint })}
           </p>
         </div>
       </div>
@@ -284,15 +311,15 @@ export default function TopicCompletionPanel({
             <Button
               size="lg"
               className="h-auto min-h-14 w-full py-2"
-              aria-label={`Có ${dueCount} thẻ đến hạn, Ôn ngay`}
+              aria-label={t("workspace.completion.dueLabel", { count: dueCount, shown: count(dueCount) })}
               onClick={onReviewDue}
             >
               <span aria-hidden="true" className="flex flex-col items-start gap-0.5 text-left">
                 <span data-due-line className="text-xs font-medium leading-4">
-                  Có {dueCount} thẻ đến hạn
+                  {t("workspace.completion.dueLine", { count: dueCount, shown: count(dueCount) })}
                 </span>
                 <span data-due-line className="text-lg font-bold leading-6">
-                  Ôn ngay
+                  {t("workspace.completion.dueAction")}
                 </span>
               </span>
             </Button>

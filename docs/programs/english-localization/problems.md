@@ -12,14 +12,25 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 - Direction: U6 presents the options. (a) A bilingual email, Vietnamese first. (b) A per-user language from auth metadata. Option (b) stores the locale on the user, which conflicts with the plan's section 7 exclusion and the `AGENTS.md` user-data rule, so it needs the Owner to revise that scope. It also needs a defined language for resend and recovery emails on accounts without metadata or with stale metadata.
 - Exit condition: The Owner records the choice, and U6's local trial shows the subject, body and links with the flag off, on and off again. It also shows either that one flag change controls the emails, or, if that trial fails, an Owner-approved exception to decision 5 with the order, the check between the two changes and a separate rollback for each (plan section 5, step 5). U6's detail plan follows it.
 
-### ENLOC-002: Privacy wording for the locale cookie
+### ENLOC-003: Topic page render writes learner progress
 
-- Status: Open (2026-11-21). The Owner chose new wording on 2026-11-21 (U1 plan decision 6); it resolves when the U1 PR ships it.
-- Problem: The approved `/privacy` text requires a same-PR update when code changes cookies. Its section 3 says cookies keep the session and remember interface state, with the sidebar as the example. It is unclear whether that covers a language-preference cookie.
-- Evidence: `app/(client)/privacy/page.tsx` lines 9–10 and 86–89.
-- Direction: The U1 PR that adds the cookie applies U1 plan decision 6 (the new example) and decision 10 (the shared legal date).
-- Exit condition: The Owner records that the current wording suffices, or the approved wording ships with the cookie.
+- Status: Open (2026-11-24). Unrelated to U3; exists on base `25655281`; not fixed.
+- Problem: `getLearningWorkspace` calls `syncTopicProgress` during the server render of a topic page, so a Link prefetch of a topic page can mark a content-less topic completed without the learner opening it.
+- Evidence: U3 CP2 snapshot run on the isolated stack: after an unreset run, `b2-qa-not-started-foundation` showed topics `711`, `811` and `911` completed by prefetch from the overview on the candidate and on base (recorded in the U3 CP2 evidence in progress.md).
+- Direction: Decide separately whether render may write progress or whether the sync moves to an explicit action; size and owner are decided later.
+- Exit condition: A topic page render, including a prefetch, leaves `user_topic_progress` unchanged, or the Owner accepts the behavior.
+
+### ENLOC-004: Workspace remounts on a language switch after rating cards
+
+- Status: Open (2026-11-24). Owner decision 2026-11-24: not fixed in U3.
+- Problem: with the flag on, a learner who rates cards in the session, answers a question and then switches Vietnamese or English sees `router.refresh()` read new progress. The page key `workspaceKey` includes `unseenCardIds`, `unratedCardIds` and `dueCardIds`, so it changes and `LearningWorkspace` remounts. The shown answer outcome and explanation disappear (the saved data is not lost).
+- Evidence: the key in `app/(client)/learn/[course-slug]/[topic-slug]/page.tsx`; U3 Codex implementation review round 1, finding 1.
+- Why not fixed in U3: the simple fix (drop the three lists from the key) conflicts with the accepted LF3 AC6 and LF4 AC5 key tests, which G6 forbids changing; the alternative (carry the outcome across the remount) is a design change.
+- Direction: either keep the workspace identity across a refresh that only reflects the session's own ratings while keeping the remount for real card changes, or accept the behavior.
+- Exit condition: fixed before English is enabled for users (the release gate), or the Owner accepts it at that point.
 
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git.
+
+- ENLOC-002 — Resolved 2026-11-22: the Owner-chosen `/privacy` cookie wording (display language as an example of remembered interface state) shipped with the locale cookie in U1 (PR 193, `d2172fe8`).

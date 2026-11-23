@@ -51,11 +51,14 @@ export function RecentTopicsList({
   topics,
   className = "mt-5",
   t = viLearningText,
+  formatDays,
 }: {
   courseSlug: string;
   topics: CourseLearningSummary["recentTopics"];
   className?: string;
   t?: Translate;
+  /** Formats the day count of the relative-day label; the U3 course overview passes its locale-aware formatter, the public card keeps bare digits. */
+  formatDays?: (value: number) => string;
 }) {
   if (topics.length === 0) return null;
 
@@ -73,7 +76,7 @@ export function RecentTopicsList({
                 {topic.title}
               </span>
               <span className="shrink-0 text-xs font-semibold text-slate-500">
-                {translateRelativeDay(topic.daysAgo, t)}
+                {translateRelativeDay(topic.daysAgo, t, formatDays)}
               </span>
             </Link>
           </li>
@@ -109,11 +112,13 @@ export default function CourseLearningActivity({
   result,
   className = "",
   t = viLearningText,
+  formatDays,
 }: {
   courseSlug: string;
   result: CourseLearningSummaryResult;
   className?: string;
   t?: Translate;
+  formatDays?: (value: number) => string;
 }) {
   if (!result.success) {
     return (
@@ -133,7 +138,7 @@ export default function CourseLearningActivity({
   return (
     <section aria-labelledby="course-learning-activity-title" className={`${SECTION_CLASS} ${className}`}>
       <CourseStreakLine data={result.data} headingId="course-learning-activity-title" t={t} />
-      <RecentTopicsList courseSlug={courseSlug} topics={result.data.recentTopics} t={t} />
+      <RecentTopicsList courseSlug={courseSlug} topics={result.data.recentTopics} t={t} formatDays={formatDays} />
     </section>
   );
 }

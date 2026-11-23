@@ -8,6 +8,7 @@ import CourseSlugLayout from "@/app/(client)/courses/[course-slug]/layout";
 import CoursePreviewLayout from "@/app/(client)/courses/[course-slug]/preview/layout";
 import LearnLayout from "@/app/(client)/learn/layout";
 import LearnDashboardLayout from "@/app/(client)/learn/(dashboard)/layout";
+import LearnCourseLayout from "@/app/(client)/learn/[course-slug]/layout";
 import LearnTopicLayout from "@/app/(client)/learn/[course-slug]/[topic-slug]/layout";
 import { PublicCourseDetailView } from "@/app/(client)/courses/_components/PublicCourseDetailView";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
@@ -116,9 +117,10 @@ describe("learn and home deliver flashcard only where it renders", () => {
     expect(namespacesOf(<LearnLayout>x</LearnLayout>)).toBeUndefined();
   });
 
-  it("gives the dashboard and the topic page flashcard", () => {
-    expect(namespacesOf(<LearnDashboardLayout>x</LearnDashboardLayout>)).toBe("flashcard");
-    expect(namespacesOf(<LearnTopicLayout>x</LearnTopicLayout>)).toBe("flashcard");
+  it("gives the dashboard, the course overview and the topic page their namespaces", () => {
+    expect(namespacesOf(<LearnDashboardLayout>x</LearnDashboardLayout>)).toBe("flashcard,learning,learn");
+    expect(namespacesOf(<LearnTopicLayout>x</LearnTopicLayout>)).toBe("flashcard,learning,learn");
+    expect(namespacesOf(<LearnCourseLayout>x</LearnCourseLayout>)).toBe("learning,learn");
   });
 
   it("gives / home and flashcard only, never courses", () => {

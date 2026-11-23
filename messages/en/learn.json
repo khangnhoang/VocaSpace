@@ -1,0 +1,357 @@
+{
+  "meta": {
+    "title": "Learn and practice | Vocaspace",
+    "template": "%s | Vocaspace Learn",
+    "description": "A TOEIC vocabulary platform built around flashcards and smart exercises."
+  },
+  "loading": {
+    "workspace": "Loading your learning space",
+    "overview": "Loading the course overview",
+    "topic": "Loading the lesson"
+  },
+  "dashboard": {
+    "header": {
+      "eyebrow": "YOUR LEARNING SPACE",
+      "title": "What do you want to learn next today?",
+      "description": "Pick up the lesson you left off, keep up your review rhythm and see your whole learning journey at a glance."
+    },
+    "errorTitle": "Couldn't load your learning space",
+    "retry": "Try again",
+    "courseCount": "{count, plural, one {{shown} course} other {{shown} courses}}",
+    "continuing": {
+      "title": "Continue learning",
+      "description": "Pick up the next lesson on your journey.",
+      "item": "courses in progress"
+    },
+    "remaining": {
+      "title": "Other courses",
+      "description": "Courses you've enrolled in that you haven't started, have finished or that have no content yet.",
+      "item": "courses",
+      "filterLabel": "Filter other courses",
+      "filterAll": "All",
+      "filterNotStarted": "Not started",
+      "filterCompleted": "Completed",
+      "empty": "No courses in this state."
+    },
+    "empty": {
+      "title": "You have no course to continue yet",
+      "description": "Browse published courses and pick the path that fits your goal.",
+      "cta": "Browse courses"
+    },
+    "reviewCard": {
+      "noneTitle": "No cards to review today",
+      "noneBody": "No cards are due.",
+      "eyebrow": "TODAY'S REVIEW",
+      "title": "Today's review",
+      "due": "{count, plural, one {card due} other {cards due}}",
+      "open": "Review now"
+    },
+    "rhythm": {
+      "eyebrow": "MEMORY RHYTHM",
+      "title": "{learningCount, plural, one {{learning} card in progress} other {{learning} cards in progress}} · {totalCount, plural, one {{total} card in total} other {{total} cards in total}}",
+      "body": "Keep a steady review rhythm to remember for longer."
+    }
+  },
+  "courseRow": {
+    "coverAlt": "Cover image of the course {title}",
+    "coverMissing": "No cover image for the course {title}",
+    "completedEyebrow": "LAST LESSON",
+    "completedCta": "Review the last lesson",
+    "notStartedEyebrow": "FIRST LESSON",
+    "notStartedCta": "Start learning",
+    "inProgressEyebrow": "NEXT LESSON",
+    "inProgressCta": "Continue learning",
+    "contentEyebrow": "CONTENT",
+    "completedBadge": "Completed",
+    "noProgress": "No progress yet",
+    "progress": "Course progress",
+    "progressLabel": "Progress of the course {title}",
+    "updating": "Content is being updated",
+    "overview": "View overview"
+  },
+  "pagination": {
+    "label": "{item} pagination",
+    "showing": "Showing {start}–{end} of {total} {item}",
+    "previous": "Previous page",
+    "page": "Page {page}",
+    "next": "Next page"
+  },
+  "streak": {
+    "eyebrow": "LEARNING STREAK",
+    "unavailableTitle": "Couldn't load your learning streak",
+    "unavailableBody": "You can still learn and review as usual. Try reloading the page in a few minutes.",
+    "days": "{count, plural, one {{shown} day in a row} other {{shown} days in a row}}",
+    "startTitle": "Start a learning streak",
+    "startBody": "Answer a question or review a card today to count your first study day.",
+    "studiedToday": "You studied today. Come back tomorrow to keep the streak going.",
+    "notStudiedToday": "You haven't studied today. Answer a question or review a card to keep your streak.",
+    "stripLabel": "Last 7 days",
+    "todayShort": "Today",
+    "todayLong": "Today",
+    "studied": "studied",
+    "notStudied": "not studied",
+    "dayStatus": "{day} {date}: {status}",
+    "weekTime": "This week you studied {duration} (estimate).",
+    "weekNone": "No study time has been recorded this week yet."
+  },
+  "review": {
+    "closeLabel": "Close review",
+    "title": "Focused review",
+    "description": "Recall the word, reveal the answer, then rate yourself.",
+    "loading": "Loading review cards…",
+    "errorTitle": "Couldn't start the review round",
+    "retry": "Try again",
+    "loadFailed": "Couldn't load the review cards. Please try again.",
+    "processed": "Cards processed this round: {processed}/{total}",
+    "progressLabel": "Review progress",
+    "recallPrompt": "Recall the meaning of the word",
+    "ratePrompt": "How well did you remember this word?",
+    "saving": "Saving your results, please wait…",
+    "allDone": "Congratulations! You've reviewed every due card.",
+    "roundDone": "This round is complete",
+    "noDue": "No cards are due right now",
+    "noneLoaded": "This batch has no cards to review",
+    "moreDue": "More cards are due. You can review the next round.",
+    "backHint": "You can go back to your learning space and keep learning.",
+    "nextRound": "Review the next round",
+    "back": "Back",
+    "saveFailed": "Couldn't save your rating for the card \"{word}\".",
+    "saveFailedRequeued": "Couldn't save your rating for the card \"{word}\". The card was put back in the queue so you can rate it again."
+  },
+  "actions": {
+    "dashboard": {
+      "authRequired": "Please sign in to view your learning dashboard.",
+      "queryFailed": "Couldn't load the learning dashboard right now.",
+      "invalidData": "The learning dashboard data is invalid."
+    },
+    "summary": {
+      "unavailable": "Couldn't load your learning streak right now."
+    },
+    "deck": {
+      "authRequired": "Please sign in to keep reviewing.",
+      "loadFailed": "Couldn't load the review card data right now.",
+      "queueFailed": "Something went wrong while building the review queue."
+    },
+    "review": {
+      "invalid": "The card rating data is invalid.",
+      "authRequired": "Please sign in",
+      "contextFailed": "Couldn't check the review card right now.",
+      "unavailable": "This review card isn't available.",
+      "enrollRequired": "You need to enroll in the course to save your review.",
+      "invalidMeta": "The current review data is invalid.",
+      "syncFailed": "Couldn't sync your review progress.",
+      "progressSync": "The card was saved, but your lesson progress couldn't be recorded."
+    },
+    "overview": {
+      "queryFailed": "Couldn't load the course overview right now. Please try again.",
+      "invalidData": "The course overview data is invalid."
+    },
+    "workspace": {
+      "queryFailed": "Couldn't load the lesson right now. Please try again.",
+      "invalidData": "The lesson data is invalid."
+    },
+    "progress": {
+      "authRequired": "Please sign in",
+      "invalidInput": "The answer data is invalid.",
+      "questionUnavailable": "This question isn't available.",
+      "saveFailed": "Couldn't save your answer right now.",
+      "progressSync": "Your answer was saved, but your lesson progress couldn't be recorded.",
+      "enrollRequired": "You need to enroll in the course to save your answer.",
+      "optionUnavailable": "That answer option isn't available.",
+      "memoryRequired": "Answer every Memory check question correctly before starting the exercises.",
+      "cardsRequired": "Study all the flashcards in this lesson before taking the Memory check.",
+      "defaultExplanation": "That answer isn't correct. Give it another try!"
+    }
+  },
+  "overview": {
+    "back": "Learning space",
+    "eyebrow": "COURSE SPACE",
+    "intro": "Track the topics you've completed and pick up right where you left off on your path.",
+    "noContent": {
+      "title": "This course has no content to start yet",
+      "body": "The learning topics are being updated. You can go back to the learning space and try again later.",
+      "back": "Back to the learning space"
+    },
+    "progress": {
+      "completedEyebrow": "COMPLETED",
+      "completedTitle": "You've finished the whole path",
+      "completedDescription": "Revisit the last lesson to keep your memory rhythm.",
+      "notStartedEyebrow": "READY TO START",
+      "notStartedTitle": "Your first lesson is waiting",
+      "notStartedDescription": "Start in the order of the course path.",
+      "inProgressEyebrow": "NEXT LESSON",
+      "inProgressTitle": "Continue where you left off",
+      "inProgressDescription": "Go back to the earliest topic you haven't finished on the path.",
+      "topicsDone": "{count, plural, one {{completed}/{total} topic completed} other {{completed}/{total} topics completed}}",
+      "topicsDoneText": "{count, plural, one {{completed} of {total} topic completed} other {{completed} of {total} topics completed}}",
+      "reviewTopic": "LESSON TO REVISIT",
+      "nextTopic": "NEXT TOPIC"
+    },
+    "path": {
+      "eyebrow": "LEARNING PATH",
+      "title": "Topics in this course",
+      "description": "Topics are listed in study order; you can still reopen the parts you've completed.",
+      "chapter": "CHAPTER {number}",
+      "stateDone": "Completed",
+      "stateCurrent": "Up next",
+      "stateUpcoming": "Upcoming"
+    },
+    "feedback": {
+      "unenrolledEyebrow": "COURSE ACCESS",
+      "errorEyebrow": "COULDN'T LOAD DATA",
+      "unenrolledTitle": "This account isn't enrolled in the course",
+      "errorTitle": "Couldn't load the course overview",
+      "unenrolledBodyBefore": "You're signed in but don't have access to the course “",
+      "unenrolledBodyAfter": "”. See the course page to check the details and your enrollment options.",
+      "viewCourse": "View course details",
+      "backToLearn": "Back to the learning space",
+      "retry": "Try again",
+      "retrying": "Reloading..."
+    }
+  },
+  "workspace": {
+    "steps": {
+      "label": "Lesson steps",
+      "flashcard": "Vocabulary",
+      "memory": "Memory check",
+      "exercise": "Exercises",
+      "current": "current",
+      "locked": "locked",
+      "upcoming": "not opened yet",
+      "done": "done",
+      "doneAnd": "done, {state}",
+      "hint": "You can jump between sections by selecting them on the progress bar."
+    },
+    "lock": {
+      "memoryCards": "Rate the remaining cards Good or Easy to unlock the Memory check.",
+      "exercises": "Answer every Memory check question correctly to unlock the exercises."
+    },
+    "toast": {
+      "unseen": "{count, plural, one {You still have {shown} card you haven't studied in this lesson} other {You still have {shown} cards you haven't studied in this lesson}}",
+      "newCards": "{count, plural, one {This lesson just got {shown} new card. Study it, then redo the memory check.} other {This lesson just got {shown} new cards. Study them, then redo the memory check.}}",
+      "memoryPassed": "You've completed the memory check!",
+      "dueDone": "You've reviewed all the due cards!",
+      "fullDone": "You've reviewed the vocabulary again!",
+      "firstToMemory": "Vocabulary loaded! Moving on to the memory check.",
+      "firstToExercise": "Vocabulary loaded! Moving on to the exercises."
+    },
+    "header": {
+      "backToOverview": "Back to the overview of the course {title}",
+      "completed": "Completed",
+      "openList": "Open the list of chapters and lessons",
+      "list": "Lesson list",
+      "browse": "Browse chapters",
+      "browseDescription": "Choose another lesson in this course.",
+      "viewResult": "View topic result",
+      "toMemory": "Back to Memory check",
+      "toFlashcard": "Back to Vocabulary",
+      "nextMemory": "Go to Memory check",
+      "nextExercise": "Go to Exercises"
+    },
+    "stage": {
+      "noQuestions": "This exercise has no questions to answer yet.",
+      "noContent": "This lesson has no content yet",
+      "jumpToQuestion": "Go to the question",
+      "memoryLockedTitle": "Memory check is locked",
+      "backToFlashcard": "Back to Vocabulary",
+      "exercisesLockedTitle": "Exercises are locked",
+      "doMemory": "Do the memory check",
+      "unconfirmedTitle": "Couldn't confirm your topic progress",
+      "unconfirmedBody": "Reload to confirm your ratings and continue with the part that's still missing.",
+      "reload": "Reload progress",
+      "flashcardsDone": "You've finished reviewing the vocabulary",
+      "dueNote": "{count, plural, one {You have {shown} card due in this lesson} other {You have {shown} cards due in this lesson}}",
+      "reviewDue": "{count, plural, one {Review {shown} card now} other {Review {shown} cards now}}",
+      "restart": "Review the vocabulary again"
+    },
+    "end": {
+      "complete": "Finish",
+      "remaining": "Answer the missing questions",
+      "nextLesson": "Next lesson"
+    },
+    "nav": {
+      "label": "Lesson navigation",
+      "previous": "Previous lesson",
+      "next": "Next lesson",
+      "overview": "Back to the course overview"
+    },
+    "sidebar": {
+      "completed": "Completed"
+    },
+    "streakChip": {
+      "studiedTitle": "You've studied this course today",
+      "keepTitle": "Study today to keep your streak",
+      "days": "{shown}-day streak",
+      "keepNote": ". Study today to keep your streak."
+    },
+    "feedback": {
+      "unavailableEyebrow": "LESSON UNAVAILABLE",
+      "unavailableTitle": "This lesson isn't available",
+      "unavailableBody": "This link doesn't point to a lesson you can open in the current course. Go back to the course overview to choose another one."
+    },
+    "completion": {
+      "title": "You've completed the topic “{title}”",
+      "chapterLabel": "Chapter {number} · {title}",
+      "chapterFallback": "Current chapter",
+      "topicLabel": "Topic {number} · {title}",
+      "nextHintDetail": "{unit} — {detail}",
+      "nextHintOverview": "Course overview",
+      "nextHint": "Up next: {hint}",
+      "nextTopic": "Next topic",
+      "catchUpTitle": "This lesson was just updated",
+      "catchUpMemory": "{count, plural, one {{shown} Memory check question} other {{shown} Memory check questions}}",
+      "catchUpExercise": "{count, plural, one {{shown} exercise question} other {{shown} exercise questions}}",
+      "catchUpJoin": " and ",
+      "catchUpLine": "{parts} left to do",
+      "catchUpAction": "Do it now",
+      "catchUpActionLabel": "{line}, Do it now",
+      "courseProgress": "Course progress",
+      "topicsCount": "{count, plural, one {{completed}/{total} topic} other {{completed}/{total} topics}}",
+      "courseValueText": "{count, plural, one {{completed} of {total} topic} other {{completed} of {total} topics}}",
+      "chapterValueText": "{count, plural, one {{completed} of {total} chapter topic} other {{completed} of {total} chapter topics}}",
+      "chapterDone": "You've completed this chapter",
+      "dueLine": "{count, plural, one {{shown} card due} other {{shown} cards due}}",
+      "dueAction": "Review now",
+      "dueLabel": "{count, plural, one {{shown} card due, Review now} other {{shown} cards due, Review now}}"
+    },
+    "navigator": {
+      "group": "Group {number}/{total}",
+      "fallbackText": "Choose the correct answer"
+    },
+    "answer": {
+      "correctAnnounce": "Correct!",
+      "correctTitle": "Correct",
+      "incorrectTitle": "Not quite right",
+      "next": "Next question",
+      "retry": "Try again"
+    },
+    "memory": {
+      "title": "Memory check",
+      "correctCount": "{correct}/{total} correct",
+      "progressLabel": "Memory check progress",
+      "progressValueText": "{count, plural, one {{correct} of {total} question correct} other {{correct} of {total} questions correct}}",
+      "fallbackExplanation": "That answer isn't correct.",
+      "willReturn": "This question will come back after the remaining ones.",
+      "willRetry": "You'll answer this question again.",
+      "checking": "Checking...",
+      "check": "Check answer",
+      "reviewTitle": "Memory check review",
+      "reviewCount": "{count, plural, one {{shown} question, your correct answer is marked.} other {{shown} questions, your correct answers are marked.}}",
+      "explanation": "Explanation",
+      "doExercises": "Do the exercises",
+      "changedTitle": "The Memory check just changed",
+      "changedBody": "Reload to answer the remaining questions before opening the exercises.",
+      "reload": "Reload"
+    },
+    "question": {
+      "position": "Question {current}/{total}",
+      "incorrectFallback": "Sorry, that answer isn't correct. Reread the material and try again!",
+      "progressNotice": "Your answer was saved, but your lesson progress couldn't be recorded.",
+      "sendFailed": "Couldn't send your answer right now.",
+      "confirm": "Confirm answer",
+      "checking": "Checking…",
+      "saveFailedTitle": "Couldn't save your answer",
+      "saveFailedBody": "{message} Your choice was kept, so try sending it again."
+    }
+  }
+}

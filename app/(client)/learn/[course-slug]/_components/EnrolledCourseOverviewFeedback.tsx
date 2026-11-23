@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, LockKeyhole, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { getPublicCourseDetailPath } from "@/lib/public-courses/routes";
 import type { EnrolledCourseOverviewResult } from "@/lib/schemas/enrolled-course-overview";
@@ -15,6 +16,7 @@ export default function EnrolledCourseOverviewFeedback({
 }: {
   result: FeedbackResult;
 }) {
+  const t = useTranslations("learn");
   const isUnenrolled = result.status === "unenrolled";
 
   return (
@@ -45,24 +47,26 @@ export default function EnrolledCourseOverviewFeedback({
             isUnenrolled ? "text-route" : "text-correction"
           }`}
         >
-          {isUnenrolled ? "QUYỀN TRUY CẬP KHÓA HỌC" : "KHÔNG THỂ TẢI DỮ LIỆU"}
+          {isUnenrolled
+            ? t("overview.feedback.unenrolledEyebrow")
+            : t("overview.feedback.errorEyebrow")}
         </p>
         <h1
           id="course-overview-feedback-title"
           className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl"
         >
           {isUnenrolled
-            ? "Tài khoản này chưa đăng ký khóa học"
-            : "Chưa thể tải tổng quan khóa học"}
+            ? t("overview.feedback.unenrolledTitle")
+            : t("overview.feedback.errorTitle")}
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
           {isUnenrolled ? (
             <>
-              Bạn đang đăng nhập nhưng chưa có quyền học khóa “
+              {t("overview.feedback.unenrolledBodyBefore")}
               <span className="font-bold text-slate-900">
                 {result.course.title}
               </span>
-              ”. Xem trang giới thiệu để kiểm tra thông tin và lựa chọn đăng ký.
+              {t("overview.feedback.unenrolledBodyAfter")}
             </>
           ) : (
             result.error
@@ -76,7 +80,7 @@ export default function EnrolledCourseOverviewFeedback({
               className="min-h-11 rounded-xl bg-blue-600 px-5 font-bold text-white hover:bg-blue-700"
             >
               <Link href={getPublicCourseDetailPath(result.course.slug)}>
-                Xem thông tin khóa học
+                {t("overview.feedback.viewCourse")}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
             </Button>
@@ -91,7 +95,7 @@ export default function EnrolledCourseOverviewFeedback({
           >
             <Link href="/learn">
               <ArrowLeft aria-hidden="true" className="size-4" />
-              Về không gian học tập
+              {t("overview.feedback.backToLearn")}
             </Link>
           </Button>
         </div>

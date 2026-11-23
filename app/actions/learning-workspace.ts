@@ -1,6 +1,7 @@
 "use server";
 
 import { isAuthSessionMissingError } from "@supabase/supabase-js";
+import { getTranslations } from "next-intl/server";
 import { parseQuestionGroupManagedMediaReference, type QuestionGroupMediaType } from "@/lib/schemas/exercise";
 import {
   learningWorkspaceCourseSlugSchema,
@@ -21,8 +22,9 @@ import { summarizeOwnCardProgress } from "@/lib/card-progress";
 import { syncTopicProgress } from "@/lib/topic-progress";
 import { createClient } from "@/utils/supabase/server";
 
-const QUERY_ERROR = "Không thể tải bài học lúc này. Vui lòng thử lại.";
-const INVALID_DATA_ERROR = "Dữ liệu bài học không hợp lệ.";
+// Thông báo theo ngôn ngữ của request; chỉ trang server gọi action này (bọc `cache()`), nên `router.refresh()` dựng lại bằng ngôn ngữ mới
+// và không cần wrapper (U3 H3).
+type LearnTranslator = Awaited<ReturnType<typeof getTranslations<"learn">>>;
 
 function questionGroupMediaDeliveryUrl(
   type: QuestionGroupMediaType,
@@ -166,13 +168,13 @@ type LearningWorkspaceDataDraft = Omit<
   memoryCheck: unknown;
 };
 
-const queryFailedResult = (): LearningWorkspaceResult => ({
+const queryFailedResult = (t: LearnTranslator): LearningWorkspaceResult => ({
   status: "error",
   errorCode: "QUERY_FAILED",
-  error: QUERY_ERROR,
+  error: t("actions.workspace.queryFailed"),
 });
 
-function parseWorkspaceResult(value: unknown): LearningWorkspaceResult {
+function parseWorkspaceResult(value: unknown, t: LearnTranslator): LearningWorkspaceResult {
   const parsed = learningWorkspaceResultSchema.safeParse(value);
   if (parsed.success) return parsed.data;
 
@@ -180,7 +182,7 @@ function parseWorkspaceResult(value: unknown): LearningWorkspaceResult {
   return {
     status: "error",
     errorCode: "INVALID_DATA",
-    error: INVALID_DATA_ERROR,
+    error: t("actions.workspace.invalidData"),
   };
 }
 
@@ -435,6 +437,9 @@ export async function getLearningWorkspace(
     rawTopicSlug,
   );
 
+  const t = await getTranslations("learn");
+  const parseResult = (value: unknown) => parseWorkspaceResult(value, t);
+
   try {
     const supabase = await createClient();
     const {
@@ -444,7 +449,7 @@ export async function getLearningWorkspace(
 
     if (authError && !isAuthSessionMissingError(authError)) {
       console.error("Learning workspace auth query failed", authError);
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
     if (authError || !user) return { status: "auth_required" };
 
@@ -459,7 +464,7 @@ export async function getLearningWorkspace(
 
     if (courseError) {
       console.error("Learning workspace course query failed", courseError);
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
     if (!rawCourse) return { status: "not_found" };
 
@@ -468,14 +473,14 @@ export async function getLearningWorkspace(
       (enrollment) => enrollment.user_id === user.id,
     );
     if (!isEnrolled) {
-      return parseWorkspaceResult({
+      return parseResult({
         status: "unenrolled",
         course: { slug: course.slug, title: course.title },
       });
     }
 
     if (!topicSlugResult.success) {
-      return parseWorkspaceResult({
+      return parseResult({
         status: "topic_unavailable",
         course: { slug: course.slug, title: course.title },
       });
@@ -548,14 +553,14 @@ export async function getLearningWorkspace(
         "Learning workspace syllabus query failed",
         syllabusResult.error,
       );
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
     if (topicResult.error) {
       console.error("Learning workspace topic query failed", topicResult.error);
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
     if (!topicResult.data) {
-      return parseWorkspaceResult({
+      return parseResult({
         status: "topic_unavailable",
         course: { slug: course.slug, title: course.title },
       });
@@ -573,7 +578,7 @@ export async function getLearningWorkspace(
       user.id,
     );
     if (!data) {
-      return parseWorkspaceResult({
+      return parseResult({
         status: "topic_unavailable",
         course: { slug: course.slug, title: course.title },
       });
@@ -596,9 +601,9 @@ export async function getLearningWorkspace(
       }
     }
 
-    return parseWorkspaceResult({ status: "success", data });
+    return parseResult({ status: "success", data });
   } catch (error) {
     console.error("Learning workspace unexpected failure", error);
-    return queryFailedResult();
+    return queryFailedResult(t);
   }
 }

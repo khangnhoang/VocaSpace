@@ -291,6 +291,8 @@ function hasReviewableCardContext(card: StrictDBCardContent | null) {
 }
 
 export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> {
+  // U3: thông báo của action này do client hiện (ReviewSheet), nên được ghi khóa để wrapper `getDeckReviewCardsLocalized` dịch lại khi lệch ngôn ngữ.
+  const t = await recordedTranslations("learn", "error");
   const supabase = await createClient();
   const {
     data: { user },
@@ -298,7 +300,7 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return { error: "Vui lòng đăng nhập để tiếp tục ôn tập." };
+    return { error: t("actions.deck.authRequired") };
   }
 
   try {
@@ -329,7 +331,7 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
         .range(offset, offset + metadataPageSize - 1);
 
       if (metaError) {
-        return { error: "Không thể tải ngữ liệu thẻ ôn tập lúc này." };
+        return { error: t("actions.deck.loadFailed") };
       }
       const page = (allMeta ?? []) as unknown as StrictReviewMetaRow[];
       reviewableMeta.push(...page);
@@ -386,7 +388,7 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
       .limit(50);
 
     if (cardsError) {
-      return { error: "Không thể tải ngữ liệu thẻ ôn tập lúc này." };
+      return { error: t("actions.deck.loadFailed") };
     }
 
     // Gán kiểu dữ liệu nghiêm ngặt loại bỏ hoàn toàn 'any' hoặc fallback đoán mò
@@ -431,6 +433,6 @@ export async function getDeckReviewCards(): Promise<FetchDeckReviewCardsResult> 
       },
     };
   } catch {
-    return { error: "Hệ thống gặp sự cố khi tổng hợp hàng đợi ôn tập." };
+    return { error: t("actions.deck.queueFailed") };
   }
 }

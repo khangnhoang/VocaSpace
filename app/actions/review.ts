@@ -1,5 +1,7 @@
 "use server";
 
+import { recordedTranslations } from "@/lib/i18n/message-ref";
+import type { Translate } from "@/lib/i18n/translate";
 import { type Card as FSRSCard, Rating, createEmptyCard, fsrs } from "ts-fsrs";
 import { cardReviewInputSchema, fsrsMetaSchema } from "@/lib/schemas/fsrs";
 import {
@@ -11,8 +13,9 @@ import { createClient } from "@/utils/supabase/server";
 import { hasLearningEnrollment } from "@/lib/learning-enrollment";
 import { createActionTimer, type ActionTimer } from "@/lib/learning-action-timing";
 
-const PROGRESS_SYNC_ERROR = "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học.";
-const MUTATION_ERROR = "Chưa thể đồng bộ tiến độ ôn tập.";
+// Mỗi trường kết quả có bộ dịch ghi nhận riêng (U3 H4): `error` và `progressError` có thể cùng nằm trong một kết quả thành công của
+// wrapper, nên thông báo này không được ghi đè lên thông báo kia.
+type ReviewTranslators = { error: Translate; progress: Translate };
 
 type RawUserFlashcard = {
   id: string;
@@ -53,8 +56,12 @@ export async function submitCardReview(
 ): Promise<SubmitCardReviewResult> {
   // LF2: đo thời gian server khi LEARNING_ACTION_TIMING=1; mặc định tắt, không đổi hành vi action.
   const timer = createActionTimer("submitCardReview");
+  const translators = {
+    error: await recordedTranslations("learn", "error"),
+    progress: await recordedTranslations("learn", "progressError"),
+  };
   try {
-    return await reviewCard(rawCardId, rawRating, timer);
+    return await reviewCard(rawCardId, rawRating, timer, translators);
   } finally {
     timer.end();
   }
@@ -64,19 +71,20 @@ async function reviewCard(
   rawCardId: string,
   rawRating: Rating,
   timer: ActionTimer,
+  { error: t, progress: tProgress }: ReviewTranslators,
 ): Promise<SubmitCardReviewResult> {
   const parsed = cardReviewInputSchema.safeParse({
     cardId: rawCardId,
     rating: rawRating,
   });
-  if (!parsed.success) return { error: "Dữ liệu đánh giá thẻ không hợp lệ." };
+  if (!parsed.success) return { error: t("actions.review.invalid") };
 
   const supabase = await timer.step("createClient", () => createClient());
   const {
     data: { user },
     error: authError,
   } = await timer.step("auth.getUser", () => supabase.auth.getUser());
-  if (authError || !user) return { error: "Vui lòng đăng nhập" };
+  if (authError || !user) return { error: t("actions.review.authRequired") };
 
   try {
     const { data: rawCard, error: cardError } = await timer.step("context.query", () => supabase
@@ -102,9 +110,9 @@ async function reviewCard(
 
     if (cardError) {
       console.error("Card review context query failed", cardError);
-      return { error: "Không thể kiểm tra thẻ ôn tập lúc này." };
+      return { error: t("actions.review.contextFailed") };
     }
-    if (!rawCard) return { error: "Thẻ ôn tập không khả dụng." };
+    if (!rawCard) return { error: t("actions.review.unavailable") };
 
     const card = rawCard as unknown as RawReviewCard;
     const topic = card.topic;
@@ -119,7 +127,7 @@ async function reviewCard(
       chapter.removed_at === null &&
       chapter.course_id === topic.course_id;
     if (!hasTrustedParentChain) {
-      return { error: "Thẻ ôn tập không khả dụng." };
+      return { error: t("actions.review.unavailable") };
     }
 
     // LF2: đường nhanh dùng enrollment đã đọc cùng context (course_id lấy từ topic tin cậy, không từ client).
@@ -130,7 +138,7 @@ async function reviewCard(
       !enrolledByContext &&
       !await timer.step("enrollment", () => hasLearningEnrollment(supabase, user.id, topic.course_id))
     ) {
-      return { error: "Bạn cần ghi danh khóa học để lưu ôn tập." };
+      return { error: t("actions.review.enrollRequired") };
     }
 
     // Defense in depth next to the embed filter: only the caller's own row for this card is ever used.
@@ -144,7 +152,7 @@ async function reviewCard(
       const parsedMeta = fsrsMetaSchema.safeParse(userFlashcard.fsrs_meta);
       if (!parsedMeta.success) {
         console.error("Card review FSRS metadata is invalid", parsedMeta.error.issues);
-        return { error: "Dữ liệu ôn tập hiện tại không hợp lệ." };
+        return { error: t("actions.review.invalidMeta") };
       }
       currentCard = {
         ...parsedMeta.data,
@@ -174,17 +182,17 @@ async function reviewCard(
     }));
     if (mutationError) {
       console.error("Card review FSRS mutation failed", mutationError);
-      return { error: MUTATION_ERROR };
+      return { error: t("actions.review.syncFailed") };
     }
 
     const result = cardReviewRpcResultSchema.safeParse(data);
     if (!result.success) {
       console.error("Card review RPC returned invalid data", result.error.issues);
-      return { error: MUTATION_ERROR };
+      return { error: t("actions.review.syncFailed") };
     }
     if (result.data.status !== "ok") {
       console.error("Card review FSRS mutation wrote no row");
-      return { error: MUTATION_ERROR };
+      return { error: t("actions.review.syncFailed") };
     }
 
     // D4 H4: the review is already saved; missing or malformed progress must not turn it into an error.
@@ -195,10 +203,10 @@ async function reviewCard(
 
     return {
       success: true,
-      ...(progress.success ? { topicProgress: progress.data } : { progressError: PROGRESS_SYNC_ERROR }),
+      ...(progress.success ? { topicProgress: progress.data } : { progressError: tProgress("actions.review.progressSync") }),
     };
   } catch (error) {
     console.error("Card review unexpected failure", error);
-    return { error: MUTATION_ERROR };
+    return { error: t("actions.review.syncFailed") };
   }
 }

@@ -5,6 +5,7 @@ import {
   LockKeyhole,
   TriangleAlert,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { getPublicCourseDetailPath } from "@/lib/public-courses/routes";
 import type { LearningWorkspaceResult } from "@/lib/schemas/learning-workspace";
@@ -20,13 +21,14 @@ export default function LearningWorkspaceFeedback({
 }: {
   result: FeedbackResult;
 }) {
+  const t = useTranslations("learn");
   const isError = result.status === "error";
   const isUnenrolled = result.status === "unenrolled";
   const title = isUnenrolled
-    ? "Tài khoản này chưa đăng ký khóa học"
+    ? t("overview.feedback.unenrolledTitle")
     : result.status === "topic_unavailable"
-      ? "Bài học này không khả dụng"
-      : "Chưa thể tải không gian học tập";
+      ? t("workspace.feedback.unavailableTitle")
+      : t("dashboard.errorTitle");
 
   return (
     <div className="flex min-h-[72vh] items-center justify-center bg-slate-50 px-4 py-12 sm:px-6">
@@ -57,10 +59,10 @@ export default function LearningWorkspaceFeedback({
           }`}
         >
           {isUnenrolled
-            ? "QUYỀN TRUY CẬP KHÓA HỌC"
+            ? t("overview.feedback.unenrolledEyebrow")
             : result.status === "topic_unavailable"
-              ? "BÀI HỌC KHÔNG KHẢ DỤNG"
-              : "KHÔNG THỂ TẢI DỮ LIỆU"}
+              ? t("workspace.feedback.unavailableEyebrow")
+              : t("overview.feedback.errorEyebrow")}
         </p>
         <h1
           id="learning-workspace-feedback-title"
@@ -71,14 +73,14 @@ export default function LearningWorkspaceFeedback({
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
           {isUnenrolled ? (
             <>
-              Bạn đang đăng nhập nhưng chưa có quyền học khóa “
+              {t("overview.feedback.unenrolledBodyBefore")}
               <span className="font-bold text-slate-900">
                 {result.course.title}
               </span>
-              ”. Xem trang giới thiệu để kiểm tra thông tin và lựa chọn đăng ký.
+              {t("overview.feedback.unenrolledBodyAfter")}
             </>
           ) : result.status === "topic_unavailable" ? (
-            "Liên kết này không trỏ tới một bài học bạn có thể mở trong khóa học hiện tại. Hãy quay lại tổng quan khóa học để chọn bài khác."
+            t("workspace.feedback.unavailableBody")
           ) : (
             result.error
           )}
@@ -91,7 +93,7 @@ export default function LearningWorkspaceFeedback({
               className="min-h-11 rounded-xl bg-emerald-600 px-5 font-bold text-white hover:bg-emerald-700"
             >
               <Link href={getPublicCourseDetailPath(result.course.slug)}>
-                Xem thông tin khóa học
+                {t("overview.feedback.viewCourse")}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
             </Button>
@@ -101,7 +103,7 @@ export default function LearningWorkspaceFeedback({
               className="min-h-11 rounded-xl bg-emerald-600 px-5 font-bold text-white hover:bg-emerald-700"
             >
               <Link href={`/learn/${result.course.slug}`}>
-                Về tổng quan khóa học
+                {t("workspace.nav.overview")}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
             </Button>
@@ -116,7 +118,7 @@ export default function LearningWorkspaceFeedback({
           >
             <Link href="/learn">
               <ArrowLeft aria-hidden="true" className="size-4" />
-              Về không gian học tập
+              {t("overview.feedback.backToLearn")}
             </Link>
           </Button>
         </div>

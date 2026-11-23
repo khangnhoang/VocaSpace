@@ -123,6 +123,16 @@ describe("FEAT3 AC6a enrolled learner card on the public course page", () => {
     vi.clearAllMocks();
   });
 
+  it("keeps bare digits in the days-ago label in English, unchanged by the U3 formatter (G7)", async () => {
+    mockedGetDetail.mockResolvedValue({ status: "success", data: enrolled() });
+    mockedGetSummary.mockResolvedValue({ ...okSummary, data: { ...okSummary.data, recentTopics: [topic(1, 1234)] } });
+
+    const { aside } = regions(renderToStaticMarkup(await PublicCourseDetailRoute({ courseSlug: "toeic-nen-tang" }), { locale: "en" }));
+
+    expect(aside).toContain("1234 days ago");
+    expect(aside).not.toContain("1,234 days ago");
+  });
+
   it("shows the learning card in order: streak, progress, continue button, recent topics, without price or cover", async () => {
     const course = enrolled();
     const before = structuredClone(course);

@@ -5,9 +5,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // answer key; the stored `user_question_answers.is_correct` is never read here
 // because learners can write that column through the Data API (Q7).
 
+// Mã lỗi; thông báo hiển thị nằm ở catalog `learn` (`actions.progress.memoryRequired`, `cardsRequired`) để theo ngôn ngữ của request.
 export const MEMORY_CHECK_REQUIRED = "MEMORY_CHECK_REQUIRED";
-export const MEMORY_CHECK_REQUIRED_ERROR =
-  "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.";
 
 export type MemoryCheckOptionRow = {
   id: string;
@@ -159,5 +158,3 @@ export function isMemoryCheckPassed(memoryCheck: LoadedMemoryCheck | null) {
 
 // LF3: memory check chỉ trả lời được sau khi học viên đã xem (có dòng user_flashcards của mình) mọi thẻ active của topic.
 export const CARDS_REQUIRED = "CARDS_REQUIRED";
-export const CARDS_REQUIRED_ERROR =
-  "Bạn cần học hết flashcard của bài này trước khi làm memory check.";

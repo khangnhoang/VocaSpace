@@ -58,6 +58,14 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Direction: run the same eight specs under `next dev` on the base `20fadd25` and on the candidate before classifying the cause (a failure on both points to the dev server, one on the candidate alone points to the change); consider replacing the dev-mode runs with the production build, as E2E-DEV-002 proposes.
 - Exit condition: the eight specs pass in repeated local `next dev` runs, or dev-mode runs are replaced by the production build.
 
+### TEST-FIXTURE-001: `memory-check-learner-gate.test.ts` leaves `user_flashcards` rows on the main local stack
+
+- Status: Open (2026-11-24, found at English localization U3 Owner QA round 1). Unrelated to localization; not fixed.
+- Problem: the integration test `__tests__/integration/memory-check-learner-gate.test.ts` left 20 `user_flashcards` rows for `student@gmail.com` on `d3-gate-*` courses where the student is not enrolled, on the main stack (API 45321). They inflate the `/learn` due-card count (see [LEARN-DUE-001](../student-user-flow-route/problems.md#learn-due-001-the-learn-due-card-count-includes-cards-the-learner-can-no-longer-read)).
+- Evidence: Owner QA on the flag-on dev server showed 20 cards due that the review sheet could not present; Main deleted the rows locally with Owner approval for QA.
+- Direction: make the test clean up the learner rows it creates (or use its own learner), and check the other integration tests that write `user_flashcards` for the seed student.
+- Exit condition: a full integration run on the main stack leaves no `user_flashcards` row for the seed student that the run did not find there.
+
 ## Resolved
 
 One line each.

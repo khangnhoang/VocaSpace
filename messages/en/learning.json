@@ -47,5 +47,20 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "daysAgo": "{days} days ago"
-  }
+  },
+  "duration": {
+    "minutes": "about {minutes} min",
+    "hours": "about {hours} hr",
+    "hoursMinutes": "about {hours} hr {minutes} min"
+  },
+  "weekday": {
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat"
+  },
+  "dayMonth": "{month}/{day}"
 }

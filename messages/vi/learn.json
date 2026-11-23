@@ -1,0 +1,357 @@
+{
+  "meta": {
+    "title": "Học tập và Rèn luyện | Vocaspace",
+    "template": "%s | Vocaspace Learn",
+    "description": "Nền tảng học từ vựng TOEIC tối ưu với phương pháp Flashcard và Exercise thông minh."
+  },
+  "loading": {
+    "workspace": "Đang tải không gian học tập",
+    "overview": "Đang tải tổng quan khóa học",
+    "topic": "Đang tải bài học"
+  },
+  "dashboard": {
+    "header": {
+      "eyebrow": "KHÔNG GIAN HỌC TẬP",
+      "title": "Hôm nay bạn muốn học gì tiếp?",
+      "description": "Tiếp tục đúng bài còn thiếu, giữ nhịp ôn tập và nhìn rõ toàn bộ hành trình học tập của bạn."
+    },
+    "errorTitle": "Chưa thể tải không gian học tập",
+    "retry": "Thử lại",
+    "courseCount": "{shown} khóa học",
+    "continuing": {
+      "title": "Học tiếp",
+      "description": "Quay lại đúng bài tiếp theo trong hành trình của bạn.",
+      "item": "khóa học đang học"
+    },
+    "remaining": {
+      "title": "Các khóa học còn lại",
+      "description": "Các khóa học bạn đã đăng ký nhưng chưa bắt đầu, đã hoàn thành hoặc chưa có nội dung.",
+      "item": "khóa học",
+      "filterLabel": "Lọc các khóa học còn lại",
+      "filterAll": "Tất cả",
+      "filterNotStarted": "Chưa bắt đầu học",
+      "filterCompleted": "Đã hoàn thành",
+      "empty": "Không có khóa học nào ở trạng thái này."
+    },
+    "empty": {
+      "title": "Bạn chưa có khóa học để tiếp tục",
+      "description": "Khám phá các khóa học đã xuất bản và chọn lộ trình phù hợp với mục tiêu của bạn.",
+      "cta": "Khám phá khóa học"
+    },
+    "reviewCard": {
+      "noneTitle": "Hôm nay chưa có thẻ cần ôn",
+      "noneBody": "Không có thẻ đến hạn.",
+      "eyebrow": "ÔN TẬP HÔM NAY",
+      "title": "Ôn tập hôm nay",
+      "due": "thẻ đến hạn",
+      "open": "Ôn ngay"
+    },
+    "rhythm": {
+      "eyebrow": "NHỊP GHI NHỚ",
+      "title": "{learning} thẻ đang học · {total} thẻ tổng cộng",
+      "body": "Duy trì nhịp ôn tập đều đặn để ghi nhớ lâu hơn."
+    }
+  },
+  "courseRow": {
+    "coverAlt": "Ảnh bìa khóa học {title}",
+    "coverMissing": "Chưa có ảnh bìa cho khóa học {title}",
+    "completedEyebrow": "BÀI HỌC CUỐI",
+    "completedCta": "Xem lại bài học cuối",
+    "notStartedEyebrow": "BÀI ĐẦU TIÊN",
+    "notStartedCta": "Bắt đầu học",
+    "inProgressEyebrow": "BÀI TIẾP THEO",
+    "inProgressCta": "Tiếp tục học",
+    "contentEyebrow": "NỘI DUNG",
+    "completedBadge": "Đã hoàn thành",
+    "noProgress": "Chưa có tiến độ",
+    "progress": "Tiến độ khóa học",
+    "progressLabel": "Tiến độ khóa học {title}",
+    "updating": "Nội dung đang được cập nhật",
+    "overview": "Xem tổng quan"
+  },
+  "pagination": {
+    "label": "Phân trang {item}",
+    "showing": "Hiển thị {start}–{end} / {total} {item}",
+    "previous": "Trang trước",
+    "page": "Trang {page}",
+    "next": "Trang sau"
+  },
+  "streak": {
+    "eyebrow": "CHUỖI NGÀY HỌC",
+    "unavailableTitle": "Chưa tải được chuỗi ngày học",
+    "unavailableBody": "Bạn vẫn học và ôn tập bình thường. Thử tải lại trang sau ít phút.",
+    "days": "{shown} ngày liên tiếp",
+    "startTitle": "Bắt đầu chuỗi ngày học",
+    "startBody": "Làm một câu hỏi hoặc ôn một thẻ hôm nay để tính ngày học đầu tiên.",
+    "studiedToday": "Hôm nay bạn đã học. Mai quay lại để nối tiếp chuỗi.",
+    "notStudiedToday": "Hôm nay bạn chưa học. Làm một câu hỏi hoặc ôn một thẻ để giữ chuỗi.",
+    "stripLabel": "7 ngày gần nhất",
+    "todayShort": "Nay",
+    "todayLong": "Hôm nay",
+    "studied": "đã học",
+    "notStudied": "chưa học",
+    "dayStatus": "{day} {date}: {status}",
+    "weekTime": "Tuần này bạn đã học {duration} (ước tính).",
+    "weekNone": "Tuần này chưa có thời gian học được ghi nhận."
+  },
+  "review": {
+    "closeLabel": "Đóng giao diện ôn tập",
+    "title": "Ôn tập tập trung",
+    "description": "Nhớ lại, xem đáp án rồi tự đánh giá.",
+    "loading": "Đang tải thẻ ôn tập…",
+    "errorTitle": "Chưa thể mở lượt ôn",
+    "retry": "Thử lại",
+    "loadFailed": "Chưa thể tải thẻ ôn tập. Hãy thử lại.",
+    "processed": "Đã xử lý {processed}/{total} thẻ trong lượt",
+    "progressLabel": "Tiến độ lượt ôn",
+    "recallPrompt": "Nhớ nghĩa của từ",
+    "ratePrompt": "Bạn nhớ từ này ở mức nào?",
+    "saving": "Đang lưu kết quả, vui lòng đợi…",
+    "allDone": "Chúc mừng! Bạn đã ôn hết thẻ đến hạn.",
+    "roundDone": "Đã hoàn tất lượt này",
+    "noDue": "Hiện không có thẻ đến hạn",
+    "noneLoaded": "Lượt tải này chưa có thẻ có thể ôn",
+    "moreDue": "Vẫn còn thẻ đến hạn. Bạn có thể ôn lượt tiếp theo.",
+    "backHint": "Bạn có thể quay lại không gian học tập và tiếp tục học.",
+    "nextRound": "Ôn lượt tiếp theo",
+    "back": "Quay lại",
+    "saveFailed": "Chưa lưu được đánh giá thẻ \"{word}\".",
+    "saveFailedRequeued": "Chưa lưu được đánh giá thẻ \"{word}\". Thẻ được xếp lại để bạn chấm lại."
+  },
+  "actions": {
+    "dashboard": {
+      "authRequired": "Vui lòng đăng nhập để xem dashboard học tập.",
+      "queryFailed": "Không thể tải dashboard học tập lúc này.",
+      "invalidData": "Dữ liệu dashboard học tập không hợp lệ."
+    },
+    "summary": {
+      "unavailable": "Không thể tải chuỗi ngày học lúc này."
+    },
+    "deck": {
+      "authRequired": "Vui lòng đăng nhập để tiếp tục ôn tập.",
+      "loadFailed": "Không thể tải ngữ liệu thẻ ôn tập lúc này.",
+      "queueFailed": "Hệ thống gặp sự cố khi tổng hợp hàng đợi ôn tập."
+    },
+    "review": {
+      "invalid": "Dữ liệu đánh giá thẻ không hợp lệ.",
+      "authRequired": "Vui lòng đăng nhập",
+      "contextFailed": "Không thể kiểm tra thẻ ôn tập lúc này.",
+      "unavailable": "Thẻ ôn tập không khả dụng.",
+      "enrollRequired": "Bạn cần ghi danh khóa học để lưu ôn tập.",
+      "invalidMeta": "Dữ liệu ôn tập hiện tại không hợp lệ.",
+      "syncFailed": "Chưa thể đồng bộ tiến độ ôn tập.",
+      "progressSync": "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học."
+    },
+    "overview": {
+      "queryFailed": "Không thể tải tổng quan khóa học lúc này. Vui lòng thử lại.",
+      "invalidData": "Dữ liệu tổng quan khóa học không hợp lệ."
+    },
+    "workspace": {
+      "queryFailed": "Không thể tải bài học lúc này. Vui lòng thử lại.",
+      "invalidData": "Dữ liệu bài học không hợp lệ."
+    },
+    "progress": {
+      "authRequired": "Vui lòng đăng nhập",
+      "invalidInput": "Dữ liệu câu trả lời không hợp lệ.",
+      "questionUnavailable": "Câu hỏi không khả dụng.",
+      "saveFailed": "Không thể lưu câu trả lời lúc này.",
+      "progressSync": "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.",
+      "enrollRequired": "Bạn cần ghi danh khóa học để lưu câu trả lời.",
+      "optionUnavailable": "Đáp án không khả dụng.",
+      "memoryRequired": "Bạn cần trả lời đúng hết memory check trước khi làm bài tập.",
+      "cardsRequired": "Bạn cần học hết flashcard của bài này trước khi làm memory check.",
+      "defaultExplanation": "Đáp án chưa chính xác. Bạn hãy thử lại nhé!"
+    }
+  },
+  "overview": {
+    "back": "Không gian học tập",
+    "eyebrow": "KHÔNG GIAN KHÓA HỌC",
+    "intro": "Theo dõi các chủ đề đã hoàn thành và tiếp tục từ đúng điểm trong lộ trình của bạn.",
+    "noContent": {
+      "title": "Khóa học chưa có nội dung để bắt đầu",
+      "body": "Các chủ đề học tập đang được cập nhật. Bạn có thể quay lại không gian học tập và thử lại sau.",
+      "back": "Về không gian học tập"
+    },
+    "progress": {
+      "completedEyebrow": "ĐÃ HOÀN THÀNH",
+      "completedTitle": "Bạn đã đi hết lộ trình",
+      "completedDescription": "Ôn lại bài học cuối để giữ nhịp ghi nhớ.",
+      "notStartedEyebrow": "SẴN SÀNG BẮT ĐẦU",
+      "notStartedTitle": "Bài đầu tiên đang chờ bạn",
+      "notStartedDescription": "Bắt đầu theo đúng thứ tự của lộ trình khóa học.",
+      "inProgressEyebrow": "BÀI TIẾP THEO",
+      "inProgressTitle": "Tiếp tục từ phần còn dang dở",
+      "inProgressDescription": "Quay lại chủ đề chưa hoàn thành sớm nhất trong lộ trình.",
+      "topicsDone": "{completed}/{total} chủ đề đã hoàn thành",
+      "topicsDoneText": "{completed} trên {total} chủ đề đã hoàn thành",
+      "reviewTopic": "BÀI ÔN LẠI",
+      "nextTopic": "CHỦ ĐỀ TIẾP THEO"
+    },
+    "path": {
+      "eyebrow": "LỘ TRÌNH HỌC",
+      "title": "Các chủ đề trong khóa học",
+      "description": "Chủ đề được sắp theo đúng thứ tự học; bạn vẫn có thể mở lại phần đã hoàn thành.",
+      "chapter": "CHƯƠNG {number}",
+      "stateDone": "Đã hoàn thành",
+      "stateCurrent": "Học tiếp",
+      "stateUpcoming": "Sắp tới"
+    },
+    "feedback": {
+      "unenrolledEyebrow": "QUYỀN TRUY CẬP KHÓA HỌC",
+      "errorEyebrow": "KHÔNG THỂ TẢI DỮ LIỆU",
+      "unenrolledTitle": "Tài khoản này chưa đăng ký khóa học",
+      "errorTitle": "Chưa thể tải tổng quan khóa học",
+      "unenrolledBodyBefore": "Bạn đang đăng nhập nhưng chưa có quyền học khóa “",
+      "unenrolledBodyAfter": "”. Xem trang giới thiệu để kiểm tra thông tin và lựa chọn đăng ký.",
+      "viewCourse": "Xem thông tin khóa học",
+      "backToLearn": "Về không gian học tập",
+      "retry": "Thử lại",
+      "retrying": "Đang tải lại..."
+    }
+  },
+  "workspace": {
+    "steps": {
+      "label": "Các bước của bài học",
+      "flashcard": "Từ vựng",
+      "memory": "Memory check",
+      "exercise": "Bài tập",
+      "current": "đang học",
+      "locked": "đang khóa",
+      "upcoming": "chưa mở",
+      "done": "đã xong",
+      "doneAnd": "đã xong, {state}",
+      "hint": "Bạn có thể di chuyển nhanh giữa các nội dung bằng cách nhấn vào nội dung tương ứng trên thanh tiến trình."
+    },
+    "lock": {
+      "memoryCards": "Học các thẻ còn thiếu ở mức Ổn hoặc Dễ để mở Memory check.",
+      "exercises": "Trả lời đúng hết memory check để mở khóa phần bài tập."
+    },
+    "toast": {
+      "unseen": "Bạn còn {shown} thẻ chưa học trong bài học này",
+      "newCards": "Bài học vừa có thêm {shown} thẻ mới. Học xong rồi làm lại memory check nhé.",
+      "memoryPassed": "Đã hoàn thành memory check!",
+      "dueDone": "Đã ôn xong thẻ đến hạn!",
+      "fullDone": "Đã ôn lại xong từ vựng!",
+      "firstToMemory": "Đã nạp xong từ vựng! Chuyển sang memory check.",
+      "firstToExercise": "Đã nạp xong từ vựng! Chuyển sang bài tập."
+    },
+    "header": {
+      "backToOverview": "Về tổng quan khóa học {title}",
+      "completed": "Đã hoàn thành",
+      "openList": "Mở danh sách chương và bài học",
+      "list": "Danh sách bài học",
+      "browse": "Duyệt chương học",
+      "browseDescription": "Chọn bài học khác trong khóa học này.",
+      "viewResult": "Xem kết quả chủ đề",
+      "toMemory": "Về Memory check",
+      "toFlashcard": "Về Từ vựng",
+      "nextMemory": "Tới Memory check",
+      "nextExercise": "Tới Bài tập"
+    },
+    "stage": {
+      "noQuestions": "Bài tập này chưa có câu hỏi để làm.",
+      "noContent": "Bài học này chưa có nội dung",
+      "jumpToQuestion": "Tới câu hỏi",
+      "memoryLockedTitle": "Memory check đang khóa",
+      "backToFlashcard": "Về Từ vựng",
+      "exercisesLockedTitle": "Bài tập đang khóa",
+      "doMemory": "Làm memory check",
+      "unconfirmedTitle": "Chưa xác nhận được tiến độ chủ đề",
+      "unconfirmedBody": "Tải lại để xác nhận đánh giá và tiếp tục đúng phần còn thiếu.",
+      "reload": "Tải lại tiến độ",
+      "flashcardsDone": "Bạn đã ôn xong từ vựng",
+      "dueNote": "Bạn có {shown} thẻ đến hạn thuộc bài học này",
+      "reviewDue": "Ôn ngay {shown} thẻ",
+      "restart": "Ôn lại từ vựng"
+    },
+    "end": {
+      "complete": "Hoàn thành",
+      "remaining": "Làm câu còn thiếu",
+      "nextLesson": "Bài tiếp theo"
+    },
+    "nav": {
+      "label": "Điều hướng bài học",
+      "previous": "Bài trước",
+      "next": "Bài sau",
+      "overview": "Về tổng quan khóa học"
+    },
+    "sidebar": {
+      "completed": "Đã hoàn thành"
+    },
+    "streakChip": {
+      "studiedTitle": "Hôm nay bạn đã học khóa này",
+      "keepTitle": "Học hôm nay để giữ chuỗi",
+      "days": "Chuỗi {shown} ngày",
+      "keepNote": ". Học hôm nay để giữ chuỗi."
+    },
+    "feedback": {
+      "unavailableEyebrow": "BÀI HỌC KHÔNG KHẢ DỤNG",
+      "unavailableTitle": "Bài học này không khả dụng",
+      "unavailableBody": "Liên kết này không trỏ tới một bài học bạn có thể mở trong khóa học hiện tại. Hãy quay lại tổng quan khóa học để chọn bài khác."
+    },
+    "completion": {
+      "title": "Đã hoàn thành chủ đề “{title}”",
+      "chapterLabel": "Chương {number} · {title}",
+      "chapterFallback": "Chương hiện tại",
+      "topicLabel": "Chủ đề {number} · {title}",
+      "nextHintDetail": "{unit} — {detail}",
+      "nextHintOverview": "Tổng quan khóa học",
+      "nextHint": "Tiếp theo: {hint}",
+      "nextTopic": "Chủ đề tiếp theo",
+      "catchUpTitle": "Bài học vừa được cập nhật",
+      "catchUpMemory": "{shown} câu Memory check",
+      "catchUpExercise": "{shown} câu bài tập",
+      "catchUpJoin": " và ",
+      "catchUpLine": "Còn {parts} cần làm",
+      "catchUpAction": "Làm ngay",
+      "catchUpActionLabel": "{line}, Làm ngay",
+      "courseProgress": "Tiến độ khóa học",
+      "topicsCount": "{completed}/{total} chủ đề",
+      "courseValueText": "{completed} trên {total} chủ đề",
+      "chapterValueText": "{completed} trên {total} chủ đề của chương",
+      "chapterDone": "Đã hoàn thành chương này",
+      "dueLine": "Có {shown} thẻ đến hạn",
+      "dueAction": "Ôn ngay",
+      "dueLabel": "Có {shown} thẻ đến hạn, Ôn ngay"
+    },
+    "navigator": {
+      "group": "Nhóm {number}/{total}",
+      "fallbackText": "Chọn đáp án đúng"
+    },
+    "answer": {
+      "correctAnnounce": "Chính xác!",
+      "correctTitle": "Chính xác",
+      "incorrectTitle": "Chưa chính xác",
+      "next": "Câu tiếp theo",
+      "retry": "Thử lại"
+    },
+    "memory": {
+      "title": "Memory check",
+      "correctCount": "Đã đúng {correct}/{total}",
+      "progressLabel": "Tiến độ memory check",
+      "progressValueText": "Đã đúng {correct} trên {total} câu",
+      "fallbackExplanation": "Đáp án chưa chính xác.",
+      "willReturn": "Câu này sẽ quay lại sau các câu còn lại.",
+      "willRetry": "Bạn sẽ trả lời lại câu này.",
+      "checking": "Đang kiểm tra...",
+      "check": "Kiểm tra đáp án",
+      "reviewTitle": "Xem lại Memory check",
+      "reviewCount": "{shown} câu, đáp án đúng của bạn được đánh dấu.",
+      "explanation": "Giải thích",
+      "doExercises": "Làm bài tập",
+      "changedTitle": "Memory check vừa thay đổi",
+      "changedBody": "Tải lại để làm các câu còn lại trước khi mở bài tập.",
+      "reload": "Tải lại"
+    },
+    "question": {
+      "position": "Câu hỏi {current}/{total}",
+      "incorrectFallback": "Rất tiếc đáp án chưa chính xác. Bạn hãy đọc lại ngữ liệu và thử lại nhé!",
+      "progressNotice": "Đã lưu câu trả lời, nhưng chưa ghi nhận được tiến độ bài học.",
+      "sendFailed": "Không thể gửi câu trả lời lúc này.",
+      "confirm": "Xác nhận đáp án",
+      "checking": "Đang kiểm tra…",
+      "saveFailedTitle": "Chưa lưu được câu trả lời",
+      "saveFailedBody": "{message} Lựa chọn của bạn vẫn được giữ, hãy thử gửi lại."
+    }
+  }
+}

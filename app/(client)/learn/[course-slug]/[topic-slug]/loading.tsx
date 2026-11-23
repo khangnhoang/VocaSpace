@@ -1,10 +1,14 @@
+import { useTranslations } from "next-intl";
+
 // Same shell, gutters and width as the settled workspace so the page does not jump
 // when content arrives. The blocks are decorative and never look like answers.
 export default function LearningWorkspaceLoading() {
+  const t = useTranslations("learn");
+
   return (
     <div
       aria-busy="true"
-      aria-label="Đang tải bài học"
+      aria-label={t("loading.topic")}
       className="min-h-screen bg-slate-50 px-3 py-4 min-[400px]:px-4 md:px-6 md:py-8"
     >
       <div className="mx-auto flex w-full max-w-[1280px] animate-pulse flex-col gap-5 motion-reduce:animate-none">

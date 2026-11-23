@@ -48,6 +48,14 @@ This file was migrated to the repository templates and translated to English on 
 - Direction: after an in-flight save succeeds, let a render pass and re-check that editor's dirty state instead of treating it as handled, with its own test.
 - Exit condition: typing during an in-flight save always leads to a prompt or a save of the newer text.
 
+### LEARN-DUE-001: the `/learn` due-card count includes cards the learner can no longer read
+
+- Status: Open (2026-11-24, found at English localization U3 Owner QA round 1). Unrelated to localization; exists on base `25655281`; not fixed.
+- Problem: `buildReviewSummary` in `lib/learn-dashboard.ts` counts every due `user_flashcards` row, while `getDeckReviewCards` drops the cards the learner can no longer read (not enrolled in the course, by RLS and `hasReviewableCardContext`). The dashboard showed 20 cards due, but the review sheet said "No cards are due right now".
+- Evidence: Owner QA on the flag-on dev server (local stack 45321) with `student@gmail.com` holding 20 due `user_flashcards` rows of `d3-gate-*` courses where the student is not enrolled; U3 did not change `lib/learn-dashboard.ts` (`git diff 25655281..HEAD` is empty for it).
+- Direction: decide whether the summary should count only readable cards (the same filter as the sheet) or the sheet should explain the difference; size and owner are decided later.
+- Exit condition: the due count on `/learn` equals the number of cards the review sheet can present, or the Owner accepts the difference.
+
 ## Resolved
 
 One line each. Details stay in Git (`git show eb36618:docs/refactors/student-user-flow-route/problems.md`) and in the cited PR.

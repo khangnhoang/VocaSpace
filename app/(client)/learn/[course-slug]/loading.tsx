@@ -1,8 +1,12 @@
+import { useTranslations } from "next-intl";
+
 export default function EnrolledCourseOverviewLoading() {
+  const t = useTranslations("learn");
+
   return (
     <div
       aria-busy="true"
-      aria-label="Đang tải tổng quan khóa học"
+      aria-label={t("loading.overview")}
       className="min-h-full bg-slate-50 px-4 py-8 sm:px-6 md:py-10 lg:px-8 lg:py-12"
     >
       <div className="mx-auto max-w-[1180px] animate-pulse">

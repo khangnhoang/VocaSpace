@@ -1,5 +1,7 @@
 "use server";
 
+import { recordedTranslations } from "@/lib/i18n/message-ref";
+import type { Translate } from "@/lib/i18n/translate";
 import {
   questionAnswerInputSchema,
   questionAnswerRpcResultSchema,
@@ -7,19 +9,13 @@ import {
   type TopicProgress,
 } from "@/lib/schemas/learning-workspace";
 import { createClient } from "@/utils/supabase/server";
-import {
-  MEMORY_CHECK_REQUIRED,
-  MEMORY_CHECK_REQUIRED_ERROR,
-  CARDS_REQUIRED,
-  CARDS_REQUIRED_ERROR,
-} from "@/lib/memory-check";
+import { MEMORY_CHECK_REQUIRED, CARDS_REQUIRED } from "@/lib/memory-check";
 import { createActionTimer, type ActionTimer } from "@/lib/learning-action-timing";
 
-const AUTH_ERROR = "Vui lòng đăng nhập";
-const ANSWER_INPUT_ERROR = "Dữ liệu câu trả lời không hợp lệ.";
-const QUESTION_UNAVAILABLE_ERROR = "Câu hỏi không khả dụng.";
-const SAVE_ERROR = "Không thể lưu câu trả lời lúc này.";
-const PROGRESS_SYNC_ERROR = "Đáp án đã lưu nhưng chưa thể ghi nhận tiến độ bài học.";
+// Mỗi trường kết quả có bộ dịch ghi nhận riêng (U3 H4): `error`, `explanation` (lời nhắc mặc định của câu sai) và `progressError` có
+// thể cùng nằm trong một kết quả thành công của wrapper, nên thông báo này không được ghi đè lên thông báo kia. Giải thích do tác giả
+// viết không đi qua bộ dịch nào nên không có bản ghi và luôn hiện đúng như đã viết.
+type AnswerTranslators = { error: Translate; explanation: Translate; progress: Translate };
 
 // Failure and success share optional keys so callers can read fields after `if (result.error)`.
 type SubmitQuestionAnswerResult =
@@ -50,8 +46,13 @@ export async function submitQuestionAnswer(
 ): Promise<SubmitQuestionAnswerResult> {
   // LF2: đo thời gian server khi LEARNING_ACTION_TIMING=1; mặc định tắt, không đổi hành vi action.
   const timer = createActionTimer("submitQuestionAnswer");
+  const translators = {
+    error: await recordedTranslations("learn", "error"),
+    explanation: await recordedTranslations("learn", "explanation"),
+    progress: await recordedTranslations("learn", "progressError"),
+  };
   try {
-    return await answerQuestion(rawQuestionId, rawSelectedOptionId, timer);
+    return await answerQuestion(rawQuestionId, rawSelectedOptionId, timer, translators);
   } finally {
     timer.end();
   }
@@ -61,19 +62,20 @@ async function answerQuestion(
   rawQuestionId: string,
   rawSelectedOptionId: string,
   timer: ActionTimer,
+  { error: t, explanation: tExplanation, progress: tProgress }: AnswerTranslators,
 ): Promise<SubmitQuestionAnswerResult> {
   const parsed = questionAnswerInputSchema.safeParse({
     questionId: rawQuestionId,
     selectedOptionId: rawSelectedOptionId,
   });
-  if (!parsed.success) return { error: ANSWER_INPUT_ERROR };
+  if (!parsed.success) return { error: t("actions.progress.invalidInput") };
 
   const supabase = await timer.step("createClient", () => createClient());
   const {
     data: { user },
     error: authError,
   } = await timer.step("auth.getUser", () => supabase.auth.getUser());
-  if (authError || !user) return { error: AUTH_ERROR };
+  if (authError || !user) return { error: t("actions.progress.authRequired") };
 
   try {
     // LF2: một RPC kiểm tra theo thứ tự unavailable -> enrollment -> option -> memory gate, ghi đáp án bằng chính
@@ -84,31 +86,31 @@ async function answerQuestion(
     }));
     if (rpcError) {
       console.error("Question answer RPC failed", rpcError);
-      return { error: SAVE_ERROR };
+      return { error: t("actions.progress.saveFailed") };
     }
 
     const result = questionAnswerRpcResultSchema.safeParse(data);
     if (!result.success) {
       console.error("Question answer RPC returned invalid data", result.error.issues);
-      return { error: SAVE_ERROR };
+      return { error: t("actions.progress.saveFailed") };
     }
 
     const outcome = result.data;
     switch (outcome.status) {
       case "auth_required":
-        return { error: AUTH_ERROR };
+        return { error: t("actions.progress.authRequired") };
       case "unavailable":
-        return { error: QUESTION_UNAVAILABLE_ERROR };
+        return { error: t("actions.progress.questionUnavailable") };
       case "not_enrolled":
-        return { error: "Bạn cần ghi danh khóa học để lưu câu trả lời." };
+        return { error: t("actions.progress.enrollRequired") };
       case "option_unavailable":
-        return { error: "Đáp án không khả dụng." };
+        return { error: t("actions.progress.optionUnavailable") };
       case "memory_locked":
-        return { error: MEMORY_CHECK_REQUIRED_ERROR, errorCode: MEMORY_CHECK_REQUIRED };
+        return { error: t("actions.progress.memoryRequired"), errorCode: MEMORY_CHECK_REQUIRED };
       case "cards_locked":
-        return { error: CARDS_REQUIRED_ERROR, errorCode: CARDS_REQUIRED };
+        return { error: t("actions.progress.cardsRequired"), errorCode: CARDS_REQUIRED };
       case "save_failed":
-        return { error: SAVE_ERROR };
+        return { error: t("actions.progress.saveFailed") };
     }
 
     timer.label(outcome.is_memory_check ? "question-answer:memory_check" : "question-answer:exercise");
@@ -128,15 +130,15 @@ async function answerQuestion(
         ? outcome.explanation
           ? { explanation: outcome.explanation }
           : {}
-        : { explanation: outcome.explanation || "Đáp án chưa chính xác. Bạn hãy thử lại nhé!" }),
+        : { explanation: outcome.explanation || tExplanation("actions.progress.defaultExplanation") }),
       // AC3a: trạng thái memory đến từ sync trong RPC (hoặc suy ra từ cùng định nghĩa khi sync hỏng); null thì bỏ qua.
       ...(outcome.is_memory_check && outcome.memory_check_passed !== null
         ? { isMemoryCheckPassed: outcome.memory_check_passed }
         : {}),
-      ...(progress.success ? { topicProgress: progress.data } : { progressError: PROGRESS_SYNC_ERROR }),
+      ...(progress.success ? { topicProgress: progress.data } : { progressError: tProgress("actions.progress.progressSync") }),
     };
   } catch (error) {
     console.error("Question answer unexpected failure", error);
-    return { error: SAVE_ERROR };
+    return { error: t("actions.progress.saveFailed") };
   }
 }

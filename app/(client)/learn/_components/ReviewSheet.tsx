@@ -2,14 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Rating } from "ts-fsrs";
-import { getDeckReviewCards } from "@/app/actions/profile";
+import { getDeckReviewCardsLocalized } from "@/app/actions/review-deck-localized";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { useCardReviewQueue, type CardReviewRequest, type CardReviewSuccess } from "@/hooks/use-card-review-queue";
+import {
+  useCardReviewQueue,
+  type CardReviewReply,
+  type CardReviewRequest,
+  type CardReviewSuccess,
+} from "@/hooks/use-card-review-queue";
 import { useFlashcardRevealGuard } from "@/hooks/use-flashcard-reveal-guard";
 import { FLASHCARD_RATINGS } from "@/lib/flashcard-ratings";
+import { formatCatalogCount } from "@/lib/i18n/format";
+import { heldKey, heldText, replyForField, resolveHeldMessage, type HeldMessage } from "@/lib/i18n/held-message";
+import { asTranslate } from "@/lib/i18n/translate";
 import type { ReviewFlashcardDTO } from "@/lib/schemas/profile";
 import styles from "./ReviewSheet.module.css";
 
@@ -18,16 +26,19 @@ interface ReviewSheetProps {
   onClose: () => void;
   onReviewComplete: () => void;
 }
-type Batch = { status: "loading" | "error" | "ready"; cards: ReviewFlashcardDTO[]; total: number; dueLeft?: number; error?: string };
+// Thông báo hệ thống được giữ dạng khóa + tham số (HeldMessage) và dịch lúc render, để đổi ngôn ngữ khi đang hiện thì chữ đổi theo.
+type Batch = { status: "loading" | "error" | "ready"; cards: ReviewFlashcardDTO[]; total: number; dueLeft?: number; error?: HeldMessage };
 
 export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: ReviewSheetProps) {
-  // U2: chỉ nhãn bốn nút đánh giá lấy từ namespace `flashcard`; phần còn lại của sheet thuộc U3.
   const flashcardText = useTranslations("flashcard");
+  const t = useTranslations("learn");
+  const tRoot = useTranslations();
+  const locale = useLocale() === "en" ? "en" : "vi";
   const [batch, setBatch] = useState<Batch>({ status: "loading", cards: [], total: 0 });
   const [isFlipped, setIsFlipped] = useState(false);
   const [previousAnswer, setPreviousAnswer] = useState<ReviewFlashcardDTO["back_content"] | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<HeldMessage | null>(null);
+  const [warning, setWarning] = useState<HeldMessage | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   // Thế hệ hàng đợi đã chấm hết thẻ và đang chờ lưu xong (AC5); null khi không có hoặc khi có thẻ được xếp lại.
   const [armedGeneration, setArmedState] = useState<number | null>(null);
@@ -58,6 +69,8 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
   const revealButton = useRef<HTMLButtonElement>(null);
   const firstRating = useRef<HTMLButtonElement>(null);
   const stateHeading = useRef<HTMLHeadingElement>(null);
+  // Phản hồi (ngôn ngữ + khóa thông báo) của lần lưu vừa xong; hàng đợi gọi `onReply` ngay trước `onSaved` nên đọc ở đó là đúng lần lưu.
+  const lastReply = useRef<CardReviewReply | null>(null);
   const callbacks = useRef({ onClose, onReviewComplete });
   useEffect(() => { callbacks.current = { onClose, onReviewComplete }; }, [onClose, onReviewComplete]);
   const setArmed = useCallback((value: number | null) => {
@@ -87,7 +100,14 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
     settlePending(request.cardId);
     hasSaved.current = true;
     if (request.generation !== generation.current) return;
-    setWarning(result.progressError ?? null);
+    const reply = lastReply.current;
+    setWarning(
+      result.progressError === undefined
+        ? null
+        : reply
+          ? heldText(result.progressError, replyForField(reply, "progressError"), "actions.review.progressSync")
+          : heldKey("actions.review.progressSync"),
+    );
     if (request.rating === Rating.Good || request.rating === Rating.Easy) {
       setBatch((current) => ({ ...current, dueLeft: current.dueLeft === undefined ? undefined : Math.max(0, current.dueLeft - 1) }));
     }
@@ -97,7 +117,8 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
   function handleSaveFailed(request: CardReviewRequest) {
     const left = settlePending(request.cardId);
     const card = knownCards.current.get(request.cardId);
-    const label = `Chưa lưu được đánh giá thẻ "${card?.front_content.word ?? ""}".`;
+    const word = card?.front_content.word ?? "";
+    const label = heldKey("review.saveFailed", { word });
     if (request.generation !== generation.current || !card) {
       setSaveError(label);
       return;
@@ -112,10 +133,16 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
     }
     updateCards([...cardsRef.current, card]);
     setArmed(null);
-    setSaveError(`${label} Thẻ được xếp lại để bạn chấm lại.`);
+    setSaveError(heldKey("review.saveFailedRequeued", { word }));
   }
 
-  const { enqueue, whenDrained } = useCardReviewQueue({ onSaved: handleSaved, onFailed: handleSaveFailed });
+  const { enqueue, whenDrained } = useCardReviewQueue({
+    onSaved: handleSaved,
+    onFailed: handleSaveFailed,
+    onReply: (_request, reply) => {
+      lastReply.current = reply;
+    },
+  });
 
   // Hàng đợi rỗng sau đánh giá cuối và đã lưu hết: chạy một lần rồi tắt cờ (G3).
   function runQueueEnd(queueGeneration: number) {
@@ -130,16 +157,23 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
     const request = ++generation.current;
     cardsRef.current = [];
     armedRef.current = null;
-    void getDeckReviewCards().then((result) => {
+    void getDeckReviewCardsLocalized().then(({ result, ...reply }) => {
       if (request !== generation.current) return;
       if (result.success && result.cards) {
         cardsRef.current = result.cards;
         knownCards.current = new Map(result.cards.map((card) => [card.id, card]));
         setBatch({ status: "ready", cards: result.cards, total: result.cards.length, dueLeft: result.counts?.dueLeft });
       }
-      else setBatch({ status: "error", cards: [], total: 0, error: result.error || "Chưa thể tải thẻ ôn tập. Hãy thử lại." });
+      else {
+        setBatch({
+          status: "error",
+          cards: [],
+          total: 0,
+          error: result.error ? heldText(result.error, replyForField(reply, "error"), "review.loadFailed") : heldKey("review.loadFailed"),
+        });
+      }
     }).catch(() => {
-      if (request === generation.current) setBatch({ status: "error", cards: [], total: 0, error: "Chưa thể tải thẻ ôn tập. Hãy thử lại." });
+      if (request === generation.current) setBatch({ status: "error", cards: [], total: 0, error: heldKey("review.loadFailed") });
     }).finally(() => {
       if (request === generation.current) operation.current = null;
     });
@@ -241,40 +275,40 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
         }}
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
-          <Button type="button" variant="ghost" size="icon-lg" className="text-route" aria-label="Đóng giao diện ôn tập" disabled={isClosing} onClick={close}>{isClosing ? <Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none" /> : <ArrowLeft aria-hidden="true" />}</Button>
+          <Button type="button" variant="ghost" size="icon-lg" className="text-route" aria-label={t("review.closeLabel")} disabled={isClosing} onClick={close}>{isClosing ? <Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none" /> : <ArrowLeft aria-hidden="true" />}</Button>
           <div className="min-w-0">
-            <DialogTitle className="font-semibold leading-6">Ôn tập tập trung</DialogTitle>
-            <DialogDescription className={styles.support}>Nhớ lại, xem đáp án rồi tự đánh giá.</DialogDescription>
+            <DialogTitle className="font-semibold leading-6">{t("review.title")}</DialogTitle>
+            <DialogDescription className={styles.support}>{t("review.description")}</DialogDescription>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-10 sm:py-7">
           {batch.status === "loading" ? (
             <h3 ref={stateHeading} tabIndex={-1} className="flex min-h-48 items-center justify-center gap-3 outline-none" role="status">
-              <Loader2 aria-hidden="true" className="size-5 animate-spin text-route motion-reduce:animate-none" />Đang tải thẻ ôn tập…
+              <Loader2 aria-hidden="true" className="size-5 animate-spin text-route motion-reduce:animate-none" />{t("review.loading")}
             </h3>
           ) : batch.status === "error" ? (
             <div className="space-y-4 py-8">
-              <h3 ref={stateHeading} tabIndex={-1} className="text-lg font-semibold outline-none">Chưa thể mở lượt ôn</h3>
-              <p role="alert" className="text-correction">{batch.error}</p>
-              <Button size="lg" onClick={() => void loadBatch()}>Thử lại</Button>
+              <h3 ref={stateHeading} tabIndex={-1} className="text-lg font-semibold outline-none">{t("review.errorTitle")}</h3>
+              <p role="alert" className="text-correction">{resolveHeldMessage(batch.error ?? null, locale, asTranslate(t), asTranslate(tRoot))}</p>
+              <Button size="lg" onClick={() => void loadBatch()}>{t("review.retry")}</Button>
             </div>
           ) : (
             <>
               {batch.total > 0 && <div className="mb-6 space-y-2">
-                <p className={`${styles.progressLabel} text-sm font-semibold`} role="status">Đã xử lý {processed}/{batch.total} thẻ trong lượt</p>
-                <div role="progressbar" aria-label="Tiến độ lượt ôn" aria-valuemin={0} aria-valuemax={batch.total} aria-valuenow={processed} className={`${styles.progressTrack} h-1.5 overflow-hidden rounded-full`}>
+                <p className={`${styles.progressLabel} text-sm font-semibold`} role="status">{t("review.processed", { processed: formatCatalogCount(locale, processed), total: formatCatalogCount(locale, batch.total) })}</p>
+                <div role="progressbar" aria-label={t("review.progressLabel")} aria-valuemin={0} aria-valuemax={batch.total} aria-valuenow={processed} className={`${styles.progressTrack} h-1.5 overflow-hidden rounded-full`}>
                   <div className={`${styles.progressFill} h-full`} data-complete={finished} style={{ width: `${processed / batch.total * 100}%` }} />
                 </div>
               </div>}
-              {saveError && <p role="alert" className="mb-4 text-sm text-correction">{saveError}</p>}
-              {warning && <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{warning}</p>}
+              {saveError && <p role="alert" className="mb-4 text-sm text-correction">{resolveHeldMessage(saveError, locale, asTranslate(t), asTranslate(tRoot))}</p>}
+              {warning && <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{resolveHeldMessage(warning, locale, asTranslate(t), asTranslate(tRoot))}</p>}
               {currentCard ? (
                 <div className="space-y-5" onPointerDownCapture={guard.onPointerDownCapture}>
                   <div className={styles.recallPlane}>
                     <div className={styles.card} data-revealed={isFlipped}>
                       <div className={`${styles.face} ${styles.front}`} aria-hidden={isFlipped}>
                         <div className="min-w-0 space-y-4">
-                          <p className={`${styles.instruction} text-sm font-medium`}>Nhớ nghĩa của từ</p>
+                          <p className={`${styles.instruction} text-sm font-medium`}>{t("review.recallPrompt")}</p>
                           <h3 className={`${styles.word} font-semibold`}>{currentCard.front_content.word}</h3>
                           {(currentCard.front_content.pos || currentCard.front_content.phonetic) && <p className={`${styles.support} text-base`}>{[currentCard.front_content.pos, currentCard.front_content.phonetic].filter(Boolean).join(" · ")}</p>}
                         </div>
@@ -285,30 +319,30 @@ export default function ReviewSheet({ isOpen, onClose, onReviewComplete }: Revie
                           {answerContent?.example && <p className={`${styles.support} text-base leading-7`}>{answerContent.example}</p>}
                           {answerContent?.exampleTranslation && <p className={`${styles.support} text-sm leading-6`}>{answerContent.exampleTranslation}</p>}
                           {answerContent?.explanation && <p className={`${styles.support} border-t border-cyan-200 pt-4 text-sm leading-6`}>{answerContent.explanation}</p>}
-                          {answerContent?.hint && <p className={`${styles.support} text-sm leading-6`}>Mẹo: {answerContent.hint}</p>}
+                          {answerContent?.hint && <p className={`${styles.support} text-sm leading-6`}>{flashcardText("stage.hint", { hint: answerContent.hint })}</p>}
                         </div>
                       </div>
                     </div>
                   </div>
                   <div className="min-h-24 space-y-3">
-                    {isFlipped ? <><p className={`${styles.support} text-sm`}>Bạn nhớ từ này ở mức nào?</p>
+                    {isFlipped ? <><p className={`${styles.support} text-sm`}>{t("review.ratePrompt")}</p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         {FLASHCARD_RATINGS.map(({ rating, labelKey, className }, index) => <Button key={rating} ref={index === 0 ? firstRating : undefined} type="button" variant="outline" size="lg" className={className} onClick={() => handleRate(rating)}>{flashcardText(labelKey)}</Button>)}
-                      </div></> : <Button ref={revealButton} type="button" size="lg" className="mx-auto flex w-full sm:w-fit sm:min-w-44" onClick={(event) => { if (!closing.current && !guard.shouldIgnoreReveal(event)) setIsFlipped(true); }}>Hiện đáp án</Button>}
+                      </div></> : <Button ref={revealButton} type="button" size="lg" className="mx-auto flex w-full sm:w-fit sm:min-w-44" onClick={(event) => { if (!closing.current && !guard.shouldIgnoreReveal(event)) setIsFlipped(true); }}>{flashcardText("stage.reveal")}</Button>}
                   </div>
                 </div>
               ) : savingResults ? (
                 <h3 ref={stateHeading} tabIndex={-1} aria-live="polite" className="flex min-h-48 items-center justify-center gap-3 text-xl font-semibold outline-none">
-                  <Loader2 aria-hidden="true" className="size-5 animate-spin text-route motion-reduce:animate-none" />Đang lưu kết quả, vui lòng đợi…
+                  <Loader2 aria-hidden="true" className="size-5 animate-spin text-route motion-reduce:animate-none" />{t("review.saving")}
                 </h3>
               ) : (
                 <div className={`${finished ? styles.completion : ""} space-y-4 rounded-3xl px-4 py-12 text-center sm:py-16`}>
                   {finished && <CheckCircle2 aria-hidden="true" className={`${styles.completionIcon} mx-auto size-12`} />}
-                  <h3 ref={stateHeading} tabIndex={-1} className="text-xl font-semibold outline-none">{finished ? (noDueCards ? "Chúc mừng! Bạn đã ôn hết thẻ đến hạn." : "Đã hoàn tất lượt này") : (noDueCards ? "Hiện không có thẻ đến hạn" : "Lượt tải này chưa có thẻ có thể ôn")}</h3>
-                  <p className="text-sm leading-6 text-muted-foreground">{hasMoreDue ? "Vẫn còn thẻ đến hạn. Bạn có thể ôn lượt tiếp theo." : "Bạn có thể quay lại không gian học tập và tiếp tục học."}</p>
+                  <h3 ref={stateHeading} tabIndex={-1} className="text-xl font-semibold outline-none">{finished ? (noDueCards ? t("review.allDone") : t("review.roundDone")) : (noDueCards ? t("review.noDue") : t("review.noneLoaded"))}</h3>
+                  <p className="text-sm leading-6 text-muted-foreground">{hasMoreDue ? t("review.moreDue") : t("review.backHint")}</p>
                   <div className="flex flex-col items-center gap-2">
-                    {hasMoreDue && <Button size="lg" onClick={() => void loadBatch()}>Ôn lượt tiếp theo</Button>}
-                    <Button variant={hasMoreDue ? "link" : "default"} size="lg" onClick={close}>Quay lại</Button>
+                    {hasMoreDue && <Button size="lg" onClick={() => void loadBatch()}>{t("review.nextRound")}</Button>}
+                    <Button variant={hasMoreDue ? "link" : "default"} size="lg" onClick={close}>{t("review.back")}</Button>
                   </div>
                 </div>
               )}

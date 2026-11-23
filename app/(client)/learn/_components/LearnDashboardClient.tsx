@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { formatCatalogCount } from "@/lib/i18n/format";
 import type { OverallLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import type {
   LearnDashboardCourse,
@@ -63,6 +65,7 @@ function useMediaQuery(query: string) {
 
 function DashboardError({ error }: { error: string }) {
   const router = useRouter();
+  const t = useTranslations("learn");
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center bg-slate-50 px-4 py-12">
@@ -72,7 +75,7 @@ function DashboardError({ error }: { error: string }) {
           className="mx-auto size-12 text-correction"
         />
         <h1 className="mt-4 text-2xl font-extrabold text-slate-950">
-          Chưa thể tải không gian học tập
+          {t("dashboard.errorTitle")}
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">{error}</p>
         <Button
@@ -81,7 +84,7 @@ function DashboardError({ error }: { error: string }) {
           className="mt-6 min-h-11 bg-action px-5 text-action-foreground hover:bg-action/90"
         >
           <RotateCcw aria-hidden="true" className="size-4" />
-          Thử lại
+          {t("dashboard.retry")}
         </Button>
       </div>
     </div>
@@ -99,6 +102,9 @@ function SectionHeading({
   id: string;
   title: string;
 }) {
+  const t = useTranslations("learn");
+  const locale = useLocale() === "en" ? "en" : "vi";
+
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
@@ -109,7 +115,7 @@ function SectionHeading({
       </div>
       <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold text-slate-600">
         <BookOpen aria-hidden="true" className="size-4" />
-        {count} khóa học
+        {t("dashboard.courseCount", { count, shown: formatCatalogCount(locale, count) })}
       </span>
     </div>
   );
@@ -127,6 +133,8 @@ function EmptyCourseState({ children }: { children: React.ReactNode }) {
 }
 
 function GlobalCourseEmptyState() {
+  const t = useTranslations("learn");
+
   return (
     <section
       aria-labelledby="courses-empty-title"
@@ -137,18 +145,17 @@ function GlobalCourseEmptyState() {
         id="courses-empty-title"
         className="mt-4 text-xl font-extrabold text-slate-950"
       >
-        Bạn chưa có khóa học để tiếp tục
+        {t("dashboard.empty.title")}
       </h2>
       <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
-        Khám phá các khóa học đã xuất bản và chọn lộ trình phù hợp với mục
-        tiêu của bạn.
+        {t("dashboard.empty.description")}
       </p>
       <Button
         asChild
         className="mt-6 h-11 [@media(hover:hover)_and_(pointer:fine)]:h-9"
       >
         <Link href="/courses">
-          Khám phá khóa học
+          {t("dashboard.empty.cta")}
           <ArrowRight aria-hidden="true" className="size-4" />
         </Link>
       </Button>
@@ -163,6 +170,7 @@ function ContinuingCoursesSection({
   courses: LearnDashboardCourse[];
   pageSize: number;
 }) {
+  const t = useTranslations("learn");
   const [currentPage, setCurrentPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(courses.length / pageSize));
   const safePage = Math.min(currentPage, pageCount);
@@ -177,8 +185,8 @@ function ContinuingCoursesSection({
     >
       <SectionHeading
         id="continuing-courses-title"
-        title="Học tiếp"
-        description="Quay lại đúng bài tiếp theo trong hành trình của bạn."
+        title={t("dashboard.continuing.title")}
+        description={t("dashboard.continuing.description")}
         count={courses.length}
       />
       <div className="mt-5 space-y-4">
@@ -189,7 +197,7 @@ function ContinuingCoursesSection({
       <div className="mt-4">
         <CoursePagination
           currentPage={safePage}
-          itemLabel="khóa học đang học"
+          itemLabel={t("dashboard.continuing.item")}
           onPageChange={setCurrentPage}
           pageSize={pageSize}
           totalItems={courses.length}
@@ -199,14 +207,11 @@ function ContinuingCoursesSection({
   );
 }
 
-const remainingFilters: Array<{
-  label: string;
-  value: RemainingCourseFilter;
-}> = [
-  { label: "Tất cả", value: "all" },
-  { label: "Chưa bắt đầu học", value: "not-started" },
-  { label: "Đã hoàn thành", value: "completed" },
-];
+const remainingFilters = [
+  { labelKey: "dashboard.remaining.filterAll", value: "all" },
+  { labelKey: "dashboard.remaining.filterNotStarted", value: "not-started" },
+  { labelKey: "dashboard.remaining.filterCompleted", value: "completed" },
+] as const satisfies ReadonlyArray<{ labelKey: string; value: RemainingCourseFilter }>;
 
 function RemainingCoursesSection({
   courses,
@@ -215,6 +220,8 @@ function RemainingCoursesSection({
   courses: LearnDashboardCourse[];
   pageSize: number;
 }) {
+  const t = useTranslations("learn");
+  const locale = useLocale() === "en" ? "en" : "vi";
   const [activeFilter, setActiveFilter] =
     useState<RemainingCourseFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -233,13 +240,13 @@ function RemainingCoursesSection({
     >
       <SectionHeading
         id="remaining-courses-title"
-        title="Các khóa học còn lại"
-        description="Các khóa học bạn đã đăng ký nhưng chưa bắt đầu, đã hoàn thành hoặc chưa có nội dung."
+        title={t("dashboard.remaining.title")}
+        description={t("dashboard.remaining.description")}
         count={courses.length}
       />
       <div
         role="group"
-        aria-label="Lọc các khóa học còn lại"
+        aria-label={t("dashboard.remaining.filterLabel")}
         className="mt-4 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible"
       >
         {remainingFilters.map((filter) => {
@@ -264,7 +271,7 @@ function RemainingCoursesSection({
                   : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50"
               }`}
             >
-              {filter.label} · {count}
+              {t(filter.labelKey)} · {formatCatalogCount(locale, count)}
             </button>
           );
         })}
@@ -273,7 +280,7 @@ function RemainingCoursesSection({
       <div className="mt-4 space-y-4">
         {filteredCourses.length === 0 ? (
           <EmptyCourseState>
-            Không có khóa học nào ở trạng thái này.
+            {t("dashboard.remaining.empty")}
           </EmptyCourseState>
         ) : (
           displayedCourses.map((course) => (
@@ -284,7 +291,7 @@ function RemainingCoursesSection({
       <div className="mt-4 min-h-11">
         <CoursePagination
           currentPage={safePage}
-          itemLabel="khóa học"
+          itemLabel={t("dashboard.remaining.item")}
           onPageChange={setCurrentPage}
           pageSize={pageSize}
           totalItems={filteredCourses.length}
@@ -301,6 +308,9 @@ function ReviewCard({
   dueCardCount: number;
   onOpen: () => void;
 }) {
+  const t = useTranslations("learn");
+  const locale = useLocale() === "en" ? "en" : "vi";
+
   if (dueCardCount === 0) {
     return (
       <section
@@ -312,10 +322,10 @@ function ReviewCard({
           tabIndex={-1}
           className="font-bold text-slate-950"
         >
-          Hôm nay chưa có thẻ cần ôn
+          {t("dashboard.reviewCard.noneTitle")}
         </h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Không có thẻ đến hạn.
+          {t("dashboard.reviewCard.noneBody")}
         </p>
       </section>
     );
@@ -329,7 +339,7 @@ function ReviewCard({
       <div className="flex items-center gap-2 text-blue-900">
         <BookAlert aria-hidden="true" className="size-4 text-blue-600" />
         <p className="text-[10px] font-extrabold tracking-[0.13em]">
-          ÔN TẬP HÔM NAY
+          {t("dashboard.reviewCard.eyebrow")}
         </p>
       </div>
       <h2
@@ -337,14 +347,14 @@ function ReviewCard({
         tabIndex={-1}
         className="mt-3 text-xl font-bold text-slate-950"
       >
-        Ôn tập hôm nay
+        {t("dashboard.reviewCard.title")}
       </h2>
       <div className="mt-2 flex items-end gap-2">
         <strong className="text-5xl font-extrabold tracking-tight text-blue-700">
-          {dueCardCount}
+          {formatCatalogCount(locale, dueCardCount)}
         </strong>
         <span className="pb-1.5 text-xs font-bold text-blue-900">
-          thẻ đến hạn
+          {t("dashboard.reviewCard.due", { count: dueCardCount })}
         </span>
       </div>
       <Button
@@ -352,7 +362,7 @@ function ReviewCard({
         onClick={onOpen}
         className="mt-4 min-h-11 w-full bg-action font-bold text-action-foreground shadow-none hover:bg-action/90 focus-visible:ring-route"
       >
-        Ôn ngay
+        {t("dashboard.reviewCard.open")}
         <span aria-hidden="true">→</span>
       </Button>
     </section>
@@ -366,22 +376,30 @@ function MemoryRhythmCard({
   learningCardCount: number;
   totalCardCount: number;
 }) {
+  const t = useTranslations("learn");
+  const locale = useLocale() === "en" ? "en" : "vi";
+
   return (
     <section
       aria-labelledby="memory-rhythm-title"
       className="rounded-[20px] border border-blue-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.06)] lg:p-6"
     >
       <p className="text-[11px] font-extrabold tracking-[0.08em] text-blue-900">
-        NHỊP GHI NHỚ
+        {t("dashboard.rhythm.eyebrow")}
       </p>
       <h2
         id="memory-rhythm-title"
         className="mt-2 text-base font-bold text-slate-950"
       >
-        {learningCardCount} thẻ đang học · {totalCardCount} thẻ tổng cộng
+        {t("dashboard.rhythm.title", {
+          learningCount: learningCardCount,
+          learning: formatCatalogCount(locale, learningCardCount),
+          totalCount: totalCardCount,
+          total: formatCatalogCount(locale, totalCardCount),
+        })}
       </h2>
       <p className="mt-2 text-xs leading-5 text-slate-600">
-        Duy trì nhịp ôn tập đều đặn để ghi nhớ lâu hơn.
+        {t("dashboard.rhythm.body")}
       </p>
     </section>
   );
@@ -428,6 +446,7 @@ export default function LearnDashboardClient({
   learningSummary?: OverallLearningSummaryResult;
 }) {
   const router = useRouter();
+  const t = useTranslations("learn");
   const isAtLeastTablet = useMediaQuery("(min-width: 768px)");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const reviewOpener = useRef<HTMLElement | null>(null);
@@ -534,14 +553,13 @@ export default function LearnDashboardClient({
       <div className="mx-auto max-w-315">
         <header className="max-w-3xl">
           <p className="text-[11px] font-extrabold tracking-[0.18em] text-blue-700">
-            KHÔNG GIAN HỌC TẬP
+            {t("dashboard.header.eyebrow")}
           </p>
           <h1 className="mt-3 text-[30px] font-extrabold leading-10 tracking-tight text-slate-950 sm:text-[38px] sm:leading-12">
-            Hôm nay bạn muốn học gì tiếp?
+            {t("dashboard.header.title")}
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-[15px]">
-            Tiếp tục đúng bài còn thiếu, giữ nhịp ôn tập và nhìn rõ toàn bộ hành
-            trình học tập của bạn.
+            {t("dashboard.header.description")}
           </p>
         </header>
 
