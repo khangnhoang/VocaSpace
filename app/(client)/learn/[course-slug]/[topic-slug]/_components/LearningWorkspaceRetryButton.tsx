@@ -3,9 +3,11 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 export default function LearningWorkspaceRetryButton() {
+  const t = useTranslations("learn");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -17,7 +19,7 @@ export default function LearningWorkspaceRetryButton() {
       className="min-h-11 rounded-xl bg-emerald-600 px-5 font-bold text-white hover:bg-emerald-700"
     >
       <RotateCcw aria-hidden="true" className="size-4" />
-      {isPending ? "Đang tải lại..." : "Thử lại"}
+      {isPending ? t("overview.feedback.retrying") : t("overview.feedback.retry")}
     </Button>
   );
 }

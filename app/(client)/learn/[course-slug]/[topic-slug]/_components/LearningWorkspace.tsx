@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowDown,
   ArrowLeft,
@@ -27,10 +28,15 @@ import {
 } from "@/components/ui/sheet";
 import {
   useCardReviewQueue,
+  type CardReviewReply,
   type CardReviewRequest,
   type CardReviewSuccess,
 } from "@/hooks/use-card-review-queue";
 import { useCourseLearningSummary } from "@/hooks/use-course-learning-summary";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCatalogCount } from "@/lib/i18n/format";
+import { pickServerText, replyForField, useLatest } from "@/lib/i18n/held-message";
+import { asTranslate, type Translate } from "@/lib/i18n/translate";
 import { resolveLessonNeighbors } from "@/lib/learn-navigation";
 import { resolveLandingStage, resolveNextUnfinishedStage } from "@/lib/learning-landing";
 import type {
@@ -53,11 +59,7 @@ import QuestionResponse from "./QuestionResponse";
 import StickyColumn from "./StickyColumn";
 import TopicCompletionPanel from "./TopicCompletionPanel";
 import { arrangeMaterial } from "./exercise-arrangement";
-import {
-  announceTopicProgress,
-  MEMORY_CHECK_PASSED_MESSAGE,
-  newCardsAddedMessage,
-} from "./topic-progress-feedback";
+import { announceTopicProgress } from "./topic-progress-feedback";
 
 type LearningStage = "flashcard" | "memory" | "exercise" | "complete";
 // Vị trí của bước. "Đã xong" là thuộc tính riêng (LF3 AC8) để một bước vừa đang học vừa đã xong.
@@ -102,16 +104,11 @@ function exerciseQuestionIds(exercises: ExerciseDTO[]) {
   );
 }
 
-const STEP_STATE_TEXT: Record<StepState, string> = {
-  current: "đang học",
-  locked: "đang khóa",
-  upcoming: "chưa mở",
-};
-
 /** Tên truy cập của bước: "đã xong" đứng riêng, kể cả khi bước đang là bước hiện tại. */
-function stepStateText(step: StageStep) {
-  if (!step.done) return STEP_STATE_TEXT[step.state];
-  return step.state === "upcoming" ? "đã xong" : `đã xong, ${STEP_STATE_TEXT[step.state]}`;
+function stepStateText(step: StageStep, t: Translate) {
+  const state = t(`workspace.steps.${step.state}`);
+  if (!step.done) return state;
+  return step.state === "upcoming" ? t("workspace.steps.done") : t("workspace.steps.doneAnd", { state });
 }
 
 // Khung của một bước: dùng chung cho bước hiện tại (không điều khiển) và nút của các bước còn lại để bố cục không đổi.
@@ -119,13 +116,6 @@ const STEP_BODY_CLASS = "flex items-center gap-1.5 max-[360px]:gap-1 sm:gap-2";
 
 // Mục tiêu bấm của bước: con trỏ tay và nền hover rõ hơn nền trang (Owner QA 2026-10-13); tối thiểu 24px; trên thiết bị cảm ứng vùng bấm cao 44px nhờ phần tử ảo trong suốt nên dòng không đổi bố cục.
 const STEP_BUTTON_CLASS = `${STEP_BODY_CLASS} relative -mx-1 min-h-6 cursor-pointer rounded-md px-1 text-left transition-colors duration-[220ms] hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route motion-reduce:transition-none coarse-input:after:absolute coarse-input:after:inset-x-0 coarse-input:after:top-1/2 coarse-input:after:h-11 coarse-input:after:-translate-y-1/2`;
-
-// LF6: ghi chú thông báo khóa của thanh tiến trình, lấy từ cùng nguồn chữ với màn hình khóa.
-const MEMORY_CARDS_LOCK_REASON = "Học các thẻ còn thiếu ở mức Ổn hoặc Dễ để mở Memory check.";
-
-// LF6 AC4 (Owner QA 2026-10-13): một dòng gợi ý nhỏ dưới thanh tiến trình thay cho nút "Xem lại" của màn hình hoàn thành.
-const THREAD_HINT =
-  "Bạn có thể di chuyển nhanh giữa các nội dung bằng cách nhấn vào nội dung tương ứng trên thanh tiến trình.";
 
 /**
  * Progress thread of the stages this topic really has. It reports state with words and icons. Every step except the
@@ -141,13 +131,14 @@ function StageThread({
   onSelect: (step: StageStep) => void;
   lockReason: string | null;
 }) {
+  const t = asTranslate(useTranslations("learn"));
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="relative">
         {/* Owner Q14: one line down to 320 px. The steps never wrap, so no connector can dangle at the start of a line;
             gaps, connectors and the label shrink on narrow widths instead. */}
         <ol
-          aria-label="Các bước của bài học"
+          aria-label={t("workspace.steps.label")}
           className="flex min-w-0 flex-nowrap items-center gap-x-1.5 max-[360px]:gap-x-1 sm:gap-x-2"
         >
           {steps.map((step, index) => {
@@ -174,7 +165,7 @@ function StageThread({
                 </span>
                 <span>
                   {step.label}
-                  <span className="sr-only"> ({stepStateText(step)})</span>
+                  <span className="sr-only"> ({stepStateText(step, t)})</span>
                 </span>
               </>
             );
@@ -217,8 +208,9 @@ function StageThread({
       {/* Dòng gợi ý nằm dưới lý do khóa; `w-0 min-w-full` giữ độ rộng bằng cột của thanh để dòng tự xuống hàng và không đẩy
           cụm hành động bên phải hay làm tràn ngang ở 320px. Không có gì để chuyển khi chủ đề chỉ có một bước. */}
       {steps.length > 1 && (
+        // LF6 AC4 (Owner QA 2026-10-13): một dòng gợi ý nhỏ dưới thanh tiến trình thay cho nút "Xem lại" của màn hình hoàn thành.
         <p data-thread-hint="" className="w-0 min-w-full text-xs leading-5 text-slate-500">
-          {THREAD_HINT}
+          {t("workspace.steps.hint")}
         </p>
       )}
     </div>
@@ -231,9 +223,6 @@ const FOOTER_TOUCH_CLASS = "coarse-input:border-border coarse-input:bg-backgroun
 const FOOTER_GHOST_CLASS = `text-slate-700 ${FOOTER_TOUCH_CLASS}`;
 // The filled primary variants keep their action background; on touch input they replace the transparent border with a visible one.
 const FOOTER_PRIMARY_CLASS = "coarse-input:border-action";
-
-const MEMORY_LOCK_REASON =
-  "Trả lời đúng hết memory check để mở khóa phần bài tập.";
 
 function withoutId(ids: ReadonlySet<string>, id: string): ReadonlySet<string> {
   if (!ids.has(id)) return ids;
@@ -268,6 +257,15 @@ export default function LearningWorkspace({
     isMemoryCheckPassed,
   } = data;
   const router = useRouter();
+  const t = asTranslate(useTranslations("learn"));
+  const learningText = asTranslate(useTranslations("learning"));
+  const locale: Locale = useLocale() === "en" ? "en" : "vi";
+  const count = (value: number) => formatCatalogCount(locale, value);
+  // Toast phát từ callback async (kết quả của lần gửi đáp án, lần lưu thẻ) phải dùng ngôn ngữ LÚC phát, không phải lúc gửi (U3 H4).
+  const latestT = useLatest(t);
+  // LF6: ghi chú thông báo khóa của thanh tiến trình lấy từ cùng nguồn chữ với màn hình khóa.
+  const memoryCardsLockReason = t("workspace.lock.memoryCards");
+  const memoryLockReason = t("workspace.lock.exercises");
   const { summary: courseSummary, noteLearningAction } = useCourseLearningSummary(data.courseId, learningSummary);
   const initialClearedMemoryCards = new Set(data.memoryGateClearedCardIds ?? []);
   const initialPendingMemoryCards = memoryCheck
@@ -300,11 +298,12 @@ export default function LearningWorkspace({
     const unseenCount = data.unseenCardIds.length;
     const relocked = relockedTopicIds.delete(currentTopic.id);
     if (relocked && unseenCount > 0) {
-      toast.info(newCardsAddedMessage(unseenCount));
+      toast.info(t("workspace.toast.newCards", { count: unseenCount, shown: count(unseenCount) }));
     } else if (unseenCount > 0 && unseenCount < flashcards.length) {
-      toast.info(`Bạn còn ${unseenCount} thẻ chưa học trong bài học này`);
+      toast.info(t("workspace.toast.unseen", { count: unseenCount, shown: count(unseenCount) }));
     }
-  }, [currentTopic.id, data.unseenCardIds.length, flashcards.length]);
+    // Chỉ chạy một lần lúc mount (ref chặn); `t`/`count` đổi theo ngôn ngữ không được báo lại.
+  }, [currentTopic.id, data.unseenCardIds.length, flashcards.length, t, locale]); // eslint-disable-line react-hooks/exhaustive-deps
   const [memoryPassed, setMemoryPassed] = useState(isMemoryCheckPassed);
   // Sticky on the server (G4), so it only ever turns on.
   const [isTopicCompleted, setIsTopicCompleted] = useState(
@@ -428,6 +427,8 @@ export default function LearningWorkspace({
   const pendingByCardRef = useRef(new Map<string, number>());
   // Snapshot của lần lưu cuối: hết hàng đợi không được dùng closure cũ để quyết định phần còn thiếu.
   const lastSavedRef = useRef<{ generation: number; progress: CardReviewSuccess["topicProgress"] } | null>(null);
+  // Phản hồi (ngôn ngữ + khóa thông báo) của lần lưu vừa xong, để dịch lại `progressError` khi trang đang hiện ngôn ngữ khác.
+  const lastReplyRef = useRef<CardReviewReply | null>(null);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -502,7 +503,7 @@ export default function LearningWorkspace({
   const returnToMemoryCheck = () => {
     setMemoryPassed(false);
     goToStage("memory");
-    toast.error(MEMORY_LOCK_REASON);
+    toast.error(latestT.current("workspace.lock.exercises"));
   };
 
   // `cards_locked` từ server: dữ liệu thẻ của trang đã cũ (thẻ mới thêm sau khi tải). Về bước từ vựng và xin server
@@ -560,7 +561,14 @@ export default function LearningWorkspace({
   const handleCardSaved = (request: CardReviewRequest, result: CardReviewSuccess) => {
     settlePendingCard(request.cardId);
     noteLearningAction();
-    announceTopicProgress(result, markTopicCompleted);
+    // `onReply` chạy ngay trước `onSaved` của cùng lần lưu nên `lastReplyRef` là phản hồi của đúng lần lưu này.
+    const reply = lastReplyRef.current;
+    const progressError = result.progressError
+      ? reply
+        ? pickServerText(result.progressError, replyForField(reply, "progressError"), locale, t, "actions.review.progressSync", "learn")
+        : t("actions.review.progressSync")
+      : undefined;
+    announceTopicProgress(result, markTopicCompleted, progressError);
     // Lần chấm đã ghi: thẻ này đã xem; Ổn/Dễ thì xong, Lại/Khó thì chưa (lần chấm gần nhất quyết định, như server).
     const passed = request.rating === Rating.Good || request.rating === Rating.Easy;
     const nextUnrated = new Set(unratedCardsRef.current);
@@ -592,7 +600,7 @@ export default function LearningWorkspace({
     const card = flashcards.find((candidate) => candidate.id === request.cardId);
     const later = settlePendingCard(request.cardId);
     const word = card?.front_content?.word ?? "";
-    const base = `Chưa lưu được đánh giá thẻ "${word}".`;
+    const base = t("review.saveFailed", { word });
     if (!card || request.generation !== queueGenerationRef.current) {
       toast.error(base);
       return;
@@ -604,11 +612,17 @@ export default function LearningWorkspace({
     }
     if (!queued) updateQueue([...queueRef.current, card]);
     setArmedGeneration(null);
-    toast.error(`${base} Thẻ được xếp lại để bạn chấm lại.`);
+    toast.error(t("review.saveFailedRequeued", { word }));
   };
 
   const { enqueue: enqueueSave, whenDrained: whenSavesDrained } =
-    useCardReviewQueue({ onSaved: handleCardSaved, onFailed: handleCardSaveFailed });
+    useCardReviewQueue({
+      onSaved: handleCardSaved,
+      onFailed: handleCardSaveFailed,
+      onReply: (_request, reply) => {
+        lastReplyRef.current = reply;
+      },
+    });
 
   // Đặt trước `runQueueEnd`: các lần tự vào bước bài tập (cuối hàng đợi thẻ, xong memory check) cũng mở câu đầu tiên chưa đúng.
   // Every exercise question in learning order; "done" follows the local
@@ -677,21 +691,21 @@ export default function LearningWorkspace({
     });
     if (next === "complete") {
       if (queueKind !== "first" && !pendingCompletionRef.current) {
-        toast.success(queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
+        toast.success(t(queueKind === "due" ? "workspace.toast.dueDone" : "workspace.toast.fullDone"));
       }
       goToComplete();
     } else if (next === "memory") {
       goToStage("memory");
       setPlaneFocusRequest((current) => current + 1);
-      toast.success(queueKind === "first" ? "Đã nạp xong từ vựng! Chuyển sang memory check."
-        : queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
+      toast.success(t(queueKind === "first" ? "workspace.toast.firstToMemory"
+        : queueKind === "due" ? "workspace.toast.dueDone" : "workspace.toast.fullDone"));
     } else if (next === "exercise") {
       // Owner QA FEAT12: vào bài tập sau khi xong bước trước thì mở câu đầu tiên chưa đúng, không phải câu 1.
       goToFirstRemainingQuestion(false);
       goToStage("exercise");
       setPlaneFocusRequest((current) => current + 1);
-      toast.success(queueKind === "first" ? "Đã nạp xong từ vựng! Chuyển sang bài tập."
-        : queueKind === "due" ? "Đã ôn xong thẻ đến hạn!" : "Đã ôn lại xong từ vựng!");
+      toast.success(t(queueKind === "first" ? "workspace.toast.firstToExercise"
+        : queueKind === "due" ? "workspace.toast.dueDone" : "workspace.toast.fullDone"));
     } else {
       setQueueProgressUnavailable(true);
     }
@@ -834,7 +848,7 @@ export default function LearningWorkspace({
   if (flashcards.length > 0) {
     stageSteps.push({
       key: "flashcard",
-      label: "Từ vựng",
+      label: t("workspace.steps.flashcard"),
       state: learningStage === "flashcard" ? "current" : "upcoming",
       done: flashcardStepDone,
     });
@@ -842,7 +856,7 @@ export default function LearningWorkspace({
   if (memoryCheck) {
     stageSteps.push({
       key: "memory",
-      label: "Memory check",
+      label: t("workspace.steps.memory"),
       state: memoryCardsLocked ? "locked" : learningStage === "memory" ? "current" : "upcoming",
       done: memoryPassed,
     });
@@ -850,7 +864,7 @@ export default function LearningWorkspace({
   if (exercises.length > 0) {
     stageSteps.push({
       key: "exercise",
-      label: "Bài tập",
+      label: t("workspace.steps.exercise"),
       state: exercisesLocked ? "locked" : learningStage === "exercise" ? "current" : "upcoming",
       done: !exercisesLocked && exercisesDone,
     });
@@ -867,9 +881,9 @@ export default function LearningWorkspace({
   };
   const lockReason =
     lockNotice === "memory" && memoryCardsLocked
-      ? MEMORY_CARDS_LOCK_REASON
+      ? memoryCardsLockReason
       : lockNotice === "exercise" && exercisesLocked
-        ? MEMORY_LOCK_REASON
+        ? memoryLockReason
         : null;
 
   const arrangement =
@@ -898,14 +912,20 @@ export default function LearningWorkspace({
         ? {
             kind: "topic" as const,
             href: `/learn/${courseSlug}/${nextTopic.slug}`,
-            unitLabel: `Chủ đề ${chapterTopics.findIndex((topic) => topic.id === nextTopic.id) + 1} · ${nextTopic.title}`,
+            unitLabel: t("workspace.completion.topicLabel", {
+              number: chapterTopics.findIndex((topic) => topic.id === nextTopic.id) + 1,
+              title: nextTopic.title,
+            }),
             detail: null,
           }
         : {
             kind: "topic" as const,
             href: `/learn/${courseSlug}/${nextTopic.slug}`,
-            unitLabel: `Chương ${nextTopicChapterIndex + 1} · ${syllabus[nextTopicChapterIndex].title}`,
-            detail: `Chủ đề 1 · ${nextTopic.title}`,
+            unitLabel: t("workspace.completion.chapterLabel", {
+              number: nextTopicChapterIndex + 1,
+              title: syllabus[nextTopicChapterIndex].title,
+            }),
+            detail: t("workspace.completion.topicLabel", { number: 1, title: nextTopic.title }),
           }
       : { kind: "overview" as const, href: `/learn/${courseSlug}` };
   // Review list: every question in learning order, numbered across the whole topic.
@@ -923,28 +943,30 @@ export default function LearningWorkspace({
         if (!segment.isStandalone) passageNumber += 1;
         return {
           id: segment.id,
-          label: segment.isStandalone ? undefined : `Nhóm ${passageNumber}/${passageTotal}`,
+          label: segment.isStandalone
+            ? undefined
+            : t("workspace.navigator.group", { number: passageNumber, total: passageTotal }),
           items: segment.questions
             .slice()
             .sort(byOrderIndex)
             .map((question) => ({
               id: question.id,
               number: questionNumbers.get(question.id) ?? 0,
-              text: question.content.trim() || "Chọn đáp án đúng",
+              text: question.content.trim() || t("workspace.navigator.fallbackText"),
               status: userAnswers[question.id]
                 ? ("correct" as const)
                 : incorrectIds[question.id]
                   ? ("incorrect" as const)
                   : ("unanswered" as const),
               current: question.id === currentQuestion?.id,
-              disabledReason: exercisesLocked ? MEMORY_LOCK_REASON : undefined,
+              disabledReason: exercisesLocked ? memoryLockReason : undefined,
             })),
         };
       }),
     };
   });
   const questionNavigator = (
-    <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} />
+    <QuestionNavigator sections={navigatorSections} onSelect={jumpToQuestion} t={learningText} />
   );
 
   // Moves the learner from the end of a stacked passage to the question; reduced motion jumps.
@@ -964,7 +986,7 @@ export default function LearningWorkspace({
     if (!currentExercise || !currentGroup || !currentQuestion || !arrangement) {
       return (
         <p className="text-center text-slate-600">
-          Bài tập này chưa có câu hỏi để làm.
+          {t("workspace.stage.noQuestions")}
         </p>
       );
     }
@@ -998,12 +1020,13 @@ export default function LearningWorkspace({
                 group={currentGroup}
                 arrangement={arrangement}
                 enlargeableImage={currentExercise.part_type === "part1"}
+                t={learningText}
               />
               {isSplit && (
                 // Stacked layouts put the question below a long passage; wide ones keep it beside.
                 <div className="mt-3 flex justify-end lg:hidden">
                   <Button type="button" variant="link" size="lg" className="px-2" onClick={scrollToQuestion}>
-                    Tới câu hỏi
+                    {t("workspace.stage.jumpToQuestion")}
                     <ArrowDown aria-hidden="true" />
                   </Button>
                 </div>
@@ -1028,17 +1051,17 @@ export default function LearningWorkspace({
               hasNext={hasNextQuestion && !pendingCompletion && !closesLastOpen}
               endAction={
                 pendingCompletion
-                  ? { label: "Hoàn thành", onClick: goToComplete }
+                  ? { label: t("workspace.end.complete"), onClick: goToComplete }
                   : remainingQuestions.length > 0
-                  ? { label: "Làm câu còn thiếu", onClick: () => goToFirstRemainingQuestion() }
+                  ? { label: t("workspace.end.remaining"), onClick: () => goToFirstRemainingQuestion() }
                   : isTopicCompleted
-                  ? { label: "Hoàn thành", onClick: goToComplete }
+                  ? { label: t("workspace.end.complete"), onClick: goToComplete }
                   : lessonNeighbors.next
                     ? {
-                        label: "Bài tiếp theo",
+                        label: t("workspace.end.nextLesson"),
                         href: `/learn/${courseSlug}/${lessonNeighbors.next.slug}`,
                       }
-                    : { label: "Về tổng quan khóa học", href: `/learn/${courseSlug}` }
+                    : { label: t("workspace.nav.overview"), href: `/learn/${courseSlug}` }
               }
               onNext={handleNextQuestion}
               onCorrectAnswer={(questionId, optionId) => {
@@ -1068,7 +1091,7 @@ export default function LearningWorkspace({
     if (learningStage !== "complete" && flashcards.length === 0 && exercises.length === 0 && !memoryCheck) {
       return (
         <div className="text-center text-slate-600" role="status">
-          <h2 className="mb-2 text-2xl font-bold">Bài học này chưa có nội dung</h2>
+          <h2 className="mb-2 text-2xl font-bold">{t("workspace.stage.noContent")}</h2>
         </div>
       );
     }
@@ -1083,8 +1106,8 @@ export default function LearningWorkspace({
           }}
           chapter={{
             title: currentChapter
-              ? `Chương ${chapterIndex + 1} · ${currentChapter.title}`
-              : "Chương hiện tại",
+              ? t("workspace.completion.chapterLabel", { number: chapterIndex + 1, title: currentChapter.title })
+              : t("workspace.completion.chapterFallback"),
             completed: chapterCompletedCount,
             total: chapterTopics.length,
             previous: chapterCompletedCount - countBefore,
@@ -1092,9 +1115,9 @@ export default function LearningWorkspace({
           nextHint={
             completionNext.kind === "topic"
               ? completionNext.detail
-                ? `${completionNext.unitLabel} — ${completionNext.detail}`
+                ? t("workspace.completion.nextHintDetail", { unit: completionNext.unitLabel, detail: completionNext.detail })
                 : completionNext.unitLabel
-              : "Tổng quan khóa học"
+              : t("workspace.completion.nextHintOverview")
           }
           animate={completionEntry.animate}
           focusOnEntry={completionEntry.focus}
@@ -1124,10 +1147,10 @@ export default function LearningWorkspace({
           className="mx-auto flex max-w-md flex-col items-center gap-4 text-center"
         >
           <Lock aria-hidden="true" className="size-10 text-attention" />
-          <h2 className="text-xl font-bold text-slate-900">Memory check đang khóa</h2>
-          <p className="text-slate-700">{MEMORY_CARDS_LOCK_REASON}</p>
+          <h2 className="text-xl font-bold text-slate-900">{t("workspace.stage.memoryLockedTitle")}</h2>
+          <p className="text-slate-700">{memoryCardsLockReason}</p>
           <Button onClick={backToFlashcard} size="lg" className="px-8">
-            Về Từ vựng
+            {t("workspace.stage.backToFlashcard")}
           </Button>
         </section>
       );
@@ -1159,7 +1182,7 @@ export default function LearningWorkspace({
             onMemoryPassed={(newlyCompleted) => {
               // LF4 AC1/G2: chỉ báo ở bước chuyển từ chưa qua sang qua, theo kết quả của chính câu trả lời này; bài vừa hoàn thành
               // thì màn hình hoàn thành thay cho toast này. Dữ liệu tải trang (isMemoryCheckPassed) không bao giờ báo.
-              if (!memoryPassed && !newlyCompleted) toast.success(MEMORY_CHECK_PASSED_MESSAGE);
+              if (!memoryPassed && !newlyCompleted) toast.success(latestT.current("workspace.toast.memoryPassed"));
               setMemoryPassed(true);
             }}
             onPassed={(confirmedProgress) => {
@@ -1205,10 +1228,10 @@ export default function LearningWorkspace({
           className="mx-auto flex max-w-md flex-col items-center gap-4 text-center"
         >
           <Lock aria-hidden="true" className="size-10 text-attention" />
-          <h2 className="text-xl font-bold text-slate-900">Bài tập đang khóa</h2>
-          <p className="text-slate-700">{MEMORY_LOCK_REASON}</p>
+          <h2 className="text-xl font-bold text-slate-900">{t("workspace.stage.exercisesLockedTitle")}</h2>
+          <p className="text-slate-700">{memoryLockReason}</p>
           <Button onClick={() => goToStage("memory")} size="lg" className="px-8">
-            Làm memory check
+            {t("workspace.stage.doMemory")}
           </Button>
         </section>
       );
@@ -1219,16 +1242,16 @@ export default function LearningWorkspace({
         return (
           <section role="status" className="mx-auto flex max-w-md flex-col items-center gap-3 py-8 text-center">
             <Loader2 aria-hidden="true" className="size-8 text-recall motion-safe:animate-spin" />
-            <p className="text-lg font-semibold text-slate-900">Đang lưu kết quả, vui lòng đợi…</p>
+            <p className="text-lg font-semibold text-slate-900">{t("review.saving")}</p>
           </section>
         );
       }
       if (learningQueue.length === 0 && (queueProgressUnavailable || memoryCardsLocked)) {
         return (
           <section role="status" className="mx-auto flex max-w-md flex-col items-center gap-4 text-center">
-            <h2 className="text-xl font-bold text-slate-900">Chưa xác nhận được tiến độ chủ đề</h2>
-            <p className="text-slate-700">Tải lại để xác nhận đánh giá và tiếp tục đúng phần còn thiếu.</p>
-            <Button onClick={() => window.location.reload()} size="lg">Tải lại tiến độ</Button>
+            <h2 className="text-xl font-bold text-slate-900">{t("workspace.stage.unconfirmedTitle")}</h2>
+            <p className="text-slate-700">{t("workspace.stage.unconfirmedBody")}</p>
+            <Button onClick={() => window.location.reload()} size="lg">{t("workspace.stage.reload")}</Button>
           </section>
         );
       }
@@ -1240,22 +1263,22 @@ export default function LearningWorkspace({
           >
             <CheckCircle2 aria-hidden="true" className="size-10 text-growth" />
             <h2 id="flashcards-done-title" className="text-xl font-bold text-slate-900">
-              Bạn đã ôn xong từ vựng
+              {t("workspace.stage.flashcardsDone")}
             </h2>
             {dueCards.length > 0 && (
               <p className="text-slate-700">
-                Bạn có {dueCards.length} thẻ đến hạn thuộc bài học này
+                {t("workspace.stage.dueNote", { count: dueCards.length, shown: count(dueCards.length) })}
               </p>
             )}
             <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
               {dueCards.length > 0 && (
                 <Button size="lg" onClick={reviewDueCards}>
-                  Ôn ngay {dueCards.length} thẻ
+                  {t("workspace.stage.reviewDue", { count: dueCards.length, shown: count(dueCards.length) })}
                 </Button>
               )}
               <Button variant="outline" size="lg" onClick={restartFlashcards}>
                 <RotateCcw aria-hidden="true" />
-                Ôn lại từ vựng
+                {t("workspace.stage.restart")}
               </Button>
               {!memoryCardsLocked && nextStageAfterFlashcards === "memory" && (
                 <Button
@@ -1263,7 +1286,7 @@ export default function LearningWorkspace({
                   variant={dueCards.length > 0 ? "outline" : "default"}
                   onClick={() => goToStage("memory")}
                 >
-                  Tới Memory check
+                  {t("workspace.header.nextMemory")}
                   <ChevronRight aria-hidden="true" />
                 </Button>
               )}
@@ -1292,7 +1315,7 @@ export default function LearningWorkspace({
           <div className="flex min-w-0 items-start gap-3">
             <Link
               href={`/learn/${courseSlug}`}
-              aria-label={`Về tổng quan khóa học ${courseTitle}`}
+              aria-label={t("workspace.header.backToOverview", { title: courseTitle })}
               className="-ml-1 mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-600 transition-colors duration-[120ms] hover:bg-white hover:text-route focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route sm:size-9"
             >
               <ArrowLeft aria-hidden="true" className="size-5" />
@@ -1309,7 +1332,7 @@ export default function LearningWorkspace({
                 {isTopicCompleted && (
                   <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-growth-line bg-growth-quiet px-2 py-0.5 text-sm font-bold text-growth">
                     <CheckCircle2 aria-hidden="true" className="size-4" />
-                    Đã hoàn thành
+                    {t("workspace.header.completed")}
                   </span>
                 )}
                 <CourseStreakChip summary={courseSummary} />
@@ -1319,16 +1342,16 @@ export default function LearningWorkspace({
 
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" aria-label="Mở danh sách chương và bài học">
+              <Button variant="outline" aria-label={t("workspace.header.openList")}>
                 <ListTodo aria-hidden="true" />
-                <span className="hidden sm:inline">Danh sách bài học</span>
+                <span className="hidden sm:inline">{t("workspace.header.list")}</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
               <SheetHeader>
-                <SheetTitle className="text-lg font-bold">Duyệt chương học</SheetTitle>
+                <SheetTitle className="text-lg font-bold">{t("workspace.header.browse")}</SheetTitle>
                 <SheetDescription className="sr-only">
-                  Chọn bài học khác trong khóa học này.
+                  {t("workspace.header.browseDescription")}
                 </SheetDescription>
               </SheetHeader>
               <div className="px-4 pb-6">
@@ -1361,18 +1384,18 @@ export default function LearningWorkspace({
             {isTopicCompleted && learningStage !== "complete" && (
               <Button onClick={goToComplete} variant="outline">
                 <CheckCircle2 aria-hidden="true" />
-                Xem kết quả chủ đề
+                {t("workspace.header.viewResult")}
               </Button>
             )}
             {learningStage === "complete" ? null : learningStage === "exercise" && memoryCheck ? (
               <Button onClick={() => goToStage("memory")} variant="outline">
                 <ChevronLeft aria-hidden="true" />
-                Về Memory check
+                {t("workspace.header.toMemory")}
               </Button>
             ) : learningStage !== "flashcard" && flashcards.length > 0 ? (
               <Button onClick={backToFlashcard} variant="outline">
                 <ChevronLeft aria-hidden="true" />
-                Về Từ vựng
+                {t("workspace.header.toFlashcard")}
               </Button>
             ) : null}
             {learningStage !== "complete" &&
@@ -1381,7 +1404,7 @@ export default function LearningWorkspace({
               !memoryCardsLocked &&
               nextStageAfterFlashcards === "memory" && (
                 <Button onClick={() => goToStage("memory")} variant="outline">
-                  Tới Memory check
+                  {t("workspace.header.nextMemory")}
                   <ChevronRight aria-hidden="true" />
                 </Button>
               )}
@@ -1391,7 +1414,7 @@ export default function LearningWorkspace({
               !exercisesLocked &&
               (learningStage === "memory" || canSkipToQuiz) && (
                 <Button onClick={skipToQuiz} variant="outline">
-                  Tới Bài tập
+                  {t("workspace.header.nextExercise")}
                   <ChevronRight aria-hidden="true" />
                 </Button>
               )}
@@ -1412,20 +1435,20 @@ export default function LearningWorkspace({
         </main>
 
         <nav
-          aria-label="Điều hướng bài học"
+          aria-label={t("workspace.nav.label")}
           className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-200 pt-5"
         >
           {lessonNeighbors.previous ? (
             <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.previous.slug}`}>
                 <ChevronLeft aria-hidden="true" />
-                Bài trước
+                {t("workspace.nav.previous")}
               </Link>
             </Button>
           ) : (
             <Button disabled variant="ghost" size="lg" className={FOOTER_TOUCH_CLASS}>
               <ChevronLeft aria-hidden="true" />
-              Bài trước
+              {t("workspace.nav.previous")}
             </Button>
           )}
           {/* Completion is derived by the server (D4); once the topic is done the
@@ -1434,29 +1457,29 @@ export default function LearningWorkspace({
           {isTopicCompleted && learningStage !== "complete" && lessonNeighbors.next ? (
             <Button asChild size="lg" className={FOOTER_PRIMARY_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
-                Bài sau
+                {t("workspace.nav.next")}
                 <ChevronRight aria-hidden="true" />
               </Link>
             </Button>
           ) : isTopicCompleted && learningStage !== "complete" ? (
             <Button asChild size="lg" className={FOOTER_PRIMARY_CLASS}>
-              <Link href={`/learn/${courseSlug}`}>Về tổng quan khóa học</Link>
+              <Link href={`/learn/${courseSlug}`}>{t("workspace.nav.overview")}</Link>
             </Button>
           ) : learningStage === "complete" && !lessonNeighbors.next ? (
             // LF5 AC3: màn hình hoàn thành giữ đúng một hành động chính, nên đích cuối khóa ở chân trang là hành động phụ.
             <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
-              <Link href={`/learn/${courseSlug}`}>Về tổng quan khóa học</Link>
+              <Link href={`/learn/${courseSlug}`}>{t("workspace.nav.overview")}</Link>
             </Button>
           ) : lessonNeighbors.next ? (
             <Button asChild variant="ghost" size="lg" className={FOOTER_GHOST_CLASS}>
               <Link href={`/learn/${courseSlug}/${lessonNeighbors.next.slug}`}>
-                Bài sau
+                {t("workspace.nav.next")}
                 <ChevronRight aria-hidden="true" />
               </Link>
             </Button>
           ) : (
             <Button disabled variant="ghost" size="lg" className={FOOTER_TOUCH_CLASS}>
-              Bài sau
+              {t("workspace.nav.next")}
               <ChevronRight aria-hidden="true" />
             </Button>
           )}

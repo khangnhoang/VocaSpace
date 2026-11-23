@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CheckCircle2, PlayCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Accordion,
   AccordionContent,
@@ -27,6 +28,7 @@ export default function ChapterSidebar({
   currentLessonSlug,
   completedTopicIds,
 }: ChapterSidebarProps) {
+  const t = useTranslations("learn");
   return (
     <div>
       <Accordion
@@ -88,7 +90,7 @@ export default function ChapterSidebar({
                         >
                           {topic.title}
                           {isCompleted && (
-                            <span className="sr-only"> (Đã hoàn thành)</span>
+                            <span className="sr-only"> ({t("workspace.sidebar.completed")})</span>
                           )}
                         </span>
                       </span>

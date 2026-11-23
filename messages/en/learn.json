@@ -6,7 +6,8 @@
   },
   "loading": {
     "workspace": "Loading your learning space",
-    "overview": "Loading the course overview"
+    "overview": "Loading the course overview",
+    "topic": "Loading the lesson"
   },
   "dashboard": {
     "header": {
@@ -144,6 +145,10 @@
     "overview": {
       "queryFailed": "Couldn't load the course overview right now. Please try again.",
       "invalidData": "The course overview data is invalid."
+    },
+    "workspace": {
+      "queryFailed": "Couldn't load the lesson right now. Please try again.",
+      "invalidData": "The lesson data is invalid."
     }
   },
   "overview": {
@@ -190,6 +195,116 @@
       "backToLearn": "Back to the learning space",
       "retry": "Try again",
       "retrying": "Reloading..."
+    }
+  },
+  "workspace": {
+    "steps": {
+      "label": "Lesson steps",
+      "flashcard": "Vocabulary",
+      "memory": "Memory check",
+      "exercise": "Exercises",
+      "current": "current",
+      "locked": "locked",
+      "upcoming": "not opened yet",
+      "done": "done",
+      "doneAnd": "done, {state}",
+      "hint": "You can jump between sections by selecting them on the progress bar."
+    },
+    "lock": {
+      "memoryCards": "Rate the remaining cards Good or Easy to unlock the Memory check.",
+      "exercises": "Answer every Memory check question correctly to unlock the exercises."
+    },
+    "toast": {
+      "unseen": "{count, plural, one {You still have {shown} card you haven't studied in this lesson} other {You still have {shown} cards you haven't studied in this lesson}}",
+      "newCards": "{count, plural, one {This lesson just got {shown} new card. Study it, then redo the memory check.} other {This lesson just got {shown} new cards. Study them, then redo the memory check.}}",
+      "memoryPassed": "You've completed the memory check!",
+      "dueDone": "You've reviewed all the due cards!",
+      "fullDone": "You've reviewed the vocabulary again!",
+      "firstToMemory": "Vocabulary loaded! Moving on to the memory check.",
+      "firstToExercise": "Vocabulary loaded! Moving on to the exercises."
+    },
+    "header": {
+      "backToOverview": "Back to the overview of the course {title}",
+      "completed": "Completed",
+      "openList": "Open the list of chapters and lessons",
+      "list": "Lesson list",
+      "browse": "Browse chapters",
+      "browseDescription": "Choose another lesson in this course.",
+      "viewResult": "View topic result",
+      "toMemory": "Back to Memory check",
+      "toFlashcard": "Back to Vocabulary",
+      "nextMemory": "Go to Memory check",
+      "nextExercise": "Go to Exercises"
+    },
+    "stage": {
+      "noQuestions": "This exercise has no questions to answer yet.",
+      "noContent": "This lesson has no content yet",
+      "jumpToQuestion": "Go to the question",
+      "memoryLockedTitle": "Memory check is locked",
+      "backToFlashcard": "Back to Vocabulary",
+      "exercisesLockedTitle": "Exercises are locked",
+      "doMemory": "Do the memory check",
+      "unconfirmedTitle": "Couldn't confirm your topic progress",
+      "unconfirmedBody": "Reload to confirm your ratings and continue with the part that's still missing.",
+      "reload": "Reload progress",
+      "flashcardsDone": "You've finished reviewing the vocabulary",
+      "dueNote": "{count, plural, one {You have {shown} card due in this lesson} other {You have {shown} cards due in this lesson}}",
+      "reviewDue": "{count, plural, one {Review {shown} card now} other {Review {shown} cards now}}",
+      "restart": "Review the vocabulary again"
+    },
+    "end": {
+      "complete": "Finish",
+      "remaining": "Answer the missing questions",
+      "nextLesson": "Next lesson"
+    },
+    "nav": {
+      "label": "Lesson navigation",
+      "previous": "Previous lesson",
+      "next": "Next lesson",
+      "overview": "Back to the course overview"
+    },
+    "sidebar": {
+      "completed": "Completed"
+    },
+    "streakChip": {
+      "studiedTitle": "You've studied this course today",
+      "keepTitle": "Study today to keep your streak",
+      "days": "{shown}-day streak",
+      "keepNote": ". Study today to keep your streak."
+    },
+    "feedback": {
+      "unavailableEyebrow": "LESSON UNAVAILABLE",
+      "unavailableTitle": "This lesson isn't available",
+      "unavailableBody": "This link doesn't point to a lesson you can open in the current course. Go back to the course overview to choose another one."
+    },
+    "completion": {
+      "title": "You've completed the topic “{title}”",
+      "chapterLabel": "Chapter {number} · {title}",
+      "chapterFallback": "Current chapter",
+      "topicLabel": "Topic {number} · {title}",
+      "nextHintDetail": "{unit} — {detail}",
+      "nextHintOverview": "Course overview",
+      "nextHint": "Up next: {hint}",
+      "nextTopic": "Next topic",
+      "catchUpTitle": "This lesson was just updated",
+      "catchUpMemory": "{count, plural, one {{shown} Memory check question} other {{shown} Memory check questions}}",
+      "catchUpExercise": "{count, plural, one {{shown} exercise question} other {{shown} exercise questions}}",
+      "catchUpJoin": " and ",
+      "catchUpLine": "{parts} left to do",
+      "catchUpAction": "Do it now",
+      "catchUpActionLabel": "{line}, Do it now",
+      "courseProgress": "Course progress",
+      "topicsCount": "{count, plural, one {{completed}/{total} topic} other {{completed}/{total} topics}}",
+      "courseValueText": "{count, plural, one {{completed} of {total} topic} other {{completed} of {total} topics}}",
+      "chapterValueText": "{count, plural, one {{completed} of {total} chapter topic} other {{completed} of {total} chapter topics}}",
+      "chapterDone": "You've completed this chapter",
+      "dueLine": "{count, plural, one {{shown} card due} other {{shown} cards due}}",
+      "dueAction": "Review now",
+      "dueLabel": "{count, plural, one {{shown} card due, Review now} other {{shown} cards due, Review now}}"
+    },
+    "navigator": {
+      "group": "Group {number}/{total}",
+      "fallbackText": "Choose the correct answer"
     }
   }
 }
