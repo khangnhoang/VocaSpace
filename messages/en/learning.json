@@ -46,7 +46,7 @@
   "relativeDay": {
     "today": "Today",
     "yesterday": "Yesterday",
-    "daysAgo": "{days} days ago"
+    "daysAgo": "{days, number} days ago"
   },
   "duration": {
     "minutes": "about {minutes} min",

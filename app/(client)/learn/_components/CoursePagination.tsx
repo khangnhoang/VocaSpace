@@ -63,7 +63,7 @@ export default function CoursePagination({
               key={page}
               type="button"
               aria-current={isSelected ? "page" : undefined}
-              aria-label={t("pagination.page", { page: String(page) })}
+              aria-label={t("pagination.page", { page: formatCatalogCount(locale, page) })}
               onClick={() => onPageChange(page)}
               className={`${pageButtonClass} ${
                 isSelected
@@ -71,7 +71,7 @@ export default function CoursePagination({
                   : "border-slate-200 bg-white text-slate-900 hover:border-blue-300 hover:bg-blue-50"
               }`}
             >
-              {page}
+              {formatCatalogCount(locale, page)}
             </button>
           );
         })}

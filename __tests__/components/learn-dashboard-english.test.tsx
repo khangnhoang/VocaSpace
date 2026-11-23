@@ -241,7 +241,7 @@ describe("review sheet in English", () => {
     getDeck.mockResolvedValue(deck());
     render(<ReviewSheet isOpen onClose={vi.fn()} onReviewComplete={vi.fn()} />, { locale: "en" });
     await screen.findByText("reliable");
-    expect(screen.getByText("Processed 0/1 cards this round")).toBeTruthy();
+    expect(screen.getByText("Cards processed this round: 0/1")).toBeTruthy();
     expect(screen.getByRole("progressbar", { name: "Review progress" })).toBeTruthy();
     expect(screen.getByText("Recall the meaning of the word")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Show answer" }));

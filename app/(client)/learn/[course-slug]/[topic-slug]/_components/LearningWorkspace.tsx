@@ -569,8 +569,8 @@ export default function LearningWorkspace({
     const reply = lastReplyRef.current;
     const progressError = result.progressError
       ? reply
-        ? pickServerText(result.progressError, replyForField(reply, "progressError"), locale, t, "actions.review.progressSync", "learn")
-        : t("actions.review.progressSync")
+        ? pickServerText(result.progressError, replyForField(reply, "progressError"), latestLocale.current, latestT.current, "actions.review.progressSync", "learn")
+        : latestT.current("actions.review.progressSync")
       : undefined;
     announceTopicProgress(result, markTopicCompleted, progressError);
     // Lần chấm đã ghi: thẻ này đã xem; Ổn/Dễ thì xong, Lại/Khó thì chưa (lần chấm gần nhất quyết định, như server).
@@ -604,7 +604,7 @@ export default function LearningWorkspace({
     const card = flashcards.find((candidate) => candidate.id === request.cardId);
     const later = settlePendingCard(request.cardId);
     const word = card?.front_content?.word ?? "";
-    const base = t("review.saveFailed", { word });
+    const base = latestT.current("review.saveFailed", { word });
     if (!card || request.generation !== queueGenerationRef.current) {
       toast.error(base);
       return;
@@ -616,7 +616,7 @@ export default function LearningWorkspace({
     }
     if (!queued) updateQueue([...queueRef.current, card]);
     setArmedGeneration(null);
-    toast.error(t("review.saveFailedRequeued", { word }));
+    toast.error(latestT.current("review.saveFailedRequeued", { word }));
   };
 
   const { enqueue: enqueueSave, whenDrained: whenSavesDrained } =
@@ -695,20 +695,20 @@ export default function LearningWorkspace({
     });
     if (next === "complete") {
       if (queueKind !== "first" && !pendingCompletionRef.current) {
-        toast.success(t(queueKind === "due" ? "workspace.toast.dueDone" : "workspace.toast.fullDone"));
+        toast.success(latestT.current(queueKind === "due" ? "workspace.toast.dueDone" : "workspace.toast.fullDone"));
       }
       goToComplete();
     } else if (next === "memory") {
       goToStage("memory");
       setPlaneFocusRequest((current) => current + 1);
-      toast.success(t(queueKind === "first" ? "workspace.toast.firstToMemory"
+      toast.success(latestT.current(queueKind === "first" ? "workspace.toast.firstToMemory"
         : queueKind === "due" ? "workspace.toast.dueDone" : "workspace.toast.fullDone"));
     } else if (next === "exercise") {
       // Owner QA FEAT12: vào bài tập sau khi xong bước trước thì mở câu đầu tiên chưa đúng, không phải câu 1.
       goToFirstRemainingQuestion(false);
       goToStage("exercise");
       setPlaneFocusRequest((current) => current + 1);
-      toast.success(t(queueKind === "first" ? "workspace.toast.firstToExercise"
+      toast.success(latestT.current(queueKind === "first" ? "workspace.toast.firstToExercise"
         : queueKind === "due" ? "workspace.toast.dueDone" : "workspace.toast.fullDone"));
     } else {
       setQueueProgressUnavailable(true);
@@ -949,7 +949,7 @@ export default function LearningWorkspace({
           id: segment.id,
           label: segment.isStandalone
             ? undefined
-            : t("workspace.navigator.group", { number: passageNumber, total: passageTotal }),
+            : t("workspace.navigator.group", { number: count(passageNumber), total: count(passageTotal) }),
           items: segment.questions
             .slice()
             .sort(byOrderIndex)

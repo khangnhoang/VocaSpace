@@ -102,7 +102,7 @@
     "errorTitle": "Couldn't start the review round",
     "retry": "Try again",
     "loadFailed": "Couldn't load the review cards. Please try again.",
-    "processed": "Processed {processed}/{total} cards this round",
+    "processed": "Cards processed this round: {processed}/{total}",
     "progressLabel": "Review progress",
     "recallPrompt": "Recall the meaning of the word",
     "ratePrompt": "How well did you remember this word?",
