@@ -1,6 +1,7 @@
 "use server";
 
 import { isAuthSessionMissingError } from "@supabase/supabase-js";
+import { getTranslations } from "next-intl/server";
 import {
   buildLearnCourseProgressProjection,
   type LearnDashboardChapterRow,
@@ -18,17 +19,17 @@ import {
 } from "@/lib/supabase-pagination";
 import { createClient } from "@/utils/supabase/server";
 
-const QUERY_ERROR =
-  "Không thể tải tổng quan khóa học lúc này. Vui lòng thử lại.";
-const INVALID_DATA_ERROR = "Dữ liệu tổng quan khóa học không hợp lệ.";
+// Thông báo theo ngôn ngữ của request; chỉ trang server gọi action này nên `router.refresh()` của nút thử lại và của bộ chọn ngôn
+// ngữ dựng lại bằng ngôn ngữ mới (U3 H3), không cần wrapper.
+type LearnTranslator = Awaited<ReturnType<typeof getTranslations<"learn">>>;
 
-const queryFailedResult = (): EnrolledCourseOverviewResult => ({
+const queryFailedResult = (t: LearnTranslator): EnrolledCourseOverviewResult => ({
   status: "error",
   errorCode: "QUERY_FAILED",
-  error: QUERY_ERROR,
+  error: t("actions.overview.queryFailed"),
 });
 
-function parseOverviewResult(value: unknown): EnrolledCourseOverviewResult {
+function parseOverviewResult(value: unknown, t: LearnTranslator): EnrolledCourseOverviewResult {
   const parsed = enrolledCourseOverviewResultSchema.safeParse(value);
   if (parsed.success) return parsed.data;
 
@@ -39,7 +40,7 @@ function parseOverviewResult(value: unknown): EnrolledCourseOverviewResult {
   return {
     status: "error",
     errorCode: "INVALID_DATA",
-    error: INVALID_DATA_ERROR,
+    error: t("actions.overview.invalidData"),
   };
 }
 
@@ -48,6 +49,8 @@ export async function getEnrolledCourseOverview(
 ): Promise<EnrolledCourseOverviewResult> {
   const slugResult = publicCourseSlugSchema.safeParse(rawCourseSlug);
   if (!slugResult.success) return { status: "not_found" };
+
+  const t = await getTranslations("learn");
 
   try {
     const supabase = await createClient();
@@ -58,7 +61,7 @@ export async function getEnrolledCourseOverview(
 
     if (authError && !isAuthSessionMissingError(authError)) {
       console.error("Enrolled course overview auth query failed", authError);
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
     if (authError || !user) return { status: "auth_required" };
 
@@ -72,7 +75,7 @@ export async function getEnrolledCourseOverview(
 
     if (courseError) {
       console.error("Enrolled course overview course query failed", courseError);
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
     if (!course) return { status: "not_found" };
 
@@ -88,13 +91,13 @@ export async function getEnrolledCourseOverview(
         "Enrolled course overview enrollment query failed",
         enrollmentError,
       );
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
     if (!enrollment) {
       return parseOverviewResult({
         status: "unenrolled",
         course: { slug: course.slug, title: course.title },
-      });
+      }, t);
     }
 
     const chapterResult = await readAllSupabaseRows((from, to) =>
@@ -113,7 +116,7 @@ export async function getEnrolledCourseOverview(
         "Enrolled course overview chapter query failed",
         chapterResult.error,
       );
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
 
     const chapters = (chapterResult.data ?? []) as LearnDashboardChapterRow[];
@@ -144,7 +147,7 @@ export async function getEnrolledCourseOverview(
           "Enrolled course overview topic query failed",
           topicResult.error,
         );
-        return queryFailedResult();
+        return queryFailedResult(t);
       }
 
       topics = (topicResult.data ?? []) as LearnDashboardTopicRow[];
@@ -169,7 +172,7 @@ export async function getEnrolledCourseOverview(
             "Enrolled course overview progress query failed",
             progressResult.error,
           );
-          return queryFailedResult();
+          return queryFailedResult(t);
         }
 
         progress = (progressResult.data ?? []) as
@@ -193,9 +196,9 @@ export async function getEnrolledCourseOverview(
         courseThumbnailUrl: course.thumbnail_url,
         ...projection,
       },
-    });
+    }, t);
   } catch (error) {
     console.error("Enrolled course overview unexpected failure", error);
-    return queryFailedResult();
+    return queryFailedResult(t);
   }
 }

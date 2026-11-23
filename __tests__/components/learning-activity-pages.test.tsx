@@ -1,5 +1,5 @@
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup } from "@/__tests__/support/intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEnrolledCourseOverview } from "@/app/actions/enrolled-course-overview";
 import { getCourseLearningSummary } from "@/app/actions/learning-activity";

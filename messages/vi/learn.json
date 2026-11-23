@@ -5,7 +5,8 @@
     "description": "Nền tảng học từ vựng TOEIC tối ưu với phương pháp Flashcard và Exercise thông minh."
   },
   "loading": {
-    "workspace": "Đang tải không gian học tập"
+    "workspace": "Đang tải không gian học tập",
+    "overview": "Đang tải tổng quan khóa học"
   },
   "dashboard": {
     "header": {
@@ -139,6 +140,56 @@
       "invalidMeta": "Dữ liệu ôn tập hiện tại không hợp lệ.",
       "syncFailed": "Chưa thể đồng bộ tiến độ ôn tập.",
       "progressSync": "Thẻ đã lưu nhưng chưa thể ghi nhận tiến độ bài học."
+    },
+    "overview": {
+      "queryFailed": "Không thể tải tổng quan khóa học lúc này. Vui lòng thử lại.",
+      "invalidData": "Dữ liệu tổng quan khóa học không hợp lệ."
+    }
+  },
+  "overview": {
+    "back": "Không gian học tập",
+    "eyebrow": "KHÔNG GIAN KHÓA HỌC",
+    "intro": "Theo dõi các chủ đề đã hoàn thành và tiếp tục từ đúng điểm trong lộ trình của bạn.",
+    "noContent": {
+      "title": "Khóa học chưa có nội dung để bắt đầu",
+      "body": "Các chủ đề học tập đang được cập nhật. Bạn có thể quay lại không gian học tập và thử lại sau.",
+      "back": "Về không gian học tập"
+    },
+    "progress": {
+      "completedEyebrow": "ĐÃ HOÀN THÀNH",
+      "completedTitle": "Bạn đã đi hết lộ trình",
+      "completedDescription": "Ôn lại bài học cuối để giữ nhịp ghi nhớ.",
+      "notStartedEyebrow": "SẴN SÀNG BẮT ĐẦU",
+      "notStartedTitle": "Bài đầu tiên đang chờ bạn",
+      "notStartedDescription": "Bắt đầu theo đúng thứ tự của lộ trình khóa học.",
+      "inProgressEyebrow": "BÀI TIẾP THEO",
+      "inProgressTitle": "Tiếp tục từ phần còn dang dở",
+      "inProgressDescription": "Quay lại chủ đề chưa hoàn thành sớm nhất trong lộ trình.",
+      "topicsDone": "{completed}/{total} chủ đề đã hoàn thành",
+      "topicsDoneText": "{completed} trên {total} chủ đề đã hoàn thành",
+      "reviewTopic": "BÀI ÔN LẠI",
+      "nextTopic": "CHỦ ĐỀ TIẾP THEO"
+    },
+    "path": {
+      "eyebrow": "LỘ TRÌNH HỌC",
+      "title": "Các chủ đề trong khóa học",
+      "description": "Chủ đề được sắp theo đúng thứ tự học; bạn vẫn có thể mở lại phần đã hoàn thành.",
+      "chapter": "CHƯƠNG {number}",
+      "stateDone": "Đã hoàn thành",
+      "stateCurrent": "Học tiếp",
+      "stateUpcoming": "Sắp tới"
+    },
+    "feedback": {
+      "unenrolledEyebrow": "QUYỀN TRUY CẬP KHÓA HỌC",
+      "errorEyebrow": "KHÔNG THỂ TẢI DỮ LIỆU",
+      "unenrolledTitle": "Tài khoản này chưa đăng ký khóa học",
+      "errorTitle": "Chưa thể tải tổng quan khóa học",
+      "unenrolledBodyBefore": "Bạn đang đăng nhập nhưng chưa có quyền học khóa “",
+      "unenrolledBodyAfter": "”. Xem trang giới thiệu để kiểm tra thông tin và lựa chọn đăng ký.",
+      "viewCourse": "Xem thông tin khóa học",
+      "backToLearn": "Về không gian học tập",
+      "retry": "Thử lại",
+      "retrying": "Đang tải lại..."
     }
   }
 }

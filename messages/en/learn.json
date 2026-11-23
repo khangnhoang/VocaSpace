@@ -5,7 +5,8 @@
     "description": "A TOEIC vocabulary platform built around flashcards and smart exercises."
   },
   "loading": {
-    "workspace": "Loading your learning space"
+    "workspace": "Loading your learning space",
+    "overview": "Loading the course overview"
   },
   "dashboard": {
     "header": {
@@ -139,6 +140,56 @@
       "invalidMeta": "The current review data is invalid.",
       "syncFailed": "Couldn't sync your review progress.",
       "progressSync": "The card was saved, but your lesson progress couldn't be recorded."
+    },
+    "overview": {
+      "queryFailed": "Couldn't load the course overview right now. Please try again.",
+      "invalidData": "The course overview data is invalid."
+    }
+  },
+  "overview": {
+    "back": "Learning space",
+    "eyebrow": "COURSE SPACE",
+    "intro": "Track the topics you've completed and pick up right where you left off on your path.",
+    "noContent": {
+      "title": "This course has no content to start yet",
+      "body": "The learning topics are being updated. You can go back to the learning space and try again later.",
+      "back": "Back to the learning space"
+    },
+    "progress": {
+      "completedEyebrow": "COMPLETED",
+      "completedTitle": "You've finished the whole path",
+      "completedDescription": "Revisit the last lesson to keep your memory rhythm.",
+      "notStartedEyebrow": "READY TO START",
+      "notStartedTitle": "Your first lesson is waiting",
+      "notStartedDescription": "Start in the order of the course path.",
+      "inProgressEyebrow": "NEXT LESSON",
+      "inProgressTitle": "Continue where you left off",
+      "inProgressDescription": "Go back to the earliest topic you haven't finished on the path.",
+      "topicsDone": "{count, plural, one {{completed}/{total} topic completed} other {{completed}/{total} topics completed}}",
+      "topicsDoneText": "{count, plural, one {{completed} of {total} topic completed} other {{completed} of {total} topics completed}}",
+      "reviewTopic": "LESSON TO REVISIT",
+      "nextTopic": "NEXT TOPIC"
+    },
+    "path": {
+      "eyebrow": "LEARNING PATH",
+      "title": "Topics in this course",
+      "description": "Topics are listed in study order; you can still reopen the parts you've completed.",
+      "chapter": "CHAPTER {number}",
+      "stateDone": "Completed",
+      "stateCurrent": "Up next",
+      "stateUpcoming": "Upcoming"
+    },
+    "feedback": {
+      "unenrolledEyebrow": "COURSE ACCESS",
+      "errorEyebrow": "COULDN'T LOAD DATA",
+      "unenrolledTitle": "This account isn't enrolled in the course",
+      "errorTitle": "Couldn't load the course overview",
+      "unenrolledBodyBefore": "You're signed in but don't have access to the course “",
+      "unenrolledBodyAfter": "”. See the course page to check the details and your enrollment options.",
+      "viewCourse": "View course details",
+      "backToLearn": "Back to the learning space",
+      "retry": "Try again",
+      "retrying": "Reloading..."
     }
   }
 }
