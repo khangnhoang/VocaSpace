@@ -21,12 +21,13 @@ const STRENGTH_TEXT = ["text-correction", "text-correction", "text-attention", "
 export function SetPasswordForm() {
   const t = useTranslations("auth");
   const locale = useLocale() === "en" ? "en" : "vi";
+  const tRoot = asTranslate(useTranslations());
   const tx =asTranslate(useTranslations("validation"));
   const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tx, message) : undefined);
   const [isLoading, setIsLoading] = useState(false);
   // Thông báo giữ qua lần đổi ngôn ngữ: khóa hoặc chuỗi gắn ngôn ngữ của request, dịch/lọc lúc render (xem held-message.ts).
   const [serverMessage, setServerError] = useState<HeldMessage | null>(null);
-  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t));
+  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t), tRoot);
 
   const form = useForm<SetPasswordInput>({
     resolver: zodResolver(setPasswordSchema),
@@ -46,8 +47,8 @@ export function SetPasswordForm() {
 
     // Thành công thì action redirect về "/"; chỉ quay lại đây khi có lỗi.
     try {
-      const { result: res, locale: responseLocale } = await setPasswordAfterConfirmationLocalized(formData);
-      if (res?.error) setServerError(heldText(res.error, responseLocale, "actions.setPasswordFailed"));
+      const { result: res, ...reply } = await setPasswordAfterConfirmationLocalized(formData);
+      if (res?.error) setServerError(heldText(res.error, reply, "actions.setPasswordFailed"));
     } catch (error) {
       unstable_rethrow(error);
       setServerError(heldKey("actions.setPasswordFailed"));

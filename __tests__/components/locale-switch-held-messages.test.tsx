@@ -11,6 +11,7 @@ import { SetPasswordForm } from "@/app/auth/set-password/_components/SetPassword
 import { PublicCoursePreviewExperience } from "@/app/(client)/courses/[course-slug]/preview/[topic-slug]/_components/PublicCoursePreviewExperience";
 import EditProfileForm from "@/app/(client)/profile/_components/edit-profile-form";
 import ChangePasswordForm from "@/app/(client)/profile/_components/change-pwd-form";
+import ProfileSidebar from "@/app/(client)/profile/_components/profile-sidebar";
 import type { PublicCoursePreview } from "@/lib/schemas/public-course-preview";
 import type { UserProfileDTO } from "@/lib/schemas/profile";
 
@@ -23,11 +24,14 @@ import type { UserProfileDTO } from "@/lib/schemas/profile";
 // - Case chính: thông báo do client sở hữu đổi chữ theo ngôn ngữ mới; chuỗi action chỉ hiện khi server dùng đúng ngôn ngữ đang hiển
 //   thị, không thì hiện bản chung của client bằng ngôn ngữ của trang; toast phát sau request chờ dùng ngôn ngữ lúc toast bật.
 // - Case biên: tab hiện VI nhưng server trả EN (cookie đã đổi ở tab khác); phản hồi về muộn sau khi đổi ngôn ngữ; focus của đăng nhập
-//   chỉ chuyển cùng một lỗi đang hiện; email, mật khẩu, đáp án và hồ sơ vẫn được lưu.
+//   chỉ chuyển cùng một lỗi đang hiện; email, mật khẩu, đáp án và hồ sơ vẫn được lưu; khi lệch ngôn ngữ vẫn giữ đúng cách khắc phục của
+//   lỗi gốc (phiên đặt mật khẩu hết hạn, cần đăng nhập, mật khẩu trùng); toast của form đã unmount vì đổi tab vẫn theo ngôn ngữ lúc bật.
+//   Ngôn ngữ server được đặt TRƯỚC khi gửi và giữ nguyên tới lúc phản hồi về, vì cookie do tab khác ghi chỉ ảnh hưởng request kế tiếp.
 // - Giới hạn: lỗi ảnh và lỗi server của /register, toast mở chủ đề đầu ở thẻ đăng ký, lỗi tải hồ sơ/ảnh ở sidebar dùng cùng helper
 //   nhưng chỉ được phủ bằng review mã; vòng đời cookie/refresh thật xem bằng build.
 
 const mocks = vi.hoisted(() => ({
+  getUserProfile: vi.fn(),
   signInUser: vi.fn(),
   resendSignupConfirmation: vi.fn(),
   setPasswordAfterConfirmation: vi.fn(),
@@ -48,7 +52,7 @@ vi.mock("@/app/actions/auth", () => ({
   setPasswordAfterConfirmation: mocks.setPasswordAfterConfirmation,
 }));
 vi.mock("@/app/actions/profile", () => ({
-  getUserProfile: vi.fn(),
+  getUserProfile: mocks.getUserProfile,
   uploadAvatar: vi.fn(),
   updateUserProfile: mocks.updateUserProfile,
   updateUserPassword: mocks.updateUserPassword,
@@ -172,13 +176,13 @@ describe("/login keeps no stale-language message after a language switch", () =>
   it("presents a late response in the page's language and moves focus together with it", async () => {
     const pending = deferred<{ error: string }>();
     mocks.signInUser.mockReturnValue(pending.promise);
+    // Cookie đã là EN (do tab khác ghi) trước khi gửi, nên server dịch sang EN; trang đổi sang EN khi request còn chạy.
+    setServerTestLocale("en");
     const { container, switchLocale } = renderLogin();
 
     await submitLogin(container);
     expect(screen.queryByRole("alert")).toBeNull();
     await switchLocale("en");
-    // Cookie đã là EN khi phản hồi về: server trả câu EN, trang cũng đã EN.
-    setServerTestLocale("en");
     container.querySelector<HTMLInputElement>("#login-email")!.focus();
     await act(async () => {
       pending.resolve({ error: "Wrong email or password!" });
@@ -377,7 +381,6 @@ describe("profile toasts fired after a request that outlives a language switch",
     });
     await waitFor(() => expect(mocks.updateUserProfile).toHaveBeenCalledTimes(1));
     await switchLocale("en");
-    setServerTestLocale("en");
     await act(async () => {
       pending.resolve({ success: true });
     });
@@ -431,7 +434,6 @@ describe("profile toasts fired after a request that outlives a language switch",
     });
     await waitFor(() => expect(mocks.updateUserPassword).toHaveBeenCalledTimes(1));
     await switchLocale("en");
-    setServerTestLocale("en");
     await act(async () => {
       pending.resolve({ success: true });
     });
@@ -460,5 +462,134 @@ describe("profile toasts fired after a request that outlives a language switch",
 
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(copy("en", "profile", "actions.passwordUpdateFailed")));
     expect(mocks.toastError).not.toHaveBeenCalledWith("Mật khẩu hiện tại không đúng.");
+  });
+});
+
+describe("a locale mismatch keeps the remedy of the original error", () => {
+  it("shows the expired-session message of /auth/set-password in the page's language, not the generic retry", async () => {
+    // Tab hiện VI, cookie đã là EN khi gửi: server trả câu EN của `setPasswordSessionExpired`.
+    setServerTestLocale("en");
+    mocks.setPasswordAfterConfirmation.mockResolvedValue({ error: copy("en", "auth", "actions.setPasswordSessionExpired") });
+    const { container } = renderSwitchable(<SetPasswordForm />, "vi");
+
+    fillById(container, "new-password", "abc12345");
+    fillById(container, "confirm-new-password", "abc12345");
+    await act(async () => {
+      fireEvent.submit(container.querySelector("form")!);
+    });
+
+    expect((await screen.findByRole("alert")).textContent).toBe(copy("vi", "auth", "actions.setPasswordSessionExpired"));
+    expect(screen.queryByText(copy("vi", "auth", "actions.setPasswordFailed"))).toBeNull();
+  });
+
+  it("keeps the expired-session message after a switch too", async () => {
+    mocks.setPasswordAfterConfirmation.mockResolvedValue({ error: copy("vi", "auth", "actions.setPasswordSessionExpired") });
+    const { container, switchLocale } = renderSwitchable(<SetPasswordForm />, "vi");
+
+    fillById(container, "new-password", "abc12345");
+    fillById(container, "confirm-new-password", "abc12345");
+    await act(async () => {
+      fireEvent.submit(container.querySelector("form")!);
+    });
+    expect((await screen.findByRole("alert")).textContent).toBe(copy("vi", "auth", "actions.setPasswordSessionExpired"));
+    await switchLocale("en");
+
+    expect(screen.getByRole("alert").textContent).toBe(copy("en", "auth", "actions.setPasswordSessionExpired"));
+  });
+
+  it("tells a signed-out profile visitor to sign in, not that the profile was not found", async () => {
+    setServerTestLocale("en");
+    mocks.getUserProfile.mockResolvedValue({ error: copy("en", "profile", "actions.signInRequired") });
+
+    renderSwitchable(<ProfileSidebar isDesktop={false} paymentsPanel={null} />, "vi");
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(copy("vi", "profile", "actions.signInRequired")));
+    expect(mocks.toastError).not.toHaveBeenCalledWith(copy("vi", "profile", "actions.profileNotFound"));
+  });
+
+  it("keeps the same-password advice of the change-password form (an auth message) in the page's language", async () => {
+    setServerTestLocale("en");
+    mocks.updateUserPassword.mockResolvedValue({ error: copy("en", "auth", "actions.samePassword") });
+    const { container } = renderSwitchable(<ChangePasswordForm />, "vi");
+    const [current, next, confirm] = [...container.querySelectorAll<HTMLInputElement>("input[type='password']")];
+    fireEvent.change(current, { target: { value: "old-pass-1" } });
+    fireEvent.change(next, { target: { value: "new-pass-1" } });
+    fireEvent.change(confirm, { target: { value: "new-pass-1" } });
+
+    await act(async () => {
+      fireEvent.submit(container.querySelector("form")!);
+    });
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(copy("vi", "auth", "actions.samePassword")));
+    expect(mocks.toastError).not.toHaveBeenCalledWith(copy("vi", "profile", "actions.passwordUpdateFailed"));
+  });
+});
+
+describe("profile toasts of a form that unmounted before the request resolved", () => {
+  const profile: UserProfileDTO = {
+    id: "u1",
+    email: "learner@example.com",
+    phone: "",
+    full_name: "An Nguyen",
+    avatar_url: null,
+    role: "student",
+    username: null,
+    dob: null,
+    gender: null,
+  };
+
+  async function renderSidebar() {
+    mocks.getUserProfile.mockResolvedValue({ data: profile });
+    const view = renderSwitchable(<ProfileSidebar isDesktop={false} paymentsPanel={null} />, "vi");
+    await waitFor(() => expect(view.container.querySelector("form")).not.toBeNull());
+    return view;
+  }
+
+  it("announces the saved profile in the language shown when the request resolves, after the form was unmounted by a tab change", async () => {
+    const pending = deferred<{ success: true }>();
+    mocks.updateUserProfile.mockReturnValue(pending.promise);
+    const { container, switchLocale } = await renderSidebar();
+
+    await act(async () => {
+      fireEvent.submit(container.querySelector("form")!);
+    });
+    await waitFor(() => expect(mocks.updateUserProfile).toHaveBeenCalledTimes(1));
+    // Sang tab Bảo mật: form hồ sơ bị unmount trong lúc request còn chạy, rồi mới đổi ngôn ngữ.
+    fireEvent.click(screen.getByRole("button", { name: copy("vi", "profile", "sidebar.tabSecurity") }));
+    expect(container.querySelectorAll("input[type='password']").length).toBeGreaterThan(0);
+    await switchLocale("en");
+    await act(async () => {
+      pending.resolve({ success: true });
+    });
+
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith(copy("en", "profile", "editForm.saved")));
+    expect(mocks.toastSuccess).not.toHaveBeenCalledWith(copy("vi", "profile", "editForm.saved"));
+    // Dữ liệu vẫn được kéo lại cho thẻ hồ sơ: lần tải đầu và lần làm mới sau khi lưu.
+    await waitFor(() => expect(mocks.getUserProfile).toHaveBeenCalledTimes(2));
+  });
+
+  it("announces a changed password in the language shown when the request resolves, after the form was unmounted by a tab change", async () => {
+    const pending = deferred<{ success: true }>();
+    mocks.updateUserPassword.mockReturnValue(pending.promise);
+    const { container, switchLocale } = await renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: copy("vi", "profile", "sidebar.tabSecurity") }));
+    const [current, next, confirm] = [...container.querySelectorAll<HTMLInputElement>("input[type='password']")];
+    fireEvent.change(current, { target: { value: "old-pass-1" } });
+    fireEvent.change(next, { target: { value: "new-pass-1" } });
+    fireEvent.change(confirm, { target: { value: "new-pass-1" } });
+
+    await act(async () => {
+      fireEvent.submit(container.querySelector("form")!);
+    });
+    await waitFor(() => expect(mocks.updateUserPassword).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: copy("vi", "profile", "sidebar.tabProfile") }));
+    expect(container.querySelectorAll("input[type='password']").length).toBe(0);
+    await switchLocale("en");
+    await act(async () => {
+      pending.resolve({ success: true });
+    });
+
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith(copy("en", "profile", "passwordForm.changed")));
+    expect(mocks.toastSuccess).not.toHaveBeenCalledWith(copy("vi", "profile", "passwordForm.changed"));
   });
 });

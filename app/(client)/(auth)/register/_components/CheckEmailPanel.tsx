@@ -21,11 +21,12 @@ type CheckEmailPanelProps = {
 export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
   const t = useTranslations("auth");
   const locale = useLocale() === "en" ? "en" : "vi";
+  const tRoot = asTranslate(useTranslations());
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   // Thông báo giữ qua lần đổi ngôn ngữ: khóa hoặc chuỗi gắn ngôn ngữ của request, dịch/lọc lúc render (xem held-message.ts).
   const [heldNotice, setNotice] = useState<{ tone: "status" | "error"; message: HeldMessage } | null>(null);
-  const noticeText = heldNotice ? resolveHeldMessage(heldNotice.message, locale, asTranslate(t)) : null;
+  const noticeText = heldNotice ? resolveHeldMessage(heldNotice.message, locale, asTranslate(t), tRoot) : null;
   const notice = heldNotice && noticeText ? { tone: heldNotice.tone, text: noticeText } : null;
   const mailbox = mailboxLinkFor(email, asTranslate(t));
 
@@ -40,8 +41,8 @@ export function CheckEmailPanel({ email, onEditForm }: CheckEmailPanelProps) {
     setIsSending(true);
     setCooldown(RESEND_COOLDOWN_SECONDS);
     try {
-      const { result, locale: responseLocale } = await resendSignupConfirmationLocalized(email);
-      setNotice({ tone: "status", message: heldText(result.message, responseLocale, "actions.resend") });
+      const { result, ...reply } = await resendSignupConfirmationLocalized(email);
+      setNotice({ tone: "status", message: heldText(result.message, reply, "actions.resend") });
     } catch {
       setNotice({ tone: "error", message: heldKey("checkEmail.resendFailed") });
     } finally {

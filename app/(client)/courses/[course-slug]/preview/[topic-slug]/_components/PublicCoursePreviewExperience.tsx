@@ -118,6 +118,7 @@ export function PublicCoursePreviewExperience({
   const router = useRouter();
   const t = useTranslations("courses");
   const locale = useLocale() === "en" ? "en" : "vi";
+  const tRoot = asTranslate(useTranslations());
   // H7: các thành phần học tập dùng chung nhận bản dịch namespace `learning`.
   const learningText = asTranslate(useTranslations("learning"));
   const questions = flattenQuestions(data.exercises);
@@ -143,8 +144,8 @@ export function PublicCoursePreviewExperience({
   const [pendingAnswers, setPendingAnswers] = useState<Record<string, string>>({});
   const [isContinuePending, startContinueTransition] = useTransition();
   const [continueMessage, setContinueError] = useState<HeldMessage | null>(null);
-  const answerError = resolveHeldMessage(answerMessage, locale, asTranslate(t));
-  const continueError = resolveHeldMessage(continueMessage, locale, asTranslate(t));
+  const answerError = resolveHeldMessage(answerMessage, locale, asTranslate(t), tRoot);
+  const continueError = resolveHeldMessage(continueMessage, locale, asTranslate(t), tRoot);
   const answerInFlight = useRef<Set<string>>(new Set());
   const latestAttempt = useRef<Record<string, number>>({});
   const attemptCounter = useRef(0);
@@ -233,7 +234,7 @@ export function PublicCoursePreviewExperience({
 
     void (async () => {
       try {
-        const { result, locale: responseLocale } = await answerPublicCoursePreviewQuestionLocalized({
+        const { result, ...reply } = await answerPublicCoursePreviewQuestionLocalized({
           courseSlug: data.course.slug,
           topicSlug: data.topic.slug,
           questionId: answeredId,
@@ -245,7 +246,7 @@ export function PublicCoursePreviewExperience({
           return;
         }
         if (result.status === "error") {
-          if (isShowing()) setAnswerError(heldText(result.error, responseLocale, "preview.answerFailed"));
+          if (isShowing()) setAnswerError(heldText(result.error, reply, "preview.answerFailed"));
           return;
         }
 
@@ -321,9 +322,9 @@ export function PublicCoursePreviewExperience({
     setContinueError(null);
     startContinueTransition(async () => {
       try {
-        const { result, locale: responseLocale } = await getFirstTopicSlugByCourseSlugLocalized(data.course.slug);
+        const { result, ...reply } = await getFirstTopicSlugByCourseSlugLocalized(data.course.slug);
         if (result.error || !result.topicSlug) {
-          setContinueError(result.error ? heldText(result.error, responseLocale, "preview.openTopicFailed") : heldKey("preview.noFirstTopic"));
+          setContinueError(result.error ? heldText(result.error, reply, "preview.openTopicFailed") : heldKey("preview.noFirstTopic"));
           return;
         }
         router.push(

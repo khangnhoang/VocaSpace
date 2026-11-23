@@ -5,20 +5,22 @@ import React, { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { passwordSchema, PasswordFormValues } from "@/lib/schemas/profile";
-import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
-import { pickServerText, useLatest } from "@/lib/i18n/held-message";
+import { useLatest } from "@/lib/i18n/held-message";
+import { showProfileNotice, type EmitProfileNotice } from "./profile-notice";
 import type { Locale } from "@/lib/i18n/config";
 import { updateUserPasswordLocalized } from "@/app/actions/profile-localized";
 
-export default function ChangePasswordForm() {
+// `onNotice`: do `ProfileSidebar` cấp để toast không phụ thuộc form còn mounted hay không; thiếu thì form tự phát (xem profile-notice.ts).
+export default function ChangePasswordForm({ onNotice }: { onNotice?: EmitProfileNotice }) {
   const [isPending, startTransition] = useTransition();
   const t = useTranslations("profile.passwordForm");
-  const tActions = asTranslate(useTranslations("profile.actions"));
+  const tRoot = asTranslate(useTranslations());
   const locale = useLocale() as Locale;
   // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc bấm gửi.
-  const latest = useLatest({ t, tActions, locale });
+  const latest = useLatest({ t: tRoot, locale });
+  const notify = onNotice ?? ((notice) => showProfileNotice(notice, latest));
   // Message của schema là khóa trong `validation` (U2 H3); form dịch khi hiển thị.
   const tValidation = asTranslate(useTranslations("validation"));
 
@@ -33,17 +35,16 @@ export default function ChangePasswordForm() {
 
   const onSubmit = (data: PasswordFormValues) => {
     startTransition(async () => {
-      const { result: res, locale: responseLocale } = await updateUserPasswordLocalized(data);
-      const now = latest.current;
+      const { result: res, ...reply } = await updateUserPasswordLocalized(data);
 
       // Bắt lỗi an toàn, tuyệt đối không trả về ID của toast
       if (res.error) {
-        toast.error(pickServerText(res.error, responseLocale, now.locale, now.tActions("passwordUpdateFailed")));
+        notify({ type: "error", text: res.error, reply, fallbackKey: "profile.actions.passwordUpdateFailed" });
         return;
       }
 
       if (res.success) {
-        toast.success(now.t("changed"));
+        notify({ type: "success", key: "profile.passwordForm.changed" });
         form.reset(); // Dọn sạch form
       }
     });

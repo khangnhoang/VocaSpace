@@ -4,11 +4,11 @@
 import React, { useState, useEffect, useRef, useTransition, useCallback, type ReactNode } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { getUserProfileLocalized, uploadAvatarLocalized } from "@/app/actions/profile-localized";
 import { asTranslate } from "@/lib/i18n/translate";
-import { pickServerText, useLatest } from "@/lib/i18n/held-message";
+import { useLatest } from "@/lib/i18n/held-message";
+import { showProfileNotice, type ProfileNotice } from "./profile-notice";
 import type { Locale } from "@/lib/i18n/config";
 import { UserProfileDTO } from "@/lib/schemas/profile";
 
@@ -28,10 +28,12 @@ export default function ProfileSidebar({
   paymentsPanel: ReactNode;
 }) {
   const t = useTranslations("profile.sidebar");
-  const tActions = asTranslate(useTranslations("profile.actions"));
+  const tRoot = asTranslate(useTranslations());
   const locale = useLocale() as Locale;
-  // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc gửi.
-  const latest = useLatest({ t, tActions, locale });
+  // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc gửi. Sidebar còn mounted khi người dùng đổi tab, nên
+  // cũng là nơi phát toast của form hồ sơ và form đổi mật khẩu (xem profile-notice.ts).
+  const latest = useLatest({ t: tRoot, locale });
+  const notify = useCallback((notice: ProfileNotice) => showProfileNotice(notice, latest), [latest]);
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const visibleTab: ProfileTab =
     isDesktop === true && activeTab === "payments" ? "profile" : activeTab;
@@ -47,19 +49,18 @@ export default function ProfileSidebar({
   // Hàm thuần túy chỉ làm nhiệm vụ gọi Server Action
   const fetchRealData = useCallback(async () => {
     // Self-Audit: Server Action getUserProfile cần tự kiểm tra auth.uid() ở backend
-    const { result: res, locale: responseLocale } = await getUserProfileLocalized();
+    const { result: res, ...reply } = await getUserProfileLocalized();
     
     // Chỉ cập nhật state khi component thực sự còn tồn tại trên DOM
     if (isMounted.current) {
       if (res.error) {
-        const now = latest.current;
-        toast.error(pickServerText(res.error, responseLocale, now.locale, now.tActions("profileNotFound")));
+        notify({ type: "error", text: res.error, reply, fallbackKey: "profile.actions.profileNotFound" });
       } else if (res.data) {
         setProfileData(res.data);
       }
       setIsLoading(false);
     }
-  }, [latest]);
+  }, [notify]);
 
   // Xử lý riêng khi user chủ động bấm làm mới dữ liệu
   const handleRefreshData = useCallback(() => {
@@ -90,16 +91,15 @@ export default function ProfileSidebar({
     formData.append("avatar", file);
 
     startAvatarTransition(async () => {
-      const { result: res, locale: responseLocale } = await uploadAvatarLocalized(formData);
-      const now = latest.current;
+      const { result: res, ...reply } = await uploadAvatarLocalized(formData);
       
       if (res.error) {
-        toast.error(pickServerText(res.error, responseLocale, now.locale, now.tActions("uploadFailed")));
+        notify({ type: "error", text: res.error, reply, fallbackKey: "profile.actions.uploadFailed" });
         return; 
       }
 
       if (res.success && res.avatarUrl) {
-        toast.success(now.t("avatarUpdated"));
+        notify({ type: "success", key: "profile.sidebar.avatarUpdated" });
         setProfileData((prev) => prev ? { ...prev, avatar_url: res.avatarUrl } : null);
       }
     });
@@ -208,9 +208,10 @@ export default function ProfileSidebar({
           <EditProfileForm 
             initialData={profileData} 
             onRefreshData={handleRefreshData} 
+            onNotice={notify}
           />
         ) : (
-          <ChangePasswordForm />
+          <ChangePasswordForm onNotice={notify} />
         )}
       </div>
     </div>

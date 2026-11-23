@@ -10,28 +10,32 @@ import {
   ProfileFormValues,
   UserProfileDTO,
 } from "@/lib/schemas/profile";
-import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { asTranslate, translateIssueMessage } from "@/lib/i18n/translate";
-import { pickServerText, useLatest } from "@/lib/i18n/held-message";
+import { useLatest } from "@/lib/i18n/held-message";
+import { showProfileNotice, type EmitProfileNotice } from "./profile-notice";
 import type { Locale } from "@/lib/i18n/config";
 import { updateUserProfileLocalized } from "@/app/actions/profile-localized";
 
 interface EditProfileFormProps {
   initialData: UserProfileDTO | null;
   onRefreshData: () => void;
+  // Do `ProfileSidebar` cấp để toast không phụ thuộc form còn mounted hay không; thiếu thì form tự phát (xem profile-notice.ts).
+  onNotice?: EmitProfileNotice;
 }
 
 export default function EditProfileForm({
   initialData,
   onRefreshData,
+  onNotice,
 }: EditProfileFormProps) {
   const [isPending, startTransition] = useTransition();
   const t = useTranslations("profile.editForm");
-  const tActions = asTranslate(useTranslations("profile.actions"));
+  const tRoot = asTranslate(useTranslations());
   const locale = useLocale() as Locale;
   // Toast phát sau khi request xong nên dịch theo ngôn ngữ lúc đó, không phải lúc bấm lưu.
-  const latest = useLatest({ t, tActions, locale });
+  const latest = useLatest({ t: tRoot, locale });
+  const notify = onNotice ?? ((notice) => showProfileNotice(notice, latest));
   // Message của schema là khóa trong `validation` (U2 H3); form dịch khi hiển thị, nên mỗi lỗi hiện đúng ở ngôn ngữ đang dùng.
   const tValidation = asTranslate(useTranslations("validation"));
 
@@ -55,17 +59,16 @@ export default function EditProfileForm({
 
   const onSubmit = (data: ProfileFormValues) => {
     startTransition(async () => {
-      const { result: res, locale: responseLocale } = await updateUserProfileLocalized(data);
-      const now = latest.current;
+      const { result: res, ...reply } = await updateUserProfileLocalized(data);
 
       // Xử lý tách biệt return tránh cảnh báo của React
       if (res.error) {
-        toast.error(pickServerText(res.error, responseLocale, now.locale, now.tActions("updateFailed")));
+        notify({ type: "error", text: res.error, reply, fallbackKey: "profile.actions.updateFailed" });
         return;
       }
 
       if (res.success) {
-        toast.success(now.t("saved"));
+        notify({ type: "success", key: "profile.editForm.saved" });
         onRefreshData(); // Kéo lại dữ liệu mới nhất cho Sidebar cập nhật
       }
     });

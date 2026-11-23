@@ -64,6 +64,7 @@ function SignInReasonNotice() {
 export default function LoginPage() {
   const t = useTranslations("auth");
   const locale = useLocale() === "en" ? "en" : "vi";
+  const tRoot = asTranslate(useTranslations());
   const tx = asTranslate(useTranslations("validation"));
   const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tx, message) : undefined);
   const router = useRouter();
@@ -71,7 +72,7 @@ export default function LoginPage() {
   const [status, setStatus] = useState<"idle" | "pending" | "success">("idle");
   // Giữ thông báo dưới dạng khóa hoặc chuỗi gắn ngôn ngữ của request để đổi ngôn ngữ giữa chừng không để lại chữ cũ.
   const [serverMessage, setServerError] = useState<HeldMessage | null>(null);
-  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t));
+  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t), tRoot);
   const submitting = useRef(false);
   const [formScope, animate] = useAnimate<HTMLDivElement>();
   const reduceMotion = useReducedMotion();
@@ -92,11 +93,11 @@ export default function LoginPage() {
     formData.append("password", data.password);
 
     try {
-      const { result: res, locale: responseLocale } = await signInUserLocalized(formData);
+      const { result: res, ...reply } = await signInUserLocalized(formData);
       if (res?.error || !res?.success) {
         // Luôn có thông báo hiện ra (chuỗi của server, hoặc bản chung của client nếu server dùng ngôn ngữ khác tab), nên focus và
         // rung bên dưới luôn đi cùng một lỗi đang hiện.
-        setServerError(res?.error != null ? heldText(res.error, responseLocale, "actions.signInFailed") : heldKey("actions.signInFailed"));
+        setServerError(res?.error != null ? heldText(res.error, reply, "actions.signInFailed") : heldKey("actions.signInFailed"));
         setStatus("idle");
         form.setFocus("password", { shouldSelect: true });
         // Rung một lần để báo thất bại; thông báo lỗi và focus đã có ngay, không chờ hiệu ứng (AC13).

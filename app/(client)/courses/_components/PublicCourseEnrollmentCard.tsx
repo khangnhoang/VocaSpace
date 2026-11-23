@@ -85,13 +85,13 @@ export function PublicCourseEnrollmentCard({
 
   async function continueLearning() {
     try {
-      const { result, locale: responseLocale } = await getFirstTopicSlugByCourseSlugLocalized(course.slug);
+      const { result, ...reply } = await getFirstTopicSlugByCourseSlugLocalized(course.slug);
       if (result.error || !result.topicSlug) {
         // Dịch theo ngôn ngữ lúc toast bật, không phải lúc gửi request; chuỗi của server chỉ dùng khi nó cùng ngôn ngữ đó.
         const now = latest?.current ?? { t, locale };
         toast.error(
           result.error
-            ? pickServerText(result.error, responseLocale, now.locale, now.t("detail.enrollment.openFirstFailed"))
+            ? pickServerText(result.error, reply, now.locale, now.t, "detail.enrollment.openFirstFailed", "courses")
             : now.t("detail.enrollment.noFirstTopic"),
         );
         return;

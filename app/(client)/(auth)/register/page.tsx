@@ -76,9 +76,10 @@ export default function RegisterPage() {
   });
   const { errors } = form.formState;
   // English localization U1: message của registerSchema là khóa trong namespace `validation`, dịch theo ngôn ngữ đang dùng.
+  const tRoot = asTranslate(useTranslations());
   const tValidation = asTranslate(useTranslations("validation"));
   const fieldError = (message: string | undefined) => (message ? translateIssueMessage(tValidation, message) : undefined);
-  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t));
+  const serverError = resolveHeldMessage(serverMessage, locale, asTranslate(t), tRoot);
   const avatarError = hasAvatarError ? translateIssueMessage(tValidation, AVATAR_INVALID_KEY) : null;
   const stage = submittedEmail ? 4 : step;
   const [stageMove, setStageMove] = useState({ stage, direction: 1 });
@@ -167,8 +168,8 @@ export default function RegisterPage() {
     if (avatarFile) formData.append("avatar", avatarFile);
 
     try {
-      const { result: res, locale: responseLocale } = await signUpUserLocalized(formData);
-      if (res?.error) setServerError(heldText(res.error, responseLocale, "actions.signUpRetry"));
+      const { result: res, ...reply } = await signUpUserLocalized(formData);
+      if (res?.error) setServerError(heldText(res.error, reply, "actions.signUpRetry"));
       // Chưa có session: người dùng phải bấm link trong email để xác minh và đặt mật khẩu.
       else setSubmittedEmail(data.email);
     } catch {
