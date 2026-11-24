@@ -7,13 +7,13 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Git history 
 | Field | Value |
 | --- | --- |
 | Spec revision | [Master plan](./plan.md) r5 (2026-11-24, two-step release: step A public and student screens, step B teacher and admin; decisions 6 and 7, units U9 to U11, U5 narrowed to student payments), drafted on `docs/enloc-student-first-release`; Codex plan gate (`gpt-6.2-astra`, medium, read-only) round 1 CHANGES REQUIRED (8 Required, 1 Suggestion), round 2 CHANGES REQUIRED (4 Required, 1 Nit), round 3 PASS (0 Critical, 0 Required, 2 Nits fixed without a new round); approved by the Owner on 2026-11-24. r4 was approved on 2026-11-21. Delivered detail plans: [U1](./implementation-plans/u1-foundation/plan.md) r3, [U2](./implementation-plans/u2-public-auth-profile/plan.md) r3, [U3](./implementation-plans/u3-learning-flow/plan.md) r3. |
-| Current unit / checkpoint | None open. Next: U9 and the ENLOC-004 fix (plan section 5, step 2). |
+| Current unit / checkpoint | U9 CP1 (lock core and first navigation check), [U9 detail plan](./implementation-plans/u9-teacher-admin-lock/plan.md) r3 on `i18n/u9-teacher-admin-lock` (base `60da8312`). The ENLOC-004 fix opens with its own plan (section 5, step 2). |
 | Status | U1 (PR 193), U2 (PR 196) and U3 (PR 197) are merged; production stays Vietnamese because the English flag is off. The U1 H4 Preview check is still pending and now blocks only U8 (step A). |
 | Completed evidence | In Git: U1 Final in `93954dfd`, U2 State as merged in `dc2fc803`, U3 State as merged (checkpoint, Final, final regression and Owner QA evidence, deviations 1 to 14) in `7caa3a8c`. Carried forward: E2E-DEV-003 stays open in the [infrastructure problems](../infrastructure/problems.md); `PendingPayments`, `PaymentHistory` and the checkout dialog stay Vietnamese for U5; [ENLOC-004](./problems.md#enloc-004-workspace-remounts-on-a-language-switch-after-rating-cards) is open; its fix must merge before U8 (r5). |
 | Accepted deviations | U1, U2 and U3 deviations were accepted by the Owner and are recorded in `93954dfd`, `dc2fc803` and `7caa3a8c`. |
 | Blockers / Owner decisions | The email approach and a local-trial grant under [ENLOC-001](./problems.md#enloc-001-auth-email-language-approach) before U6. |
-| Next action | Main delivers r5 (push, PR, merge on green CI); then U9 and the ENLOC-004 fix open with their detail plans after Owner approval of each. |
-| Current authority | Owner 2026-11-24: r5 approved; commit, push, PR and merge on green CI granted for this docs branch. No implementation grant for U9 or later units. |
+| Next action | The Sonnet implementor implements CP1, CP2 and Final of U9. |
+| Current authority | Owner 2026-11-24: U9 plan r3 approved and handed to a Sonnet implementor session with local commits only on `i18n/u9-teacher-admin-lock`. No push, PR, merge or Codex implementation review. No grant for later units. |
 
 ## Milestones
 
@@ -53,4 +53,5 @@ Plan: [plan.md](./plan.md). Problems: [problems.md](./problems.md). Git history 
 - 2026-11-24 U3 Owner QA round 1: related finding fixed (English `completedCta` overflowed the 10rem action column of `CourseRow`: the column is 13rem in English and unchanged in Vietnamese, `a838b814`; EN and VI rows measured at 1440, 768 and 375 px with 0 overflow); unrelated findings recorded, not fixed: LEARN-DUE-001 (the `/learn` due count includes cards the learner cannot read, on base) in the student-user-flow-route problems and TEST-FIXTURE-001 (`memory-check-learner-gate` leaves `user_flashcards` rows) in the infrastructure problems (`8e72c957`).
 - 2026-11-24 U3 Owner QA passed (round 1 findings, the overflow fix `a838b814` and the flag-on English screens); deviations (1)–(14) accepted; push, PR, CI wait and merge granted to Main (`7caa3a8c`).
 - 2026-11-24 U3 merged to main (PR 197, `45d5c0ff`).
-- 2026-11-24 Master plan r5 (two-step student-first release) approved after three Codex plan-review rounds (this commit).
+- 2026-11-24 Master plan r5 (two-step student-first release) approved after three Codex plan-review rounds (`918b8bfc`).
+- 2026-11-24 U9 plan r3 approved after three Codex plan-review rounds (round 1 7 Required, round 2 1 Required, round 3 PASS); handed to the Sonnet implementor on `i18n/u9-teacher-admin-lock` (this commit).
