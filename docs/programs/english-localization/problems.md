@@ -22,7 +22,7 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 
 ### ENLOC-004: Workspace remounts on a language switch after rating cards
 
-- Status: Fixed locally on `fix/enloc-004-workspace-language-switch` (`7f1b48c7`, 2026-11-25), awaiting the Final browser check, Owner QA and delivery. Owner decision 2026-11-24: not fixed in U3. Fix plan: [ENLOC-004 detail plan](./implementation-plans/enloc-004-workspace-language-switch/plan.md) r1, approved by the Owner on 2026-11-25.
+- Status: Fixed locally on `fix/enloc-004-workspace-language-switch` (`7f1b48c7`, 2026-11-25), the Final browser check passed except AC2 (fixture gap), awaiting Owner QA and delivery. Owner decision 2026-11-24: not fixed in U3. Fix plan: [ENLOC-004 detail plan](./implementation-plans/enloc-004-workspace-language-switch/plan.md) r1, approved by the Owner on 2026-11-25.
 - Problem: with the flag on, a learner who rates cards in the session, answers a question and then switches Vietnamese or English sees `router.refresh()` read new progress. The page key `workspaceKey` includes `unseenCardIds`, `unratedCardIds` and `dueCardIds`, so it changes and `LearningWorkspace` remounts. The shown answer outcome and explanation disappear (the saved data is not lost).
 - Evidence: the key in `app/(client)/learn/[course-slug]/[topic-slug]/page.tsx`; U3 Codex implementation review round 1, finding 1.
 - Why not fixed in U3: the simple fix (drop the three lists from the key) conflicts with the accepted LF3 AC6 and LF4 AC5 key tests, which G6 forbids changing; the alternative (carry the outcome across the remount) is a design change.
