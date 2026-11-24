@@ -58,6 +58,14 @@ Charter: [README.md](./README.md). Progress: [progress.md](./progress.md). Trans
 - Direction: run the same eight specs under `next dev` on the base `20fadd25` and on the candidate before classifying the cause (a failure on both points to the dev server, one on the candidate alone points to the change); consider replacing the dev-mode runs with the production build, as E2E-DEV-002 proposes.
 - Exit condition: the eight specs pass in repeated local `next dev` runs, or dev-mode runs are replaced by the production build.
 
+### E2E-BASE-001: five smoke specs fail on a production build of main `60da8312`
+
+- Status: Open (2026-11-24, found at the English localization U9 Final). Unrelated to U9: the same failures occur on the base; not fixed.
+- Problem: in a full local `npm run test:e2e` (default `next dev` server) on the U9 candidate `c5debe12`, 92 passed and 5 failed: `account-menu` (first test), `auth-return-path:36` (60 s timeout), `issue-deep-links:27`, `enrolled-course-overview:21` and `review-session-recovery:20`, all expectation timeouts.
+- Evidence: the same five spec files on a production build (`E2E_WEB_SERVER=start`, after a database reset of the isolated stack) gave 6 failures on the candidate (`account-menu` twice, `issue-deep-links`, `enrolled-course-overview`, `review-session-recovery` twice; `auth-return-path` passed) and the identical 6 failures on a production build of base `60da8312`. So, unlike E2E-DEV-002 and E2E-DEV-003, these do not pass on a production build. The first `next dev` log is kept in the U9 implementor session scratchpad; the full suite was not run on a production build.
+- Direction: rerun the five specs on a production build of current main with traces, and check whether they share a cause (fixture data, session or timing) before changing specs or infrastructure.
+- Exit condition: the five specs pass on a production build of main in repeated runs, or each failure has a recorded cause and fix.
+
 ### TEST-FIXTURE-001: `memory-check-learner-gate.test.ts` leaves `user_flashcards` rows on the main local stack
 
 - Status: Open (2026-11-24, found at English localization U3 Owner QA round 1). Unrelated to localization; not fixed.
