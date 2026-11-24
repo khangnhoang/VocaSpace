@@ -3,6 +3,12 @@ import { DEFAULT_LOCALE, isEnglishUiEnabled, isTeacherAdminLockActive, LOCALE_CO
 import { isLockedAreaPath, PATHNAME_HEADER } from "./locked-areas";
 import { resolveLocale } from "./resolve-locale";
 
+/** Request hiện tại có thuộc khu vực bị khóa tiếng Việt không; không đọc dữ liệu request khi khóa không hoạt động. */
+export async function isTeacherAdminLockedRequest(): Promise<boolean> {
+  if (!isTeacherAdminLockActive()) return false;
+  return isLockedAreaPath((await headers()).get(PATHNAME_HEADER));
+}
+
 /**
  * Ngôn ngữ của request hiện tại. U1 G1: khi cờ tắt thì trả tiếng Việt mà không gọi `cookies()`/`headers()`, vì đọc dữ liệu
  * request sẽ biến route static thành dynamic và để cookie/header đổi được giao diện trước bước phát hành.

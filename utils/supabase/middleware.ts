@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { PATHNAME_HEADER } from '@/lib/i18n/locked-areas'
+import { nextWithPathname } from '@/lib/i18n/pathname-header'
 import { SIGN_IN_REASON_PARAM, SIGN_IN_REQUIRED_REASON } from '@/lib/auth/sign-in-reason'
 import {
   RETURN_PATH_COOKIE,
@@ -20,14 +20,6 @@ function isProfileRoutePath(pathname: string) {
 
 function isAdminRoutePath(pathname: string) {
   return pathname === '/admin' || pathname.startsWith('/admin/')
-}
-
-// Ghi đè header đường dẫn bằng đường dẫn proxy thấy (AC7: giá trị client gửi lên bị thay), gửi lên upstream cho getRequestLocale.
-// Gọi lại sau khi setAll sửa cookie của request, để request upstream vẫn mang cookie phiên đã refresh.
-function nextWithPathname(request: NextRequest) {
-  const headers = new Headers(request.headers)
-  headers.set(PATHNAME_HEADER, request.nextUrl.pathname)
-  return NextResponse.next({ request: { headers } })
 }
 
 export async function updateSession(request: NextRequest) {

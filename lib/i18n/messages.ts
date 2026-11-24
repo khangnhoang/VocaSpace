@@ -6,6 +6,7 @@ import enHome from "@/messages/en/home.json";
 import enLearn from "@/messages/en/learn.json";
 import enLearning from "@/messages/en/learning.json";
 import enProfile from "@/messages/en/profile.json";
+import enTeacherMedia from "@/messages/en/teacherMedia.json";
 import enValidation from "@/messages/en/validation.json";
 import viAuth from "@/messages/vi/auth.json";
 import viCommon from "@/messages/vi/common.json";
@@ -15,6 +16,7 @@ import viHome from "@/messages/vi/home.json";
 import viLearn from "@/messages/vi/learn.json";
 import viLearning from "@/messages/vi/learning.json";
 import viProfile from "@/messages/vi/profile.json";
+import viTeacherMedia from "@/messages/vi/teacherMedia.json";
 import viValidation from "@/messages/vi/validation.json";
 import type { Locale } from "./config";
 
@@ -30,6 +32,7 @@ const viMessages = {
   learning: viLearning,
   learn: viLearn,
   profile: viProfile,
+  teacherMedia: viTeacherMedia,
 };
 export type AppMessages = typeof viMessages;
 
@@ -45,6 +48,7 @@ export const MESSAGES: Record<Locale, AppMessages> = {
     learning: enLearning,
     learn: enLearn,
     profile: enProfile,
+    teacherMedia: enTeacherMedia,
   },
 };
 

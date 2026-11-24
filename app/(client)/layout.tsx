@@ -1,3 +1,4 @@
+import AreaLocale from "@/components/i18n/area-locale";
 import Header from "@/components/ui/header";
 
 export default function ClientLayout({
@@ -6,6 +7,7 @@ export default function ClientLayout({
   children: React.ReactNode;
 }>) {
   return (
+    <AreaLocale>
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header chỉ hiển thị cho các trang nằm trong group (client) */}
       <Header />
@@ -15,5 +17,6 @@ export default function ClientLayout({
         {children}
       </main>
     </div>
+    </AreaLocale>
   );
 }
