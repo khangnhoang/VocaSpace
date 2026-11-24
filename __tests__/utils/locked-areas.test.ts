@@ -45,7 +45,8 @@ describe("isLockedAreaPath", () => {
   });
 });
 
-// Next khớp route trên đường dẫn đã giải mã phần trăm (F1), nên dạng mã hóa của khu bị khóa phải khóa như dạng thường.
+// F1: matcher của proxy cũng khớp đường dẫn đã giải mã, nên dạng mã hóa của khu bị khóa tới proxy và render not-found gốc;
+// not-found đó phải khóa tiếng Việt như dạng thường.
 describe("isLockedAreaPath with percent-encoded segments", () => {
   it.each([
     "/%61dmin",

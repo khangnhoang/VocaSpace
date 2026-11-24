@@ -4,8 +4,9 @@ export const PATHNAME_HEADER = "x-vocaspace-pathname";
 // Chỉ liệt kê route API mà riêng khu giáo viên gọi; các route media `GET` học viên cũng dùng nên không được khóa.
 const LOCKED_API_SEGMENTS: readonly string[] = ["api", "question-group-media", "upload"];
 
-// Next khớp route trên đường dẫn đã giải mã phần trăm, nên `/%61dmin` vào đúng trang admin. Giải mã từng segment (không giải mã
-// cả chuỗi) để `%2F` không tạo ra ranh giới segment mới; segment hỏng (`%E0%A4%A`, `%`) giữ nguyên dạng thô thay vì ném lỗi.
+// Matcher của proxy cũng khớp đường dẫn đã giải mã phần trăm, nên `/%61dmin/...` vẫn tới proxy và render not-found gốc dưới tiền tố
+// bị khóa (Next không route nó vào trang admin); not-found đó phải ở lại tiếng Việt. Giải mã từng segment (không giải mã cả chuỗi)
+// để `%2F` không tạo ra ranh giới segment mới; segment hỏng (`%E0%A4%A`, `%`) giữ nguyên dạng thô thay vì ném lỗi.
 function decodeSegment(segment: string): string {
   try {
     return decodeURIComponent(segment);
