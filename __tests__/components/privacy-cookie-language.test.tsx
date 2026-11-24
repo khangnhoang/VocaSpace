@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@/__tests__/support/intl";
 import { afterEach, describe, expect, it } from "vitest";
 import PrivacyPage from "@/app/(client)/privacy/page";
 
