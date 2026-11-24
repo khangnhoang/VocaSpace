@@ -62,3 +62,31 @@ describe("proxy on image-extension paths in locked areas", () => {
     expect(mockedUpdateSession).toHaveBeenCalledWith(request);
   });
 });
+
+describe("proxy on percent-encoded paths in locked areas (F1)", () => {
+  it.each(["/%61dmin/missing.png", "/%74eacher/missing.webp", "/admin/%/missing.png", "/%61dmin/%E0%A4%A/x.svg"])(
+    "treats %s like its decoded image path: path header, no updateSession",
+    async (pathname) => {
+      const response = await proxy(
+        new NextRequest(`https://vocaspace.test${pathname}`, { headers: { [PATHNAME_HEADER]: "/courses" } }),
+      );
+
+      expect(mockedUpdateSession).not.toHaveBeenCalled();
+      expect(response.headers.get(`x-middleware-request-${PATHNAME_HEADER}`)).toBe(pathname);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("set-cookie")).toBeNull();
+    },
+  );
+
+  it.each(["/%61dmin/missing%2Epng", "/%61dmin/courses", "/%61dministrator/x.png", "/teachers/%2Fx.png"])(
+    "delegates %s to updateSession as base did",
+    async (pathname) => {
+      const expected = NextResponse.next();
+      mockedUpdateSession.mockResolvedValue(expected);
+      const request = new NextRequest(`https://vocaspace.test${pathname}`);
+
+      expect(await proxy(request)).toBe(expected);
+      expect(mockedUpdateSession).toHaveBeenCalledWith(request);
+    },
+  );
+});

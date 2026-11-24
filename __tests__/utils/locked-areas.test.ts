@@ -44,3 +44,32 @@ describe("isLockedAreaPath", () => {
     expect(isLockedAreaPath(pathname)).toBe(false);
   });
 });
+
+// Next khớp route trên đường dẫn đã giải mã phần trăm (F1), nên dạng mã hóa của khu bị khóa phải khóa như dạng thường.
+describe("isLockedAreaPath with percent-encoded segments", () => {
+  it.each([
+    "/%61dmin",
+    "/%61dmin/missing",
+    "/%61dmin/missing.png",
+    "/%74eacher/courses",
+    "/%74%65acher",
+    "/admin/%",
+    "/admin/%E0%A4%A",
+    "/api/question-group-media/%75pload",
+  ])("locks %s", (pathname) => {
+    expect(isLockedAreaPath(pathname)).toBe(true);
+  });
+
+  it.each([
+    "/%61dministrator",
+    "/%74eachers",
+    "/teacher-guide%2Fx",
+    "/admin%2Fx",
+    "/%E0%A4%A",
+    "/%",
+    "/api/question-group-media/abc/%69mage",
+    "/api/question-group-media/%75pload/extra",
+  ])("does not lock %s and does not throw", (pathname) => {
+    expect(isLockedAreaPath(pathname)).toBe(false);
+  });
+});

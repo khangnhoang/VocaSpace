@@ -103,6 +103,19 @@ describe("getRequestLocale lock", () => {
       await expect(getRequestLocale()).resolves.toBe("en");
     });
 
+    it.each(["/%61dmin/missing.png", "/%61dmin", "/%74eacher/courses", "/admin/%", "/admin/%E0%A4%A"])(
+      "forces Vietnamese on the percent-encoded locked path %s with an en cookie",
+      async (pathname) => {
+        setRequest({ cookie: "en", acceptLanguage: "en-US", pathname });
+        await expect(getRequestLocale()).resolves.toBe("vi");
+      },
+    );
+
+    it.each(["/%61dministrator", "/%E0%A4%A", "/%"])("does not throw and follows the cookie on %s", async (pathname) => {
+      setRequest({ cookie: "en", pathname });
+      await expect(getRequestLocale()).resolves.toBe("en");
+    });
+
     it("does not lock when the path header is missing", async () => {
       setRequest({ cookie: "en" });
       await expect(getRequestLocale()).resolves.toBe("en");

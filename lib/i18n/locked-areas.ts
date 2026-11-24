@@ -2,18 +2,25 @@
 export const PATHNAME_HEADER = "x-vocaspace-pathname";
 
 // Chỉ liệt kê route API mà riêng khu giáo viên gọi; các route media `GET` học viên cũng dùng nên không được khóa.
-const LOCKED_API_PATHS: readonly string[] = ["/api/question-group-media/upload"];
+const LOCKED_API_SEGMENTS: readonly string[] = ["api", "question-group-media", "upload"];
 
-function isUnderSegment(pathname: string, segment: string) {
-  return pathname === segment || pathname.startsWith(`${segment}/`);
+// Next khớp route trên đường dẫn đã giải mã phần trăm, nên `/%61dmin` vào đúng trang admin. Giải mã từng segment (không giải mã
+// cả chuỗi) để `%2F` không tạo ra ranh giới segment mới; segment hỏng (`%E0%A4%A`, `%`) giữ nguyên dạng thô thay vì ném lỗi.
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
 
-/** Khớp theo nguyên segment, nên `/teachers` và `/administrator` không bị khóa. */
+/** Khớp theo nguyên segment đã giải mã, nên `/teachers` và `/administrator` không bị khóa còn `/%61dmin` bị khóa. */
 export function isLockedAreaPath(pathname: string | null | undefined): boolean {
-  if (!pathname) return false;
+  if (!pathname || !pathname.startsWith("/")) return false;
+  const segments = pathname.slice(1).split("/").map(decodeSegment);
+  const [first] = segments;
+  if (first === "teacher" || first === "admin") return true;
   return (
-    isUnderSegment(pathname, "/teacher") ||
-    isUnderSegment(pathname, "/admin") ||
-    LOCKED_API_PATHS.includes(pathname)
+    segments.length === LOCKED_API_SEGMENTS.length && segments.every((segment, index) => segment === LOCKED_API_SEGMENTS[index])
   );
 }

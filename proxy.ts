@@ -1,5 +1,6 @@
 // proxy.ts (Nằm ở root dự án)
 import { type NextRequest } from 'next/server'
+import { isLockedAreaPath } from '@/lib/i18n/locked-areas'
 import { nextWithPathname } from '@/lib/i18n/pathname-header'
 import { updateSession } from '@/utils/supabase/middleware'
 
@@ -11,7 +12,9 @@ const SKIPPED_IMAGE_PATH = /\.(?:svg|png|jpg|jpeg|gif|webp)$/
 // BÂY GIỜ: Đổi tên hàm thành "proxy"
 export async function proxy(request: NextRequest) {
   const { pathname } = new URL(request.url)
-  if (SKIPPED_IMAGE_PATH.test(pathname) && /^\/(?:teacher|admin)\//.test(pathname)) {
+  // Matcher chính bỏ qua URL chỉ khi cả dạng thô lẫn dạng đã giải mã đều có đuôi ảnh; đuôi ảnh thô kéo theo đuôi ảnh đã giải mã,
+  // còn `missing%2Epng` thô không có đuôi nên vẫn qua updateSession như base. Khu bị khóa nhận diện cả `/%61dmin/...`.
+  if (SKIPPED_IMAGE_PATH.test(pathname) && isLockedAreaPath(pathname)) {
     return nextWithPathname(request)
   }
   return await updateSession(request)
