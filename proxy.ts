@@ -1,20 +1,19 @@
 // proxy.ts (Nằm ở root dự án)
 import { type NextRequest } from 'next/server'
-import { isLockedAreaPath } from '@/lib/i18n/locked-areas'
 import { nextWithPathname } from '@/lib/i18n/pathname-header'
 import { updateSession } from '@/utils/supabase/middleware'
 
-// Đuôi ảnh mà matcher chính bỏ qua. Dưới /teacher và /admin, một URL không tồn tại có đuôi này vẫn render not-found của app,
-// nên proxy phải ghi header đường dẫn cho nó (U9 H5); đó là mọi thứ proxy làm ở đây, không gọi updateSession.
+// Đuôi ảnh mà matcher chính bỏ qua trên đường dẫn thô. Một request có đuôi ảnh thô chỉ tới được proxy qua mục matcher `/(teacher|admin)/:path*`
+// (Next khớp matcher trên cả dạng thô lẫn dạng đã giải mã; đuôi ảnh thô luôn còn nguyên sau khi giải mã nên matcher chính bỏ qua cả hai).
+// Với những request đó proxy chỉ ghi header đường dẫn cho khóa tiếng Việt (U9 H5) và không gọi updateSession, nên auth và phiên giữ như base,
+// kể cả `/admin%2Fx.png` (không thuộc khu bị khóa nhưng vẫn tới proxy qua dạng đã giải mã `/admin/x.png`).
 const SKIPPED_IMAGE_PATH = /\.(?:svg|png|jpg|jpeg|gif|webp)$/
 
 // TRƯỚC ĐÂY: export async function middleware(request: NextRequest) {
 // BÂY GIỜ: Đổi tên hàm thành "proxy"
 export async function proxy(request: NextRequest) {
   const { pathname } = new URL(request.url)
-  // Matcher chính bỏ qua URL chỉ khi cả dạng thô lẫn dạng đã giải mã đều có đuôi ảnh; đuôi ảnh thô kéo theo đuôi ảnh đã giải mã,
-  // còn `missing%2Epng` thô không có đuôi nên vẫn qua updateSession như base. Khu bị khóa nhận diện cả `/%61dmin/...`.
-  if (SKIPPED_IMAGE_PATH.test(pathname) && isLockedAreaPath(pathname)) {
+  if (SKIPPED_IMAGE_PATH.test(pathname)) {
     return nextWithPathname(request)
   }
   return await updateSession(request)

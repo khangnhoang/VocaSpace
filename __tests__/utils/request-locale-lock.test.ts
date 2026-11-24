@@ -111,7 +111,7 @@ describe("getRequestLocale lock", () => {
       },
     );
 
-    it.each(["/%61dministrator", "/%E0%A4%A", "/%"])("does not throw and follows the cookie on %s", async (pathname) => {
+    it.each(["/%61dministrator", "/%E0%A4%A", "/%", "/admin%2Fx.png"])("does not throw and follows the cookie on %s", async (pathname) => {
       setRequest({ cookie: "en", pathname });
       await expect(getRequestLocale()).resolves.toBe("en");
     });

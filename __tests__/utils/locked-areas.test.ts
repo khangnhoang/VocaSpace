@@ -66,6 +66,7 @@ describe("isLockedAreaPath with percent-encoded segments", () => {
     "/%74eachers",
     "/teacher-guide%2Fx",
     "/admin%2Fx",
+    "/admin%2Fx.png",
     "/%E0%A4%A",
     "/%",
     "/api/question-group-media/abc/%69mage",
