@@ -4,6 +4,7 @@ import { Compass } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 
+import AreaLocale from "@/components/i18n/area-locale";
 import Header from "@/components/ui/header";
 import { Button } from "@/components/ui/button";
 
@@ -21,8 +22,9 @@ export default function NotFound() {
   const t = useTranslations("common.notFound");
 
   return (
+    <AreaLocale>
     <div className="flex min-h-screen flex-col bg-gray-50">
-      <Header />
+      <Header hideSwitcherInLockedAreas />
       <section
         aria-labelledby="not-found-heading"
         className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-4 py-16 text-center"
@@ -44,5 +46,6 @@ export default function NotFound() {
         </div>
       </section>
     </div>
+    </AreaLocale>
   );
 }

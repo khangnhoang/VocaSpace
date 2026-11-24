@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/utils/supabase/server";
 import {
   QUESTION_GROUP_AUDIO_BUCKET,
@@ -56,7 +57,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return jsonError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", 401);
+    // Route này nằm trong danh sách khóa tiếng Việt của U9; chỉ thông báo 401 đọc ngôn ngữ, các thông báo khác thuộc U4.
+    const t = await getTranslations("teacherMedia");
+    return jsonError(t("upload.sessionExpired"), 401);
   }
 
   let formData: FormData;

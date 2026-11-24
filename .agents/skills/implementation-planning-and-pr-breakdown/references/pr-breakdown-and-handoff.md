@@ -16,6 +16,7 @@ When an accepted plan exists, name its actual path/revision as the task contract
 - Assigned checkpoints (all together unless a later one needs a new Owner decision).
 - The exact authority granted and boundaries on edits, commits, push, PR, hosted/model actions.
 - Read-first sources and every matching skill/reference, without rewording their contracts.
+- Verification by reference: tell the implementor to read test-quality-strategy and run checks per its [Verification stages](../../test-quality-strategy/SKILL.md#verification-stages); do not list commands, repeat final regression per checkpoint or ask for more runs than that section requires. An extra run needs a named concrete reason (for example a suspected flake under its intermittent-failure rule) or the Owner's request.
 - Missing operational facts/snapshots with evidence limits, and domains not to touch.
 - Uncovered concerns as risks to verify, with the expected observable result.
 - The report: changed files/why, actual checks/results, self-review evidence, bounded deviations, pending QA/risks and commit list.

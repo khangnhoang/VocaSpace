@@ -19,3 +19,16 @@ export function isLocale(value: unknown): value is Locale {
 export function isEnglishUiEnabled(): boolean {
   return process.env.ENGLISH_UI_ENABLED === "1";
 }
+
+/**
+ * Cờ bước B (master H6): bật thì mở khóa tiếng Việt của khu giáo viên và admin. Cờ này chỉ có tác dụng khi cờ tiếng Anh bật,
+ * cũng đọc lúc build, và thiếu hoặc khác "1" là tắt.
+ */
+export function isEnglishStepBEnabled(): boolean {
+  return process.env.ENGLISH_UI_STEP_B_ENABLED === "1";
+}
+
+/** Khóa đang hoạt động từ bước A đến bước B: cờ tiếng Anh bật và cờ bước B tắt. */
+export function isTeacherAdminLockActive(): boolean {
+  return isEnglishUiEnabled() && !isEnglishStepBEnabled();
+}

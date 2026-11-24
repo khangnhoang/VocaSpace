@@ -1,3 +1,4 @@
+import AreaLocale from "@/components/i18n/area-locale";
 import AdminSidebar from "@/components/ui/admin-sidebar";
 import AdminHeader from "@/components/ui/admin-header";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -8,6 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   await requireAdminPage();
 
   return (
+    <AreaLocale>
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-[#0F172A] font-sans dark">
         
@@ -22,5 +24,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         
       </div>
     </SidebarProvider>
+    </AreaLocale>
   );
 }

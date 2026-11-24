@@ -28,8 +28,11 @@ import HeaderNav from "@/components/ui/header-nav";
 import { getAccountMenuState } from "@/lib/account-menu";
 import LanguageSwitcher from "@/components/ui/language-switcher";
 import { isEnglishUiEnabled } from "@/lib/i18n/config";
+import { isTeacherAdminLockedRequest } from "@/lib/i18n/request-locale";
 
-export default async function Header() {
+// `hideSwitcherInLockedAreas`: chỉ not-found gốc bật, vì đó là nơi duy nhất Header render dưới /teacher hoặc /admin (U9);
+// ở đó ngôn ngữ bị khóa tiếng Việt nên bộ chọn không được hứa gì.
+export default async function Header({ hideSwitcherInLockedAreas = false }: { hideSwitcherInLockedAreas?: boolean } = {}) {
   const supabase = await createClient();
   const t = await getTranslations("common");
 
@@ -70,7 +73,8 @@ export default async function Header() {
 
   const courseWorkspaceLabel = accountMenu.courseWorkspaceLabel ? t(accountMenu.courseWorkspaceLabel) : null;
   // English localization U1 quyết định 7: bộ chọn ngôn ngữ chỉ xuất hiện khi cờ giao diện tiếng Anh bật.
-  const showLanguageSwitcher = isEnglishUiEnabled();
+  const showLanguageSwitcher =
+    isEnglishUiEnabled() && !(hideSwitcherInLockedAreas && (await isTeacherAdminLockedRequest()));
 
   return (
     <header className="w-full border-b border-slate-200 bg-white">
