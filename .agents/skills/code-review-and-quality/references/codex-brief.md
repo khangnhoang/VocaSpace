@@ -4,10 +4,10 @@ Read this before preparing, running or resuming a Codex review. docs/agent-loops
 
 ## Invocation and continuity
 
-Use codex exec from Main, not an MCP workaround. Default review uses gpt-6.1-sol, high effort and read-only sandbox unless the Owner specifies another configuration. Verify actual local CLI help and the startup header; never substitute a model silently.
+Use codex exec from Main, not an MCP workaround. Default review uses gpt-6.2-astra, medium effort and read-only sandbox unless the Owner specifies another configuration. Verify actual local CLI help and the startup header; never substitute a model silently.
 
 ~~~sh
-codex exec - -m gpt-6.1-sol -c 'model_reasoning_effort="high"' -s read-only -o <out> < <prompt>
+codex exec - -m gpt-6.2-astra -c 'model_reasoning_effort="medium"' -s read-only -o <out> < <prompt>
 ~~~
 
 Create a fresh session for a new target/phase. Later rounds of the same target use the exact stored session ID, not --last; repeat model, effort and sandbox each time. For a CLI whose resume has no -s option use -c 'sandbox_mode="read-only"'; confirm the header rather than assuming the initial flags persist. Shell quoting differs: use a native executable/argument-array invocation when PowerShell would strip TOML quotes or block codex.ps1.
