@@ -1,6 +1,6 @@
 # ENLOC-004 detail plan — Keep the shown answer across a workspace refresh
 
-Revision: r1, 2026-11-25. Owner approval: pending. Master plan: [plan.md](../../plan.md), section 5 step 2. Entry: [ENLOC-004](../../problems.md#enloc-004-workspace-remounts-on-a-language-switch-after-rating-cards).
+Revision: r1, 2026-11-25. Owner approval: 2026-11-25. Master plan: [plan.md](../../plan.md), section 5 step 2. Entry: [ENLOC-004](../../problems.md#enloc-004-workspace-remounts-on-a-language-switch-after-rating-cards).
 
 ## 1. Binding Spec
 
