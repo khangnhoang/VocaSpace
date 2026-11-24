@@ -60,6 +60,7 @@ import StickyColumn from "./StickyColumn";
 import TopicCompletionPanel from "./TopicCompletionPanel";
 import { arrangeMaterial } from "./exercise-arrangement";
 import { announceTopicProgress } from "./topic-progress-feedback";
+import { sameIdentity, useTopicViewStore, type SettledAttempt, type TopicViewIdentity } from "./topic-view-state";
 
 type LearningStage = "flashcard" | "memory" | "exercise" | "complete";
 // Vị trí của bước. "Đã xong" là thuộc tính riêng (LF3 AC8) để một bước vừa đang học vừa đã xong.
@@ -289,8 +290,32 @@ export default function LearningWorkspace({
     isTopicCompleted: progress?.isTopicCompleted ?? false,
   });
 
+  // ENLOC-004: bản chụp state xem của câu hỏi do lần mount trước ghi (cùng layout chủ đề). Chỉ dùng khi dữ liệu server mới có cùng chủ đề,
+  // cùng id thẻ và cùng id câu hỏi (G3); thẻ, hàng đợi, cổng và tiến độ vẫn lấy từ `data` (G2).
+  const viewStore = useTopicViewStore();
+  const identity = useMemo<TopicViewIdentity>(
+    () => ({
+      topicId: currentTopic.id,
+      flashcardIds: flashcards.map((card) => card.id).join(","),
+      exerciseQuestionIds: exerciseQuestionIds(exercises).join(","),
+      memoryQuestionIds: (memoryCheck?.questions ?? []).map((question) => question.id).join(","),
+    }),
+    [currentTopic.id, flashcards, exercises, memoryCheck],
+  );
+  const [carried] = useState(() => {
+    const snapshot = viewStore?.read();
+    return snapshot && sameIdentity(snapshot.identity, identity) ? snapshot : null;
+  });
+  // Chỉ khôi phục bước còn mở theo dữ liệu mới: memory cần hết thẻ chờ, bài tập cần memory check đã qua (hoặc không có).
+  const restoredStage: LearningStage | null =
+    carried?.stage === "memory" && memoryCheck !== null && initialPendingMemoryCards.length === 0
+      ? "memory"
+      : carried?.stage === "exercise" && exercises.length > 0 && !(memoryCheck !== null && !isMemoryCheckPassed)
+        ? "exercise"
+        : null;
+
   const [learningStage, setLearningStage] =
-    useState<LearningStage>(initialStage);
+    useState<LearningStage>(restoredStage ?? initialStage);
   // LF4 AC3: báo số thẻ chưa học đúng một lần lúc tải trang (cả khi remount do key đổi sau `cards_locked`), và không báo
   // khi mọi thẻ đều chưa xem (lần đầu). Ref chặn hiệu ứng chạy hai lần của StrictMode ở môi trường dev.
   // Sau `cards_locked` chỉ báo MỘT toast "vừa có thêm N thẻ mới" (N chỉ biết sau khi tải lại) và bỏ toast số thẻ chưa học
@@ -379,10 +404,20 @@ export default function LearningWorkspace({
     });
   // Questions answered wrongly in this session and not yet answered right; only the
   // review list reads it, the server never stores a wrong attempt.
-  const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>({});
+  const [incorrectIds, setIncorrectIds] = useState<Record<string, true>>(() => carried?.incorrectIds ?? {});
   // Submissions by question, kept here so leaving a question or stage while its answer
   // is in flight neither allows a second submit nor loses the result that lands later.
-  const [attempts, setAttempts] = useState<Record<string, AnswerAttempt>>({});
+  const [attempts, setAttempts] = useState<Record<string, AnswerAttempt>>(() => carried?.settledAttempts ?? {});
+  // Kết quả của đúng câu đang mở lúc workspace bị dựng lại, cho màn hình câu bài tập dùng một lần khi mount (QuestionResponse không tự đọc
+  // `attempts` đã chốt). Các câu khác giữ cách cũ: rời câu rồi quay lại thì chọn lại từ đầu.
+  const [resumableAttempts, setResumableAttempts] = useState<Record<string, SettledAttempt>>(() => {
+    if (!carried || restoredStage !== "exercise") return {};
+    const openQuestionId = exerciseSegments(exercises[carried.exerciseIndex])[carried.groupIndex]?.questions
+      .slice()
+      .sort(byOrderIndex)[carried.questionIndex]?.id;
+    const settled = openQuestionId ? carried.settledAttempts[openQuestionId] : undefined;
+    return openQuestionId && settled ? { [openQuestionId]: settled } : {};
+  });
   const startAttempt = (questionId: string, optionId: string) =>
     setAttempts((current) => ({ ...current, [questionId]: { status: "pending", optionId } }));
   const settleAttempt = (questionId: string, optionId: string, outcome: AttemptOutcome) => {
@@ -433,9 +468,27 @@ export default function LearningWorkspace({
   const lastSavedRef = useRef<{ generation: number; progress: CardReviewSuccess["topicProgress"] } | null>(null);
   // Phản hồi (ngôn ngữ + khóa thông báo) của lần lưu vừa xong, để dịch lại `progressError` khi trang đang hiện ngôn ngữ khác.
   const lastReplyRef = useRef<CardReviewReply | null>(null);
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(carried?.exerciseIndex ?? 0);
+  const [currentGroupIndex, setCurrentGroupIndex] = useState(carried?.groupIndex ?? 0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(carried?.questionIndex ?? 0);
+  // Ghi bản chụp mỗi khi state xem đổi. Lần gửi đang chờ không được ghi: kết quả của nó về sau lần dựng lại sẽ rơi vào workspace đã unmount,
+  // nên mang "pending" qua sẽ làm câu hỏi kẹt ở trạng thái chờ (G5).
+  useEffect(() => {
+    if (!viewStore) return;
+    const settledAttempts: Record<string, SettledAttempt> = {};
+    for (const [questionId, attempt] of Object.entries(attempts)) {
+      if (attempt.status === "settled") settledAttempts[questionId] = attempt;
+    }
+    viewStore.write({
+      identity,
+      stage: learningStage === "memory" || learningStage === "exercise" ? learningStage : null,
+      exerciseIndex: currentExerciseIndex,
+      groupIndex: currentGroupIndex,
+      questionIndex: currentQuestionIndex,
+      settledAttempts,
+      incorrectIds,
+    });
+  }, [viewStore, identity, learningStage, currentExerciseIndex, currentGroupIndex, currentQuestionIndex, attempts, incorrectIds]);
   // How the learner reached the current question: drives the entrance direction
   // and whether the new question heading takes focus.
   const [entry, setEntry] = useState<{
@@ -1048,6 +1101,14 @@ export default function LearningWorkspace({
               groupPosition={groupPosition}
               savedOptionId={userAnswers[currentQuestion.id]}
               attempt={attempts[currentQuestion.id]}
+              resumeAttempt={resumableAttempts[currentQuestion.id]}
+              onResumed={(questionId) =>
+                setResumableAttempts((current) => {
+                  const next = { ...current };
+                  delete next[questionId];
+                  return next;
+                })
+              }
               onAttemptStart={startAttempt}
               onAttemptSettled={settleAttempt}
               direction={entry.direction}

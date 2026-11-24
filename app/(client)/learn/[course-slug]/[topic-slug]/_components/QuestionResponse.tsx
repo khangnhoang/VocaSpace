@@ -34,6 +34,16 @@ type Phase =
   | { kind: "incorrect"; explanation?: ServerText; progressError?: string }
   | { kind: "error"; message: HeldMessage };
 
+function phaseOf(outcome: AttemptOutcome): Phase {
+  if (outcome.kind === "correct") {
+    return { kind: "correct", explanation: outcome.explanation, progressError: outcome.progressError };
+  }
+  if (outcome.kind === "incorrect") {
+    return { kind: "incorrect", explanation: outcome.explanation, progressError: outcome.progressError };
+  }
+  return { kind: "error", message: outcome.message };
+}
+
 interface QuestionResponseProps {
   question: QuestionDTO;
   options: QuestionOptionDTO[];
@@ -45,6 +55,12 @@ interface QuestionResponseProps {
   savedOptionId?: string;
   /** This question's submission, owned by the workspace so it survives leaving and returning. */
   attempt?: AnswerAttempt;
+  /**
+   * ENLOC-004: outcome carried across a workspace remount after `router.refresh()`. It sets the first phase only, so a learner who
+   * leaves this question and comes back later still starts a fresh choice. `onResumed` lets the workspace use it once.
+   */
+  resumeAttempt?: Extract<AnswerAttempt, { status: "settled" }>;
+  onResumed?: (questionId: string) => void;
   onAttemptStart: (questionId: string, optionId: string) => void;
   onAttemptSettled: (questionId: string, optionId: string, outcome: AttemptOutcome) => void;
   /** Direction of the last question change, so the entrance matches where the learner came from. */
@@ -87,6 +103,8 @@ export default function QuestionResponse({
   groupPosition,
   savedOptionId,
   attempt,
+  resumeAttempt,
+  onResumed,
   onAttemptStart,
   onAttemptSettled,
   direction,
@@ -116,32 +134,30 @@ export default function QuestionResponse({
   // still running: show it as pending and take its result when it lands.
   const inheritedPendingRef = useRef(!savedOptionId && attempt?.status === "pending");
   const [selectedId, setSelectedId] = useState<string | null>(
-    savedOptionId ?? (attempt?.status === "pending" ? attempt.optionId : null),
+    resumeAttempt?.optionId ?? savedOptionId ?? (attempt?.status === "pending" ? attempt.optionId : null),
   );
   const [phase, setPhase] = useState<Phase>(
-    savedOptionId
-      ? { kind: "correct", alreadySaved: true }
-      : attempt?.status === "pending"
-        ? { kind: "pending" }
-        : { kind: "choosing" },
+    resumeAttempt
+      ? phaseOf(resumeAttempt.outcome)
+      : savedOptionId
+        ? { kind: "correct", alreadySaved: true }
+        : attempt?.status === "pending"
+          ? { kind: "pending" }
+          : { kind: "choosing" },
   );
+
+  useEffect(() => {
+    if (resumeAttempt) onResumed?.(question.id);
+    // Chỉ lúc mount: lần dựng lại sau này không dùng lại kết quả đã mang qua.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!inheritedPendingRef.current || attempt?.status !== "settled") return;
     inheritedPendingRef.current = false;
     const { outcome, optionId } = attempt;
     setSelectedId(optionId);
-    setPhase(
-      outcome.kind === "correct"
-        ? { kind: "correct", explanation: outcome.explanation, progressError: outcome.progressError }
-        : outcome.kind === "incorrect"
-          ? {
-              kind: "incorrect",
-              explanation: outcome.explanation,
-              progressError: outcome.progressError,
-            }
-          : { kind: "error", message: outcome.message },
-    );
+    setPhase(phaseOf(outcome));
   }, [attempt]);
 
   useEffect(() => {
