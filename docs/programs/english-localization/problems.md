@@ -20,17 +20,9 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 - Direction: Decide separately whether render may write progress or whether the sync moves to an explicit action; size and owner are decided later.
 - Exit condition: A topic page render, including a prefetch, leaves `user_topic_progress` unchanged, or the Owner accepts the behavior.
 
-### ENLOC-004: Workspace remounts on a language switch after rating cards
-
-- Status: Fixed locally on `fix/enloc-004-workspace-language-switch` (`7f1b48c7`, 2026-11-25), the Final browser check and QA passed (AC2 included), awaiting delivery. Owner decision 2026-11-24: not fixed in U3. Fix plan: [ENLOC-004 detail plan](./implementation-plans/enloc-004-workspace-language-switch/plan.md) r1, approved by the Owner on 2026-11-25.
-- Problem: with the flag on, a learner who rates cards in the session, answers a question and then switches Vietnamese or English sees `router.refresh()` read new progress. The page key `workspaceKey` includes `unseenCardIds`, `unratedCardIds` and `dueCardIds`, so it changes and `LearningWorkspace` remounts. The shown answer outcome and explanation disappear (the saved data is not lost).
-- Evidence: the key in `app/(client)/learn/[course-slug]/[topic-slug]/page.tsx`; U3 Codex implementation review round 1, finding 1.
-- Why not fixed in U3: the simple fix (drop the three lists from the key) conflicts with the accepted LF3 AC6 and LF4 AC5 key tests, which G6 forbids changing; the alternative (carry the outcome across the remount) is a design change.
-- Direction: keep the workspace identity across a refresh that only reflects the session's own ratings while keeping the remount for real card changes. The fix is part of step A (plan r5); the Owner decides only if it conflicts with the LF3 AC6 and LF4 AC5 behavior (exit condition).
-- Exit condition: fixed before English is enabled for users (the step A gate, U8): after rating cards, answering a question and switching language, the answer outcome and explanation stay shown, while a real change to the card set still behaves as the accepted LF3 AC6 and LF4 AC5 tests require. If the fix cannot meet both, the Owner decides at that point (Owner decision 2026-11-24 chose the fix for step A).
-
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git.
 
 - ENLOC-002 — Resolved 2026-11-22: the Owner-chosen `/privacy` cookie wording (display language as an example of remembered interface state) shipped with the locale cookie in U1 (PR 193, `d2172fe8`).
+- ENLOC-004 — Resolved 2026-11-25: after rating cards, answering and switching language the workspace keeps the shown outcome and explanation, while a real card-set change still rebuilds as the unchanged LF3 AC6 and LF4 AC5 tests require ([fix plan](./implementation-plans/enloc-004-workspace-language-switch/plan.md) r1, PR 200, `fffaaded`). <a id="enloc-004-workspace-remounts-on-a-language-switch-after-rating-cards"></a>
