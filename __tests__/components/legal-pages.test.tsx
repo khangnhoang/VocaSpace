@@ -3,13 +3,13 @@
 import { render, screen, within } from "@/__tests__/support/intl";
 import { describe, expect, it } from "vitest";
 import HomeFooter from "@/app/(client)/_components/home/HomeFooter";
-import PrivacyPage, { metadata as privacyMetadata } from "@/app/(client)/privacy/page";
-import TermsPage, { metadata as termsMetadata } from "@/app/(client)/terms/page";
+import PrivacyPage, { generateMetadata as privacyMetadata } from "@/app/(client)/privacy/page";
+import TermsPage, { generateMetadata as termsMetadata } from "@/app/(client)/terms/page";
 
 // Test plan:
 // - Mục tiêu: A4b AC1–AC4 — /privacy và /terms hiện đúng tiêu đề, ngày cập nhật, link liên hệ và link chéo; footer trang chủ trỏ tới hai trang.
 // - Loại test: component render trong jsdom (RTL); trang là server component tĩnh, không mock dữ liệu.
-// - Đối tượng: PrivacyPage, TermsPage (kèm metadata.title) và cột "Pháp lý" của HomeFooter.
+// - Đối tượng: PrivacyPage, TermsPage (kèm title từ generateMetadata) và cột "Pháp lý" của HomeFooter; bản tiếng Anh ở legal-pages-english.test.tsx.
 // - Case thành công: tiêu đề h1, một dòng "Cập nhật lần cuối" cùng giá trị ở cả hai trang, mailto support, link sang trang kia,
 //   quy tắc 16+ và điều khoản thanh toán/khoá học bị gỡ trong /terms; footer có đúng hai link tên tiếng Việt.
 // - Case thất bại: không áp dụng (không có dữ liệu, form hay lỗi).
@@ -67,8 +67,8 @@ describe("/privacy", () => {
     expect(screen.getByText(/với khoá học có rất ít học viên, số liệu có thể phản ánh tiến độ của\s+một người cụ thể/)).toBeTruthy();
   });
 
-  it("exports the browser tab title", () => {
-    expect(privacyMetadata.title).toBe("Chính sách quyền riêng tư | VocaSpace");
+  it("exports the browser tab title", async () => {
+    expect((await privacyMetadata()).title).toBe("Chính sách quyền riêng tư | VocaSpace");
   });
 });
 
@@ -95,8 +95,8 @@ describe("/terms", () => {
     expect(screen.getByRole("heading", { level: 2, name: "6. Khoá học bị gỡ" })).toBeTruthy();
   });
 
-  it("exports the browser tab title", () => {
-    expect(termsMetadata.title).toBe("Điều khoản sử dụng | VocaSpace");
+  it("exports the browser tab title", async () => {
+    expect((await termsMetadata()).title).toBe("Điều khoản sử dụng | VocaSpace");
   });
 });
 
