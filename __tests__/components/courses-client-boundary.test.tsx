@@ -104,7 +104,7 @@ describe("courses layouts deliver only the namespaces their subtree renders", ()
   });
 
   it("adds learning for course detail and preview", () => {
-    expect(namespacesOf(<CourseSlugLayout>x</CourseSlugLayout>)).toBe("courses,learning");
+    expect(namespacesOf(<CourseSlugLayout>x</CourseSlugLayout>)).toBe("courses,learning,payments");
   });
 
   it("adds flashcard only for the public preview subtree", () => {
@@ -118,7 +118,7 @@ describe("learn and home deliver flashcard only where it renders", () => {
   });
 
   it("gives the dashboard, the course overview and the topic page their namespaces", () => {
-    expect(namespacesOf(<LearnDashboardLayout>x</LearnDashboardLayout>)).toBe("flashcard,learning,learn");
+    expect(namespacesOf(<LearnDashboardLayout>x</LearnDashboardLayout>)).toBe("flashcard,learning,learn,payments");
     expect(namespacesOf(<LearnTopicLayout>x</LearnTopicLayout>)).toBe("flashcard,learning,learn");
     expect(namespacesOf(<LearnCourseLayout>x</LearnCourseLayout>)).toBe("learning,learn");
   });

@@ -1,0 +1,149 @@
+{
+  "status": {
+    "paid": "Paid",
+    "pending": "Awaiting payment",
+    "creating": "Creating payment",
+    "cancelled": "Cancelled",
+    "expired": "Expired",
+    "failed": "Failed"
+  },
+  "deadline": "Due {date}",
+  "continue": "Continue payment",
+  "pending": {
+    "regionLabel": "Payments to complete",
+    "continueLabel": "Continue payment for {course}",
+    "dismissLabel": "Dismiss this reminder: {course}",
+    "others": "{count, plural, one {+# other payment} other {+# other payments}} · View in your profile"
+  },
+  "history": {
+    "title": "Payment history",
+    "filterLabel": "Filter payment history",
+    "filters": {
+      "all": "All",
+      "paid": "Paid",
+      "pending": "Pending",
+      "other": "Other"
+    },
+    "loading": "Loading payment history",
+    "unavailableBadge": "No longer available",
+    "courseUnavailable": "This course is no longer available",
+    "orderCode": "Order {code}",
+    "discount": "{amount} off",
+    "errorTitle": "Couldn't load your payment history.",
+    "errorBody": "The rest of your profile still works. Try loading it again.",
+    "retry": "Try again",
+    "emptyAll": "You don't have any payments yet.",
+    "emptyFilter": "No payments in this group.",
+    "pagerLabel": "Payment history pages",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {count}"
+  },
+  "actions": {
+    "history": {
+      "queryFailed": "Couldn't load your payment history right now.",
+      "invalidInput": "The filter or page number is invalid.",
+      "authRequired": "Please sign in to view your payment history.",
+      "invalidData": "The payment history data is invalid."
+    },
+    "checkout": {
+      "authRequired": "Please sign in to buy this course.",
+      "courseUnavailable": "This course doesn't exist or isn't on sale yet.",
+      "alreadyOwned": "You already own this course.",
+      "freeEnrollFailed": "Couldn't give you access to this free course.",
+      "freeSuccess": "You're enrolled in this free course!",
+      "unexpected": "Something unexpected went wrong.",
+      "processing": "Your payment is being processed. Please try again in a few seconds.",
+      "invoiceFailed": "Couldn't create the invoice.",
+      "gatewayFailed": "The PayOS payment gateway is having problems. Please try again later.",
+      "updateFailed": "Couldn't update the payment status.",
+      "accountNumberPending": "Scan the QR code on the PayOS page to see the account number",
+      "accountNumberScan": "Scan the QR code to get the account number"
+    },
+    "cancel": {
+      "authRequired": "Your sign-in session was not found.",
+      "updateFailed": "Couldn't cancel the invoice in the system."
+    },
+    "status": {
+      "sessionExpired": "Your sign-in session has expired or is invalid.",
+      "notFound": "Couldn't find this payment.",
+      "failed": "Something went wrong while updating the order status."
+    },
+    "discount": {
+      "authRequired": "Please sign in to use a discount code.",
+      "courseUnavailable": "This course doesn't exist or isn't on sale yet.",
+      "freeCourse": "Discount codes don't apply to free courses.",
+      "invalid": "This discount code is invalid.",
+      "applied": "Discount code applied",
+      "checkFailed": "Something went wrong while checking the discount code."
+    },
+    "pricing": {
+      "notFound": "This discount code doesn't exist or has expired.",
+      "notStarted": "This discount code can't be used yet.",
+      "expired": "This discount code has expired.",
+      "minPrice": "This discount code only applies to courses from {amountEn}.",
+      "usedUp": "This discount code has no uses left.",
+      "notApplicable": "This discount code isn't valid for this course.",
+      "reserveFailed": "Couldn't hold a use of this discount code. Please try again.",
+      "reserveSoldOut": "This discount code just ran out of uses. Please try another code."
+    }
+  },
+  "checkout": {
+    "dialogFree": "Enroll in this free course",
+    "dialogPaid": "Enroll in and pay for this course",
+    "close": "Close the enrollment window",
+    "free": {
+      "title": "Enroll in this free course",
+      "intro": "Once you enroll, you can start learning right away.",
+      "courseFallback": "VocaSpace course",
+      "summary": "{chapterCount, plural, one {# chapter} other {# chapters}} · {topicCount, plural, one {# topic} other {# topics}}",
+      "feeLabel": "Tuition",
+      "fee": "Free",
+      "enroll": "Enroll for free",
+      "enrolling": "Enrolling...",
+      "later": "Not now"
+    },
+    "benefits": {
+      "lifetime": "Lifetime access",
+      "fsrs": "FSRS flashcard system"
+    },
+    "discount": {
+      "title": "Confirm your enrollment",
+      "intro": "Check the details and apply a discount code if you have one.",
+      "courseLabel": "Course",
+      "courseFallback": "VocaSpace Premium course",
+      "codeLabel": "Discount code",
+      "codePlaceholder": "Enter a code (e.g. VOCASPACE100)",
+      "apply": "Apply",
+      "price": "Course price",
+      "discount": "Discount",
+      "total": "Total",
+      "disclaimer": "*The amounts here are for display only. The server checks the final price on its own.",
+      "proceed": "CONTINUE TO PAYMENT",
+      "invalid": "This discount code is invalid.",
+      "applied": "Discount code applied",
+      "checkFailed": "Something went wrong while checking the discount code."
+    },
+    "qr": {
+      "title": "SCAN TO PAY",
+      "success": "Payment received!",
+      "expired": "This QR code has expired",
+      "processing": "Processing...",
+      "cancel": "Cancel payment",
+      "orderTitle": "Order details",
+      "account": "Bank account number",
+      "amount": "Amount to pay",
+      "message": "Transfer description",
+      "cancelling": "CANCELLING...",
+      "cancelButton": "CANCEL PAYMENT"
+    },
+    "toast": {
+      "sessionFailed": "Couldn't start the payment.",
+      "connectionFailed": "Couldn't reach the server. Please try again.",
+      "paidSuccess": "Payment complete! You now have access to the course.",
+      "cancelled": "Payment cancelled.",
+      "cancelConnection": "Couldn't reach the server.",
+      "resumeUnavailable": "This payment is no longer pending"
+    }
+  }
+}

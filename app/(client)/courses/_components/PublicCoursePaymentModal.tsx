@@ -6,21 +6,33 @@ import confetti from "canvas-confetti";
 import { X } from "lucide-react";
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
 import * as m from "motion/react-m";
+import { useLocale, useTranslations } from "next-intl";
 import {
   CheckoutResponse,
   PaymentRealtimePayload,
 } from "@/lib/schemas/payment";
 import { discountCouponSchema } from "@/lib/schemas/discount";
-import {
-  cancelCheckoutSession,
-  checkPaymentStatus,
-} from "@/app/actions/payment";
+import { checkPaymentStatus } from "@/app/actions/payment";
+import { cancelCheckoutSessionLocalized } from "@/app/actions/payment-localized";
 import { createClient } from "@/utils/supabase/client";
 import PublicCoursePaymentStageDiscount from "./PublicCoursePaymentStageDiscount";
 import PublicCoursePaymentStageQr from "./PublicCoursePaymentStageQr";
-import { validateDiscountPreview } from "@/app/actions/discount";
+import { validateDiscountPreviewLocalized } from "@/app/actions/discount-localized";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import type { Locale } from "@/lib/i18n/config";
+import {
+  heldKey,
+  heldText,
+  pickServerText,
+  replyForField,
+  resolveHeldMessage,
+  useLatest,
+  type HeldMessage,
+} from "@/lib/i18n/held-message";
+import type { MessageRef } from "@/lib/i18n/message-ref";
+import { viPaymentsRootText } from "@/lib/i18n/payments-text";
+import { asTranslate, type Translate } from "@/lib/i18n/translate";
 
 const EASE = [0.2, 0, 0, 1] as const;
 
@@ -29,10 +41,14 @@ export type PublicCourseContentSummary = {
   topicCount: number;
 };
 
+// English localization U5 H5: dữ liệu bước QR kèm khóa của câu thay cho số tài khoản (khi action chọn câu đó), để câu ấy được
+// dịch lúc render theo ngôn ngữ đang hiển thị thay vì giữ chuỗi của request đã tạo phiên.
+export type CheckoutDisplay = CheckoutResponse & { accountNumberRef?: MessageRef };
+
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  paymentData: CheckoutResponse | null;
+  paymentData: CheckoutDisplay | null;
   paymentId: string | null;
   courseId: string;
   coursePrice: number;
@@ -48,11 +64,14 @@ interface PaymentModalProps {
 type PublicCoursePaymentModalCloseButtonProps = {
   onClose: () => void;
   disabled?: boolean;
+  // Nút này được test gọi như một hàm nên không gọi hook next-intl; hộp thoại truyền nhãn đã dịch, thiếu thì dùng tiếng Việt.
+  label?: string;
 };
 
 export function PublicCoursePaymentModalCloseButton({
   onClose,
   disabled = false,
+  label = viPaymentsRootText("payments.checkout.close"),
 }: PublicCoursePaymentModalCloseButtonProps) {
   return (
     <Button
@@ -61,7 +80,7 @@ export function PublicCoursePaymentModalCloseButton({
       size="icon"
       onClick={onClose}
       disabled={disabled}
-      aria-label="Đóng cửa sổ đăng ký"
+      aria-label={label}
       className="absolute right-4 top-4 z-20 text-slate-400 hover:text-slate-700"
     >
       <X aria-hidden="true" className="size-4" />
@@ -84,6 +103,11 @@ export default function PublicCoursePaymentModal({
   openAtQr = false,
 }: PaymentModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Khóa tính từ gốc catalog: thông báo của action mang khóa đầy đủ (`payments.…`, `validation.…`).
+  const t = asTranslate(useTranslations());
+  const locale = useLocale() as Locale;
+  // Toast phát sau một request async dịch theo ngôn ngữ lúc nó bật (U5 AC4).
+  const latest = useLatest({ t, locale });
   const portalTarget = useSyncExternalStore(
     subscribeToNothing,
     () => document.body,
@@ -95,8 +119,10 @@ export default function PublicCoursePaymentModal({
   const [appliedCouponCode, setAppliedCouponCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
   const [couponLoading, setCouponLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  // Dòng lỗi/thành công của mã giảm giá ở lại trên màn hình, nên giữ khóa (hoặc chuỗi server kèm khóa) và dịch lúc render để
+  // đổi ngôn ngữ ngay khi người dùng chuyển VI/EN (U5 AC4).
+  const [errorMsg, setErrorMsg] = useState<HeldMessage | null>(null);
+  const [successMsg, setSuccessMsg] = useState<HeldMessage | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // STATE CỦA STAGE 2 (QR CODE - Giữ nguyên core flow)
@@ -120,19 +146,19 @@ export default function PublicCoursePaymentModal({
     setCouponCode(nextValue);
     setAppliedCouponCode("");
     setDiscountAmount(0);
-    setErrorMsg("");
-    setSuccessMsg("");
+    setErrorMsg(null);
+    setSuccessMsg(null);
   };
 
   const handleApplyCoupon = async () => {
-    setErrorMsg("");
-    setSuccessMsg("");
+    setErrorMsg(null);
+    setSuccessMsg(null);
     setCouponLoading(true);
 
     const validation = discountCouponSchema.safeParse({ code: couponCode });
 
     if (!validation.success) {
-      setErrorMsg(validation.error.issues[0].message);
+      setErrorMsg(issueMessage(validation.error.issues[0].message));
       setCouponLoading(false);
       return;
     }
@@ -141,7 +167,7 @@ export default function PublicCoursePaymentModal({
     setCouponCode(normalizedCode);
 
     try {
-      const result = await validateDiscountPreview({
+      const { result, ...reply } = await validateDiscountPreviewLocalized({
         courseId,
         code: normalizedCode,
       });
@@ -152,22 +178,30 @@ export default function PublicCoursePaymentModal({
         !result.discount ||
         !result.pricing
       ) {
-        setErrorMsg(result.error || "Mã giảm giá không hợp lệ.");
-        setSuccessMsg("");
+        setErrorMsg(
+          result.error
+            ? heldText(result.error, replyForField(reply, "error"), "payments.checkout.discount.invalid")
+            : heldKey("payments.checkout.discount.invalid"),
+        );
+        setSuccessMsg(null);
         setAppliedCouponCode("");
         setDiscountAmount(0);
         setCouponLoading(false);
         return;
       }
 
-      setSuccessMsg(result.message || "Áp dụng mã giảm giá thành công");
-      setErrorMsg("");
+      setSuccessMsg(
+        result.message
+          ? heldText(result.message, replyForField(reply, "message"), "payments.checkout.discount.applied")
+          : heldKey("payments.checkout.discount.applied"),
+      );
+      setErrorMsg(null);
       setAppliedCouponCode(result.discount.code);
       setDiscountAmount(result.pricing.discountAmount);
       setCouponLoading(false);
     } catch {
-      setErrorMsg("Hệ thống gặp sự cố khi kiểm tra mã giảm giá.");
-      setSuccessMsg("");
+      setErrorMsg(heldKey("payments.checkout.discount.checkFailed"));
+      setSuccessMsg(null);
       setAppliedCouponCode("");
       setDiscountAmount(0);
       setCouponLoading(false);
@@ -301,30 +335,31 @@ export default function PublicCoursePaymentModal({
     setIsCancelling(true);
 
     try {
-      const res = await cancelCheckoutSession(paymentId);
+      const { result: res, ...reply } = await cancelCheckoutSessionLocalized(paymentId);
+      const now = latest.current;
 
       if (res.error) {
-        toast.error(res.error);
+        toast.error(pickServerText(res.error, reply, now.locale, now.t, "payments.actions.cancel.updateFailed"));
         setIsCancelling(false);
         return;
       }
 
       setIsCancelling(false);
-      toast.success("Đã hủy phiên thanh toán.");
+      toast.success(now.t("payments.checkout.toast.cancelled"));
 
       setStage(1);
       setCouponCode("");
       setAppliedCouponCode("");
       setDiscountAmount(0);
-      setErrorMsg("");
-      setSuccessMsg("");
+      setErrorMsg(null);
+      setSuccessMsg(null);
       setTimeLeft(0);
       setIsSuccess(false);
       successHandledRef.current = false;
 
       onClose();
     } catch {
-      toast.error("Sự cố kết nối máy chủ.");  
+      toast.error(latest.current.t("payments.checkout.toast.cancelConnection"));
       setIsCancelling(false);
     }
   };
@@ -335,14 +370,16 @@ export default function PublicCoursePaymentModal({
 
   useDialogFocus({ isOpen, panelRef, onEscape: isBusy ? undefined : handleCloseModal });
 
+  const qrData = paymentData ? displayCheckout(paymentData, t) : null;
+
   const dialog = (
     <m.div
       role="dialog"
       aria-modal={isOpen ? true : undefined}
       aria-label={
         isFreeCourse
-          ? "Đăng ký khóa học miễn phí"
-          : "Đăng ký và thanh toán khóa học"
+          ? t("payments.checkout.dialogFree")
+          : t("payments.checkout.dialogPaid")
       }
       aria-hidden={!isOpen}
       inert={!isOpen}
@@ -362,7 +399,11 @@ export default function PublicCoursePaymentModal({
           isFreeCourse ? "max-w-lg" : "max-w-4xl"
         }`}
       >
-        <PublicCoursePaymentModalCloseButton onClose={handleCloseModal} disabled={isBusy} />
+        <PublicCoursePaymentModalCloseButton
+          onClose={handleCloseModal}
+          disabled={isBusy}
+          label={t("payments.checkout.close")}
+        />
 
         <m.div
           className="flex w-full"
@@ -386,8 +427,8 @@ export default function PublicCoursePaymentModal({
               finalAmount={finalAmount}
               couponLoading={couponLoading}
               isGenerating={isGenerating}
-              errorMsg={errorMsg}
-              successMsg={successMsg}
+              errorMsg={resolveHeldMessage(errorMsg, locale, t, t) ?? ""}
+              successMsg={resolveHeldMessage(successMsg, locale, t, t) ?? ""}
               onCouponChange={handleCouponChange}
               onApplyCoupon={handleApplyCoupon}
               onProceedToPayment={handleProceedToPayment}
@@ -401,7 +442,7 @@ export default function PublicCoursePaymentModal({
               inert={stage !== 2}
             >
               <PublicCoursePaymentStageQr
-                paymentData={paymentData}
+                paymentData={qrData}
                 timeLeft={timeLeft}
                 copiedField={copiedField}
                 isSuccess={isSuccess}
@@ -430,6 +471,17 @@ export default function PublicCoursePaymentModal({
 }
 
 const subscribeToNothing = () => () => {};
+
+// Câu thay cho số tài khoản dịch theo ngôn ngữ đang hiển thị; số tài khoản thật của PayOS (không có khóa) giữ nguyên.
+function displayCheckout({ accountNumberRef, ...data }: CheckoutDisplay, t: Translate): CheckoutResponse {
+  return accountNumberRef ? { ...data, accountNumber: t(accountNumberRef.key, accountNumberRef.params) } : data;
+}
+
+// Message của issue Zod là khóa trong namespace `validation`, hoặc `khóa|kiểu nhận được` cho lỗi sai kiểu (`translateIssueMessage`).
+function issueMessage(message: string): HeldMessage {
+  const [key, received] = message.split("|");
+  return heldKey(`validation.${key}`, received === undefined ? undefined : { received });
+}
 
 /**
  * Giữ focus trong hộp thoại khi mở (U4 AC2): đưa focus vào phần tử thao tác được đầu tiên của bước hiện tại, Tab và

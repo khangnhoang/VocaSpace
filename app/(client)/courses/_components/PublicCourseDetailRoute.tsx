@@ -2,10 +2,10 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getCourseLearningSummary } from "@/app/actions/learning-activity";
-import { resumePendingCheckout } from "@/app/actions/payment";
 import { getPublicCourseDetail } from "@/app/actions/public-course";
 import { PublicCourseDetailView } from "./PublicCourseDetailView";
 import { PublicCourseFeedback } from "./PublicCourseStates";
+import { resumePendingCheckoutWithRef } from "./resume-checkout";
 
 export const getCachedPublicCourseDetail = cache(getPublicCourseDetail);
 
@@ -43,14 +43,15 @@ export async function PublicCourseDetailRoute({
 
   // FEAT6 G8: đọc khoản pending ở đây, sau nhánh notFound/error, nên hai màn hình đó không bao giờ gọi mở lại; hành động chỉ đọc, không tạo thanh toán.
   const resumeCheckout = resumePayment
-    ? await resumePendingCheckout({ courseId: result.data.id })
+    ? await resumePendingCheckoutWithRef({ courseId: result.data.id })
     : undefined;
 
   return (
     <PublicCourseDetailView
       course={result.data}
       learningSummary={learningSummary}
-      resumeCheckout={resumeCheckout}
+      resumeCheckout={resumeCheckout?.result}
+      resumeAccountNumberRef={resumeCheckout?.accountNumberRef ?? undefined}
     />
   );
 }

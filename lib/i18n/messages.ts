@@ -6,6 +6,7 @@ import enHome from "@/messages/en/home.json";
 import enLearn from "@/messages/en/learn.json";
 import enLearning from "@/messages/en/learning.json";
 import enLegal from "@/messages/en/legal.json";
+import enPayments from "@/messages/en/payments.json";
 import enProfile from "@/messages/en/profile.json";
 import enTeacherMedia from "@/messages/en/teacherMedia.json";
 import enValidation from "@/messages/en/validation.json";
@@ -17,6 +18,7 @@ import viHome from "@/messages/vi/home.json";
 import viLearn from "@/messages/vi/learn.json";
 import viLearning from "@/messages/vi/learning.json";
 import viLegal from "@/messages/vi/legal.json";
+import viPayments from "@/messages/vi/payments.json";
 import viProfile from "@/messages/vi/profile.json";
 import viTeacherMedia from "@/messages/vi/teacherMedia.json";
 import viValidation from "@/messages/vi/validation.json";
@@ -34,6 +36,7 @@ const viMessages = {
   learning: viLearning,
   learn: viLearn,
   legal: viLegal,
+  payments: viPayments,
   profile: viProfile,
   teacherMedia: viTeacherMedia,
 };
@@ -51,6 +54,7 @@ export const MESSAGES: Record<Locale, AppMessages> = {
     learning: enLearning,
     learn: enLearn,
     legal: enLegal,
+    payments: enPayments,
     profile: enProfile,
     teacherMedia: enTeacherMedia,
   },

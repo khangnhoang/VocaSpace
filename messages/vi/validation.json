@@ -34,5 +34,12 @@
   "zodType": {
     "string": "Invalid input: expected string, received {received}",
     "object": "Invalid input: expected object, received {received}"
+  },
+  "payment": {
+    "courseIdRequired": "ID khóa học không được để trống"
+  },
+  "discount": {
+    "codeRequired": "Vui lòng nhập mã giảm giá",
+    "codeFormat": "Mã giảm giá chỉ bao gồm chữ in hoa và số, không chứa ký tự đặc biệt hoặc khoảng trắng"
   }
 }

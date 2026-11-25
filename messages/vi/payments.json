@@ -1,0 +1,149 @@
+{
+  "status": {
+    "paid": "Đã thanh toán",
+    "pending": "Đang chờ thanh toán",
+    "creating": "Đang tạo thanh toán",
+    "cancelled": "Đã hủy",
+    "expired": "Hết hạn",
+    "failed": "Thất bại"
+  },
+  "deadline": "Hạn {date}",
+  "continue": "Tiếp tục thanh toán",
+  "pending": {
+    "regionLabel": "Thanh toán cần xử lý",
+    "continueLabel": "Tiếp tục thanh toán cho {course}",
+    "dismissLabel": "Ẩn nhắc nhở này: {course}",
+    "others": "+{count} khoản khác · Xem trong hồ sơ"
+  },
+  "history": {
+    "title": "Lịch sử thanh toán",
+    "filterLabel": "Lọc lịch sử thanh toán",
+    "filters": {
+      "all": "Tất cả",
+      "paid": "Đã thanh toán",
+      "pending": "Đang chờ",
+      "other": "Khác"
+    },
+    "loading": "Đang tải lịch sử thanh toán",
+    "unavailableBadge": "Không còn khả dụng",
+    "courseUnavailable": "Khóa học không còn khả dụng",
+    "orderCode": "Mã đơn {code}",
+    "discount": "Giảm {amount}",
+    "errorTitle": "Chưa tải được lịch sử thanh toán.",
+    "errorBody": "Hồ sơ của bạn vẫn dùng bình thường. Hãy thử tải lại.",
+    "retry": "Thử lại",
+    "emptyAll": "Bạn chưa có giao dịch thanh toán nào.",
+    "emptyFilter": "Không có giao dịch nào trong nhóm này.",
+    "pagerLabel": "Phân trang lịch sử thanh toán",
+    "previous": "Trước",
+    "next": "Sau",
+    "page": "Trang {page}/{count}"
+  },
+  "actions": {
+    "history": {
+      "queryFailed": "Không thể tải lịch sử thanh toán lúc này.",
+      "invalidInput": "Bộ lọc hoặc số trang không hợp lệ.",
+      "authRequired": "Vui lòng đăng nhập để xem lịch sử thanh toán.",
+      "invalidData": "Dữ liệu lịch sử thanh toán không hợp lệ."
+    },
+    "checkout": {
+      "authRequired": "Bạn bắt buộc phải đăng nhập để mua khóa học.",
+      "courseUnavailable": "Khóa học không tồn tại hoặc chưa được mở bán.",
+      "alreadyOwned": "Bạn đã sở hữu khóa học này rồi.",
+      "freeEnrollFailed": "Cấp quyền học khóa học miễn phí thất bại.",
+      "freeSuccess": "Đăng ký khóa học miễn phí thành công!",
+      "unexpected": "Hệ thống gặp sự cố ngoài dự kiến.",
+      "processing": "Đơn thanh toán đang được xử lý, vui lòng bấm lại sau vài giây.",
+      "invoiceFailed": "Không thể khởi tạo hóa đơn.",
+      "gatewayFailed": "Cổng thanh toán PayOS gặp sự cố, vui lòng thử lại sau.",
+      "updateFailed": "Không thể cập nhật trạng thái đơn thanh toán.",
+      "accountNumberPending": "Quét mã QR tại cổng PayOS để hiển thị số tài khoản",
+      "accountNumberScan": "Quét mã QR để nhận số tài khoản"
+    },
+    "cancel": {
+      "authRequired": "Không tìm thấy phiên đăng nhập.",
+      "updateFailed": "Không thể cập nhật hủy hóa đơn dưới hệ thống."
+    },
+    "status": {
+      "sessionExpired": "Phiên đăng nhập đã hết hạn hoặc không hợp lệ.",
+      "notFound": "Không tìm thấy thông tin đơn thanh toán này.",
+      "failed": "Hệ thống gặp sự cố khi cập nhật trạng thái đơn hàng."
+    },
+    "discount": {
+      "authRequired": "Bạn cần đăng nhập để sử dụng mã giảm giá.",
+      "courseUnavailable": "Khóa học không tồn tại hoặc chưa được mở bán.",
+      "freeCourse": "Mã giảm giá không áp dụng cho khóa học miễn phí.",
+      "invalid": "Mã giảm giá không hợp lệ.",
+      "applied": "Áp dụng mã giảm giá thành công",
+      "checkFailed": "Hệ thống gặp sự cố khi kiểm tra mã giảm giá."
+    },
+    "pricing": {
+      "notFound": "Mã giảm giá không tồn tại hoặc hết hạn sử dụng.",
+      "notStarted": "Mã giảm giá chưa đến thời gian sử dụng.",
+      "expired": "Mã giảm giá đã hết hạn sử dụng.",
+      "minPrice": "Mã giảm giá chỉ áp dụng cho khóa học từ {amountVi}.",
+      "usedUp": "Mã giảm giá đã hết lượt sử dụng.",
+      "notApplicable": "Mã giảm giá không hợp lệ cho khóa học này.",
+      "reserveFailed": "Không thể giữ lượt mã giảm giá, vui lòng thử lại.",
+      "reserveSoldOut": "Mã giảm giá vừa hết lượt sử dụng, vui lòng thử lại mã khác."
+    }
+  },
+  "checkout": {
+    "dialogFree": "Đăng ký khóa học miễn phí",
+    "dialogPaid": "Đăng ký và thanh toán khóa học",
+    "close": "Đóng cửa sổ đăng ký",
+    "free": {
+      "title": "Đăng ký khóa học miễn phí",
+      "intro": "Đăng ký xong là bạn có thể bắt đầu học ngay.",
+      "courseFallback": "Khóa học VocaSpace",
+      "summary": "{chapters} chương · {topics} chủ đề",
+      "feeLabel": "Học phí",
+      "fee": "Miễn phí",
+      "enroll": "Đăng ký miễn phí",
+      "enrolling": "Đang đăng ký...",
+      "later": "Để sau"
+    },
+    "benefits": {
+      "lifetime": "Truy cập trọn đời",
+      "fsrs": "Hệ thống Flashcard FSRS"
+    },
+    "discount": {
+      "title": "Xác nhận đăng ký",
+      "intro": "Vui lòng kiểm tra lại thông tin và áp dụng ưu đãi nếu có.",
+      "courseLabel": "Khóa học",
+      "courseFallback": "Khóa học VocaSpace Premium",
+      "codeLabel": "Mã giảm giá",
+      "codePlaceholder": "Nhập mã (VD: VOCASPACE100)",
+      "apply": "Áp dụng",
+      "price": "Giá khóa học",
+      "discount": "Giảm giá",
+      "total": "Thanh toán",
+      "disclaimer": "*Số tiền tính toán ở Client chỉ nhằm mục đích hiển thị trực quan. Backend sẽ đối soát độc lập.",
+      "proceed": "TIẾN HÀNH THANH TOÁN",
+      "invalid": "Mã giảm giá không hợp lệ.",
+      "applied": "Áp dụng mã giảm giá thành công",
+      "checkFailed": "Hệ thống gặp sự cố khi kiểm tra mã giảm giá."
+    },
+    "qr": {
+      "title": "QUÉT MÃ THANH TOÁN",
+      "success": "Thành công!",
+      "expired": "Mã QR đã hết hạn",
+      "processing": "Đang xử lý...",
+      "cancel": "Hủy thanh toán",
+      "orderTitle": "Thông tin đơn hàng",
+      "account": "Số tài khoản ngân hàng",
+      "amount": "Số tiền thanh toán",
+      "message": "Nội dung chuyển khoản",
+      "cancelling": "ĐANG HỦY...",
+      "cancelButton": "HỦY THANH TOÁN"
+    },
+    "toast": {
+      "sessionFailed": "Không thể khởi tạo phiên thanh toán.",
+      "connectionFailed": "Không thể kết nối máy chủ. Vui lòng thử lại.",
+      "paidSuccess": "Thanh toán thành công! Bạn đã có quyền truy cập khóa học.",
+      "cancelled": "Đã hủy phiên thanh toán.",
+      "cancelConnection": "Sự cố kết nối máy chủ.",
+      "resumeUnavailable": "Khoản thanh toán này không còn chờ"
+    }
+  }
+}

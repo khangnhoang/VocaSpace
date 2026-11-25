@@ -2,7 +2,11 @@
 
 import Image from "next/image";
 import { AlertCircle, BookOpen, CheckCircle2, RefreshCw } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCatalogCount } from "@/lib/i18n/format";
+import { formatCheckoutAmount } from "@/lib/payment-history-format";
 import type { PublicCourseContentSummary } from "./PublicCoursePaymentModal";
 
 interface PaymentStageDiscountProps {
@@ -41,7 +45,10 @@ export default function PublicCoursePaymentStageDiscount({
   onApplyCoupon,
   onProceedToPayment,
 }: PaymentStageDiscountProps) {
+  const t = useTranslations("payments.checkout");
+  const locale = useLocale() as Locale;
   const isFreeCourse = coursePrice === 0;
+  const amount = (value: number) => formatCheckoutAmount(locale, value, "đ");
 
   if (isFreeCourse) {
     return (
@@ -60,11 +67,11 @@ export default function PublicCoursePaymentStageDiscount({
     <div className="w-full shrink-0 flex flex-col md:flex-row bg-slate-50">
       <div className="w-full md:w-[45%] bg-slate-100 p-8 flex flex-col justify-center border-r border-slate-200">
         <h2 className="text-2xl font-bold text-slate-800 mb-2">
-          Xác nhận đăng ký
+          {t("discount.title")}
         </h2>
 
         <p className="text-slate-500 mb-6 text-sm">
-          Vui lòng kiểm tra lại thông tin và áp dụng ưu đãi nếu có.
+          {t("discount.intro")}
         </p>
 
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -80,22 +87,22 @@ export default function PublicCoursePaymentStageDiscount({
           )}
 
           <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1 block">
-            Khóa học
+            {t("discount.courseLabel")}
           </span>
 
           <p className="text-slate-800 font-semibold line-clamp-2">
-            {courseTitle || "Khóa học VocaSpace Premium"}
+            {courseTitle || t("discount.courseFallback")}
           </p>
 
           <div className="mt-3 space-y-2 pt-3 border-t border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-600">
               <CheckCircle2 size={16} className="text-emerald-500" />
-              Truy cập trọn đời
+              {t("benefits.lifetime")}
             </div>
 
             <div className="flex items-center gap-2 text-sm text-slate-600">
               <CheckCircle2 size={16} className="text-emerald-500" />
-              Hệ thống Flashcard FSRS
+              {t("benefits.fsrs")}
             </div>
           </div>
         </div>
@@ -104,7 +111,7 @@ export default function PublicCoursePaymentStageDiscount({
       <div className="w-full md:w-[55%] bg-white p-8 flex flex-col justify-center">
         <>
             <label className="text-sm font-semibold text-slate-700 mb-2 block">
-              Mã giảm giá
+              {t("discount.codeLabel")}
             </label>
 
             <div className="flex gap-2 mb-2">
@@ -113,7 +120,7 @@ export default function PublicCoursePaymentStageDiscount({
                 value={couponCode}
                 onChange={(e) => onCouponChange(e.target.value)}
                 disabled={couponLoading || isGenerating}
-                placeholder="Nhập mã (VD: VOCASPACE100)"
+                placeholder={t("discount.codePlaceholder")}
                 className="flex-1 border border-slate-300 rounded-xl px-4 py-3 text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
               />
 
@@ -126,7 +133,7 @@ export default function PublicCoursePaymentStageDiscount({
                 {couponLoading ? (
                   <RefreshCw className="animate-spin" size={18} />
                 ) : (
-                  "Áp dụng"
+                  t("discount.apply")
                 )}
               </button>
             </div>
@@ -149,26 +156,25 @@ export default function PublicCoursePaymentStageDiscount({
 
             <div className="mt-6 pt-6 space-y-3">
               <div className="flex justify-between text-slate-600 font-medium">
-                <span>Giá khóa học</span>
-                <span>{coursePrice.toLocaleString()}đ</span>
+                <span>{t("discount.price")}</span>
+                <span>{amount(coursePrice)}</span>
               </div>
 
               {discountAmount > 0 && (
                 <div className="flex justify-between text-emerald-500 font-medium animate-in fade-in slide-in-from-top-2">
-                  <span>Giảm giá</span>
-                  <span>-{discountAmount.toLocaleString()}đ</span>
+                  <span>{t("discount.discount")}</span>
+                  <span>-{amount(discountAmount)}</span>
                 </div>
               )}
 
               <div className="flex justify-between text-slate-900 font-bold text-xl pt-2">
-                <span>Thanh toán</span>
-                <span>{finalAmount.toLocaleString()}đ</span>
+                <span>{t("discount.total")}</span>
+                <span>{amount(finalAmount)}</span>
               </div>
             </div>
 
             <p className="text-[11px] text-slate-400 mt-4 italic">
-              *Số tiền tính toán ở Client chỉ nhằm mục đích hiển thị trực quan.
-              Backend sẽ đối soát độc lập.
+              {t("discount.disclaimer")}
             </p>
 
             <button
@@ -180,7 +186,7 @@ export default function PublicCoursePaymentStageDiscount({
               {isGenerating ? (
                 <RefreshCw className="animate-spin" size={24} />
               ) : (
-                "TIẾN HÀNH THANH TOÁN"
+                t("discount.proceed")
               )}
             </button>
         </>
@@ -208,13 +214,16 @@ function FreeEnrollmentStage({
   onDismiss?: () => void;
   onEnroll: () => void;
 }) {
+  const t = useTranslations("payments.checkout");
+  const locale = useLocale() as Locale;
+
   return (
     <div className="w-full p-6 sm:p-8">
       <h2 className="pr-10 text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-        Đăng ký khóa học miễn phí
+        {t("free.title")}
       </h2>
       <p className="mt-1.5 text-sm leading-6 text-slate-500">
-        Đăng ký xong là bạn có thể bắt đầu học ngay.
+        {t("free.intro")}
       </p>
 
       <div className="mt-6 flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
@@ -227,28 +236,34 @@ function FreeEnrollmentStage({
         </div>
         <div className="min-w-0">
           <p className="line-clamp-2 break-words font-bold leading-snug text-slate-900">
-            {courseTitle || "Khóa học VocaSpace"}
+            {courseTitle || t("free.courseFallback")}
           </p>
           {contentSummary && contentSummary.chapterCount > 0 && (
             <p className="mt-1 text-xs font-medium text-slate-500">
-              {contentSummary.chapterCount} chương · {contentSummary.topicCount} chủ đề
+              {/* Tiếng Việt in chữ số trần như trước (`formatCatalogCount`); tiếng Anh chia số ít/số nhiều theo số đếm. */}
+              {t("free.summary", {
+                chapters: formatCatalogCount(locale, contentSummary.chapterCount),
+                topics: formatCatalogCount(locale, contentSummary.topicCount),
+                chapterCount: contentSummary.chapterCount,
+                topicCount: contentSummary.topicCount,
+              })}
             </p>
           )}
         </div>
       </div>
 
       <ul className="mt-5 space-y-2.5">
-        {["Truy cập trọn đời", "Hệ thống Flashcard FSRS"].map((benefit) => (
+        {(["lifetime", "fsrs"] as const).map((benefit) => (
           <li key={benefit} className="flex items-center gap-2.5 text-sm text-slate-700">
             <CheckCircle2 aria-hidden="true" className="size-4 shrink-0 text-growth" />
-            {benefit}
+            {t(`benefits.${benefit}`)}
           </li>
         ))}
       </ul>
 
       <div className="mt-6 flex items-baseline justify-between border-t border-slate-100 pt-5">
-        <span className="text-sm font-semibold text-slate-600">Học phí</span>
-        <span className="text-2xl font-extrabold text-growth">Miễn phí</span>
+        <span className="text-sm font-semibold text-slate-600">{t("free.feeLabel")}</span>
+        <span className="text-2xl font-extrabold text-growth">{t("free.fee")}</span>
       </div>
 
       <div className="mt-6 flex flex-col gap-2">
@@ -260,10 +275,10 @@ function FreeEnrollmentStage({
           disabled={isGenerating}
           data-dialog-initial-focus=""
         >
-          {isGenerating ? "Đang đăng ký..." : "Đăng ký miễn phí"}
+          {isGenerating ? t("free.enrolling") : t("free.enroll")}
         </Button>
         <Button type="button" variant="ghost" className="w-full text-slate-600" onClick={onDismiss} disabled={isGenerating}>
-          Để sau
+          {t("free.later")}
         </Button>
       </div>
     </div>

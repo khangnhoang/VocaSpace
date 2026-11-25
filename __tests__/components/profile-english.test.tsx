@@ -14,10 +14,11 @@ import type { Locale } from "@/lib/i18n/config";
 // - Mục tiêu: English localization U2 AC2/AC4 - thẻ hồ sơ, form sửa hồ sơ và form đổi mật khẩu của /profile hiện đúng ngôn ngữ đang dùng
 //   (nhãn, placeholder, tùy chọn giới tính, thông báo lỗi dưới trường, toast, trạng thái chờ), và bản tiếng Việt giữ nguyên văn.
 // - Loại test: component trong jsdom với provider next-intl thật; Server Action và sonner bị mock.
-// - Đối tượng: ProfilePage (tiêu đề), ProfileSidebar (thẻ hồ sơ, tab, ảnh đại diện), EditProfileForm, ChangePasswordForm.
+// - Đối tượng: ProfilePage (tiêu đề, lịch sử thanh toán rỗng của U5), ProfileSidebar (thẻ hồ sơ, tab, ảnh đại diện), EditProfileForm, ChangePasswordForm.
 // - Case chính: từng chuỗi nhìn thấy ở cả vi và en; lỗi schema (ngắn, không khớp) hiện câu đã dịch dưới đúng trường; toast thành công.
 // - Case biên: dữ liệu rỗng (tên, email, username) dùng chuỗi dự phòng đã dịch; lỗi server hiện nguyên chuỗi action đã dịch sẵn.
-// - Giới hạn: lịch sử thanh toán (U5) không được dựng ở đây; kiểm tra "không còn chữ Việt" chỉ áp dụng cho phần U2 của /profile.
+// - Giới hạn: trang chỉ kiểm lịch sử thanh toán ở trạng thái rỗng; các trạng thái khác của lịch sử (U5) kiểm ở payments-english.test.tsx;
+//   kiểm tra "không còn chữ Việt" chỉ áp dụng cho phần U2 của /profile.
 
 const mocks = vi.hoisted(() => ({
   getUserProfile: vi.fn(),
@@ -68,6 +69,8 @@ function readableText(container: HTMLElement) {
 const COPY = {
   vi: {
     title: "Quản lý tài khoản",
+    historyTitle: "Lịch sử thanh toán",
+    historyEmpty: "Bạn chưa có giao dịch thanh toán nào.",
     tabs: ["Hồ sơ cá nhân", "Bảo mật"],
     email: "Địa chỉ Email",
     phone: "Số điện thoại",
@@ -97,6 +100,8 @@ const COPY = {
   },
   en: {
     title: "Account settings",
+    historyTitle: "Payment history",
+    historyEmpty: "You don't have any payments yet.",
     tabs: ["Profile", "Security"],
     email: "Email address",
     phone: "Phone number",
@@ -146,9 +151,11 @@ describe.each(["vi", "en"] as Locale[])("profile screens in %s", (locale) => {
     setServerTestLocale("vi");
   });
 
-  it("shows the page title", async () => {
+  it("shows the page title and the empty payment history", async () => {
     render(await ProfilePage({ searchParams: Promise.resolve({}) }), { locale });
     expect(screen.getByRole("heading", { level: 1, name: copy.title })).toBeTruthy();
+    expect((await screen.findAllByText(copy.historyEmpty)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(copy.historyTitle).length).toBeGreaterThan(0);
   });
 
   describe("EditProfileForm", () => {

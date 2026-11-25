@@ -34,5 +34,12 @@
   "zodType": {
     "string": "Invalid input: expected string, received {received}",
     "object": "Invalid input: expected object, received {received}"
+  },
+  "payment": {
+    "courseIdRequired": "The course ID must not be empty"
+  },
+  "discount": {
+    "codeRequired": "Please enter a discount code",
+    "codeFormat": "Discount codes contain only capital letters and digits, with no special characters or spaces"
   }
 }

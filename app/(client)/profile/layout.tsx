@@ -6,5 +6,5 @@ import { ClientNamespaces } from "@/components/i18n/client-namespaces";
 // một nên không chọn riêng hai khóa đó được; thu hẹp cần đổi helper dùng chung, ngoài phạm vi U2. Đặt ở layout (không bọc giá trị trả về của page) để test
 // của page vẫn đọc được phần tử page trả về.
 export default function ProfileLayout({ children }: { children: ReactNode }) {
-  return <ClientNamespaces namespaces={["profile", "auth"]}>{children}</ClientNamespaces>;
+  return <ClientNamespaces namespaces={["profile", "auth", "payments"]}>{children}</ClientNamespaces>;
 }

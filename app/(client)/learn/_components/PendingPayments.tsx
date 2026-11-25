@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { selectNearestPendingPayment } from "@/lib/learn-dashboard";
-import { canContinuePayment, formatPaymentDate } from "@/lib/payment-history-format";
+import type { Locale } from "@/lib/i18n/config";
+import { canContinuePayment, formatPaymentDateIn } from "@/lib/payment-history-format";
 import { getResumePaymentPath } from "@/lib/public-courses/routes";
 import type { PendingPaymentSummary } from "@/lib/schemas/learn-dashboard";
 
@@ -23,6 +25,8 @@ export function PendingPaymentCard({
   onDismiss: (paymentId: string) => void;
   payments: PendingPaymentSummary[];
 }) {
+  const t = useTranslations("payments");
+  const locale = useLocale() as Locale;
   // Mốc "bây giờ" chốt một lần khi thẻ mount để quyết định hiện link tiếp tục mà không gọi đồng hồ ở mỗi lần render.
   const [now] = useState(() => Date.now());
   const payment = selectNearestPendingPayment(payments);
@@ -31,11 +35,11 @@ export function PendingPaymentCard({
   // AC11: chỉ khoản `pending` còn hạn mới có mã QR để mở; `creating` hoặc đã quá hạn chỉ hiện thông tin.
   const canContinue = canContinuePayment(payment, now);
 
-  const deadline = payment.expiresAt ? formatPaymentDate(payment.expiresAt) : null;
+  const deadline = payment.expiresAt ? formatPaymentDateIn(locale, payment.expiresAt) : null;
   const otherCount = payments.length - 1;
 
   return (
-    <section aria-label="Thanh toán cần xử lý" className={CARD_CLASS}>
+    <section aria-label={t("pending.regionLabel")} className={CARD_CLASS}>
       <div className="flex items-start gap-3">
         <span
           aria-hidden="true"
@@ -50,16 +54,16 @@ export function PendingPaymentCard({
           </h2>
           {deadline && (
             <p className="mt-0.5 text-xs leading-5 text-slate-600">
-              Hạn {deadline}
+              {t("deadline", { date: deadline })}
             </p>
           )}
           {canContinue && (
             <Link
               href={getResumePaymentPath(payment.courseSlug)}
-              aria-label={`Tiếp tục thanh toán cho ${payment.courseTitle}`}
+              aria-label={t("pending.continueLabel", { course: payment.courseTitle })}
               className="mt-2 inline-flex min-h-11 items-center text-xs font-bold text-route underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:min-h-9"
             >
-              Tiếp tục thanh toán
+              {t("continue")}
             </Link>
           )}
         </div>
@@ -67,7 +71,7 @@ export function PendingPaymentCard({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Ẩn nhắc nhở này: ${payment.courseTitle}`}
+          aria-label={t("pending.dismissLabel", { course: payment.courseTitle })}
           onClick={() => onDismiss(payment.paymentId)}
           className="-mr-2 -mt-2 shrink-0"
         >
@@ -79,7 +83,7 @@ export function PendingPaymentCard({
           href="/profile?tab=payments"
           className="mt-3 flex min-h-11 items-center border-t border-slate-100 pt-3 text-xs font-bold text-route underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-route focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:min-h-9"
         >
-          {`+${otherCount} khoản khác · Xem trong hồ sơ`}
+          {t("pending.others", { count: otherCount })}
         </Link>
       )}
     </section>

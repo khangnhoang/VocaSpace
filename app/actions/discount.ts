@@ -4,6 +4,9 @@ import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { discountCouponSchema } from "@/lib/schemas/discount";
+import { wrongType } from "@/lib/schemas/issue-keys";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
+import { translateIssueMessage } from "@/lib/i18n/translate";
 import {
   resolveDiscountPricing,
   toNumber,
@@ -14,12 +17,18 @@ const supabaseAdmin = createSupabaseAdmin(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const discountPreviewInputSchema = z.object({
-  courseId: z.string().min(1, { message: "ID khóa học không được để trống" }),
-  code: discountCouponSchema.shape.code,
-});
+// English localization U5 (H4): message là khóa trong namespace `validation`, dịch ở nhánh trả lỗi bên dưới.
+const discountPreviewInputSchema = z.object(
+  {
+    courseId: z.string({ error: wrongType("string") }).min(1, { message: "payment.courseIdRequired" }),
+    code: discountCouponSchema.shape.code,
+  },
+  { error: wrongType("object") },
+);
 
 export async function validateDiscountPreview(rawInput: unknown) {
+  // Lỗi và thông báo thành công ghi khóa theo trường (`error`, `message`), cùng trường mà `resolveDiscountPricing` ghi lỗi của nó.
+  const t = await recordedTranslations("payments", "error");
   const supabase = await createClient();
 
   const {
@@ -28,13 +37,18 @@ export async function validateDiscountPreview(rawInput: unknown) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return { error: "Bạn cần đăng nhập để sử dụng mã giảm giá." };
+    return { error: t("actions.discount.authRequired") };
   }
 
   const inputValidation = discountPreviewInputSchema.safeParse(rawInput);
 
   if (!inputValidation.success) {
-    return { error: inputValidation.error.issues[0].message };
+    return {
+      error: translateIssueMessage(
+        await recordedTranslations("validation", "error"),
+        inputValidation.error.issues[0].message,
+      ),
+    };
   }
 
   const { courseId, code } = inputValidation.data;
@@ -52,13 +66,13 @@ export async function validateDiscountPreview(rawInput: unknown) {
       course.removed_at ||
       course.status !== "published"
     ) {
-      return { error: "Khóa học không tồn tại hoặc chưa được mở bán." };
+      return { error: t("actions.discount.courseUnavailable") };
     }
 
     const coursePrice = toNumber(course.price);
 
     if (coursePrice <= 0) {
-      return { error: "Mã giảm giá không áp dụng cho khóa học miễn phí." };
+      return { error: t("actions.discount.freeCourse") };
     }
 
     const resolvedDiscount = await resolveDiscountPricing({
@@ -73,12 +87,12 @@ export async function validateDiscountPreview(rawInput: unknown) {
     }
 
     if (!resolvedDiscount.discountMeta) {
-      return { error: "Mã giảm giá không hợp lệ." };
+      return { error: t("actions.discount.invalid") };
     }
 
     return {
       success: true,
-      message: "Áp dụng mã giảm giá thành công",
+      message: (await recordedTranslations("payments", "message"))("actions.discount.applied"),
       discount: {
         id: resolvedDiscount.discountMeta.id,
         code: resolvedDiscount.discountMeta.code,
@@ -93,6 +107,6 @@ export async function validateDiscountPreview(rawInput: unknown) {
       },
     };
   } catch {
-    return { error: "Hệ thống gặp sự cố khi kiểm tra mã giảm giá." };
+    return { error: t("actions.discount.checkFailed") };
   }
 }

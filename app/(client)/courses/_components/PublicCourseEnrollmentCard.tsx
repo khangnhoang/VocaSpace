@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { createCheckoutSession } from "@/app/actions/payment";
+import { createCheckoutSessionLocalized } from "@/app/actions/payment-localized";
 import { getFirstTopicSlugByCourseSlugLocalized } from "@/app/actions/course-navigation-localized";
 import {
   CourseActivityUnavailable,
@@ -16,15 +16,17 @@ import { Button } from "@/components/ui/button";
 import type { Locale } from "@/lib/i18n/config";
 import { viCoursesText } from "@/lib/i18n/courses-text";
 import { formatCatalogCount, formatVnd } from "@/lib/i18n/format";
-import { pickServerText, useLatest } from "@/lib/i18n/held-message";
+import { pickServerText, replyForField, useLatest } from "@/lib/i18n/held-message";
 import { viLearningText } from "@/lib/i18n/learning-text";
+import type { MessageRef } from "@/lib/i18n/message-ref";
+import { viPaymentsRootText } from "@/lib/i18n/payments-text";
 import { asTranslate, type Translate } from "@/lib/i18n/translate";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
 import { getPublicCourseDetailPath, RESUME_PAYMENT_PARAM } from "@/lib/public-courses/routes";
 import type { CheckoutResponse, ResumeCheckoutResult } from "@/lib/schemas/payment";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
 import { PublicCourseCover } from "./PublicCourseCover";
-import PublicCoursePaymentModal, { type PublicCourseContentSummary } from "./PublicCoursePaymentModal";
+import PublicCoursePaymentModal, { type CheckoutDisplay, type PublicCourseContentSummary } from "./PublicCoursePaymentModal";
 
 /**
  * FEAT3 AC6a: dữ liệu cho thẻ "đang học" của học viên đã ghi danh. Tính ở server từ dữ liệu công khai đã có (đề cương, tiến độ) nên
@@ -53,14 +55,18 @@ type PublicCourseEnrollmentCardProps = {
   contentSummary?: PublicCourseContentSummary;
   // FEAT6 AC11: kết quả mở lại mã QR khi vào bằng link "Tiếp tục thanh toán"; chỉ được đọc một lần lúc mount.
   resume?: ResumeCheckoutResult;
+  // English localization U5 H5: khóa của câu thay cho số tài khoản trong `resume`, để bước QR dịch câu đó theo ngôn ngữ đang hiển thị.
+  resumeAccountNumberRef?: MessageRef;
   // Bản dịch và ngôn ngữ do trang chi tiết truyền xuống. Thành phần này không gọi hook next-intl vì test gọi nó như một hàm; thiếu
   // thì dùng tiếng Việt lấy từ catalog (cùng cách với PublicCourseRetryButton và các thành phần dùng chung của U3, H7).
   t?: Translate;
   learningText?: Translate;
+  // Bản dịch tính từ gốc catalog (`payments.…`, `validation.…`) cho toast thanh toán và thông báo của action thanh toán (U5).
+  paymentText?: Translate;
   locale?: Locale;
   // Bản dịch và ngôn ngữ của lần render mới nhất, cho toast phát sau một request async (người dùng có thể đổi ngôn ngữ trong lúc chờ).
-  // Do lớp client mỏng bên dưới cấp; thiếu thì dùng `t`/`locale` của lần render gửi đi.
-  latest?: { readonly current: { t: Translate; locale: Locale } };
+  // Do lớp client mỏng bên dưới cấp; thiếu thì dùng `t`/`paymentText`/`locale` của lần render gửi đi.
+  latest?: { readonly current: { t: Translate; paymentText: Translate; locale: Locale } };
 };
 
 export function PublicCourseEnrollmentCard({
@@ -68,8 +74,10 @@ export function PublicCourseEnrollmentCard({
   learnerCard,
   contentSummary,
   resume,
+  resumeAccountNumberRef,
   t = viCoursesText,
   learningText = viLearningText,
+  paymentText = viPaymentsRootText,
   locale = "vi",
   latest,
 }: PublicCourseEnrollmentCardProps) {
@@ -78,7 +86,9 @@ export function PublicCourseEnrollmentCard({
   // Sau đó `resume` biến mất khỏi props (tham số bị gỡ) cũng không đóng hay mở lại gì.
   const resumed = resume?.status === "resume" ? resume : null;
   const [isModalOpen, setIsModalOpen] = useState(resumed !== null);
-  const [paymentData, setPaymentData] = useState<CheckoutResponse | null>(resumed?.data ?? null);
+  const [paymentData, setPaymentData] = useState<CheckoutDisplay | null>(
+    resumed ? withAccountNumberRef(resumed.data, resumeAccountNumberRef) : null,
+  );
   const [paymentId, setPaymentId] = useState<string | null>(resumed?.paymentId ?? null);
   // LF3 AC7: vừa đăng ký xong thì ở lại trang, nút chính đổi thành "Bắt đầu học" và chỉ mở chủ đề đầu khi bấm.
   const [justEnrolled, setJustEnrolled] = useState(false);
@@ -130,13 +140,27 @@ export function PublicCourseEnrollmentCard({
   async function createPayment(couponCode?: string): Promise<boolean> {
     try {
       // B1.4 giữ nguyên checkout contract; canonical cancel URL được xử lý riêng ở B1.5.
-      const response = await createCheckoutSession({
+      const {
+        result: response,
+        accountNumberRef,
+        ...reply
+      } = await createCheckoutSessionLocalized({
         courseId: course.id,
         ...(couponCode ? { couponCode } : {}),
       });
+      // Toast dịch theo ngôn ngữ lúc nó bật; chuỗi của server chỉ dùng khi nó cùng ngôn ngữ đó (U5 AC4).
+      const now = latest?.current ?? { t, paymentText, locale };
 
       if (response.error) {
-        toast.error(response.error);
+        toast.error(
+          pickServerText(
+            response.error,
+            replyForField(reply, "error"),
+            now.locale,
+            now.paymentText,
+            "payments.checkout.toast.sessionFailed",
+          ),
+        );
         return false;
       }
 
@@ -146,22 +170,32 @@ export function PublicCourseEnrollmentCard({
         setPaymentData(null);
         setPaymentId(null);
         setJustEnrolled(true);
-        toast.success(response.message || t("detail.enrollment.freeSuccess"));
+        toast.success(
+          response.message
+            ? pickServerText(
+                response.message,
+                replyForField(reply, "message"),
+                now.locale,
+                now.paymentText,
+                "payments.actions.checkout.freeSuccess",
+              )
+            : now.t("detail.enrollment.freeSuccess"),
+        );
         router.refresh();
         return false;
       }
 
       if (response.type === "paid" && response.data && response.paymentId) {
-        setPaymentData(response.data);
+        setPaymentData(withAccountNumberRef(response.data, accountNumberRef ?? undefined));
         setPaymentId(response.paymentId);
         return true;
       }
 
-      toast.error("Không thể khởi tạo phiên thanh toán.");
+      toast.error(now.paymentText("payments.checkout.toast.sessionFailed"));
       return false;
     } catch (error) {
       console.error("Public course enrollment entry failed", error);
-      toast.error("Không thể kết nối máy chủ. Vui lòng thử lại.");
+      toast.error((latest?.current ?? { paymentText }).paymentText("payments.checkout.toast.connectionFailed"));
       return false;
     }
   }
@@ -185,7 +219,7 @@ export function PublicCourseEnrollmentCard({
 
   return (
     <>
-      {resume && <ResumePaymentEntry resume={resume} courseSlug={course.slug} />}
+      {resume && <ResumePaymentEntry resume={resume} courseSlug={course.slug} paymentText={paymentText} />}
       {isLearningCard ? (
         <section
           aria-labelledby="public-course-enrollment-title"
@@ -280,7 +314,8 @@ export function PublicCourseEnrollmentCard({
         onSuccess={async () => {
           setIsModalOpen(false);
           setJustEnrolled(true);
-          toast.success("Thanh toán thành công! Bạn đã có quyền truy cập khóa học.");
+          // Bật sau 3,5 giây của hộp thoại nên lấy bản dịch của lần render mới nhất (U5 AC4).
+          toast.success((latest?.current ?? { paymentText }).paymentText("payments.checkout.toast.paidSuccess"));
           router.refresh();
         }}
       />
@@ -293,13 +328,28 @@ export function PublicCourseEnrollmentCard({
  * lấy bản dịch từ provider rồi mới truyền xuống `PublicCourseEnrollmentCard`, vốn nhận `t` qua props để test gọi trực tiếp được.
  */
 export function PublicCourseEnrollmentCardLocalized(
-  props: Omit<PublicCourseEnrollmentCardProps, "t" | "learningText" | "locale" | "latest">,
+  props: Omit<PublicCourseEnrollmentCardProps, "t" | "learningText" | "paymentText" | "locale" | "latest">,
 ) {
   const t = asTranslate(useTranslations("courses"));
   const learningText = asTranslate(useTranslations("learning"));
+  const paymentText = asTranslate(useTranslations());
   const locale = useLocale() as Locale;
-  const latest = useLatest({ t, locale });
-  return <PublicCourseEnrollmentCard {...props} t={t} learningText={learningText} locale={locale} latest={latest} />;
+  const latest = useLatest({ t, paymentText, locale });
+  return (
+    <PublicCourseEnrollmentCard
+      {...props}
+      t={t}
+      learningText={learningText}
+      paymentText={paymentText}
+      locale={locale}
+      latest={latest}
+    />
+  );
+}
+
+// Gắn khóa của câu thay cho số tài khoản vào dữ liệu bước QR (U5 H5); không có khóa thì giữ nguyên dữ liệu của action.
+function withAccountNumberRef(data: CheckoutResponse, ref: MessageRef | undefined): CheckoutDisplay {
+  return ref ? { ...data, accountNumberRef: ref } : data;
 }
 
 /**
@@ -310,9 +360,11 @@ export function PublicCourseEnrollmentCardLocalized(
 function ResumePaymentEntry({
   resume,
   courseSlug,
+  paymentText,
 }: {
   resume: ResumeCheckoutResult;
   courseSlug: string;
+  paymentText: Translate;
 }) {
   const router = useRouter();
   const handledRef = useRef(false);
@@ -322,7 +374,7 @@ function ResumePaymentEntry({
     handledRef.current = true;
 
     if (resume.status === "none" && resume.reason === "unavailable") {
-      toast.info("Khoản thanh toán này không còn chờ");
+      toast.info(paymentText("payments.checkout.toast.resumeUnavailable"));
     }
     // Chỉ gỡ đúng tham số `thanh-toan`; các tham số khác và hash của URL hiện tại được giữ nguyên.
     const remaining = new URLSearchParams(window.location.search);
@@ -331,7 +383,7 @@ function ResumePaymentEntry({
     router.replace(
       `${getPublicCourseDetailPath(courseSlug)}${query ? `?${query}` : ""}${window.location.hash}`,
     );
-  }, [resume, router, courseSlug]);
+  }, [resume, router, courseSlug, paymentText]);
 
   return null;
 }
