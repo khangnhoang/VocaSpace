@@ -8,6 +8,7 @@ import { cancelCheckoutSession, checkPaymentStatus, createCheckoutSession } from
 import { validateDiscountPreview } from "@/app/actions/discount";
 import { PublicCourseEnrollmentCardLocalized } from "@/app/(client)/courses/_components/PublicCourseEnrollmentCard";
 import PublicCoursePaymentModal from "@/app/(client)/courses/_components/PublicCoursePaymentModal";
+import { minPriceParams } from "@/lib/discounts/discount-pricing";
 import { recordedTranslations } from "@/lib/i18n/message-ref";
 import type { CheckoutResponse, ResumeCheckoutResult } from "@/lib/schemas/payment";
 import type { PublicCourseDetail } from "@/lib/schemas/public-course";
@@ -224,6 +225,49 @@ describe("discount lines follow the displayed language (AC4)", () => {
     setServerTestLocale("en");
     await applyCoupon("SAVE20");
     expect(screen.getByText("Mã giảm giá đã hết lượt sử dụng.")).toBeTruthy();
+  });
+});
+
+describe("the minimum-price error keeps the amount format of the displayed language (AC4, AC6)", () => {
+  const VI_MIN = `Mã giảm giá chỉ áp dụng cho khóa học từ ${(300000).toLocaleString()}đ.`;
+  const EN_MIN = "This discount code only applies to courses from 300,000 ₫.";
+  const minPriceError = async () => ({
+    error: (await recordedTranslations("payments", "error"))("actions.pricing.minPrice", minPriceParams(300000)),
+  });
+
+  it("switches the shown line in both directions and translates a reply from the other language", async () => {
+    vi.mocked(validateDiscountPreview).mockImplementation(minPriceError);
+    const view = renderSwitchable(<PublicCoursePaymentModal {...modalProps(250000)} />, "vi");
+
+    await applyCoupon("SAVE20");
+    expect(screen.getByText(VI_MIN)).toBeTruthy();
+    view.switchLocale("en");
+    expect(screen.getByText(EN_MIN)).toBeTruthy();
+
+    setServerTestLocale("en");
+    view.switchLocale("vi");
+    await applyCoupon("SAVE20");
+    expect(screen.getByText(VI_MIN)).toBeTruthy();
+    view.switchLocale("en");
+    expect(screen.getByText(EN_MIN)).toBeTruthy();
+  });
+
+  it("toasts a checkout error from a Vietnamese request on an English page, and the reverse", async () => {
+    vi.mocked(createCheckoutSession).mockImplementation(minPriceError);
+    const view = renderSwitchable(<PublicCourseEnrollmentCardLocalized course={COURSE} />, "en");
+
+    fireEvent.click(screen.getByRole("button", { name: "Enroll in the course" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "CONTINUE TO PAYMENT" }));
+    });
+    expect(toast.error).toHaveBeenLastCalledWith(EN_MIN);
+
+    setServerTestLocale("en");
+    view.switchLocale("vi");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "TIẾN HÀNH THANH TOÁN" }));
+    });
+    expect(toast.error).toHaveBeenLastCalledWith(VI_MIN);
   });
 });
 

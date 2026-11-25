@@ -179,7 +179,7 @@ describe.each(["vi", "en"] as const)("discount messages in %s", (locale) => {
       messageRefs: {
         error: {
           key: "payments.actions.pricing.minPrice",
-          params: { amount: locale === "vi" ? `${(300000).toLocaleString()}đ` : "300,000 ₫" },
+          params: { amountVi: `${(300000).toLocaleString()}đ`, amountEn: "300,000 ₫" },
         },
       },
     });

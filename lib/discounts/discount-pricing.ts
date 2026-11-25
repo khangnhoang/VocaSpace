@@ -1,8 +1,6 @@
 // lib/discounts/discount-pricing.ts
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getLocale } from "next-intl/server";
-import type { Locale } from "@/lib/i18n/config";
 import { formatVnd } from "@/lib/i18n/format";
 import { recordedTranslations } from "@/lib/i18n/message-ref";
 
@@ -49,9 +47,11 @@ function pricingErrorText() {
   return recordedTranslations("payments", "error");
 }
 
+// Tham số của `actions.pricing.minPrice` mang sẵn số tiền đã định dạng cho CẢ HAI ngôn ngữ: client dịch lại thông báo bằng đúng
+// tham số đã ghi khi trang đổi ngôn ngữ, nên một chuỗi định dạng theo ngôn ngữ của request sẽ giữ sai kiểu số tiền.
 // Tiếng Việt giữ đúng `toLocaleString()` không truyền locale cộng "đ" như trước (U5 G1); tiếng Anh dùng `formatVnd`.
-function minPriceLabel(locale: Locale, amount: number) {
-  return locale === "vi" ? `${amount.toLocaleString()}đ` : formatVnd(locale, amount);
+export function minPriceParams(amount: number) {
+  return { amountVi: `${amount.toLocaleString()}đ`, amountEn: formatVnd("en", amount) };
 }
 
 export function toNumber(value: unknown) {
@@ -146,9 +146,7 @@ export async function resolveDiscountPricing({
   if (coursePrice < minCoursePrice) {
     return {
       ok: false,
-      error: t("actions.pricing.minPrice", {
-        amount: minPriceLabel((await getLocale()) as Locale, minCoursePrice),
-      }),
+      error: t("actions.pricing.minPrice", minPriceParams(minCoursePrice)),
     };
   }
 

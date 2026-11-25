@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setServerTestLocale } from "@/__tests__/support/i18n-request";
+import { setServerTestLocale, useRealRequestLocale } from "@/__tests__/support/i18n-request";
 import { cancelCheckoutSession, checkPaymentStatus, createCheckoutSession } from "@/app/actions/payment";
 import { cancelCheckoutSessionLocalized, createCheckoutSessionLocalized } from "@/app/actions/payment-localized";
 import { resumePendingCheckoutWithRef } from "@/app/(client)/courses/_components/resume-checkout";
@@ -13,14 +13,18 @@ import { createClient } from "@/utils/supabase/server";
 // - Mục tiêu: English localization U5 CP2 AC3/AC4b - createCheckoutSession, cancelCheckoutSession, checkPaymentStatus và
 //   resumePendingCheckout trả thông báo theo ngôn ngữ của request trên mọi nhánh, tiếng Việt đúng chuỗi trước U5 (trừ quyết định 4),
 //   hình dạng kết quả giữ nguyên; yêu cầu gửi PayOS giống hệt nhau ở vi và en.
-// - Loại test: Server Action với Supabase admin/PayOS được mock bằng bảng cấu hình; ngôn ngữ server chọn bằng `setServerTestLocale`.
+// - Loại test: Server Action với Supabase admin/PayOS được mock bằng bảng cấu hình; ngôn ngữ server chọn bằng `setServerTestLocale`,
+//   riêng quyết định 4 còn chạy qua bộ phân giải thật với yêu cầu tiếng Anh, khi cờ tắt (tiếng Việt) và khi cờ bật.
 // - Case: từng thông báo lỗi/thành công của ba action ở vi và en (kể cả lỗi schema và lỗi sai kiểu); câu thay số tài khoản ở nhánh
 //   pending và nhánh đơn mới; số tài khoản thật giữ nguyên; quyết định 4 (lỗi insert không phải 23505) trả câu cố định, không chứa
 //   chi tiết database và ghi log server; wrapper `*Localized` trả khóa của `error`/`message` và `accountNumberRef`.
 // - Bảo mật/phân quyền: ngôn ngữ không đổi đối số PayOS (mã đơn, số tiền, mô tả, returnUrl, cancelUrl, expiredAt).
 // - Khoảng trống đã biết: nghiệp vụ checkout và quyền truy cập do payment.test.ts, payment-resume.test.ts và integration giữ.
 
-const mocks = vi.hoisted(() => ({ adminFrom: vi.fn(), adminRpc: vi.fn() }));
+const mocks = vi.hoisted(() => ({ adminFrom: vi.fn(), adminRpc: vi.fn(), cookies: vi.fn(), headers: vi.fn() }));
+
+// Chỉ nhóm "quyết định 4 khi cờ tắt" dùng bộ phân giải thật; các nhóm khác chọn ngôn ngữ bằng `setServerTestLocale`.
+vi.mock("next/headers", () => ({ cookies: () => mocks.cookies(), headers: () => mocks.headers() }));
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({ from: mocks.adminFrom, rpc: mocks.adminRpc })),
@@ -376,6 +380,40 @@ describe.each(["vi", "en"] as const)("payment actions in %s", (locale) => {
       result: { status: "none", reason: "unavailable" },
       accountNumberRef: null,
     });
+  });
+});
+
+describe("decision 4 through the real locale resolver", () => {
+  beforeEach(() => {
+    db = freshDb({ paymentInsertError: { code: "22P02", message: "invalid input syntax for type uuid: secret-detail" } });
+    installDb();
+    signedIn();
+    useRealRequestLocale(true);
+    // Yêu cầu tiếng Anh: cookie và Accept-Language đều là en.
+    mocks.cookies.mockResolvedValue({ get: (name: string) => (name === "NEXT_LOCALE" ? { value: "en" } : undefined) });
+    mocks.headers.mockResolvedValue(new Headers({ "accept-language": "en-US,en;q=0.9" }));
+  });
+  afterEach(() => {
+    useRealRequestLocale(false);
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    [undefined, "Không thể khởi tạo hóa đơn.", false],
+    ["1", "Couldn't create the invoice.", true],
+  ] as const)("with ENGLISH_UI_ENABLED=%j an English request gets %j", async (flag, message, readsRequest) => {
+    vi.stubEnv("ENGLISH_UI_ENABLED", flag);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const result = await createCheckoutSession({ courseId });
+      expect(result).toEqual({ error: message });
+      expect(JSON.stringify(result)).not.toContain("secret-detail");
+      expect(consoleError).toHaveBeenCalledWith("🚨 [CHECKOUT_INSERT_FAILED]:", db.paymentInsertError);
+      // U1 G1 / U5 G8: cờ tắt thì không đọc dữ liệu request.
+      expect(mocks.cookies.mock.calls.length > 0).toBe(readsRequest);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
 

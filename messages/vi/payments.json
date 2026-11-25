@@ -81,7 +81,7 @@
       "notFound": "Mã giảm giá không tồn tại hoặc hết hạn sử dụng.",
       "notStarted": "Mã giảm giá chưa đến thời gian sử dụng.",
       "expired": "Mã giảm giá đã hết hạn sử dụng.",
-      "minPrice": "Mã giảm giá chỉ áp dụng cho khóa học từ {amount}.",
+      "minPrice": "Mã giảm giá chỉ áp dụng cho khóa học từ {amountVi}.",
       "usedUp": "Mã giảm giá đã hết lượt sử dụng.",
       "notApplicable": "Mã giảm giá không hợp lệ cho khóa học này.",
       "reserveFailed": "Không thể giữ lượt mã giảm giá, vui lòng thử lại.",

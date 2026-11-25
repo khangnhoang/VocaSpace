@@ -81,7 +81,7 @@
       "notFound": "This discount code doesn't exist or has expired.",
       "notStarted": "This discount code can't be used yet.",
       "expired": "This discount code has expired.",
-      "minPrice": "This discount code only applies to courses from {amount}.",
+      "minPrice": "This discount code only applies to courses from {amountEn}.",
       "usedUp": "This discount code has no uses left.",
       "notApplicable": "This discount code isn't valid for this course.",
       "reserveFailed": "Couldn't hold a use of this discount code. Please try again.",
