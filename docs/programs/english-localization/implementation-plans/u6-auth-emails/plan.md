@@ -1,80 +1,83 @@
 # U6 detail plan — Auth emails
 
-Revision: r1, 2026-11-26. Owner approval: pending. Master plan: [plan.md](../../plan.md), section 4 row U6, section 5 steps 2 and 8, decision 5, [ENLOC-001](../../problems.md#enloc-001-auth-email-language-approach).
+Revision: r2, 2026-11-26. Owner approval: pending. Master plan: [plan.md](../../plan.md), section 4 row U6, section 5 steps 2, 3, 5 and 8, decision 5, [ENLOC-001](../../problems.md#enloc-001-auth-email-language-approach).
 
 ## 1. Binding Spec
 
 ### 1.1 Outcome and acceptance
 
-Outcome: the sign-up confirmation email and the password-recovery email are written in the interface language that is active when the person asks for them. The app sends a fixed language marker to Supabase Auth only when that language is English, and one template per email type picks Vietnamese or English from it. With the English flag off, the app never sends the marker, so every email stays Vietnamese. The flag change alone then controls the emails, and decision 5 needs no exception.
+Outcome: the sign-up confirmation email and the password-recovery email that the app asks Supabase Auth to send are written in the interface language active when the person asks for them. The app sends a fixed language marker as the Auth redirect URL only when that language is English, and one template per email type picks Vietnamese or English from it. With the English flag off, the app never sends the marker, so the emails of every app flow stay Vietnamese. Whether this lets one flag change control the emails (master plan section 5, step 8) is decided by the AC4 sequence, not assumed.
 
 | ID | Observable result |
 | --- | --- |
-| AC1 | With the English flag off, sign-up, "resend confirmation" and "forgot password" send emails whose subject, body and link equal today's Vietnamese emails, whatever the `NEXT_LOCALE` cookie or `Accept-Language` says; the app calls `auth.resend` and `auth.resetPasswordForEmail` with exactly today's arguments. |
-| AC2 | With the flag on and English active (`en` cookie, or an English-first `Accept-Language` with no cookie), the same three requests send an English subject and body (Appendix A); the confirm or recovery link is unchanged and still completes the flow (`/auth/confirm` then set password). |
+| AC1 | With the English flag off, sign-up, "resend confirmation", "forgot password" and the admin "create user" send emails whose subject and body equal today's Vietnamese emails and whose link has today's structure (origin, `/auth/confirm` path, `type`, a non-empty `token_hash`), whatever the `NEXT_LOCALE` cookie or `Accept-Language` says; the app calls `auth.resend` and `auth.resetPasswordForEmail` with exactly today's arguments. |
+| AC2 | With the flag on and English active (`en` cookie, or an English-first `Accept-Language` with no cookie), sign-up, "resend confirmation" and "forgot password" send the English subject and body of Appendix A; the link keeps the AC1 structure, and opening the newest link of each type reaches `/auth/set-password`. |
 | AC3 | With the flag on and Vietnamese active, the emails are the Vietnamese ones of AC1. |
-| AC4 | The local trial of ENLOC-001 passes with real emails from the local stack in the order flag off, on, off again: off is Vietnamese, on follows the active language, off again is Vietnamese with the `en` cookie still set. |
-| AC5 | A request whose marker is not on the Auth redirect allowlist, or any other `redirect_to`, gets the Vietnamese email (Auth falls back to the site URL). |
-| AC6 | No language is stored on the user: `auth.users.raw_user_meta_data` and the app tables are unchanged by a request in either language. |
-| AC7 | The admin "create user" flow (`createUserByAdmin`) is unchanged and its recovery email stays Vietnamese (the admin area is locked to Vietnamese, U9). |
+| AC4 | The ENLOC-001 local sequence with real emails from the local stack, in the order flag off, on, off again: off is Vietnamese, on follows the active language, off again is Vietnamese with the `en` cookie still set. If any step fails, ENLOC-001 stays open and the decision 5 exception goes back to the Owner (master plan section 5, step 8). |
+| AC5 | Direct requests to the local Auth API (not through the app) with a `redirect_to` that is allowed but is not the marker, and with one outside the allowlist, get the Vietnamese email; with the marker they get the English one. |
+| AC6 | No locale or marker is stored on data tied to the user: the request payloads carry no language field, and after an English and a Vietnamese request for the same temporary account, `auth.users.raw_user_meta_data`, the account's `profiles` row and its `auth.flow_state` rows hold no locale or marker; records the flows already write (profile creation, recovery evidence) are unchanged in shape. |
+| AC7 | The admin "create user" email follows the same rule: while the teacher and admin areas are locked (step B flag off) it is Vietnamese whatever the admin's cookie; with the lock off (step B flag on) and English active it is English. |
 
 ### 1.2 Scope and non-goals
 
-- In scope: `supabase/templates/confirmation.html`, `supabase/templates/recovery.html`, the two subjects and the redirect allowlist in `supabase/config.toml`, a small server helper that returns the email options for the active locale, its use in `signUpUser`, `resendSignupConfirmation` and `requestPasswordRecovery` (`app/actions/auth.ts`), and tests.
-- Non-goals: storing a language on the user (master plan section 7); the hosted templates, subjects and allowlist (a U8 release step with its own grant, runbook in section 5); `createUserByAdmin` (step B, U10); email-change, invite and magic-link templates (not customised today); any Vietnamese wording change.
+- In scope: `supabase/templates/confirmation.html`, `supabase/templates/recovery.html`, the two subjects and the redirect allowlist in `supabase/config.toml`, a small server helper that returns the email options for the active locale, its use in `signUpUser`, `resendSignupConfirmation` and `requestPasswordRecovery` (`app/actions/auth.ts`) and in the recovery email of `createUserByAdmin` (`app/actions/user.ts`), and tests.
+- Non-goals: storing a language on the user (master plan section 7); the hosted templates, subjects and allowlist (the U8 release step, runbook in section 5, each step under its own grant); any other `createUserByAdmin` text (U10); email-change, invite and magic-link templates (not customised today); any Vietnamese wording change.
 
 ### 1.3 Execution guardrails
 
 | Guardrail | Failure if omitted |
 | --- | --- |
-| G1. When the active language is Vietnamese, including every flag-off request, the actions pass no option to Auth; the existing `auth.test.ts` assertions stay unchanged. | The flag-off path changes before the release step (decision 5), or a Vietnamese request depends on the allowlist. |
-| G2. The marker is a single constant, `${SITE_URL}/?lang=en` from `lib/site.ts`, and the templates compare `.RedirectTo` to that exact string with Go's built-in `eq`; no other template function. | A template parse or runtime error makes Auth fail to send the email at all. |
-| G3. Every email link keeps using `{{ .SiteURL }}/auth/confirm?token_hash=…`; `.RedirectTo` is used only for the language check. | The marker URL becomes a navigation target and the flow breaks or redirects to a page outside the flow. |
+| G1. When the active language is Vietnamese, including every flag-off request and every locked admin request, the call sites pass no new option to Auth; the existing `auth.test.ts` and `user.test.ts` assertions stay unchanged. | The flag-off path changes before the release step (decision 5), or a Vietnamese email depends on the allowlist. |
+| G2. The marker is a single constant, `${SITE_URL}/?lang=en` from `lib/site.ts`, and the templates and subjects compare `.RedirectTo` to that exact string with Go's built-in `eq`; no other template function. | A template parse or runtime error makes Auth fail to send any email. |
+| G3. Every email link keeps using `{{ .SiteURL }}/auth/confirm?token_hash=…`; `.RedirectTo` is used only for the language check. | The marker URL becomes a navigation target and the flow breaks. |
 | G4. The Vietnamese text of both templates and subjects stays byte-identical to base `1c379999`; the English text is Appendix A. | An approved Vietnamese email changes without the Owner (master plan invariant). |
-| G5. The locale comes from `getRequestLocale()`, never from a client field. | A forged input picks the email language, and the flag-off guarantee no longer comes from one place. |
+| G5. The locale comes from `getRequestLocale()`, never from a client field. | A forged input picks the email language, and the flag-off and lock guarantees no longer come from one place. |
 | G6. The neutral results of the G5 rule in `auth.ts` (same response whether the email exists) stay unchanged in both languages. | The English path reveals which emails have accounts. |
+| G7. Local trials use temporary `@example.test` accounts for every flow that consumes a token, deleted afterwards even when a step fails; seeded accounts are not used to open links. | A seeded QA account gains recovery evidence or a changed password. |
 
 ### 1.4 Owner decisions that bind this unit
 
-- Decision 5 (2026-11-21), amended by decision 6: English ships behind the flag, and the flag change is the release step.
-- 2026-11-26 (ENLOC-001): the email follows the interface language active when it is requested; the local trial is granted on the local stack only.
+- Decision 5 (2026-11-21), amended by decision 6: English ships behind the flag; the flag change is the release step.
+- 2026-11-26 (ENLOC-001, approach c): the email follows the interface language active when it is requested; nothing about the language is stored on the user; the local trial is granted on the local stack only.
 
 ## 2. Repository facts
 
 Baseline: `1c379999`, checked 2026-11-26.
 
-- `config.toml` lines 247–253 set Vietnamese subjects and point to the two templates; both bodies are Vietnamese and build the link from `{{ .SiteURL }}` and `{{ .TokenHash }}` — justifies G3, G4.
-- `signUpUser` creates the user with the admin client, then calls `supabase.auth.resend({ type: "signup", email })`; `resendSignupConfirmation` makes the same call; `requestPasswordRecovery` calls `resetPasswordForEmail(email)` with no options (`app/actions/auth.ts` lines 154, 164, 177) — justifies the in-scope list and G1.
+- `config.toml` lines 247–253 set Vietnamese subjects and point to the two templates; both bodies are Vietnamese and build the link from `{{ .SiteURL }}` and `{{ .TokenHash }}`; the local allowlist is `https://127.0.0.1:3000`, `http://127.0.0.1:3000/**`, `http://localhost:3000/**` — justifies G3, G4 and the allowlist change.
+- `signUpUser` creates the user with the admin client, then calls `supabase.auth.resend({ type: "signup", email })`; `resendSignupConfirmation` makes the same call; `requestPasswordRecovery` calls `resetPasswordForEmail(email)` (`app/actions/auth.ts` lines 154, 164, 177); `createUserByAdmin` calls `resetPasswordForEmail(email)` on a session-less anon client (`app/actions/user.ts` lines 99–105) — justifies the in-scope list and G1.
 - `__tests__/actions/auth.test.ts` asserts `resend` with exactly `{ type: "signup", email }` (lines 212, 299, 402) — justifies G1.
-- `getRequestLocale()` returns `vi` without reading the request when the flag is off and `vi` in locked areas (`lib/i18n/request-locale.ts`) — justifies G5 and AC7.
-- `lib/site.ts` exports `SITE_URL = "https://vocaspace.com"`; local `NEXT_PUBLIC_APP_URL` is `http://localhost:3000` while the local Auth `SITE_URL` is `http://127.0.0.1:3000`, so neither app origin reliably equals Auth's site URL — justifies the fixed marker in G2.
-- ENLOC-001 local trial, 2026-11-26, local stack `voca_space` (GoTrue v2.189.0), probe templates since reverted: Auth renders both the subject and the body as Go templates; `{{ if eq .RedirectTo (printf "%s/?lang=en" .SiteURL) }}` chose English for `recover` and `resend` (signup) with `redirect_to=http://127.0.0.1:3000/?lang=en` and Vietnamese without it; a `redirect_to` outside the allowlist fell back to `.SiteURL` (Vietnamese); Auth caches templates, so a local template edit needs `docker restart supabase_auth_voca_space` (then Kong) — justifies G2, AC5 and the CP1 procedure.
+- `getRequestLocale()` returns `vi` without reading the request when the flag is off, and `vi` on teacher and admin paths while the lock is active (`lib/i18n/request-locale.ts`) — justifies G5 and AC7.
+- `/auth/confirm` handles `type=email` and `type=recovery` in different branches; the recovery branch records recovery evidence for the session (`app/auth/confirm/route.ts` lines 26–68) — justifies AC2 checking both link types and G7.
+- `lib/site.ts` exports `SITE_URL = "https://vocaspace.com"`; local `NEXT_PUBLIC_APP_URL` is `http://localhost:3000` while the local Auth `SITE_URL` is `http://127.0.0.1:3000`, so no app origin reliably equals Auth's site URL — justifies the fixed marker in G2.
+- ENLOC-001 local probe, 2026-11-26, local stack `voca_space` (GoTrue v2.189.0), probe templates and config since reverted: Auth renders both the subject and the body as Go templates; `{{ if eq .RedirectTo (printf "%s/?lang=en" .SiteURL) }}` chose English for `recover` and signup `resend` with `redirect_to=http://127.0.0.1:3000/?lang=en` and Vietnamese without it; for `recover`, a `redirect_to` outside the allowlist fell back to `.SiteURL` (Vietnamese). The probe did not use the fixed `https://vocaspace.com/?lang=en` marker. Auth caches templates: a template file edit applied only after `docker restart supabase_auth_voca_space` (then Kong, which returned 502 until restarted); the subject and allowlist come from container environment set at `npx supabase start` — justifies G2, AC5 and the CP1 procedure.
 
 ## 3. Bounded implementation hypotheses
 
-- H1: A helper such as `authEmailOptions()` in `lib/i18n` returns `undefined` for `vi` and the marker for `en`; the actions spread it into the call (`resend({ type, email, options: { emailRedirectTo } })`, `resetPasswordForEmail(email, { redirectTo })`). May change shape if G1, G2 and G5 hold.
-- H2: The marker uses the production `SITE_URL` in every environment, so local `additional_redirect_urls` gains `https://vocaspace.com/?lang=en`, and the templates compare to that literal. May switch to `printf` over `.SiteURL` only if a single app-side origin that equals Auth's site URL in every environment exists.
-- H3: Each template holds both bodies in one `{{ if }} … {{ else }} … {{ end }}`, the Vietnamese one in the `else` branch byte-identical to base, and each subject in `config.toml` does the same.
-- H4: With `@supabase/ssr` (PKCE), adding `redirectTo` stores no language on the user; checked in CP1 against `auth.users` and `auth.flow_state`.
+- H1: A helper such as `authEmailRedirect()` in `lib/i18n` returns `undefined` for `vi` and the marker for `en`; call sites add the option only when it is defined (`resend({ type, email, options: { emailRedirectTo } })`, `resetPasswordForEmail(email, { redirectTo })`). May change shape if G1, G2 and G5 hold.
+- H2: The marker uses the production `SITE_URL` in every environment, so the local `additional_redirect_urls` gains `https://vocaspace.com/?lang=en`, and the templates compare to that literal. May switch to `printf` over `.SiteURL` only if one app-side origin equals Auth's site URL in every environment.
+- H3: Each template holds both bodies in one `{{ if }} … {{ else }} … {{ end }}`, the Vietnamese body in the `else` branch byte-identical to base, and each subject in `config.toml` does the same.
+- H4: With `@supabase/ssr` (PKCE), adding `redirectTo` stores no language on the user; AC6 checks it.
+- H5: For direct Auth requests (AC5), the marker is accepted from anyone because it is on the allowlist, so a direct API call can get an English email even while the app flag is off. This changes only the language of an email Auth would send anyway. If the Owner does not accept it as a known limitation, U6 stops and returns to ENLOC-001.
 
 ## 4. Checkpoints
 
 | CP | Outcome | Verification |
 | --- | --- | --- |
-| CP1 | Templates, subjects, allowlist, helper and the three call sites, with tests | Unit tests: helper by locale and flag; the three actions with `vi`, `en` and flag off (G1 arguments unchanged, G6 neutral results in both languages). Templates are Go templates that Node cannot render, so the local trial below is their render evidence. G4 diff of the Vietnamese branches against base. `npx tsc --noEmit`, `npm run lint`, `npm run test:ci`. Local trial (restart auth and Kong after the template change): AC1 to AC6 with real emails in Mailpit through the app (local production build, seeded student for recovery, a temporary `@example.test` user for sign-up, deleted afterwards), including following an English recovery link to set-password. |
-| Final | Whole-diff self-review and the ENLOC-001 sequence | AC4 run on local production builds: flag off, flag on (`en` and `vi`), flag off again; AC7 from the admin create-user form once, with a temporary user deleted afterwards; final regression as `test-quality-strategy` Verification stages require. Owner reads the English emails during QA. |
+| CP1 | Templates, subjects, allowlist, helper and the four call sites, with tests | Unit tests: the helper by flag, lock and locale; the three `auth.ts` actions and `createUserByAdmin` with `vi`, `en`, flag off and the admin lock (G1 arguments unchanged, G6 neutral results in both languages). G4 diff of the Vietnamese branches against base. `npx tsc --noEmit`, `npm run lint`, `npm run test:ci`. Apply the new `config.toml` to the `voca_space` stack with `npx supabase stop` and `npx supabase start` (data kept in the Docker volume), then restart Kong if Auth returns 502, and confirm the container environment holds the new subjects and allowlist. Templates are Go templates that Node cannot render, so the local trial is their render evidence: AC5 by direct Auth requests with the fixed marker; AC2 and AC3 through a local production build with the flag on, on temporary accounts (G7), opening the newest confirmation and recovery links; AC6 on the same accounts before their links are used and after. |
+| Final | Whole-diff self-review and the ENLOC-001 sequence | AC4 on local production builds (flag off, on with `en` and `vi`, off again); AC1 including the admin create-user flow on a temporary user; AC7 on a build with the step B flag on; final regression as `test-quality-strategy` Verification stages require. Owner reads the English emails during QA. |
 
 ## 5. Risks, rollout and rollback
 
 | Risk | Mitigation |
 | --- | --- |
-| A template error stops Auth from sending any email. | G2 limits the template to `eq`; CP1 sends every email type in both languages through the real Auth before commit. |
-| The hosted allowlist lacks the marker, so English requests get Vietnamese emails after release. | AC5 makes this a safe failure; the U8 runbook adds the marker and checks one English email before the flag goes on. |
-| The hosted templates and the app drift (template deployed without the marker check, or the reverse). | The marker is a constant shared by app and template; the U8 runbook deploys the templates first and verifies a Vietnamese email while the flag is off. |
+| A template or subject error stops Auth from sending any email. | G2 limits the template to `eq`; CP1 sends every email type in both languages through the real local Auth before commit; the runbook saves the previous hosted templates and subjects before changing them. |
+| The hosted allowlist or templates lack the marker, so English users get Vietnamese emails. | AC5 makes this a safe failure; runbook step 4 checks one English email. |
+| A direct Auth API call gets an English email while the app flag is off (H5). | Language only; recorded as a limitation for Owner acceptance at plan approval. |
 
-- Rollout runbook (U8, each step under its own grant): (1) with the flag still off, add `https://vocaspace.com/?lang=en` to the hosted redirect allowlist and replace the hosted confirmation and recovery subjects and templates with the merged ones; (2) trigger one recovery email to an Owner account and confirm it is Vietnamese; (3) turn the English flag on as step A; (4) trigger one recovery email in English and confirm it is English.
-- Stop when: Auth does not render the template for one of the three requests; the flag-off arguments must change; a language would have to be stored on the user.
-- Rollback: before release, revert the commit. After release, turning the flag off stops the marker, so every email is Vietnamese again without touching the hosted templates; restoring the previous hosted templates is only needed if a template itself fails.
+- Rollout runbook (U8, each step under its own grant, in master plan section 5 order): (1) turn the English flag on, redeploy and confirm on the serving deployment (step A); English users get Vietnamese emails until step 3; (2) save the current hosted confirmation and recovery subjects and templates and the redirect allowlist; (3) add `https://vocaspace.com/?lang=en` to the hosted allowlist and install the merged subjects and templates; (4) from the serving deployment, trigger one recovery email in English and one in Vietnamese to an Owner account and confirm both.
+- Stop when: Auth does not render a template for one of the requests; a flag-off call must change its arguments; a language would have to be stored on the user; AC4 fails; the Owner does not accept H5.
+- Rollback: before release, revert the commit. After release, turning the flag off stops the marker in every app flow, so app emails are Vietnamese again; if a template or subject fails, restore the saved hosted templates and subjects (step 2), separately from the flag.
 
 ## 6. Progress
 
