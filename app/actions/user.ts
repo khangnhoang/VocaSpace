@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { authEmailRedirect } from "@/lib/i18n/auth-email";
 import { adminUserSchema, adminUserIdSchema, adminUserUpdateSchema, AdminUserInput, AdminUserUpdateInput } from "@/lib/schemas/auth";
 
 // Khởi tạo Supabase Admin Client (Có quyền sinh sát tối cao, vượt qua mọi RLS)
@@ -102,7 +103,12 @@ export async function createUserByAdmin(data: AdminUserInput) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
   );
-  const { error: mailError } = await mailer.auth.resetPasswordForEmail(email);
+  // English localization U6 AC7: ngôn ngữ email theo giao diện của admin; khu admin bị khóa tiếng Việt đến bước B nên tới lúc
+  // đó lời gọi giữ nguyên tham số cũ.
+  const redirectTo = await authEmailRedirect();
+  const { error: mailError } = redirectTo
+    ? await mailer.auth.resetPasswordForEmail(email, { redirectTo })
+    : await mailer.auth.resetPasswordForEmail(email);
   if (mailError) {
     console.error("createUserByAdmin recovery mail failed:", mailError.code ?? mailError.status);
     return { error: CREATE_USER_MAIL_FAILED_MESSAGE, accountCreated: true as const };

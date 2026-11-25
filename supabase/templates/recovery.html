@@ -1,5 +1,11 @@
-<h2>Đặt lại mật khẩu VocaSpace</h2>
+{{ if eq .RedirectTo "https://vocaspace.com/?lang=en" }}<h2>Reset your VocaSpace password</h2>
+<p>You just asked to reset the password of your VocaSpace account with this email address.</p>
+<p>Click the link below to verify your email and set a new password:</p>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Reset password</a></p>
+<p>If you didn't ask for this, you can ignore this email; your current password stays the same.</p>
+{{ else }}<h2>Đặt lại mật khẩu VocaSpace</h2>
 <p>Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản VocaSpace bằng email này.</p>
 <p>Bấm vào link dưới đây để xác minh email và đặt mật khẩu mới:</p>
 <p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery">Đặt lại mật khẩu</a></p>
 <p>Nếu bạn không yêu cầu, hãy bỏ qua email này; mật khẩu hiện tại không đổi.</p>
+{{ end }}

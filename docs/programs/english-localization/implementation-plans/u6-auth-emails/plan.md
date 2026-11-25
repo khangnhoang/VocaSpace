@@ -1,6 +1,6 @@
 # U6 detail plan — Auth emails
 
-Revision: r4, 2026-11-26. Owner approval: pending (Appendix A, H5 and the first-release order decided on 2026-11-26). Master plan: [plan.md](../../plan.md), section 4 row U6, section 5 steps 2, 3, 5 and 8, decisions 5 and 8, [ENLOC-001](../../problems.md#enloc-001-auth-email-language-approach).
+Revision: r4, 2026-11-26. Owner approval: 2026-11-26 (Appendix A, H5 and the first-release order decided the same day). Master plan: [plan.md](../../plan.md), section 4 row U6, section 5 steps 2, 3, 5 and 8, decisions 5 and 8, [ENLOC-001](../../problems.md#enloc-001-auth-email-language-approach).
 
 ## 1. Binding Spec
 

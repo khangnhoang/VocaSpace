@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createUserByAdmin, deleteUserByAdmin, getAllUsers } from "@/app/actions/user";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
@@ -10,6 +10,8 @@ import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 // - Case thành công:
 //   - Admin tạo user: không gửi password, có marker d7_server_created, gán role đã chọn, yêu cầu mail đặt mật khẩu bằng
 //     client anon không lưu session (A5, AUTH-004).
+//   - English localization U6 AC7: khu admin còn khóa tiếng Việt thì mail đặt mật khẩu giữ tham số cũ dù cookie `en`;
+//     bước B mở khóa và giao diện tiếng Anh thì kèm marker ngôn ngữ cố định.
 //   - Admin xóa học viên: kiểm nhanh (role, giao dịch, lịch sử) rồi gọi RPC admin_delete_learner; chỉ sau khi RPC thành công
 //     mới xóa các object avatars RPC trả về; lỗi Storage chỉ thành cảnh báo (A5, AUTH-018).
 //   - Admin hợp lệ đọc danh sách user (có email/phone) qua service role, chỉ hồ sơ đang hoạt động (A4a, AUTH-019).
@@ -36,6 +38,15 @@ vi.mock("@/utils/supabase/server", () => ({
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(),
+}));
+
+// Chỉ các case cờ tiếng Anh bật mới đọc request; cờ tắt thì getRequestLocale không gọi tới đây.
+const requestState = vi.hoisted(() => ({ cookies: new Map<string, string>(), headers: new Headers() }));
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => (requestState.cookies.has(name) ? { name, value: requestState.cookies.get(name) } : undefined),
+  })),
+  headers: vi.fn(async () => requestState.headers),
 }));
 
 const mockedCreateClient = vi.mocked(createClient);
@@ -177,6 +188,38 @@ describe("user maintenance Server Actions", () => {
       expect(clients.update).toHaveBeenCalledWith({ role: "teacher" });
       expect(clients.eq).toHaveBeenCalledWith("id", "new-user-id");
       expect(clients.resetPasswordForEmail).toHaveBeenCalledWith("new.user@example.com");
+    });
+
+    describe("password email language (English localization U6 AC7)", () => {
+      beforeEach(() => {
+        vi.stubEnv("ENGLISH_UI_ENABLED", "1");
+        requestState.cookies = new Map([["NEXT_LOCALE", "en"]]);
+        requestState.headers = new Headers({ "x-vocaspace-pathname": "/admin/users" });
+      });
+      afterEach(() => {
+        vi.unstubAllEnvs();
+      });
+
+      it("keeps today's arguments while the admin area is locked to Vietnamese", async () => {
+        installRequester({ userId: "admin-user", role: "admin" });
+        const clients = installCreateClients();
+
+        await createUserByAdmin(NEW_USER_INPUT);
+
+        expect(clients.resetPasswordForEmail.mock.calls).toEqual([["new.user@example.com"]]);
+      });
+
+      it("adds the English marker once step B unlocks the admin area and English is active", async () => {
+        vi.stubEnv("ENGLISH_UI_STEP_B_ENABLED", "1");
+        installRequester({ userId: "admin-user", role: "admin" });
+        const clients = installCreateClients();
+
+        await createUserByAdmin(NEW_USER_INPUT);
+
+        expect(clients.resetPasswordForEmail.mock.calls).toEqual([
+          ["new.user@example.com", { redirectTo: "https://vocaspace.com/?lang=en" }],
+        ]);
+      });
     });
 
     it("refuses an ordinary user before creating any client or account", async () => {

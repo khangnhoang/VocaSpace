@@ -23,7 +23,9 @@ import { getPasswordSetupEligibility } from "@/lib/auth/password-setup";
 // - Ảnh đại diện (sign-up): ảnh hợp lệ được lưu với tên do server đặt, đuôi và content-type theo loại đã kiểm (không theo
 //   tên tệp client); ảnh quá 900 KB, sai loại hoặc không phải tệp bị từ chối trước mọi truy vấn, upload và tạo user;
 //   tệp rỗng coi như không có ảnh. Giới hạn: chỉ kiểm loại khai báo và kích thước, không kiểm nội dung tệp thật.
-// - Bảo mật/phân quyền: G4, G5 (recovery trung tính cả 429/input sai/lỗi, không redirectTo/log email), G8/G8-R:
+// - English localization U6: cờ tắt hoặc giao diện tiếng Việt thì resend/recovery giữ đúng tham số cũ; giao diện tiếng Anh chỉ
+//   thêm marker ngôn ngữ cố định do server đặt (trường redirect client gửi không được đọc); kết quả trung tính giữ ở tiếng Anh.
+// - Bảo mật/phân quyền: G4, G5 (recovery trung tính cả 429/input sai/lỗi, không redirectTo khi tiếng Việt, không log email), G8/G8-R:
 //   ma trận amr × marker × bằng chứng chỉ cho otp chưa đặt hoặc khớp session qua cả action và page.
 // - Ổn định/resilience: đọc marker lỗi thì từ chối; ghi bảng lỗi chỉ log rồi redirect; trùng khóa không sửa marker;
 //   cờ legacy bị bỏ qua (không đọc, không ghi); consume sau marker và scope user_id/session_id; consume lỗi vẫn redirect;
@@ -754,5 +756,95 @@ describe("/auth/set-password page guard", () => {
 
     await expect(SetPasswordPage()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockedRedirect).toHaveBeenCalledWith("/");
+  });
+});
+
+// English localization U6: ngôn ngữ email Auth theo giao diện của request (AC1, AC2, AC3, G1, G5, G6).
+describe("auth email language marker", () => {
+  const MARKER = "https://vocaspace.com/?lang=en";
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  function englishUi(cookie: string | null, acceptLanguage?: string) {
+    vi.stubEnv("ENGLISH_UI_ENABLED", "1");
+    if (cookie) cookieJar.values.set("NEXT_LOCALE", cookie);
+    if (acceptLanguage) cookieJar.headers.set("accept-language", acceptLanguage);
+  }
+
+  it("keeps today's Auth arguments when the flag is off, even with an en cookie and an English browser", async () => {
+    cookieJar.values.set("NEXT_LOCALE", "en");
+    cookieJar.headers.set("accept-language", "en-US,en;q=0.9");
+    mockSignupSettings({ disable_signup: false });
+    const resetPasswordForEmail = vi.fn().mockResolvedValue({ error: null });
+    const auth = mockSessionClient({ resetPasswordForEmail });
+
+    await signUpUser(registrationForm());
+    await resendSignupConfirmation("learner@example.com");
+    await requestPasswordRecovery("learner@example.com");
+
+    expect(auth.resend.mock.calls).toEqual([
+      [{ type: "signup", email: "learner@example.com" }],
+      [{ type: "signup", email: "learner@example.com" }],
+    ]);
+    expect(resetPasswordForEmail.mock.calls).toEqual([["learner@example.com"]]);
+  });
+
+  it.each([
+    ["an en cookie", "en", undefined],
+    ["an English-first browser and no cookie", null, "en-US,en;q=0.9"],
+  ])("sends the fixed marker from all three flows with the flag on and %s", async (_label, cookie, acceptLanguage) => {
+    englishUi(cookie, acceptLanguage);
+    mockSignupSettings({ disable_signup: false });
+    const resetPasswordForEmail = vi.fn().mockResolvedValue({ error: null });
+    const auth = mockSessionClient({ resetPasswordForEmail });
+
+    await signUpUser(registrationForm());
+    await resendSignupConfirmation("learner@example.com");
+    await requestPasswordRecovery("learner@example.com");
+
+    const english = { type: "signup", email: "learner@example.com", options: { emailRedirectTo: MARKER } };
+    expect(auth.resend.mock.calls).toEqual([[english], [english]]);
+    expect(resetPasswordForEmail.mock.calls).toEqual([["learner@example.com", { redirectTo: MARKER }]]);
+  });
+
+  it("keeps today's arguments with the flag on and Vietnamese chosen", async () => {
+    englishUi("vi", "en-US,en;q=0.9");
+    const resetPasswordForEmail = vi.fn().mockResolvedValue({ error: null });
+    const auth = mockSessionClient({ resetPasswordForEmail });
+
+    await resendSignupConfirmation("learner@example.com");
+    await requestPasswordRecovery("learner@example.com");
+
+    expect(auth.resend).toHaveBeenCalledWith({ type: "signup", email: "learner@example.com" });
+    expect(resetPasswordForEmail).toHaveBeenCalledWith("learner@example.com");
+  });
+
+  it("ignores a client-sent redirect field: only the server locale adds the marker", async () => {
+    englishUi("vi");
+    mockSignupSettings({ disable_signup: false });
+    const auth = mockSessionClient();
+
+    const form = registrationForm();
+    form.append("redirectTo", MARKER);
+    form.append("emailRedirectTo", "https://evil.example/");
+    await signUpUser(form);
+
+    expect(auth.resend).toHaveBeenCalledWith({ type: "signup", email: "learner@example.com" });
+  });
+
+  it("returns the same neutral results in English whether Auth succeeds or fails (G6)", async () => {
+    englishUi("en");
+    const failing = authError("over_email_send_rate_limit", 429);
+    mockSessionClient({ resend: vi.fn().mockResolvedValue({ data: {}, error: null }), resetPasswordForEmail: vi.fn().mockResolvedValue({ error: null }) });
+    const okResend = await resendSignupConfirmation("learner@example.com");
+    const okRecovery = await requestPasswordRecovery("learner@example.com");
+    mockSessionClient({ resend: vi.fn().mockResolvedValue({ data: {}, error: failing }), resetPasswordForEmail: vi.fn().mockResolvedValue({ error: failing }) });
+
+    await expect(resendSignupConfirmation("learner@example.com")).resolves.toEqual(okResend);
+    await expect(requestPasswordRecovery("learner@example.com")).resolves.toEqual(okRecovery);
+    await expect(resendSignupConfirmation("nope")).resolves.toEqual(okResend);
+    await expect(requestPasswordRecovery("nope")).resolves.toEqual(okRecovery);
   });
 });

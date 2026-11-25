@@ -160,7 +160,7 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3000/**", "http://localhost:3000/**"]
+additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3000/**", "http://localhost:3000/**", "https://vocaspace.com/?lang=en"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -244,12 +244,14 @@ otp_expiry = 3600
 # sender_name = "Admin"
 
 # A1: link xác minh đi qua /auth/confirm (verifyOtp) rồi tới bước đặt mật khẩu.
+# English localization U6: subject và template chọn tiếng Anh khi `.RedirectTo` đúng bằng marker `AUTH_EMAIL_ENGLISH_MARKER`
+# (lib/i18n/auth-email.ts, cũng nằm trong additional_redirect_urls); mọi giá trị khác ra tiếng Việt.
 [auth.email.template.confirmation]
-subject = "Xác minh email VocaSpace"
+subject = "{{ if eq .RedirectTo \"https://vocaspace.com/?lang=en\" }}Verify your VocaSpace email{{ else }}Xác minh email VocaSpace{{ end }}"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Đặt lại mật khẩu VocaSpace"
+subject = "{{ if eq .RedirectTo \"https://vocaspace.com/?lang=en\" }}Reset your VocaSpace password{{ else }}Đặt lại mật khẩu VocaSpace{{ end }}"
 content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize email template
