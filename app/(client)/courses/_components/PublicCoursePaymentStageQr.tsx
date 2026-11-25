@@ -2,6 +2,9 @@
 
 import Image from "next/image";
 import { Copy, Check, RefreshCw } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import type { Locale } from "@/lib/i18n/config";
+import { formatCheckoutAmount } from "@/lib/payment-history-format";
 import { CheckoutResponse } from "@/lib/schemas/payment";
 
 interface PaymentStageQrProps {
@@ -27,22 +30,25 @@ export default function PublicCoursePaymentStageQr({
   onCopy,
   onCancelPayment,
 }: PaymentStageQrProps) {
+  const t = useTranslations("payments.checkout.qr");
+  const locale = useLocale() as Locale;
+
   return (
     <div className="w-full shrink-0 flex flex-col md:flex-row">
       <div className="w-full md:w-[45%] bg-linear-to-br from-blue-400 to-blue-600 p-8 flex flex-col items-center justify-center relative">
         <div className="text-white font-bold text-xl mb-6 tracking-wide drop-shadow-sm">
-          QUÉT MÃ THANH TOÁN
+          {t("title")}
         </div>
 
         <div className="relative mx-auto w-64 h-64 bg-white rounded-2xl shadow-xl p-3 overflow-hidden flex items-center justify-center">
           {isSuccess ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-blue-500 text-white z-20">
               <Check size={56} className="mb-2 animate-bounce" />
-              <p className="font-bold text-lg">Thành công!</p>
+              <p className="font-bold text-lg">{t("success")}</p>
             </div>
           ) : isExpired ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 text-white z-20 backdrop-blur-sm px-6 text-center">
-              <p className="font-medium mb-3">Mã QR đã hết hạn</p>
+              <p className="font-medium mb-3">{t("expired")}</p>
 
               <button
                 onClick={onCancelPayment}
@@ -50,7 +56,7 @@ export default function PublicCoursePaymentStageQr({
                 className="flex items-center gap-2 bg-blue-500 px-4 py-2 rounded-full font-semibold hover:bg-blue-600 transition-colors disabled:opacity-60"
               >
                 <RefreshCw size={16} />
-                {isCancelling ? "Đang xử lý..." : "Hủy thanh toán"}
+                {isCancelling ? t("processing") : t("cancel")}
               </button>
             </div>
           ) : (
@@ -76,24 +82,24 @@ export default function PublicCoursePaymentStageQr({
 
       <div className="w-full md:w-[55%] bg-white p-6 md:p-8 flex flex-col justify-center">
         <h3 className="text-2xl font-bold text-slate-800 mb-6 hidden md:block">
-          Thông tin đơn hàng
+          {t("orderTitle")}
         </h3>
 
         {paymentData && (
           <div className="space-y-4 flex-1">
             {[
               {
-                label: "Số tài khoản ngân hàng",
+                label: t("account"),
                 value: paymentData.accountNumber,
                 field: "account",
               },
               {
-                label: "Số tiền thanh toán",
-                value: `${paymentData.amount.toLocaleString()} VNĐ`,
+                label: t("amount"),
+                value: formatCheckoutAmount(locale, paymentData.amount, " VNĐ"),
                 field: "amount",
               },
               {
-                label: "Nội dung chuyển khoản",
+                label: t("message"),
                 value: paymentData.bankMessage,
                 field: "message",
               },
@@ -141,7 +147,7 @@ export default function PublicCoursePaymentStageQr({
             disabled={isCancelling || isSuccess}
             className="flex-[1.2] bg-rose-500 hover:bg-rose-600 text-white font-bold text-lg rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center disabled:opacity-50"
           >
-            {isCancelling ? "ĐANG HỦY..." : "HỦY THANH TOÁN"}
+            {isCancelling ? t("cancelling") : t("cancelButton")}
           </button>
         </div>
       </div>

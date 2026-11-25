@@ -2,7 +2,10 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { getTranslations } from "next-intl/server";
 import crypto from "node:crypto";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
+import { asTranslate, translateIssueMessage, type Translate } from "@/lib/i18n/translate";
 import {
   checkoutInputSchema,
   checkoutResponseSchema,
@@ -69,9 +72,16 @@ type PendingPaymentRow = {
   expires_at: string | null;
 };
 
+// English localization U5 H5: câu thay cho số tài khoản nằm trong `data.accountNumber`, không phải `error`/`message`, nên ghi khóa
+// riêng cho trường `accountNumber` đúng nơi chọn câu đó; wrapper `*Localized` trả khóa ấy ra ngoài kết quả để client dịch theo
+// ngôn ngữ đang hiển thị. Kết quả của action không đổi.
+function accountNumberText() {
+  return recordedTranslations("payments", "accountNumber");
+}
+
 // Dùng chung cho nhánh "đã có khoản pending" của createCheckoutSession và cho resumePendingCheckout (FEAT6 G8),
 // để hai đường trả cùng một hình dạng phản hồi mà không sao chép.
-function buildPendingCheckoutResponse(payment: PendingPaymentRow) {
+function buildPendingCheckoutResponse(payment: PendingPaymentRow, tAccount: Translate) {
   const meta = (payment.gateway_metadata ?? {}) as {
     checkout_url?: string;
     qr_code?: string;
@@ -86,7 +96,7 @@ function buildPendingCheckoutResponse(payment: PendingPaymentRow) {
     amount: Number(payment.amount_final),
     orderId: payment.gateway_order_id,
     bankMessage: `VOCASPACE ${payment.gateway_order_id}`,
-    accountNumber: "Quét mã QR tại cổng PayOS để hiển thị số tài khoản",
+    accountNumber: tAccount("actions.checkout.accountNumberPending"),
     // PostgREST trả timestamptz dạng "+00:00" còn checkoutResponseSchema chỉ nhận "Z"; chuẩn hóa để khoản đọc lại từ DB parse được.
     expiresAt: payment.expires_at
       ? new Date(payment.expires_at).toISOString()
@@ -95,6 +105,9 @@ function buildPendingCheckoutResponse(payment: PendingPaymentRow) {
 }
 
 export async function createCheckoutSession(rawInput: unknown) {
+  // English localization U5: lỗi và thông báo thành công ghi khóa theo trường (`error`, `message`) để wrapper trả kèm cả khóa của
+  // số tài khoản (H5); lỗi của `resolveDiscountPricing`/`reserveDiscountUsage` cũng ghi vào trường `error`.
+  const t = await recordedTranslations("payments", "error");
   const supabase = await createClient();
 
   const {
@@ -103,7 +116,7 @@ export async function createCheckoutSession(rawInput: unknown) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return { error: "Bạn bắt buộc phải đăng nhập để mua khóa học." };
+    return { error: t("actions.checkout.authRequired") };
   }
 
   const userId = user.id;
@@ -111,7 +124,12 @@ export async function createCheckoutSession(rawInput: unknown) {
   const inputValidation = checkoutInputSchema.safeParse(rawInput);
 
   if (!inputValidation.success) {
-    return { error: inputValidation.error.issues[0].message };
+    return {
+      error: translateIssueMessage(
+        await recordedTranslations("validation", "error"),
+        inputValidation.error.issues[0].message,
+      ),
+    };
   }
 
   const { courseId, couponCode } = inputValidation.data;
@@ -132,7 +150,7 @@ export async function createCheckoutSession(rawInput: unknown) {
       course.status !== "published" ||
       course.removed_at !== null
     ) {
-      return { error: "Khóa học không tồn tại hoặc chưa được mở bán." };
+      return { error: t("actions.checkout.courseUnavailable") };
     }
 
     let canonicalCancelPath: string;
@@ -141,7 +159,7 @@ export async function createCheckoutSession(rawInput: unknown) {
       // Slug công khai luôn đến từ course row tin cậy, không từ payload của client.
       canonicalCancelPath = getPublicCourseDetailPath(course.slug);
     } catch {
-      return { error: "Khóa học không tồn tại hoặc chưa được mở bán." };
+      return { error: t("actions.checkout.courseUnavailable") };
     }
 
     const { data: existingEnroll } = await supabaseAdmin
@@ -151,7 +169,7 @@ export async function createCheckoutSession(rawInput: unknown) {
       .maybeSingle();
 
     if (existingEnroll) {
-      return { error: "Bạn đã sở hữu khóa học này rồi." };
+      return { error: t("actions.checkout.alreadyOwned") };
     }
 
     const coursePrice = toNumber(course.price);
@@ -166,7 +184,7 @@ export async function createCheckoutSession(rawInput: unknown) {
         });
 
       if (enrollError && enrollError.code !== "23505") {
-        return { error: "Cấp quyền học khóa học miễn phí thất bại." };
+        return { error: t("actions.checkout.freeEnrollFailed") };
       }
 
       await supabaseAdmin.from("payments").insert({
@@ -182,7 +200,10 @@ export async function createCheckoutSession(rawInput: unknown) {
         gateway_order_id: `FREE-${Date.now()}`,
       });
 
-      return { type: "free", message: "Đăng ký khóa học miễn phí thành công!" };
+      return {
+        type: "free",
+        message: (await recordedTranslations("payments", "message"))("actions.checkout.freeSuccess"),
+      };
     }
 
     const { data: activePayment } = await supabaseAdmin
@@ -197,7 +218,7 @@ export async function createCheckoutSession(rawInput: unknown) {
       return {
         type: "paid",
         paymentId: activePayment.id,
-        data: buildPendingCheckoutResponse(activePayment),
+        data: buildPendingCheckoutResponse(activePayment, await accountNumberText()),
       };
     }
 
@@ -209,7 +230,7 @@ export async function createCheckoutSession(rawInput: unknown) {
         process.env.NEXT_PUBLIC_APP_URL,
       ).toString();
     } catch {
-      return { error: "Hệ thống gặp sự cố ngoài dự kiến." };
+      return { error: t("actions.checkout.unexpected") };
     }
 
     // Lấy mã trước khi giữ chỗ coupon để lỗi ở bước này không cần nhả chỗ. Không fallback sang
@@ -230,7 +251,7 @@ export async function createCheckoutSession(rawInput: unknown) {
           invalidOrderCode: orderCode,
         },
       );
-      return { error: "Hệ thống gặp sự cố ngoài dự kiến." };
+      return { error: t("actions.checkout.unexpected") };
     }
 
     const orderCodeStr = String(orderCode);
@@ -293,12 +314,13 @@ export async function createCheckoutSession(rawInput: unknown) {
 
       if (insertError.code === "23505") {
         return {
-          error:
-            "Đơn thanh toán đang được xử lý, vui lòng bấm lại sau vài giây.",
+          error: t("actions.checkout.processing"),
         };
       }
 
-      return { error: `Không thể khởi tạo hóa đơn: ${insertError.message}` };
+      // Quyết định 4 của U5: không đưa chi tiết database cho học viên; chi tiết chỉ ghi ở log server.
+      console.error("🚨 [CHECKOUT_INSERT_FAILED]:", insertError);
+      return { error: t("actions.checkout.invoiceFailed") };
     }
 
     let payosOrder;
@@ -326,7 +348,7 @@ export async function createCheckoutSession(rawInput: unknown) {
       }
 
       return {
-        error: "Cổng thanh toán PayOS gặp sự cố, vui lòng thử lại sau.",
+        error: t("actions.checkout.gatewayFailed"),
       };
     }
 
@@ -358,7 +380,7 @@ export async function createCheckoutSession(rawInput: unknown) {
         });
       }
 
-      return { error: "Không thể cập nhật trạng thái đơn thanh toán." };
+      return { error: t("actions.checkout.updateFailed") };
     }
 
     return {
@@ -370,12 +392,13 @@ export async function createCheckoutSession(rawInput: unknown) {
         orderId: orderCodeStr,
         bankMessage: `VOCASPACE ${orderCodeStr}`,
         accountNumber:
-          payosOrder.accountNumber || "Quét mã QR để nhận số tài khoản",
+          payosOrder.accountNumber ||
+          (await accountNumberText())("actions.checkout.accountNumberScan"),
         expiresAt: expiresAtIso,
       }),
     };
   } catch {
-    return { error: "Hệ thống gặp sự cố ngoài dự kiến." };
+    return { error: t("actions.checkout.unexpected") };
   }
 }
 
@@ -446,7 +469,7 @@ export async function resumePendingCheckout(
     return {
       status: "resume",
       paymentId: pendingPayment.id,
-      data: buildPendingCheckoutResponse(pendingPayment),
+      data: buildPendingCheckoutResponse(pendingPayment, await accountNumberText()),
     };
   } catch {
     return { status: "none", reason: "unavailable" };
@@ -454,13 +477,14 @@ export async function resumePendingCheckout(
 }
 
 export async function cancelCheckoutSession(paymentId: string) {
+  const t = await recordedTranslations("payments");
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { error: "Không tìm thấy phiên đăng nhập." };
+  if (!user) return { error: t("actions.cancel.authRequired") };
 
   const { data: cancelledPayment, error } = await supabaseAdmin
     .from("payments")
@@ -474,7 +498,7 @@ export async function cancelCheckoutSession(paymentId: string) {
 
   if (error) {
     console.error("🚨 [CANCEL_PAYMENT_FAILED]:", error);
-    return { error: "Không thể cập nhật hủy hóa đơn dưới hệ thống." };
+    return { error: t("actions.cancel.updateFailed") };
   }
 
   if (cancelledPayment?.discount_id) {
@@ -488,6 +512,8 @@ export async function cancelCheckoutSession(paymentId: string) {
 }
 
 export async function checkPaymentStatus(paymentId: string) {
+  // Hộp thoại chỉ đọc `status`; các lỗi này không hiện ra giao diện nên không cần wrapper (U5 H3).
+  const t = asTranslate(await getTranslations("payments"));
   const supabase = await createClient();
 
   const {
@@ -496,7 +522,7 @@ export async function checkPaymentStatus(paymentId: string) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return { error: "Phiên đăng nhập đã hết hạn hoặc không hợp lệ." };
+    return { error: t("actions.status.sessionExpired") };
   }
 
   try {
@@ -507,11 +533,11 @@ export async function checkPaymentStatus(paymentId: string) {
       .single();
 
     if (queryError || !payment) {
-      return { error: "Không tìm thấy thông tin đơn thanh toán này." };
+      return { error: t("actions.status.notFound") };
     }
 
     return { status: payment.status };
   } catch {
-    return { error: "Hệ thống gặp sự cố khi cập nhật trạng thái đơn hàng." };
+    return { error: t("actions.status.failed") };
   }
 }

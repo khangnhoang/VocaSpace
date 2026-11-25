@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertCircle, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { revealItemProps } from "@/components/motion/reveal-item";
+import type { MessageRef } from "@/lib/i18n/message-ref";
 import { ScrollRevealGroup } from "@/components/motion/scroll-reveal";
 import { getPublicCourseCatalogPath } from "@/lib/public-courses/routes";
 import type { CourseLearningSummaryResult } from "@/lib/schemas/learning-activity";
@@ -19,6 +20,8 @@ type PublicCourseDetailViewProps = {
   learningSummary?: CourseLearningSummaryResult;
   // FEAT6 AC11: kết quả mở lại mã QR khi vào bằng link "Tiếp tục thanh toán"; không có tham số thì không có giá trị.
   resumeCheckout?: ResumeCheckoutResult;
+  // English localization U5 H5: khóa của câu thay cho số tài khoản trong `resumeCheckout`, chỉ truyền tiếp xuống thẻ đăng ký.
+  resumeAccountNumberRef?: MessageRef;
 };
 
 // FEAT3 AC6a: số liệu thẻ "đang học" lấy từ đề cương và tiến độ đã có trong payload công khai, không đọc thêm gì.
@@ -35,7 +38,12 @@ function buildLearnerCard(course: PublicCourseDetail, summary: CourseLearningSum
   };
 }
 
-export function PublicCourseDetailView({ course, learningSummary, resumeCheckout }: PublicCourseDetailViewProps) {
+export function PublicCourseDetailView({
+  course,
+  learningSummary,
+  resumeCheckout,
+  resumeAccountNumberRef,
+}: PublicCourseDetailViewProps) {
   const t = useTranslations("courses");
   return (
     <article className="bg-gray-50 pb-16">
@@ -118,6 +126,7 @@ export function PublicCourseDetailView({ course, learningSummary, resumeCheckout
                 topicCount: course.syllabus.reduce((total, chapter) => total + chapter.topics.length, 0),
               }}
               resume={resumeCheckout}
+              resumeAccountNumberRef={resumeAccountNumberRef}
             />
           </aside>
 

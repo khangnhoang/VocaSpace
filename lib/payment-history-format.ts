@@ -2,6 +2,7 @@
 // FEAT6: định dạng tiền và thời gian thanh toán. Múi giờ cố định Asia/Ho_Chi_Minh để máy chủ và trình duyệt cho cùng một chuỗi.
 
 import type { Locale } from "@/lib/i18n/config";
+import { formatVnd as formatLocaleVnd } from "@/lib/i18n/format";
 import type { PaymentHistoryItem } from "@/lib/schemas/payment-history";
 
 const PAYMENT_TIME_ZONE = "Asia/Ho_Chi_Minh";
@@ -72,6 +73,14 @@ export function formatPaymentDateTimeIn(locale: Locale, value: string): string |
 /** "159.000 ₫" (cùng dạng với thẻ giá ở trang khóa học). */
 export function formatVnd(amount: number): string {
   return `${amount.toLocaleString("vi-VN")} ₫`;
+}
+
+/**
+ * Số tiền ở hộp thoại thanh toán (U5 AC6). Tiếng Việt giữ đúng dạng cũ, `toLocaleString()` không truyền locale cộng hậu tố
+ * ("đ" ở bước mã giảm giá, " VNĐ" ở bước QR), nên vẫn theo locale của trình duyệt như trước (G1); tiếng Anh dùng `formatVnd` chung.
+ */
+export function formatCheckoutAmount(locale: Locale, amount: number, viSuffix: "đ" | " VNĐ"): string {
+  return locale === "vi" ? `${amount.toLocaleString()}${viSuffix}` : formatLocaleVnd(locale, amount);
 }
 
 /**

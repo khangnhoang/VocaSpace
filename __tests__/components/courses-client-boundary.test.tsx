@@ -104,7 +104,7 @@ describe("courses layouts deliver only the namespaces their subtree renders", ()
   });
 
   it("adds learning for course detail and preview", () => {
-    expect(namespacesOf(<CourseSlugLayout>x</CourseSlugLayout>)).toBe("courses,learning");
+    expect(namespacesOf(<CourseSlugLayout>x</CourseSlugLayout>)).toBe("courses,learning,payments");
   });
 
   it("adds flashcard only for the public preview subtree", () => {

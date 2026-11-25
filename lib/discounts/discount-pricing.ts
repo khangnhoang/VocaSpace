@@ -1,6 +1,10 @@
 // lib/discounts/discount-pricing.ts
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getLocale } from "next-intl/server";
+import type { Locale } from "@/lib/i18n/config";
+import { formatVnd } from "@/lib/i18n/format";
+import { recordedTranslations } from "@/lib/i18n/message-ref";
 
 type ResolveDiscountPricingParams = {
   supabaseAdmin: SupabaseClient;
@@ -38,6 +42,17 @@ export type ResolvedDiscountPricing =
       ok: false;
       error: string;
     };
+
+// English localization U5: lỗi trả về được dịch theo ngôn ngữ của request và ghi khóa cho trường `error` của kết quả action, để
+// wrapper `*Localized` trả kèm khóa cho client (cả `validateDiscountPreview` lẫn `createCheckoutSession` trả nguyên `error` này).
+function pricingErrorText() {
+  return recordedTranslations("payments", "error");
+}
+
+// Tiếng Việt giữ đúng `toLocaleString()` không truyền locale cộng "đ" như trước (U5 G1); tiếng Anh dùng `formatVnd`.
+function minPriceLabel(locale: Locale, amount: number) {
+  return locale === "vi" ? `${amount.toLocaleString()}đ` : formatVnd(locale, amount);
+}
 
 export function toNumber(value: unknown) {
   const parsed = Number(value);
@@ -110,18 +125,20 @@ export async function resolveDiscountPricing({
     .is("removed_at", null)
     .maybeSingle();
 
+  const t = await pricingErrorText();
+
   if (discountError || !discount) {
-    return { ok: false, error: "Mã giảm giá không tồn tại hoặc hết hạn sử dụng." };
+    return { ok: false, error: t("actions.pricing.notFound") };
   }
 
   const now = Date.now();
 
   if (discount.start_at && new Date(discount.start_at).getTime() > now) {
-    return { ok: false, error: "Mã giảm giá chưa đến thời gian sử dụng." };
+    return { ok: false, error: t("actions.pricing.notStarted") };
   }
 
   if (discount.expires_at && new Date(discount.expires_at).getTime() <= now) {
-    return { ok: false, error: "Mã giảm giá đã hết hạn sử dụng." };
+    return { ok: false, error: t("actions.pricing.expired") };
   }
 
   const minCoursePrice = toNumber(discount.min_course_price);
@@ -129,7 +146,9 @@ export async function resolveDiscountPricing({
   if (coursePrice < minCoursePrice) {
     return {
       ok: false,
-      error: `Mã giảm giá chỉ áp dụng cho khóa học từ ${minCoursePrice.toLocaleString()}đ.`,
+      error: t("actions.pricing.minPrice", {
+        amount: minPriceLabel((await getLocale()) as Locale, minCoursePrice),
+      }),
     };
   }
 
@@ -138,7 +157,7 @@ export async function resolveDiscountPricing({
   const reservedCount = Number(discount.reserved_count ?? 0);
 
   if (maxUses !== null && usesCount + reservedCount >= maxUses) {
-    return { ok: false, error: "Mã giảm giá đã hết lượt sử dụng." };
+    return { ok: false, error: t("actions.pricing.usedUp") };
   }
 
   const discountAmount = calculateDiscountAmount({
@@ -152,7 +171,7 @@ export async function resolveDiscountPricing({
   });
 
   if (discountAmount <= 0) {
-    return { ok: false, error: "Mã giảm giá không hợp lệ cho khóa học này." };
+    return { ok: false, error: t("actions.pricing.notApplicable") };
   }
 
   return {
@@ -185,14 +204,14 @@ export async function reserveDiscountUsage({
   if (error) {
     return {
       ok: false,
-      error: "Không thể giữ lượt mã giảm giá, vui lòng thử lại.",
+      error: (await pricingErrorText())("actions.pricing.reserveFailed"),
     };
   }
 
   if (data !== "SUCCESS") {
     return {
       ok: false,
-      error: "Mã giảm giá vừa hết lượt sử dụng, vui lòng thử lại mã khác.",
+      error: (await pricingErrorText())("actions.pricing.reserveSoldOut"),
     };
   }
 

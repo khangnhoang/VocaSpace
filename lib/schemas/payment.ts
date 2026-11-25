@@ -4,11 +4,17 @@ import { z } from "zod";
 import type { PaymentStatus } from "@/types/database";
 
 import { discountCouponSchema } from "@/lib/schemas/discount";
+import { wrongType } from "./issue-keys";
 
-export const checkoutInputSchema = z.object({
-  courseId: z.string().min(1, { message: "ID khóa học không được để trống" }),
-  couponCode: discountCouponSchema.shape.code.optional(),
-});
+// English localization U5 (H4): message là khóa trong namespace `validation`, `createCheckoutSession` dịch theo ngôn ngữ đang
+// dùng; lỗi sai kiểu giữ văn bản mặc định của Zod qua `wrongType`.
+export const checkoutInputSchema = z.object(
+  {
+    courseId: z.string({ error: wrongType("string") }).min(1, { message: "payment.courseIdRequired" }),
+    couponCode: discountCouponSchema.shape.code.optional(),
+  },
+  { error: wrongType("object") },
+);
 
 // Validate dữ liệu hệ thống trả về cho Client
 export const checkoutResponseSchema = z.object({
