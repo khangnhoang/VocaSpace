@@ -1,5 +1,11 @@
-<h2>Xác minh email VocaSpace</h2>
+{{ if eq .RedirectTo "https://vocaspace.com/?lang=en" }}<h2>Verify your VocaSpace email</h2>
+<p>You just signed up for a VocaSpace account with this email address.</p>
+<p>Click the link below to verify your email and set the password for your account:</p>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email">Verify email and set password</a></p>
+<p>If you didn't sign up for VocaSpace, you can ignore this email.</p>
+{{ else }}<h2>Xác minh email VocaSpace</h2>
 <p>Bạn vừa đăng ký tài khoản VocaSpace bằng email này.</p>
 <p>Bấm vào link dưới đây để xác minh email và đặt mật khẩu cho tài khoản:</p>
 <p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email">Xác minh email và đặt mật khẩu</a></p>
 <p>Nếu bạn không đăng ký VocaSpace, hãy bỏ qua email này.</p>
+{{ end }}

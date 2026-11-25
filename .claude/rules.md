@@ -22,6 +22,10 @@ Standing platform permissions below cover Explore fan-out on Haiku and foregroun
 
 - On Windows the Claude desktop app runs as an MSIX package, so a file a Claude process (Main, an implementor or a tool they start) writes under `%APPDATA%` or `%LOCALAPPDATA%` can land in `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache` and be invisible to the Owner's own shells and programs. Put anything the Owner also uses (a runtime, a version manager, a shared cache) in a folder outside `AppData`, such as `%USERPROFILE%\.<tool>`, and confirm it from the Owner's own shell before relying on it. Files only Claude processes read, such as the scratchpad, may stay under `AppData`.
 
+## Implementation by Main
+
+- When the Owner approves a plan for Main to implement itself, Main has the same local-commit grant as an implementor handoff: commit each checkpoint locally after its self-review, and commit the approved plan with or before the first checkpoint if it is still uncommitted. No push, PR or merge.
+
 ## Implementation through Sonnet
 
 - Confirm the requested model/session/effort is available; never substitute silently. Check the started session's actual effort and correct it to the granted level through native session controls if needed.

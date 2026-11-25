@@ -16,6 +16,7 @@ import {
 } from "@/lib/schemas/auth";
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
+import { authEmailRedirect } from "@/lib/i18n/auth-email";
 import { recordedTranslations } from "@/lib/i18n/message-ref";
 import { translateIssueMessage } from "@/lib/i18n/translate";
 import {
@@ -151,17 +152,26 @@ export async function signUpUser(formData: FormData) {
 
   // G5: email đã tồn tại (đang chờ hoặc đã xác minh) vẫn đi qua resend và nhận cùng kết quả,
   // để màn hình không cho biết email nào đã có tài khoản.
-  const { error: resendError } = await supabase.auth.resend({ type: "signup", email });
+  const { error: resendError } = await supabase.auth.resend(await signupResendParams(email));
   if (resendError) console.error("signUpUser resend failed:", resendError.code ?? resendError.status);
 
   return { success: true, needsEmailConfirmation: true };
+}
+
+// English localization U6: chỉ thêm `emailRedirectTo` (marker ngôn ngữ cố định, không lấy từ client) khi giao diện đang tiếng
+// Anh; tiếng Việt gửi đúng tham số cũ. Link trong email vẫn dựng từ SiteURL nên marker không phải đích redirect (A2 G1).
+async function signupResendParams(email: string) {
+  const emailRedirectTo = await authEmailRedirect();
+  return emailRedirectTo
+    ? { type: "signup" as const, email, options: { emailRedirectTo } }
+    : { type: "signup" as const, email };
 }
 
 export async function resendSignupConfirmation(email: string) {
   const validated = resendSignupConfirmationSchema.safeParse({ email });
   if (validated.success) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email: validated.data.email });
+    const { error } = await supabase.auth.resend(await signupResendParams(validated.data.email));
     if (error) console.error("resendSignupConfirmation failed:", error.code ?? error.status);
   }
 
@@ -174,7 +184,10 @@ export async function requestPasswordRecovery(email: string) {
   if (validated.success) {
     try {
       const supabase = await createClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(validated.data.email);
+      const redirectTo = await authEmailRedirect();
+      const { error } = redirectTo
+        ? await supabase.auth.resetPasswordForEmail(validated.data.email, { redirectTo })
+        : await supabase.auth.resetPasswordForEmail(validated.data.email);
       if (error) console.error("requestPasswordRecovery failed:", error.code ?? error.status);
     } catch {
       console.error("requestPasswordRecovery failed:", "unexpected_failure");
