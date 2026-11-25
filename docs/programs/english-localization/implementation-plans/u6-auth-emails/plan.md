@@ -1,19 +1,19 @@
 # U6 detail plan — Auth emails
 
-Revision: r3, 2026-11-26. Owner approval: pending. Master plan: [plan.md](../../plan.md), section 4 row U6, section 5 steps 2, 3, 5 and 8, decision 5, [ENLOC-001](../../problems.md#enloc-001-auth-email-language-approach).
+Revision: r4, 2026-11-26. Owner approval: pending (Appendix A, H5 and the first-release order decided on 2026-11-26). Master plan: [plan.md](../../plan.md), section 4 row U6, section 5 steps 2, 3, 5 and 8, decisions 5 and 8, [ENLOC-001](../../problems.md#enloc-001-auth-email-language-approach).
 
 ## 1. Binding Spec
 
 ### 1.1 Outcome and acceptance
 
-Outcome: the sign-up confirmation email and the password-recovery email that the app asks Supabase Auth to send are written in the interface language active when the person asks for them. The app sends a fixed language marker as the Auth redirect URL only when that language is English, and one template per email type picks Vietnamese or English from it. With the English flag off, the app never sends the marker, so the emails of every app flow stay Vietnamese. Once the new hosted templates and allowlist are installed, the flag alone switches app emails between the languages, which AC4 shows locally. The first release still has a gap: under the master plan order the hosted templates change after the flag, so between the two steps English users get Vietnamese emails. That gap is the step 8 exception, decided by the Owner (section 1.4).
+Outcome: the sign-up confirmation email and the password-recovery email that the app asks Supabase Auth to send are written in the interface language active when the person asks for them. The app sends a fixed language marker as the Auth redirect URL only when that language is English, and one template per email type picks Vietnamese or English from it. With the English flag off, the app never sends the marker, so the emails of every app flow stay Vietnamese. Once the new hosted templates and allowlist are installed, the flag alone switches app emails between the languages, to be verified locally by AC4. Under master plan decision 8 they are installed before the flag, so this holds from the first release.
 
 | ID | Observable result |
 | --- | --- |
 | AC1 | With the English flag off, sign-up, "resend confirmation", "forgot password" and the admin "create user" send emails whose subject and body equal today's Vietnamese emails and whose link has today's structure (origin, `/auth/confirm` path, `type`, a non-empty `token_hash`), whatever the `NEXT_LOCALE` cookie or `Accept-Language` says; the app calls `auth.resend` and `auth.resetPasswordForEmail` with exactly today's arguments. |
 | AC2 | With the flag on and English active (`en` cookie, or an English-first `Accept-Language` with no cookie), sign-up, "resend confirmation" and "forgot password" send the English subject and body of Appendix A; the link keeps the AC1 structure, and opening the newest link of each type reaches `/auth/set-password`. |
 | AC3 | With the flag on and Vietnamese active, the emails are the Vietnamese ones of AC1. |
-| AC4 | With the new templates and allowlist installed on the local stack, the ENLOC-001 sequence with real emails in the order flag off, on, off again: off is Vietnamese, on follows the active language, off again is Vietnamese with the `en` cookie still set. This proves that the flag controls app emails after installation; the first-release order is covered by the step 8 decision in section 1.4, not by AC4. If any step fails, ENLOC-001 stays open and U6 returns to the Owner. |
+| AC4 | With the new templates and allowlist installed on the local stack, the ENLOC-001 sequence with real emails in the order flag off, on, off again: off is Vietnamese, on follows the active language, off again is Vietnamese with the `en` cookie still set. This proves that the flag controls app emails after installation, which decision 8 makes true from the first release. If any step fails, ENLOC-001 stays open and U6 returns to the Owner. |
 | AC5 | Direct requests to the local Auth API (not through the app) with a `redirect_to` that is allowed but is not the marker, and with one outside the allowlist, get the Vietnamese email; with the marker they get the English one. |
 | AC6 | No locale or marker is stored on data tied to the user: the request payloads carry no language field, and after an English and a Vietnamese request for the same temporary account, `auth.users.raw_user_meta_data`, the account's `profiles` row and its `auth.flow_state` rows hold no locale or marker; records the flows already write (profile creation, recovery evidence) are unchanged in shape. |
 | AC7 | The admin "create user" email follows the same rule: with the English flag on, the step B flag off and an `en` cookie, the admin form sends a Vietnamese email; with the step B flag also on and English active, it sends an English one. |
@@ -40,8 +40,8 @@ Outcome: the sign-up confirmation email and the password-recovery email that the
 
 - Decision 5 (2026-11-21), amended by decision 6: English ships behind the flag; the flag change is the release step.
 - 2026-11-26 (ENLOC-001, approach c): the email follows the interface language active when it is requested; no language may be persisted on the user; the local trial is granted on the local stack only.
-- Pending at plan approval, first-release order (master plan section 5, steps 5 and 8): either (a) the step 8 exception, recorded in ENLOC-001: flag first, then the hosted templates and allowlist, with the check and separate rollbacks of the section 5 runbook, and English users get Vietnamese emails between the two steps; or (b) a master plan amendment that installs the inert templates and allowlist before the flag, so the flag alone switches emails from the first release (the app sends no marker while the flag is off). The runbook below follows (a); (b) changes only its order.
-- Pending at plan approval: H5 as a known limitation.
+- 2026-11-26, master plan decision 8: the hosted templates and allowlist are installed while the flag is off and confirmed with Vietnamese emails before the flag is turned on (section 5 runbook).
+- 2026-11-26: H5 accepted as a known limitation; Appendix A approved as drafted.
 
 ## 2. Repository facts
 
@@ -61,7 +61,7 @@ Baseline: `1c379999`, checked 2026-11-26.
 - H2: The marker uses the production `SITE_URL` in every environment, so the local `additional_redirect_urls` gains `https://vocaspace.com/?lang=en`, and the templates compare to that literal. May switch to `printf` over `.SiteURL` only if one app-side origin equals Auth's site URL in every environment.
 - H3: Each template holds both bodies in one `{{ if }} … {{ else }} … {{ end }}`, the Vietnamese body in the `else` branch byte-identical to base, and each subject in `config.toml` does the same.
 - H4: With `@supabase/ssr` (PKCE), adding `redirectTo` stores no language on the user; AC6 checks it.
-- H5: For direct Auth requests (AC5), the marker is accepted from anyone because it is on the allowlist, so a direct API call can get an English email even while the app flag is off. This changes only the language of an email Auth would send anyway. If the Owner does not accept it as a known limitation, U6 stops and returns to ENLOC-001.
+- H5 (known limitation, Owner-accepted 2026-11-26): for direct Auth requests (AC5), the marker is accepted from anyone because it is on the allowlist, so a direct API call can get an English email even while the app flag is off. This changes only the language of an email Auth would send anyway.
 
 ## 4. Checkpoints
 
@@ -75,12 +75,13 @@ Baseline: `1c379999`, checked 2026-11-26.
 | Risk | Mitigation |
 | --- | --- |
 | A template or subject error stops Auth from sending any email. | G2 limits the template to `eq`; CP1 sends every email type in both languages through the real local Auth before commit; the runbook saves the previous hosted templates and subjects before changing them. |
-| The hosted allowlist or templates lack the marker, so English users get Vietnamese emails. | AC5 makes this a safe failure; runbook step 4 checks one English email. |
-| A direct Auth API call gets an English email while the app flag is off (H5). | Language only; recorded as a limitation for Owner acceptance at plan approval. |
+| The hosted allowlist or templates lack the marker, so English users get Vietnamese emails. | AC5 makes this a safe failure; runbook step 5 checks the English emails. |
+| A direct Auth API call gets an English email while the app flag is off (H5). | Language only; accepted by the Owner on 2026-11-26. |
+| The new hosted templates break Vietnamese emails while the flag is still off. | Runbook step 3 confirms both Vietnamese emails before the flag; a failure restores Auth and keeps the flag off. |
 
-- Rollout runbook (U8, each step under its own grant, in master plan section 5 order, option (a) of section 1.4): (1) turn the English flag on, rebuild, redeploy and confirm on the serving deployment (step A); English users get Vietnamese emails until step 3; (2) save the current hosted confirmation and recovery subjects, templates and redirect allowlist; (3) add `https://vocaspace.com/?lang=en` to the hosted allowlist and install the merged subjects and templates; (4) from the serving deployment, with Owner-provided fixtures approved at U8, trigger a confirmation email (resend for an unconfirmed account) and a recovery email, each once in English and once in Vietnamese, and confirm subject, body and link structure of all four.
-- Stop when: Auth does not render a template for one of the requests; a flag-off call must change its arguments; a language would have to be stored on the user; AC4 fails; the Owner rejects H5 or decides neither (a) nor (b).
-- Rollback: before release, revert the commit. Interface: turn the flag off, rebuild, redeploy and confirm on the serving deployment; app flows then send no marker, so their emails are Vietnamese whatever the hosted templates hold. Auth step: if step 4 fails (no email, wrong language or broken link), restore exactly the values saved in step 2, including removing the marker from the allowlist, then trigger one confirmation and one recovery email and confirm they arrive in Vietnamese; this rolls back only the Auth step.
+- Rollout runbook (U8, each step under its own grant, master plan decision 8): (1) save the current hosted confirmation and recovery subjects, templates and redirect allowlist, noting whether the marker is already in the allowlist; (2) with the English flag still off, add `https://vocaspace.com/?lang=en` to the hosted allowlist if it is absent and install the merged subjects and templates; (3) from the serving deployment, with Owner-provided fixtures approved at U8, trigger one confirmation email (resend for an unconfirmed account) and one recovery email and confirm both are Vietnamese with today's link structure; if either fails, roll back the Auth step and keep the flag off; (4) turn the English flag on, rebuild, redeploy and confirm on the serving deployment (step A); (5) trigger a confirmation and a recovery email, each once in English and once in Vietnamese, and confirm subject, body and link structure of all four.
+- Stop when: Auth does not render a template for one of the requests; a flag-off call must change its arguments; a language would have to be stored on the user; AC4 fails; runbook step 3 fails.
+- Rollback: before release, revert the commit. Interface: turn the flag off, rebuild, redeploy and confirm on the serving deployment; app flows then stop sending the marker, and which language the emails arrive in depends on the Auth templates then serving (Vietnamese with either the saved or the merged templates). Auth step: if runbook step 3 or 5 fails on a template or subject (no email, wrong language or broken link), restore the subjects, templates and allowlist saved in step 1, so the marker is removed only if step 2 added it, then trigger one confirmation and one recovery email and confirm they arrive; this rolls back only the Auth step.
 
 ## 6. Progress
 
