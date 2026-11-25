@@ -118,7 +118,7 @@ describe("learn and home deliver flashcard only where it renders", () => {
   });
 
   it("gives the dashboard, the course overview and the topic page their namespaces", () => {
-    expect(namespacesOf(<LearnDashboardLayout>x</LearnDashboardLayout>)).toBe("flashcard,learning,learn");
+    expect(namespacesOf(<LearnDashboardLayout>x</LearnDashboardLayout>)).toBe("flashcard,learning,learn,payments");
     expect(namespacesOf(<LearnTopicLayout>x</LearnTopicLayout>)).toBe("flashcard,learning,learn");
     expect(namespacesOf(<LearnCourseLayout>x</LearnCourseLayout>)).toBe("learning,learn");
   });

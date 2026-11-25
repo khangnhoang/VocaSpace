@@ -1,5 +1,6 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/utils/supabase/server";
 import {
   PAYMENT_HISTORY_FILTER_STATUSES,
@@ -49,8 +50,10 @@ const failure = (
   error: string,
 ): PaymentHistoryResult => ({ success: false, errorCode, error });
 
-const queryFailedResult = () =>
-  failure("QUERY_FAILED", "Không thể tải lịch sử thanh toán lúc này.");
+type PaymentsTranslator = Awaited<ReturnType<typeof getTranslations<"payments">>>;
+
+const queryFailedResult = (t: PaymentsTranslator) =>
+  failure("QUERY_FAILED", t("actions.history.queryFailed"));
 
 function baseQuery(
   supabase: SupabaseServerClient,
@@ -134,9 +137,10 @@ async function readEnrolledCourseIds(
 export async function getPaymentHistory(
   input: unknown,
 ): Promise<PaymentHistoryResult> {
+  const t = await getTranslations("payments");
   const parsedInput = paymentHistoryInputSchema.safeParse(input);
   if (!parsedInput.success) {
-    return failure("INVALID_INPUT", "Bộ lọc hoặc số trang không hợp lệ.");
+    return failure("INVALID_INPUT", t("actions.history.invalidInput"));
   }
   const { filter, page } = parsedInput.data;
 
@@ -146,7 +150,7 @@ export async function getPaymentHistory(
     error: authError,
   } = await supabase.auth.getUser();
   if (authError || !user) {
-    return failure("AUTH_REQUIRED", "Vui lòng đăng nhập để xem lịch sử thanh toán.");
+    return failure("AUTH_REQUIRED", t("actions.history.authRequired"));
   }
 
   try {
@@ -162,7 +166,7 @@ export async function getPaymentHistory(
       const counted = await baseQuery(supabase, user.id, filter).limit(1);
       if (counted.error) {
         console.error("Payment history count failed", counted.error);
-        return queryFailedResult();
+        return queryFailedResult(t);
       }
       const total = counted.count ?? 0;
       if (total === 0) {
@@ -182,7 +186,7 @@ export async function getPaymentHistory(
 
     if (result.error) {
       console.error("Payment history query failed", result.error);
-      return queryFailedResult();
+      return queryFailedResult(t);
     }
 
     const rows = (result.data ?? []) as unknown as PaymentHistoryRow[];
@@ -217,12 +221,12 @@ export async function getPaymentHistory(
         "Payment history output validation failed",
         parsedData.error.issues,
       );
-      return failure("INVALID_DATA", "Dữ liệu lịch sử thanh toán không hợp lệ.");
+      return failure("INVALID_DATA", t("actions.history.invalidData"));
     }
 
     return { success: true, data: parsedData.data };
   } catch (error) {
     console.error("Payment history unexpected failure", error);
-    return queryFailedResult();
+    return queryFailedResult(t);
   }
 }

@@ -1,6 +1,7 @@
 // lib/payment-history-format.ts
 // FEAT6: định dạng tiền và thời gian thanh toán. Múi giờ cố định Asia/Ho_Chi_Minh để máy chủ và trình duyệt cho cùng một chuỗi.
 
+import type { Locale } from "@/lib/i18n/config";
 import type { PaymentHistoryItem } from "@/lib/schemas/payment-history";
 
 const PAYMENT_TIME_ZONE = "Asia/Ho_Chi_Minh";
@@ -37,19 +38,41 @@ export function formatPaymentDateTime(value: string): string | null {
     : null;
 }
 
+// English localization U5: tiếng Việt đi qua đúng hai hàm trên để chuỗi giữ nguyên từng ký tự; tiếng Anh dùng tên tháng ngắn
+// (ví dụ "Jan 2, 2099") vì "dd/mm" dễ đọc nhầm thành tháng trước ngày. Múi giờ vẫn cố định như trên.
+const englishDate = new Intl.DateTimeFormat("en-US", {
+  timeZone: PAYMENT_TIME_ZONE,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+const englishDateTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: PAYMENT_TIME_ZONE,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function formatEnglish(formatter: Intl.DateTimeFormat, value: string): string | null {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : formatter.format(date);
+}
+
+export function formatPaymentDateIn(locale: Locale, value: string): string | null {
+  return locale === "en" ? formatEnglish(englishDate, value) : formatPaymentDate(value);
+}
+
+export function formatPaymentDateTimeIn(locale: Locale, value: string): string | null {
+  return locale === "en" ? formatEnglish(englishDateTime, value) : formatPaymentDateTime(value);
+}
+
 /** "159.000 ₫" (cùng dạng với thẻ giá ở trang khóa học). */
 export function formatVnd(amount: number): string {
   return `${amount.toLocaleString("vi-VN")} ₫`;
 }
-
-export const PAYMENT_STATUS_LABELS: Record<PaymentHistoryItem["status"], string> = {
-  paid: "Đã thanh toán",
-  pending: "Đang chờ thanh toán",
-  creating: "Đang tạo thanh toán",
-  cancelled: "Đã hủy",
-  expired: "Hết hạn",
-  failed: "Thất bại",
-};
 
 /**
  * Hàng `creating`/`pending` còn hạn thì hiện "Hạn dd/mm/yyyy" (AC3). Dùng `now` truyền vào để kết quả không phụ thuộc đồng hồ ẩn trong test.

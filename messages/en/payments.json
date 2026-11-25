@@ -1,0 +1,50 @@
+{
+  "status": {
+    "paid": "Paid",
+    "pending": "Awaiting payment",
+    "creating": "Creating payment",
+    "cancelled": "Cancelled",
+    "expired": "Expired",
+    "failed": "Failed"
+  },
+  "deadline": "Due {date}",
+  "continue": "Continue payment",
+  "pending": {
+    "regionLabel": "Payments to complete",
+    "continueLabel": "Continue payment for {course}",
+    "dismissLabel": "Dismiss this reminder: {course}",
+    "others": "{count, plural, one {+# other payment} other {+# other payments}} · View in your profile"
+  },
+  "history": {
+    "title": "Payment history",
+    "filterLabel": "Filter payment history",
+    "filters": {
+      "all": "All",
+      "paid": "Paid",
+      "pending": "Pending",
+      "other": "Other"
+    },
+    "loading": "Loading payment history",
+    "unavailableBadge": "No longer available",
+    "courseUnavailable": "This course is no longer available",
+    "orderCode": "Order {code}",
+    "discount": "{amount} off",
+    "errorTitle": "Couldn't load your payment history.",
+    "errorBody": "The rest of your profile still works. Try loading it again.",
+    "retry": "Try again",
+    "emptyAll": "You don't have any payments yet.",
+    "emptyFilter": "No payments in this group.",
+    "pagerLabel": "Payment history pages",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {count}"
+  },
+  "actions": {
+    "history": {
+      "queryFailed": "Couldn't load your payment history right now.",
+      "invalidInput": "The filter or page number is invalid.",
+      "authRequired": "Please sign in to view your payment history.",
+      "invalidData": "The payment history data is invalid."
+    }
+  }
+}

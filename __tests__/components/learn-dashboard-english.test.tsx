@@ -32,7 +32,7 @@ import type { LearnDashboardCourse, LearnDashboardResult } from "@/lib/schemas/l
 // - Case chính: số thẻ đến hạn 1234 là "1234" ở vi và "1,234" ở en; nhãn "Today"/thứ/ngày-tháng của thẻ chuỗi ngày ở cả chữ hiển
 //   thị lẫn chữ cho trình đọc màn hình; ReviewSheet rỗng, có thẻ đến hạn và lỗi lưu; lỗi tải thẻ, lỗi lưu và cảnh báo tiến độ đổi chữ
 //   khi chuyển VI <-> EN lúc đang hiện; phản hồi của server ở ngôn ngữ khác (tab khác đã đổi cookie) hiện bằng ngôn ngữ đang hiển thị.
-// - Giới hạn: chữ tiếng Việt nguyên văn do các test hiện có giữ; thẻ thanh toán vẫn tiếng Việt (U5).
+// - Giới hạn: chữ tiếng Việt nguyên văn do các test hiện có giữ; thẻ thanh toán chờ (U5) có một case ở đây, chi tiết ở payments-english.test.tsx.
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/app/actions/profile", () => ({ getDeckReviewCards: vi.fn() }));
@@ -157,6 +157,29 @@ describe("dashboard in English", () => {
     expect(hasVietnamese(visible)).toBe(false);
     const labels = [...container.querySelectorAll("[aria-label]")].map((element) => element.getAttribute("aria-label"));
     expect(labels.filter((label) => hasVietnamese((label ?? "").replace(/Khóa [\w-]+ \d/g, "")))).toEqual([]);
+  });
+
+  it("shows the pending-payment card in English inside the dashboard (U5)", () => {
+    const result = dashboard([course(1, "in-progress")], 0);
+    if (!result.success) throw new Error("fixture");
+    result.data.pendingPayments = [
+      {
+        paymentId: "pay-1",
+        courseId: "c-pay-1",
+        courseSlug: "c-pay-1",
+        courseTitle: "Khóa trả phí 1",
+        status: "pending",
+        createdAt: "2026-07-10T08:00:00+00:00",
+        expiresAt: "2099-01-04T00:00:00+00:00",
+      },
+    ];
+    result.data.pendingPaymentCount = 1;
+    render(<LearnDashboardClient result={result} />, { locale: "en" });
+
+    const card = screen.getByRole("region", { name: "Payments to complete" });
+    expect(within(card).getByText("Due Jan 4, 2099")).toBeTruthy();
+    expect(within(card).getByRole("link", { name: "Continue payment for Khóa trả phí 1" })).toBeTruthy();
+    expect(hasVietnamese((card.textContent ?? "").replace("Khóa trả phí 1", ""))).toBe(false);
   });
 
   it("keeps plain digits for the due count in Vietnamese", () => {

@@ -1,0 +1,50 @@
+{
+  "status": {
+    "paid": "Đã thanh toán",
+    "pending": "Đang chờ thanh toán",
+    "creating": "Đang tạo thanh toán",
+    "cancelled": "Đã hủy",
+    "expired": "Hết hạn",
+    "failed": "Thất bại"
+  },
+  "deadline": "Hạn {date}",
+  "continue": "Tiếp tục thanh toán",
+  "pending": {
+    "regionLabel": "Thanh toán cần xử lý",
+    "continueLabel": "Tiếp tục thanh toán cho {course}",
+    "dismissLabel": "Ẩn nhắc nhở này: {course}",
+    "others": "+{count} khoản khác · Xem trong hồ sơ"
+  },
+  "history": {
+    "title": "Lịch sử thanh toán",
+    "filterLabel": "Lọc lịch sử thanh toán",
+    "filters": {
+      "all": "Tất cả",
+      "paid": "Đã thanh toán",
+      "pending": "Đang chờ",
+      "other": "Khác"
+    },
+    "loading": "Đang tải lịch sử thanh toán",
+    "unavailableBadge": "Không còn khả dụng",
+    "courseUnavailable": "Khóa học không còn khả dụng",
+    "orderCode": "Mã đơn {code}",
+    "discount": "Giảm {amount}",
+    "errorTitle": "Chưa tải được lịch sử thanh toán.",
+    "errorBody": "Hồ sơ của bạn vẫn dùng bình thường. Hãy thử tải lại.",
+    "retry": "Thử lại",
+    "emptyAll": "Bạn chưa có giao dịch thanh toán nào.",
+    "emptyFilter": "Không có giao dịch nào trong nhóm này.",
+    "pagerLabel": "Phân trang lịch sử thanh toán",
+    "previous": "Trước",
+    "next": "Sau",
+    "page": "Trang {page}/{count}"
+  },
+  "actions": {
+    "history": {
+      "queryFailed": "Không thể tải lịch sử thanh toán lúc này.",
+      "invalidInput": "Bộ lọc hoặc số trang không hợp lệ.",
+      "authRequired": "Vui lòng đăng nhập để xem lịch sử thanh toán.",
+      "invalidData": "Dữ liệu lịch sử thanh toán không hợp lệ."
+    }
+  }
+}

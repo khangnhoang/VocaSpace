@@ -17,7 +17,7 @@ import type { Locale } from "@/lib/i18n/config";
 // - Đối tượng: ProfilePage (tiêu đề), ProfileSidebar (thẻ hồ sơ, tab, ảnh đại diện), EditProfileForm, ChangePasswordForm.
 // - Case chính: từng chuỗi nhìn thấy ở cả vi và en; lỗi schema (ngắn, không khớp) hiện câu đã dịch dưới đúng trường; toast thành công.
 // - Case biên: dữ liệu rỗng (tên, email, username) dùng chuỗi dự phòng đã dịch; lỗi server hiện nguyên chuỗi action đã dịch sẵn.
-// - Giới hạn: lịch sử thanh toán (U5) không được dựng ở đây; kiểm tra "không còn chữ Việt" chỉ áp dụng cho phần U2 của /profile.
+// - Giới hạn: lịch sử thanh toán (U5) kiểm ở payments-english.test.tsx, không dựng ở đây; kiểm tra "không còn chữ Việt" chỉ áp dụng cho phần U2 của /profile.
 
 const mocks = vi.hoisted(() => ({
   getUserProfile: vi.fn(),
