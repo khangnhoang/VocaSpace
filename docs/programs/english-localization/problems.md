@@ -20,6 +20,14 @@ Plan: [plan.md](./plan.md). Progress: [progress.md](./progress.md).
 - Direction: Decide separately whether render may write progress or whether the sync moves to an explicit action; size and owner are decided later.
 - Exit condition: A topic page render, including a prefetch, leaves `user_topic_progress` unchanged, or the Owner accepts the behavior.
 
+### ENLOC-005: Admin sidebar toggle label is hard-coded English
+
+- Status: Open (2026-11-26). Unrelated to U8 step A; exists on base `a1b0163b` since `d4ee57d9`; not fixed.
+- Problem: the shadcn sidebar toggle renders "Toggle Sidebar" (screen-reader text, `aria-label` and `title`) in English on the Vietnamese admin interface, and it is not in any catalog.
+- Evidence: `components/ui/sidebar.tsx` lines 274, 286 and 289; U8 CP3 Preview fetch of `/admin` as admin with the `en` cookie returned `lang="vi"` with this string among the Vietnamese labels.
+- Direction: translate it with the admin area in step B (U10), or earlier if the Owner wants the Vietnamese admin fixed; size and owner are decided later.
+- Exit condition: the toggle label follows the admin interface language in both locales.
+
 ## Resolved
 
 One line each: ID, status, one-line outcome. Details stay in Git.
